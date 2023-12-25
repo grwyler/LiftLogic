@@ -4,10 +4,13 @@
     "dev": "next",
     "build": "next build",
     "start": "next start",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "export": "next export",
+    "deploy": "npm run build && npm run export && gh-pages -d out"
   },
   "dependencies": {
     "bootstrap": "^5.3.2",
+    "gh-pages": "^6.1.1",
     "next": "latest",
     "react": "^18.2.0",
     "react-bootstrap": "^2.9.2",
