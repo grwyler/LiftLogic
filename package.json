@@ -21,9 +21,9 @@
     "react-swipeable": "^7.0.1"
   },
   "devDependencies": {
-    "@types/node": "^12.12.21",
-    "@types/react": "^17.0.2",
+    "@types/node": "12.20.55",
+    "@types/react": "17.0.73",
     "@types/react-dom": "^17.0.1",
-    "typescript": "^4.8.3"
+    "typescript": "4.9.5"
   }
 }
