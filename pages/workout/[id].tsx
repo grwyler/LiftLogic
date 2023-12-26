@@ -3,6 +3,7 @@ import React, { useRef, useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
+import SetsDisplay from "../../components/SetsDisplay";
 
 const WorkoutPage = () => {
   // local state
@@ -13,7 +14,6 @@ const WorkoutPage = () => {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [routine, setRoutine] = useState(initialRoutine);
-  const actualWeightInputRef = useRef<HTMLInputElement | null>(null);
 
   // derived state
   const currentDay = Object.keys(routine)[currentDayIndex];
@@ -39,16 +39,6 @@ const WorkoutPage = () => {
       ...prevRoutine,
     }));
   };
-  const handleResetWorkout = () => {
-    currentExercise.sets.forEach((s) => {
-      s.actualReps = "";
-      s.actualWeight = "";
-    });
-    setCurrentSetIndex(0);
-    setRoutine((prevRoutine) => ({
-      ...prevRoutine,
-    }));
-  };
 
   const handleCurrentDayChange = (change) => {
     if (change < 0 && currentDayIndex === 0) {
@@ -58,6 +48,29 @@ const WorkoutPage = () => {
     } else {
       setCurrentDayIndex(currentDayIndex + change);
     }
+  };
+  const handleWorkoutButtonClick = (exerciseIndex) => {
+    if (currentExerciseIndex === exerciseIndex) {
+      setCurrentExerciseIndex(-1);
+    } else {
+      setCurrentExerciseIndex(exerciseIndex);
+      workout.exercises[exerciseIndex].complete = false;
+      workout.complete = false;
+    }
+  };
+
+  const handleExerciseButtonClick = () => {
+    let nextIndex = currentExerciseIndex + 1;
+    while (
+      workout.exercises[nextIndex] &&
+      workout.exercises[nextIndex].complete
+    ) {
+      nextIndex++;
+    }
+    setCurrentExerciseIndex(nextIndex);
+    setCurrentSetIndex(0);
+    currentExercise.complete = true;
+    workout.complete = workout.exercises.every((e) => e.complete);
   };
 
   return (
@@ -116,15 +129,7 @@ const WorkoutPage = () => {
                     className={`w-100 m-1 ${e.complete && "text-success"} ${
                       currentExerciseIndex === exerciseIndex && "fw-bold"
                     }`}
-                    onClick={() => {
-                      if (currentExerciseIndex === exerciseIndex) {
-                        setCurrentExerciseIndex(-1);
-                      } else {
-                        setCurrentExerciseIndex(exerciseIndex);
-                        workout.exercises[exerciseIndex].complete = false;
-                        workout.complete = false;
-                      }
-                    }}
+                    onClick={() => handleWorkoutButtonClick(exerciseIndex)}
                   >
                     {e.name}{" "}
                     <FaCheck
@@ -144,152 +149,21 @@ const WorkoutPage = () => {
                   )}
                 </div>
                 {exerciseIndex === currentExerciseIndex &&
-                  e.type === "weight" &&
-                  e.sets.map((s, setIndex) => {
-                    const actualReps =
-                      currentExercise.sets[setIndex].actualReps;
-                    const actualWeight =
-                      currentExercise.sets[setIndex].actualWeight;
-                    const previeousActualReps =
-                      currentExercise.sets[setIndex - 1]?.actualReps;
-                    const previeousActualWeight =
-                      currentExercise.sets[setIndex - 1]?.actualWeight;
-                    return (
-                      <div
-                        style={{ transition: "margin .2s ease" }}
-                        className={`p-0 ${
-                          setIndex === currentSetIndex ? "mb-2" : ""
-                        }`}
-                      >
-                        <div
-                          style={{
-                            boxShadow:
-                              setIndex === currentSetIndex &&
-                              "0 2px 4px rgba(0, 0, 0, 0.3)",
-                            transition: "box-shadow .5s ease",
-                            overflow: "visible",
-                          }}
-                          className={`card ${
-                            setIndex === currentSetIndex ? "bg-light" : ""
-                          }`}
-                        >
-                          <div
-                            className={`card-header ${
-                              setIndex === currentSetIndex ? "fw-bold" : ""
-                            }`}
-                          >
-                            {s.name}
-                          </div>
-                          <div
-                            className={`card-body ${
-                              setIndex === currentSetIndex ? "fw-bold" : ""
-                            }`}
-                          >
-                            <div className="row">
-                              <div className="col">
-                                {roundToNearestTwoPointFive(s.weight)} lbs.
-                              </div>
-                              <div className="col">{s.reps} reps</div>
-                            </div>
-                            <div className="row">
-                              <div className="col">
-                                <input
-                                  ref={actualWeightInputRef}
-                                  disabled={
-                                    (actualWeight === "" || !actualWeight) &&
-                                    setIndex !== currentSetIndex &&
-                                    (!previeousActualWeight ||
-                                      previeousActualWeight === "" ||
-                                      !previeousActualReps ||
-                                      previeousActualReps === "")
-                                  }
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  value={actualWeight || ""}
-                                  onChange={(e) => {
-                                    currentExercise.sets[
-                                      setIndex
-                                    ].actualWeight =
-                                      e.target.value === ""
-                                        ? null
-                                        : parseFloat(e.target.value);
-                                    setRoutine((prevRoutine) => ({
-                                      ...prevRoutine,
-                                    }));
-                                  }}
-                                  onFocus={() => {
-                                    setCurrentSetIndex(setIndex);
-                                  }}
-                                />
-                              </div>
-                              <div className="col">
-                                <input
-                                  disabled={
-                                    (actualReps === "" || !actualReps) &&
-                                    setIndex !== currentSetIndex &&
-                                    (!previeousActualWeight ||
-                                      previeousActualWeight === "" ||
-                                      !previeousActualReps ||
-                                      previeousActualReps === "")
-                                  }
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  value={actualReps || ""}
-                                  onChange={(e) => {
-                                    currentExercise.sets[setIndex].actualReps =
-                                      e.target.value === ""
-                                        ? null
-                                        : parseInt(e.target.value);
-                                    setRoutine((prevRoutine) => ({
-                                      ...prevRoutine,
-                                    }));
-                                  }}
-                                  onFocus={() => {
-                                    setCurrentSetIndex(setIndex);
-                                  }}
-                                  onBlur={() => {
-                                    // if (
-                                    //   actualWeight &&
-                                    //   actualWeight !== "" &&
-                                    //   actualReps &&
-                                    //   actualReps !== ""
-                                    // ) {
-                                    //   updateMaxFromSet(
-                                    //     currentExercise,
-                                    //     currentSetIndex,
-                                    //     actualReps,
-                                    //     actualWeight
-                                    //   );
-                                    // }
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  e.type === "weight" && (
+                    <SetsDisplay
+                      sets={e.sets}
+                      currentExercise={currentExercise}
+                      currentSetIndex={currentSetIndex}
+                      setRoutine={setRoutine}
+                      setCurrentSetIndex={setCurrentSetIndex}
+                    />
+                  )}
                 {currentExerciseIndex === exerciseIndex && (
                   <Button
                     disabled={
                       !isCurrentExerciseComplete || currentExercise.complete
                     }
-                    onClick={() => {
-                      let nextIndex = currentExerciseIndex + 1;
-                      while (
-                        workout.exercises[nextIndex] &&
-                        workout.exercises[nextIndex].complete
-                      ) {
-                        nextIndex++;
-                      }
-                      setCurrentExerciseIndex(nextIndex);
-                      setCurrentSetIndex(0);
-                      currentExercise.complete = true;
-                      workout.complete = workout.exercises.every(
-                        (e) => e.complete
-                      );
-                    }}
+                    onClick={handleExerciseButtonClick}
                     className="m-2"
                     variant="success"
                   >
@@ -303,10 +177,6 @@ const WorkoutPage = () => {
       )}
     </div>
   );
-};
-
-const roundToNearestTwoPointFive = (number) => {
-  return Math.round(number / 2.5) * 2.5;
 };
 
 // const calculateEstimated1RM = (actualReps, actualWeight) => {
