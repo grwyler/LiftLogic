@@ -5,8 +5,7 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc",
-    "export": "next export",
-    "deploy": "npm run build && npm run export && gh-pages -d out"
+    "deploy": "npm run build && gh-pages -d out"
   },
   "dependencies": {
     "bootstrap": "^5.3.2",
