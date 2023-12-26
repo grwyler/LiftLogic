@@ -2,7 +2,7 @@
   "private": true,
   "name": "lift-logic",
   "version": "1.0.0",
-  "homepage": "https://grwyler.github.io/LiftLogic",
+  "homepage": "https://vercel.com/grwyler/lift-logic/6dqx1URyU74n4gM9dLHkJgCaCRM2",
   "scripts": {
     "dev": "next",
     "build": "next build",
