@@ -1,9 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useRef, useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaChevronLeft, FaChevronRight, FaEdit } from "react-icons/fa";
-import { IoIosList } from "react-icons/io";
-import { FaCheck, FaHourglass } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 
 const WorkoutPage = () => {
