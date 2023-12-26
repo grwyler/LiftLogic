@@ -1,5 +1,8 @@
 {
   "private": true,
+  "name": "lift-logic",
+  "version": "1.0.0",
+  "homepage": "https://grwyler.github.io/LiftLogic",
   "scripts": {
     "dev": "next",
     "build": "next build",

@@ -2,5 +2,7 @@
 module.exports = {
   basePath: "/LiftLogic",
   assetPrefix: "/LiftLogic/",
-  output: "export",
+  images: {
+    loader: "default",
+  },
 };
