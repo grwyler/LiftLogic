@@ -1,4 +1,5 @@
 import React from "react";
+import { v4 } from "uuid";
 
 const SetsDisplay = ({
   sets,
@@ -15,6 +16,7 @@ const SetsDisplay = ({
       currentExercise.sets[setIndex - 1]?.actualWeight;
     return (
       <div
+        key={v4()}
         style={{ transition: "margin .2s ease" }}
         className={`p-0 ${setIndex === currentSetIndex ? "mb-2" : ""}`}
       >

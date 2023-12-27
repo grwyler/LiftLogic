@@ -4,8 +4,9 @@ import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight, FaCheck, FaList } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 import SetsDisplay from "../../components/SetsDisplay";
-import { saveExercise, saveUserInputs } from "../../utils/helpers";
+import { saveExercise } from "../../utils/helpers";
 import { useSession } from "next-auth/react";
+import { v4 } from "uuid";
 
 const WorkoutPage = () => {
   // local state
@@ -23,17 +24,12 @@ const WorkoutPage = () => {
 
   // derived state
   const currentDay = Object.keys(routine)[currentDayIndex];
-  // let workout = routine[currentDay];
-  // const [workout, setWorkout] = useState();
-  // const capitalizedCurrentDay =
-  //   currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
   let currentExercise;
   if (workout && currentExerciseIndex !== null) {
     currentExercise = workout.exercises[currentExerciseIndex];
     workout.date = currentDate;
     workout.userID = session?.token.user._id;
   }
-
   const previousDayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
   const previousDay = Object.keys(routine)[previousDayIndex];
   const capitalizedPreviousDay =
@@ -160,58 +156,9 @@ const WorkoutPage = () => {
     currentExercise.userId = workout.userID;
     saveExercise(currentExercise);
 
-    // sets.forEach(async ({ actualReps, actualWeight }, setIndex) => {
-    //   const userInputs = {
-    //     userId: workout.userId,
-    //     date: workout.date,
-    //     exerciseId,
-    //     setIndex,
-    //     actualReps,
-    //     actualWeight,
-    //   };
-    //   // Send the user inputs to the server to save
-    //   await saveUserInputs(userInputs);
-    // });
-
     // Check if all exercises are complete for the workout
     workout.complete = workout.exercises.every((e) => e.complete);
   };
-  // const handleCompleteExercise = () => {
-  //   let nextIndex = currentExerciseIndex + 1;
-  //   while (
-  //     workout.exercises[nextIndex] &&
-  //     workout.exercises[nextIndex].complete
-  //   ) {
-  //     nextIndex++;
-  //   }
-  //   setCurrentExerciseIndex(nextIndex);
-  //   setCurrentSetIndex(0);
-  //   currentExercise.complete = true;
-  //   workout.complete = workout.exercises.every((e) => e.complete);
-  //   saveWorkout(workout);
-  // };
-
-  // useEffect(() => {
-  //   // Check if the session identifier is present in local storage
-  //   const sessionId = localStorage.getItem("sessionId");
-
-  //   if (!sessionId && session?.token.user._id) {
-  //     // Redirect to the sign-in page if the session identifier is not present
-  //     router.push("/");
-  //   }
-  // }, [session?.token.user._id]);
-
-  // // Function to update current date based on currentDayIndex
-  // const updateCurrentDate = (dayIndex) => {
-  //   const newDate = new Date(currentDate);
-  //   newDate.setDate(currentDate.getDate() + (dayIndex - currentDayIndex));
-  //   setCurrentDate(newDate);
-  // };
-
-  // // Use useEffect to update current date when currentDayIndex changes
-  // useEffect(() => {
-  //   updateCurrentDate(currentDayIndex);
-  // }, [currentDayIndex]);
 
   return (
     <div className="container-fluid">
@@ -277,7 +224,7 @@ const WorkoutPage = () => {
                 e.complete = isCurrentExerciseComplete;
               }
               return (
-                <div className="text-center">
+                <div key={v4()} className="text-center">
                   <div className="d-flex justify-content-center alignt-items-center">
                     <Button
                       variant="light"
