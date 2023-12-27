@@ -1,31 +1,29 @@
-// pages/api/signin.ts
-
-import { NextApiRequest, NextApiResponse } from "next";
 import connectToDatabase from "../../utils/mongodb";
+import jwt from "jsonwebtoken";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req, res) {
   if (req.method === "POST") {
     const { username, password } = req.body;
 
     try {
-      // Connect to the MongoDB database
       const db = await connectToDatabase();
+      const collection = db.collection("users");
 
-      // Query the users collection to check if the user exists
-      const user = await db.collection("users").findOne({ username, password });
+      const user = await collection.findOne({ username, password });
 
-      if (user) {
-        // User authenticated successfully
-        res.status(200).json({ message: "Sign-in successful" });
-      } else {
-        // User not found or password incorrect
-        res.status(401).json({ message: "Invalid credentials" });
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
       }
+
+      // Create a session identifier (e.g., random string)
+      const sessionId = "session_" + Math.random().toString(36).substring(7);
+
+      // Store the session identifier in the user document in the database
+      await collection.updateOne({ _id: user._id }, { $set: { sessionId } });
+
+      res.status(200).json({ sessionId });
     } catch (error) {
-      console.error("MongoDB query error:", error);
+      console.error("MongoDB connection or sign-in error:", error);
       res.status(500).json({ message: "Internal Server Error" });
     }
   } else {

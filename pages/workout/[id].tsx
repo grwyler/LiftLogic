@@ -1,10 +1,11 @@
 import { useRouter } from "next/router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 import SetsDisplay from "../../components/SetsDisplay";
 import { saveWorkout } from "../../utils/helpers";
+import { FaList } from "react-icons/fa";
 
 const WorkoutPage = () => {
   // local state
@@ -75,6 +76,16 @@ const WorkoutPage = () => {
     saveWorkout(workout);
   };
 
+  useEffect(() => {
+    // Check if the session identifier is present in local storage
+    const sessionId = localStorage.getItem("sessionId");
+
+    if (!sessionId) {
+      // Redirect to the sign-in page if the session identifier is not present
+      router.push("/signin");
+    }
+  }, []);
+
   return (
     <div className="container-fluid">
       {workout && (
@@ -99,6 +110,9 @@ const WorkoutPage = () => {
             </div>
           </div>
           <div className="d-flex justify-content-center align-items-center">
+            <Button className="me-2" size="sm" variant="light" href="/workouts">
+              <FaList />
+            </Button>
             <h5 className={workout.complete ? "text-success" : ""}>
               {workout.title}
             </h5>

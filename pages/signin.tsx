@@ -1,5 +1,3 @@
-// pages/signin.tsx
-
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -7,6 +5,7 @@ import Link from "next/link";
 const SignIn = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState(""); // New state for error message
 
   const router = useRouter();
 
@@ -14,7 +13,6 @@ const SignIn = () => {
     e.preventDefault();
 
     try {
-      // Make a POST request to the sign-in API endpoint
       const response = await fetch("/api/signin", {
         method: "POST",
         headers: {
@@ -24,9 +22,14 @@ const SignIn = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        const sessionId = data.sessionId;
+
+        // Store the session identifier in local storage
+        localStorage.setItem("sessionId", sessionId);
+
         console.log("User Sign-In Successful");
         // Redirect the user after successful sign-in
-
         router.push("/workouts");
       } else {
         const data = await response.json();
@@ -66,6 +69,8 @@ const SignIn = () => {
       <Link className="mt-2 ms-2" href="/signup">
         Sign Up
       </Link>
+
+      {error && <div className="text-danger mt-2">{error}</div>}
     </form>
   );
 };

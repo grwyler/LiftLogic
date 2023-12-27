@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import SignIn from "./signin";
 import { FaTrash } from "react-icons/fa";
+import { useRouter } from "next/router";
 
 const HomePage: React.FC = () => {
   const [users, setUsers] = useState([]);
+  const router = useRouter();
 
   const fetchUsers = async () => {
     try {
@@ -40,6 +42,16 @@ const HomePage: React.FC = () => {
       console.error("Error deleting user:", error);
     }
   };
+
+  useEffect(() => {
+    // Check if the session identifier is present in local storage
+    const sessionId = localStorage.getItem("sessionId");
+
+    if (sessionId) {
+      // Redirect to the workouts page if the session identifier is present
+      router.push("/workouts");
+    }
+  }, []);
 
   return (
     <div className="container-fluid">
