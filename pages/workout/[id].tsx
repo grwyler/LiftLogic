@@ -1,11 +1,10 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaCheck, FaList } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 import SetsDisplay from "../../components/SetsDisplay";
 import { saveWorkout } from "../../utils/helpers";
-import { FaList } from "react-icons/fa";
 
 const WorkoutPage = () => {
   // local state
