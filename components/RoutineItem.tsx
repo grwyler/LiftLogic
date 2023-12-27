@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import { useSwipeable } from "react-swipeable";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 
 interface WorkoutItemProps {
   workout: {
@@ -13,6 +14,7 @@ interface WorkoutItemProps {
 }
 
 const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onSwipeLeft }) => {
+  const { data: session } = useSession();
   const [swipeDistance, setSwipeDistance] = useState(0);
   const [hasSwipedLeft, setHasSwipedLeft] = useState(false);
   const router = useRouter();

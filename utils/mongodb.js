@@ -34,3 +34,11 @@ export default async function connectToDatabase() {
     throw error;
   }
 }
+
+export async function disconnectFromDatabase() {
+  if (cachedClient) {
+    await cachedClient.close();
+    cachedClient = null;
+    cachedDb = null;
+  }
+}

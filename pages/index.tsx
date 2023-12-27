@@ -48,8 +48,8 @@ const HomePage: React.FC = () => {
     const sessionId = localStorage.getItem("sessionId");
 
     if (sessionId) {
-      // Redirect to the workouts page if the session identifier is present
-      router.push("/workouts");
+      // Redirect to the routines page if the session identifier is present
+      router.push("/routines");
     }
   }, []);
 

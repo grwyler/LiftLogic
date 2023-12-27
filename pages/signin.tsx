@@ -1,46 +1,68 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { useSession, signIn } from "next-auth/react";
 
 const SignIn = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(""); // New state for error message
 
+  const { data: session } = useSession();
+
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      const response = await fetch("/api/signin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+    // Sign in using NextAuth
+    const result = await signIn("credentials", {
+      username,
+      password,
+      redirect: false,
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        const sessionId = data.sessionId;
+    if (result.error) {
+      console.error("Sign-In Error:", result.error);
+    } else {
+      console.log("User Sign-In Successful");
 
-        // Store the session identifier in local storage
-        localStorage.setItem("sessionId", sessionId);
-
-        console.log("User Sign-In Successful");
-        // Redirect the user after successful sign-in
-        router.push("/workouts");
-      } else {
-        const data = await response.json();
-        console.error("User Sign-In Error:", data.message);
-        // Handle authentication error, show a message, or redirect to an error page
-      }
-    } catch (error) {
-      console.error("User Sign-In Error:", error);
-      // Handle unexpected errors
+      router.push("/routines");
     }
   };
+
+  //   const handleSubmit = async (e: React.FormEvent) => {
+  //     e.preventDefault();
+
+  //     try {
+  //       const response = await fetch("/api/signin", {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify({ username, password }),
+  //       });
+
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         const sessionId = data.sessionId;
+
+  //         // Store the session identifier in local storage
+  //         localStorage.setItem("sessionId", sessionId);
+
+  //         console.log("User Sign-In Successful");
+  //         // Redirect the user after successful sign-in
+  //         router.push("/routines");
+  //       } else {
+  //         const data = await response.json();
+  //         console.error("User Sign-In Error:", data.message);
+  //         // Handle authentication error, show a message, or redirect to an error page
+  //       }
+  //     } catch (error) {
+  //       console.error("User Sign-In Error:", error);
+  //       // Handle unexpected errors
+  //     }
+  //   };
 
   return (
     <form onSubmit={handleSubmit}>

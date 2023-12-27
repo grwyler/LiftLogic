@@ -13,7 +13,7 @@ const EditWorkoutPage = () => {
   return (
     <div className="container">
       <div className="d-flex justify-content-between border boder-secondary">
-        <Button variant="light" href="/workouts">
+        <Button variant="light" href="/routines">
           <IoIosList />
         </Button>
         <Button variant="light" href={`/workout/${id}`}>

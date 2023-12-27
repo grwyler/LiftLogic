@@ -1,6 +1,6 @@
 // api/deleteUser.js
 import { ObjectId } from "mongodb";
-import connectToDatabase from "../../utils/mongodb";
+import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
 
 export default async function handler(req, res) {
   if (req.method === "DELETE") {
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       const collection = db.collection("users");
 
       const result = await collection.deleteOne({ _id: new ObjectId(id) });
-
+      await disconnectFromDatabase();
       if (result.deletedCount === 1) {
         return res.status(200).json({ message: "User deleted successfully" });
       } else {

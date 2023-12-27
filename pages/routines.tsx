@@ -1,18 +1,20 @@
-// pages/workouts.tsx
-import React, { useState } from "react";
-import WorkoutItem from "../components/WorkoutItem";
+// pages/routines.tsx
+import React, { useEffect, useState } from "react";
+import RoutineItem from "../components/RoutineItem";
 import { initialWorkouts } from "../utils/sample-data";
 import { useRouter } from "next/router";
+import { useSession, signOut } from "next-auth/react";
 
-const WorkoutsPage: React.FC = () => {
-  const [workouts, setWorkouts] =
+const RoutinesPage: React.FC = () => {
+  const { data: session } = useSession();
+  const [routines, setRoutines] =
     useState<Array<{ id: number; name: string }>>(initialWorkouts);
 
   const router = useRouter();
 
   const handleSwipeLeft = (id) => {
-    setWorkouts((prevWorkouts) =>
-      prevWorkouts.filter((workout) => workout.id !== id)
+    setRoutines((prevRoutines) =>
+      prevRoutines.filter((routine) => routine.id !== id)
     );
   };
 
@@ -22,6 +24,7 @@ const WorkoutsPage: React.FC = () => {
 
     // Redirect to the home page
     router.push("/");
+    signOut({ redirect: false });
   };
 
   return (
@@ -34,22 +37,17 @@ const WorkoutsPage: React.FC = () => {
       </div>
 
       <div>
-        {workouts.map((workout) => (
-          <WorkoutItem
+        {routines.map((workout) => (
+          <RoutineItem
             key={workout.id}
             workout={workout}
             onSwipeLeft={() => handleSwipeLeft(workout.id)}
           />
         ))}
       </div>
-      <button
-        className="btn btn-primary"
-        onClick={() => console.log("Create Workout")}
-      >
-        Create Workout
-      </button>
+      <button className="btn btn-primary">Create Routine</button>
     </div>
   );
 };
 
-export default WorkoutsPage;
+export default RoutinesPage;

@@ -57,7 +57,9 @@ const SignUp: React.FC = () => {
       >
         Sign Up
       </button>
-      <Link href="/">Sign In</Link>
+      <Link className="ms-2" href="/">
+        Sign In
+      </Link>
     </form>
   );
 };

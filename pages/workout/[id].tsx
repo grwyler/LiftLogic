@@ -4,25 +4,36 @@ import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight, FaCheck, FaList } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 import SetsDisplay from "../../components/SetsDisplay";
-import { saveWorkout } from "../../utils/helpers";
+import { saveExercise, saveUserInputs } from "../../utils/helpers";
+import { useSession } from "next-auth/react";
 
 const WorkoutPage = () => {
   // local state
   const router = useRouter();
   const { id } = router.query;
   const initialRoutine = routines[typeof id === "string" ? id : "1"];
+  const initialRoutineCopy = { ...initialRoutine };
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay());
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [routine, setRoutine] = useState(initialRoutine);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [workout, setWorkout] = useState({});
+  const { data: session } = useSession();
 
   // derived state
   const currentDay = Object.keys(routine)[currentDayIndex];
-  const workout = routine[currentDay];
+  // let workout = routine[currentDay];
+  // const [workout, setWorkout] = useState();
   // const capitalizedCurrentDay =
   //   currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
-  const currentExercise = workout.exercises[currentExerciseIndex];
+  let currentExercise;
+  if (workout && currentExerciseIndex !== null) {
+    currentExercise = workout.exercises[currentExerciseIndex];
+    workout.date = currentDate;
+    workout.userID = session?.token.user._id;
+  }
+
   const previousDayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
   const previousDay = Object.keys(routine)[previousDayIndex];
   const capitalizedPreviousDay =
@@ -36,7 +47,69 @@ const WorkoutPage = () => {
     day: "numeric",
   });
 
-  workout.date = formattedDate;
+  // Function to update workout with user input
+  const updateWorkoutWithExercises = (workout, exercises) => {
+    const updatedExercises = workout.exercises.map((exercise) => {
+      const matchingExercise = exercises.find((fetchedExercise) => {
+        const isMatch = exercise.name === fetchedExercise.name;
+        return isMatch;
+      });
+
+      if (matchingExercise) {
+        const updatedSets = exercise.sets.map((set, setIndex) => {
+          const fetchedSet = matchingExercise.sets[setIndex];
+          return {
+            ...set,
+            actualReps: fetchedSet.actualReps,
+            actualWeight: fetchedSet.actualWeight,
+          };
+        });
+
+        return {
+          ...exercise,
+          sets: updatedSets,
+          complete: matchingExercise.complete,
+        };
+      } else {
+        return exercise; // Keep unchanged exercises as is
+      }
+    });
+
+    return {
+      ...workout,
+      exercises: updatedExercises,
+    };
+  };
+
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const url = `/api/getExercises?userId=${session?.token.user._id}&date=${formattedDate}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.exercises.length > 0) {
+            setWorkout(
+              updateWorkoutWithExercises(
+                initialRoutineCopy[currentDay],
+                data.exercises
+              )
+            );
+          } else {
+            setRoutine(initialRoutineCopy);
+            setWorkout(routine[currentDay]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching exercises:", error);
+      }
+    };
+
+    if (session?.token.user._id && formattedDate) {
+      fetchExercises();
+    }
+  }, [session?.token.user._id, formattedDate]);
 
   const handleResetExercise = () => {
     currentExercise.sets.forEach((s) => {
@@ -71,7 +144,7 @@ const WorkoutPage = () => {
     }
   };
 
-  const handleCompleteExercise = () => {
+  const handleCompleteExercise = async () => {
     let nextIndex = currentExerciseIndex + 1;
     while (
       workout.exercises[nextIndex] &&
@@ -81,20 +154,52 @@ const WorkoutPage = () => {
     }
     setCurrentExerciseIndex(nextIndex);
     setCurrentSetIndex(0);
+
     currentExercise.complete = true;
+    currentExercise.date = formattedDate;
+    currentExercise.userId = workout.userID;
+    saveExercise(currentExercise);
+
+    // sets.forEach(async ({ actualReps, actualWeight }, setIndex) => {
+    //   const userInputs = {
+    //     userId: workout.userId,
+    //     date: workout.date,
+    //     exerciseId,
+    //     setIndex,
+    //     actualReps,
+    //     actualWeight,
+    //   };
+    //   // Send the user inputs to the server to save
+    //   await saveUserInputs(userInputs);
+    // });
+
+    // Check if all exercises are complete for the workout
     workout.complete = workout.exercises.every((e) => e.complete);
-    saveWorkout(workout);
   };
+  // const handleCompleteExercise = () => {
+  //   let nextIndex = currentExerciseIndex + 1;
+  //   while (
+  //     workout.exercises[nextIndex] &&
+  //     workout.exercises[nextIndex].complete
+  //   ) {
+  //     nextIndex++;
+  //   }
+  //   setCurrentExerciseIndex(nextIndex);
+  //   setCurrentSetIndex(0);
+  //   currentExercise.complete = true;
+  //   workout.complete = workout.exercises.every((e) => e.complete);
+  //   saveWorkout(workout);
+  // };
 
-  useEffect(() => {
-    // Check if the session identifier is present in local storage
-    const sessionId = localStorage.getItem("sessionId");
+  // useEffect(() => {
+  //   // Check if the session identifier is present in local storage
+  //   const sessionId = localStorage.getItem("sessionId");
 
-    if (!sessionId) {
-      // Redirect to the sign-in page if the session identifier is not present
-      router.push("/");
-    }
-  }, []);
+  //   if (!sessionId && session?.token.user._id) {
+  //     // Redirect to the sign-in page if the session identifier is not present
+  //     router.push("/");
+  //   }
+  // }, [session?.token.user._id]);
 
   // // Function to update current date based on currentDayIndex
   // const updateCurrentDate = (dayIndex) => {
@@ -141,7 +246,7 @@ const WorkoutPage = () => {
               className="me-2 float-start"
               size="sm"
               variant="light"
-              href="/workouts"
+              href="/routines"
             >
               <FaList />
             </Button>
@@ -158,69 +263,71 @@ const WorkoutPage = () => {
             </div>
           </div>
 
-          {workout.exercises.map((e, exerciseIndex) => {
-            const isCurrentExerciseComplete = e.sets.every(
-              (s) =>
-                s.actualReps &&
-                s.actualReps !== "" &&
-                s.actualWeight &&
-                s.actualReps !== ""
-            );
-            if (!isCurrentExerciseComplete) {
-              e.complete = false;
-            }
-            return (
-              <div className="text-center">
-                <div className="d-flex justify-content-center alignt-items-center">
-                  <Button
-                    variant="light"
-                    className={`w-100 m-1 ${e.complete && "text-success"} ${
-                      currentExerciseIndex === exerciseIndex && "fw-bold"
-                    }`}
-                    onClick={() => handleWorkoutButtonClick(exerciseIndex)}
-                  >
-                    {e.name}{" "}
-                    <FaCheck
-                      className={`ms-1 text-success ${
-                        !e.complete && "invisible"
-                      }`}
-                    />
-                  </Button>
-                  {exerciseIndex === currentExerciseIndex && (
+          {workout &&
+            workout.exercises &&
+            workout.exercises.map((e, exerciseIndex) => {
+              const isCurrentExerciseComplete = e.sets.every(
+                (s) =>
+                  s.actualReps &&
+                  s.actualReps !== "" &&
+                  s.actualWeight &&
+                  s.actualReps !== ""
+              );
+              if (!isCurrentExerciseComplete) {
+                e.complete = isCurrentExerciseComplete;
+              }
+              return (
+                <div className="text-center">
+                  <div className="d-flex justify-content-center alignt-items-center">
                     <Button
-                      onClick={handleResetExercise}
-                      className="m-1"
-                      variant="secondary"
+                      variant="light"
+                      className={`w-100 m-1 ${e.complete && "text-success"} ${
+                        currentExerciseIndex === exerciseIndex && "fw-bold"
+                      }`}
+                      onClick={() => handleWorkoutButtonClick(exerciseIndex)}
                     >
-                      Reset
+                      {e.name}{" "}
+                      <FaCheck
+                        className={`ms-1 text-success ${
+                          !e.complete && "invisible"
+                        }`}
+                      />
+                    </Button>
+                    {exerciseIndex === currentExerciseIndex && (
+                      <Button
+                        onClick={handleResetExercise}
+                        className="m-1"
+                        variant="secondary"
+                      >
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  {exerciseIndex === currentExerciseIndex &&
+                    e.type === "weight" && (
+                      <SetsDisplay
+                        sets={e.sets}
+                        currentExercise={currentExercise}
+                        currentSetIndex={currentSetIndex}
+                        setRoutine={setRoutine}
+                        setCurrentSetIndex={setCurrentSetIndex}
+                      />
+                    )}
+                  {currentExerciseIndex === exerciseIndex && (
+                    <Button
+                      disabled={
+                        !isCurrentExerciseComplete || currentExercise.complete
+                      }
+                      onClick={handleCompleteExercise}
+                      className="m-2"
+                      variant="success"
+                    >
+                      Complete Exercise
                     </Button>
                   )}
                 </div>
-                {exerciseIndex === currentExerciseIndex &&
-                  e.type === "weight" && (
-                    <SetsDisplay
-                      sets={e.sets}
-                      currentExercise={currentExercise}
-                      currentSetIndex={currentSetIndex}
-                      setRoutine={setRoutine}
-                      setCurrentSetIndex={setCurrentSetIndex}
-                    />
-                  )}
-                {currentExerciseIndex === exerciseIndex && (
-                  <Button
-                    disabled={
-                      !isCurrentExerciseComplete || currentExercise.complete
-                    }
-                    onClick={handleCompleteExercise}
-                    className="m-2"
-                    variant="success"
-                  >
-                    Complete Exercise
-                  </Button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
         </React.Fragment>
       )}
     </div>
