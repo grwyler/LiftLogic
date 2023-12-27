@@ -7,6 +7,33 @@ import SetsDisplay from "../../components/SetsDisplay";
 import { saveExercise } from "../../utils/helpers";
 import { useSession } from "next-auth/react";
 import { v4 } from "uuid";
+import { Session } from "next-auth";
+
+type Workout = {
+  title: string;
+  complete: boolean;
+  exercises: Exercise[];
+  date?: string;
+  userID?: string;
+};
+
+type Exercise = {
+  name: string;
+  type: "weight" | "bodyweight"; // Add other possible types if needed
+  max: number;
+  rest: number;
+  complete: boolean;
+  sets: Set[];
+};
+
+type Set = {
+  name: string;
+  reps: number;
+  percentage: number;
+  actualReps: string;
+  actualWeight: string;
+  weight: number;
+};
 
 const WorkoutPage = () => {
   // local state
@@ -19,15 +46,22 @@ const WorkoutPage = () => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [routine, setRoutine] = useState(initialRoutine);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [workout, setWorkout] = useState({});
-  const { data: session } = useSession();
+  const [workout, setWorkout] = useState<Workout | null>();
+  const { data: session } = useSession() as {
+    data: (Session & { token: { user } }) | null;
+  };
 
   // derived state
+  const formattedDate = currentDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
   const currentDay = Object.keys(routine)[currentDayIndex];
   let currentExercise;
   if (workout && currentExerciseIndex !== null) {
     currentExercise = workout.exercises[currentExerciseIndex];
-    workout.date = currentDate;
+    workout.date = formattedDate;
     workout.userID = session?.token.user._id;
   }
   const previousDayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
@@ -37,11 +71,6 @@ const WorkoutPage = () => {
   const nextDayIndex = currentDayIndex === 6 ? 0 : currentDayIndex + 1;
   const nextDay = Object.keys(routine)[nextDayIndex];
   const capitalizedNextDay = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
-  const formattedDate = currentDate.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 
   // Function to update workout with user input
   const updateWorkoutWithExercises = (workout, exercises) => {
