@@ -1,6 +1,7 @@
 // pages/signup.tsx
 import React, { useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -49,9 +50,14 @@ const SignUp: React.FC = () => {
         onChange={(e) => setPassword(e.target.value)}
       />
 
-      <button className="btn btn-primary mt-2" type="submit">
+      <button
+        disabled={username === "" || password === ""}
+        className="btn btn-primary mt-2"
+        type="submit"
+      >
         Sign Up
       </button>
+      <Link href="/">Sign In</Link>
     </form>
   );
 };

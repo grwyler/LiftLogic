@@ -57,23 +57,25 @@ const HomePage: React.FC = () => {
     <div className="container-fluid">
       <h1>Home</h1>
       <SignIn />
-      <div>
-        <h2>Users</h2>
-        {users.length === 0 && <div className="text-muted">No Users</div>}
-        {users.map((user) => (
-          <div className="row align-items-center bg-light" key={user._id}>
-            <div className="col-10">{user.username}</div>
-            <div className="col-2">
-              <button
-                className="btn btn-light btn-sm"
-                onClick={() => handleDeleteUser(user._id)}
-              >
-                <FaTrash className="text-danger" />
-              </button>
+      {process.env.NEXT_PUBLIC_ENV === "local" && (
+        <div>
+          <h2>Users</h2>
+          {users.length === 0 && <div className="text-muted">No Users</div>}
+          {users.map((user) => (
+            <div className="row align-items-center bg-light" key={user._id}>
+              <div className="col-10">{user.username}</div>
+              <div className="col-2">
+                <button
+                  className="btn btn-light btn-sm"
+                  onClick={() => handleDeleteUser(user._id)}
+                >
+                  <FaTrash className="text-danger" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
