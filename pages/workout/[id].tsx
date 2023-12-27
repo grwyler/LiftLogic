@@ -1,9 +1,10 @@
 import { useRouter } from "next/router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
 import { routines } from "../../utils/sample-data";
 import SetsDisplay from "../../components/SetsDisplay";
+import { saveWorkout } from "../../utils/helpers";
 
 const WorkoutPage = () => {
   // local state
@@ -59,7 +60,7 @@ const WorkoutPage = () => {
     }
   };
 
-  const handleExerciseButtonClick = () => {
+  const handleCompleteExercise = () => {
     let nextIndex = currentExerciseIndex + 1;
     while (
       workout.exercises[nextIndex] &&
@@ -71,6 +72,7 @@ const WorkoutPage = () => {
     setCurrentSetIndex(0);
     currentExercise.complete = true;
     workout.complete = workout.exercises.every((e) => e.complete);
+    saveWorkout(workout);
   };
 
   return (
@@ -163,7 +165,7 @@ const WorkoutPage = () => {
                     disabled={
                       !isCurrentExerciseComplete || currentExercise.complete
                     }
-                    onClick={handleExerciseButtonClick}
+                    onClick={handleCompleteExercise}
                     className="m-2"
                     variant="success"
                   >

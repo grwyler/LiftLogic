@@ -1,38 +1,69 @@
-// pages/workouts.tsx
-import React, { useState } from "react";
-import WorkoutItem from "../components/WorkoutItem";
-import { initialWorkouts } from "../utils/sample-data";
+import React, { useState, useEffect } from "react";
+import SignIn from "./signin";
+import { FaTrash } from "react-icons/fa";
 
-const WorkoutsPage: React.FC = () => {
-  const [workouts, setWorkouts] =
-    useState<Array<{ id: number; name: string }>>(initialWorkouts);
+const HomePage: React.FC = () => {
+  const [users, setUsers] = useState([]);
 
-  const handleSwipeLeft = (id) => {
-    setWorkouts((prevWorkouts) =>
-      prevWorkouts.filter((workout) => workout.id !== id)
-    );
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch("/api/getUsers"); // Replace with your API route
+      const data = await response.json();
+      setUsers(data.users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch users data from your API endpoint
+    fetchUsers();
+  }, []);
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      console.log("Deleting user with ID:", userId);
+
+      const response = await fetch(`/api/deleteUser?id=${userId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        console.log("User deleted successfully");
+      } else {
+        console.error("Failed to delete user. Server response:", response);
+      }
+
+      // Fetch updated user list after deletion
+      fetchUsers();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+    }
   };
 
   return (
     <div className="container-fluid">
-      <h1>Workout Routines</h1>
+      <h1>Home</h1>
+      <SignIn />
       <div>
-        {workouts.map((workout) => (
-          <WorkoutItem
-            key={workout.id}
-            workout={workout}
-            onSwipeLeft={() => handleSwipeLeft(workout.id)}
-          />
+        <h2>Users</h2>
+        {users.length === 0 && <div className="text-muted">No Users</div>}
+        {users.map((user) => (
+          <div className="row align-items-center bg-light" key={user._id}>
+            <div className="col-10">{user.username}</div>
+            <div className="col-2">
+              <button
+                className="btn btn-light btn-sm"
+                onClick={() => handleDeleteUser(user._id)}
+              >
+                <FaTrash className="text-danger" />
+              </button>
+            </div>
+          </div>
         ))}
       </div>
-      <button
-        className="btn btn-primary"
-        onClick={() => console.log("Create Workout")}
-      >
-        Create Workout
-      </button>
     </div>
   );
 };
 
-export default WorkoutsPage;
+export default HomePage;
