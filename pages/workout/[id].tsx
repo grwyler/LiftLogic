@@ -15,12 +15,13 @@ const WorkoutPage = () => {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [routine, setRoutine] = useState(initialRoutine);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   // derived state
   const currentDay = Object.keys(routine)[currentDayIndex];
   const workout = routine[currentDay];
-  const capitalizedCurrentDay =
-    currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
+  // const capitalizedCurrentDay =
+  //   currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
   const currentExercise = workout.exercises[currentExerciseIndex];
   const previousDayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
   const previousDay = Object.keys(routine)[previousDayIndex];
@@ -29,6 +30,13 @@ const WorkoutPage = () => {
   const nextDayIndex = currentDayIndex === 6 ? 0 : currentDayIndex + 1;
   const nextDay = Object.keys(routine)[nextDayIndex];
   const capitalizedNextDay = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
+  const formattedDate = currentDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  workout.date = formattedDate;
 
   const handleResetExercise = () => {
     currentExercise.sets.forEach((s) => {
@@ -49,6 +57,9 @@ const WorkoutPage = () => {
     } else {
       setCurrentDayIndex(currentDayIndex + change);
     }
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + change);
+    setCurrentDate(newDate);
   };
   const handleWorkoutButtonClick = (exerciseIndex) => {
     if (currentExerciseIndex === exerciseIndex) {
@@ -81,35 +92,57 @@ const WorkoutPage = () => {
 
     if (!sessionId) {
       // Redirect to the sign-in page if the session identifier is not present
-      router.push("/signin");
+      router.push("/");
     }
   }, []);
+
+  // // Function to update current date based on currentDayIndex
+  // const updateCurrentDate = (dayIndex) => {
+  //   const newDate = new Date(currentDate);
+  //   newDate.setDate(currentDate.getDate() + (dayIndex - currentDayIndex));
+  //   setCurrentDate(newDate);
+  // };
+
+  // // Use useEffect to update current date when currentDayIndex changes
+  // useEffect(() => {
+  //   updateCurrentDate(currentDayIndex);
+  // }, [currentDayIndex]);
 
   return (
     <div className="container-fluid">
       {workout && (
         <React.Fragment>
           <div className="row text-center align-items-center bg-light">
-            <div className="col">
+            <div className="col-4">
               <Button
+                size="sm"
                 variant="light"
                 onClick={() => handleCurrentDayChange(-1)}
               >
                 <FaChevronLeft /> {capitalizedPreviousDay}
               </Button>
             </div>
-            <div className="col">
-              <div className="fw-bold">{capitalizedCurrentDay}</div>
+            <div className="col-4">
+              <div className="fw-bold">{formattedDate}</div>
             </div>
-            <div className="col">
-              {" "}
-              <Button variant="light" onClick={() => handleCurrentDayChange(1)}>
+            <div className="col-4">
+              <Button
+                size="sm"
+                variant="light"
+                onClick={() => handleCurrentDayChange(1)}
+              >
                 {capitalizedNextDay} <FaChevronRight />
               </Button>
             </div>
           </div>
-          <div className="d-flex justify-content-center align-items-center">
-            <Button className="me-2" size="sm" variant="light" href="/workouts">
+
+          <div className="d-flex justify-content-between align-items-center">
+            <Button
+              className="me-2 float-start"
+              size="sm"
+              variant="light"
+              href="/workouts"
+            >
               <FaList />
             </Button>
             <h5 className={workout.complete ? "text-success" : ""}>
