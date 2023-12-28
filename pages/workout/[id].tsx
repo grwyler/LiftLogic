@@ -142,6 +142,8 @@ const WorkoutPage = () => {
       s.actualWeight = "";
     });
     setCurrentSetIndex(0);
+    currentExercise.complete = false;
+    workout.complete = false;
     setRoutine((prevRoutine) => ({
       ...prevRoutine,
     }));
@@ -164,9 +166,8 @@ const WorkoutPage = () => {
       setCurrentExerciseIndex(-1);
     } else {
       setCurrentExerciseIndex(exerciseIndex);
-      workout.exercises[exerciseIndex].complete = false;
-      workout.complete = false;
     }
+    setCurrentSetIndex(0);
   };
 
   const handleCompleteExercise = async () => {
@@ -289,18 +290,16 @@ const WorkoutPage = () => {
                         setCurrentSetIndex={setCurrentSetIndex}
                       />
                     )}
-                  {currentExerciseIndex === exerciseIndex && (
-                    <Button
-                      disabled={
-                        !isCurrentExerciseComplete || currentExercise.complete
-                      }
-                      onClick={handleCompleteExercise}
-                      className="m-2"
-                      variant="success"
-                    >
-                      Complete Exercise
-                    </Button>
-                  )}
+                  {currentExerciseIndex === exerciseIndex &&
+                    !currentExercise.complete && (
+                      <Button
+                        onClick={handleCompleteExercise}
+                        className="m-2"
+                        variant="success"
+                      >
+                        Complete Exercise
+                      </Button>
+                    )}
                 </div>
               );
             })}

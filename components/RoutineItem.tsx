@@ -82,9 +82,10 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onSwipeLeft }) => {
           <div className="card-header">
             <h3>{workout.name}</h3>
           </div>
-          <div className="card-body">Details go here</div>
+          <div className="card-body">Click to view workout</div>
         </div>
       )}
+      This is where your created workouts will go
     </React.Fragment>
   );
 };

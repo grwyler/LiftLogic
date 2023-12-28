@@ -4,6 +4,7 @@ import RoutineItem from "../components/RoutineItem";
 import { initialWorkouts } from "../utils/sample-data";
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
+import { FaSignOutAlt } from "react-icons/fa";
 
 const RoutinesPage: React.FC = () => {
   const { data: session } = useSession();
@@ -29,11 +30,12 @@ const RoutinesPage: React.FC = () => {
 
   return (
     <div className="container-fluid">
-      <div className="d-flex justify-content-evenly">
-        <h1>Workout Routines</h1>
-        <button className="btn btn-secondary mt-2" onClick={handleSignOut}>
-          Sign Out
+      <div className="d-flex justify-content-evenly align-items-center">
+        <button className="btn btn-light btn-sm" onClick={handleSignOut}>
+          <FaSignOutAlt />
         </button>
+
+        <h5>Workout Routines</h5>
       </div>
 
       <div>
@@ -45,7 +47,6 @@ const RoutinesPage: React.FC = () => {
           />
         ))}
       </div>
-      <button className="btn btn-primary">Create Routine</button>
     </div>
   );
 };

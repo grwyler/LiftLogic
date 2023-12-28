@@ -31,39 +31,6 @@ const SignIn = () => {
     }
   };
 
-  //   const handleSubmit = async (e: React.FormEvent) => {
-  //     e.preventDefault();
-
-  //     try {
-  //       const response = await fetch("/api/signin", {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //         },
-  //         body: JSON.stringify({ username, password }),
-  //       });
-
-  //       if (response.ok) {
-  //         const data = await response.json();
-  //         const sessionId = data.sessionId;
-
-  //         // Store the session identifier in local storage
-  //         localStorage.setItem("sessionId", sessionId);
-
-  //         console.log("User Sign-In Successful");
-  //         // Redirect the user after successful sign-in
-  //         router.push("/routines");
-  //       } else {
-  //         const data = await response.json();
-  //         console.error("User Sign-In Error:", data.message);
-  //         // Handle authentication error, show a message, or redirect to an error page
-  //       }
-  //     } catch (error) {
-  //       console.error("User Sign-In Error:", error);
-  //       // Handle unexpected errors
-  //     }
-  //   };
-
   return (
     <form onSubmit={handleSubmit}>
       <input

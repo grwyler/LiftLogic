@@ -20,102 +20,128 @@ const SetsDisplay = ({
         style={{ transition: "margin .2s ease" }}
         className={`p-0 ${setIndex === currentSetIndex ? "mb-2" : ""}`}
       >
-        <div
-          style={{
-            boxShadow:
-              setIndex === currentSetIndex && "0 2px 4px rgba(0, 0, 0, 0.3)",
-            transition: "box-shadow .5s ease",
-            overflow: "visible",
-          }}
-          className={`card ${setIndex === currentSetIndex ? "bg-light" : ""}`}
-        >
+        {currentExercise.complete ||
+        (!currentExercise.complete &&
+          setIndex > currentSetIndex &&
+          actualReps &&
+          actualWeight) ||
+        (!currentExercise.complete &&
+          setIndex < currentSetIndex &&
+          actualReps &&
+          actualWeight) ? (
           <div
-            className={`card-header ${
-              setIndex === currentSetIndex ? "fw-bold" : ""
-            }`}
+            className="row text-success"
+            onClick={() => {
+              setCurrentSetIndex(setIndex);
+              currentExercise.complete = false;
+            }}
           >
-            {s.name}
+            <div>{s.name}</div>
+            <div className="col">{actualWeight} lbs.</div>
+            <div className="col">{actualReps} reps</div>
           </div>
+        ) : (
           <div
-            className={`card-body ${
-              setIndex === currentSetIndex ? "fw-bold" : ""
-            }`}
+            style={{
+              boxShadow:
+                setIndex === currentSetIndex && "0 2px 4px rgba(0, 0, 0, 0.3)",
+              transition: "box-shadow .5s ease",
+              overflow: "visible",
+            }}
+            className={`card ${
+              setIndex === currentSetIndex ? "bg-light" : ""
+            } ${setIndex === currentSetIndex ? "bg-light" : ""}`}
           >
-            <div className="row">
-              <div className="col">
-                {roundToNearestTwoPointFive(s.weight)} lbs.
-              </div>
-              <div className="col">{s.reps} reps</div>
+            <div
+              className={`card-header ${
+                setIndex === currentSetIndex ? "fw-bold" : ""
+              }`}
+            >
+              {s.name}
             </div>
-            <div className="row">
-              <div className="col">
-                <input
-                  disabled={
-                    (actualWeight === "" || !actualWeight) &&
-                    setIndex !== currentSetIndex &&
-                    (!previeousActualWeight ||
-                      previeousActualWeight === "" ||
-                      !previeousActualReps ||
-                      previeousActualReps === "")
-                  }
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={actualWeight || ""}
-                  onChange={(e) => {
-                    currentExercise.sets[setIndex].actualWeight =
-                      e.target.value === "" ? null : parseFloat(e.target.value);
-                    setRoutine((prevRoutine) => ({
-                      ...prevRoutine,
-                    }));
-                  }}
-                  onFocus={() => {
-                    setCurrentSetIndex(setIndex);
-                  }}
-                />
+            <div
+              className={`card-body ${
+                setIndex === currentSetIndex ? "fw-bold" : ""
+              }`}
+            >
+              <div className="row">
+                <div className="col">
+                  {roundToNearestTwoPointFive(s.weight)} lbs.
+                </div>
+                <div className="col">{s.reps} reps</div>
               </div>
-              <div className="col">
-                <input
-                  disabled={
-                    (actualReps === "" || !actualReps) &&
-                    setIndex !== currentSetIndex &&
-                    (!previeousActualWeight ||
-                      previeousActualWeight === "" ||
-                      !previeousActualReps ||
-                      previeousActualReps === "")
-                  }
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={actualReps || ""}
-                  onChange={(e) => {
-                    currentExercise.sets[setIndex].actualReps =
-                      e.target.value === "" ? null : parseInt(e.target.value);
-                    setRoutine((prevRoutine) => ({
-                      ...prevRoutine,
-                    }));
-                  }}
-                  onFocus={() => {
-                    setCurrentSetIndex(setIndex);
-                  }}
-                  onBlur={() => {
-                    // if (
-                    //   actualWeight &&
-                    //   actualWeight !== "" &&
-                    //   actualReps &&
-                    //   actualReps !== ""
-                    // ) {
-                    //   updateMaxFromSet(
-                    //     currentExercise,
-                    //     currentSetIndex,
-                    //     actualReps,
-                    //     actualWeight
-                    //   );
-                    // }
-                  }}
-                />
+              <div className="row">
+                <div className="col">
+                  <input
+                    disabled={
+                      (actualWeight === "" || !actualWeight) &&
+                      setIndex !== currentSetIndex &&
+                      (!previeousActualWeight ||
+                        previeousActualWeight === "" ||
+                        !previeousActualReps ||
+                        previeousActualReps === "")
+                    }
+                    type="number"
+                    className="form-control form-control-sm"
+                    value={actualWeight || ""}
+                    onChange={(e) => {
+                      currentExercise.sets[setIndex].actualWeight =
+                        e.target.value === ""
+                          ? null
+                          : parseFloat(e.target.value);
+                      setRoutine((prevRoutine) => ({
+                        ...prevRoutine,
+                      }));
+                    }}
+                    onFocus={() => {
+                      setCurrentSetIndex(setIndex);
+                    }}
+                  />
+                </div>
+                <div className="col">
+                  <input
+                    disabled={
+                      (actualReps === "" || !actualReps) &&
+                      setIndex !== currentSetIndex &&
+                      (!previeousActualWeight ||
+                        previeousActualWeight === "" ||
+                        !previeousActualReps ||
+                        previeousActualReps === "")
+                    }
+                    type="number"
+                    className="form-control form-control-sm"
+                    value={actualReps || ""}
+                    onChange={(e) => {
+                      currentExercise.sets[setIndex].actualReps =
+                        e.target.value === "" ? null : parseInt(e.target.value);
+                      setRoutine((prevRoutine) => ({
+                        ...prevRoutine,
+                      }));
+                    }}
+                    onFocus={() => {
+                      setCurrentSetIndex(setIndex);
+                    }}
+                    onBlur={() => {
+                      // if (
+                      //   actualWeight &&
+                      //   actualWeight !== "" &&
+                      //   actualReps &&
+                      //   actualReps !== ""
+                      // ) {
+                      //   updateMaxFromSet(
+                      //     currentExercise,
+                      //     currentSetIndex,
+                      //     actualReps,
+                      //     actualWeight
+                      //   );
+                      // }
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   });
