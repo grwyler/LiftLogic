@@ -109,7 +109,7 @@ const WorkoutPage = () => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
-        const url = `/api/getExercises?userId=${session?.token.user._id}&date=${formattedDate}`;
+        const url = `/api/exercise?userId=${session?.token.user._id}&date=${formattedDate}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();

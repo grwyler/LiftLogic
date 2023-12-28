@@ -9,7 +9,7 @@ const HomePage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/getUsers"); // Replace with your API route
+      const response = await fetch("/api/user");
       const data = await response.json();
       setUsers(data.users);
     } catch (error) {
@@ -26,7 +26,7 @@ const HomePage: React.FC = () => {
     try {
       console.log("Deleting user with ID:", userId);
 
-      const response = await fetch(`/api/deleteUser?id=${userId}`, {
+      const response = await fetch(`/api/user?id=${userId}`, {
         method: "DELETE",
       });
 

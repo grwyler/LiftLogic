@@ -1,4 +1,4 @@
-// pages/api/getExercises.ts
+// pages/api/exercise.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
 
@@ -6,7 +6,27 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method === "GET") {
+  if (req.method === "POST") {
+    // Handling POST request to save an exercise
+    const { exercise } = req.body;
+
+    console.log("Received exercise:", exercise);
+
+    try {
+      const db = await connectToDatabase();
+      const collection = db.collection("exercises");
+
+      // Use insertOne for the latest MongoDB driver
+      await collection.insertOne(exercise);
+      await disconnectFromDatabase();
+
+      res.status(201).json({ message: "Exercise saved successfully!" });
+    } catch (error) {
+      console.error("MongoDB connection or insertion error:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  } else if (req.method === "GET") {
+    // Handling GET request to retrieve exercises
     const { userId, date } = req.query;
 
     if (!userId || !date) {
@@ -31,6 +51,7 @@ export default async function handler(
       res.status(500).json({ message: "Internal Server Error" });
     }
   } else {
+    // Handling other HTTP methods
     res.status(405).json({ message: "Method Not Allowed" });
   }
 }

@@ -20,7 +20,7 @@ export const saveUserInputs = async (userInputs) => {
 
 export const saveExercise = async (exercise) => {
   try {
-    const response = await fetch("/api/saveExercise", {
+    const response = await fetch("/api/exercise", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
