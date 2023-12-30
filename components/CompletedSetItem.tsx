@@ -8,7 +8,7 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex }) => {
     <div
       key={v4()}
       onClick={() => setCurrentSetIndex(setIndex)}
-      className="card border border-success bg-light text-success small"
+      className="card bg-light text-success small"
     >
       <div>{set.name}</div>
       <div className="row small">
