@@ -55,7 +55,7 @@ const SetItem = ({
       currentExercise.date = formattedDate;
       currentExercise.userId = session?.token.user._id;
       saveExercise(currentExercise);
-      let nextIndex = currentExerciseIndex + 1;
+      nextIndex = currentExerciseIndex + 1;
       let nextSetIndex = 0;
       while (
         workout.exercises[nextIndex] &&
@@ -124,7 +124,8 @@ const SetItem = ({
                 className="form-control form-control-sm"
                 value={currentSetWeight || weight}
                 onChange={(e) => {
-                  setCurrentSetWeight(e.target.value);
+                  const newValue = parseFloat(e.target.value);
+                  setCurrentSetWeight(isNaN(newValue) ? 0 : newValue);
                 }}
                 onFocus={() => {
                   setCurrentSetIndex(setIndex);
