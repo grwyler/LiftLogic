@@ -87,8 +87,8 @@ export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
   };
 };
 
-export const roundToNearestTwoPointFive = (number) => {
-  return Math.round(number / 2.5) * 2.5;
+export const roundToNearestFive = (number) => {
+  return Math.round(number / 5) * 5;
 };
 
 // local helpers
@@ -110,4 +110,43 @@ const getShortenedDays = (currentDate) => {
   });
 
   return { previousDayShort: formattedPrevDay, nextDayShort: formattedNextDay };
+};
+
+export const calculateWeights = (totalWeight) => {
+  const barbellWeight = 45;
+  const availableWeights = {
+    "45": 6,
+    "35": 2,
+    "25": 2,
+    "10": 4,
+    "5": 2,
+    "2.5": 2,
+  };
+
+  let remainingWeight = (totalWeight - barbellWeight) / 2; // Divide by 2 for each side
+  const requiredWeights = [];
+  debugger;
+  // Sort weights in descending order
+  const sortedWeights = Object.keys(availableWeights).sort(
+    (a, b) => parseInt(b) - parseInt(a)
+  );
+
+  for (const weight of sortedWeights) {
+    const plateWeight = parseFloat(weight);
+    let count = Math.min(
+      Math.floor(remainingWeight / plateWeight),
+      availableWeights[weight]
+    );
+
+    if (count > 0) {
+      requiredWeights.push(`${count} ${weight}${count > 1 ? "s" : ""}`);
+      remainingWeight -= count * plateWeight;
+    }
+  }
+
+  if (remainingWeight > 0) {
+    return "Cannot achieve the exact weight with the available plates.";
+  }
+
+  return requiredWeights.join(", ");
 };

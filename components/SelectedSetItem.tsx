@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { v4 } from "uuid";
 import {
-  roundToNearestTwoPointFive,
+  calculateWeights,
+  roundToNearestFive,
   saveExercise,
   saveSet,
 } from "../utils/helpers";
@@ -106,7 +107,10 @@ const SetItem = ({
         <div className="container p-1 fw-bold">
           <div className="row small">
             <div className="col small">
-              {roundToNearestTwoPointFive(set.weight)} lbs.
+              <div className="text-secondary">
+                {calculateWeights(roundToNearestFive(set.weight))}
+              </div>{" "}
+              {roundToNearestFive(set.weight)} lbs.
             </div>
             <div className="col small">{set.reps} reps</div>
           </div>
