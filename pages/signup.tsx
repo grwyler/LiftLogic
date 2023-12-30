@@ -37,7 +37,7 @@ const SignUp: React.FC = () => {
         type="text"
         id="username"
         className="form-control form-control-sm mt-2"
-        placeholder="Enter a User Name"
+        placeholder="Enter a username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
       />
@@ -46,7 +46,7 @@ const SignUp: React.FC = () => {
         type="password"
         id="password"
         className="form-control form-control-sm mt-2"
-        placeholder="Enter a Password"
+        placeholder="Enter a password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
@@ -57,10 +57,10 @@ const SignUp: React.FC = () => {
         className="btn btn-primary mt-2"
         type="submit"
       >
-        Sign Up
+        Sign up
       </Button>
       <Link className="small ms-2" href="/">
-        Sign In
+        Sign in
       </Link>
     </form>
   );

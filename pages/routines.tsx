@@ -31,13 +31,13 @@ const RoutinesPage: React.FC = () => {
 
   return (
     <div className="container-fluid">
-      <div className="d-flex align-items-center">
+      <div className="d-flex align-items-center justify-content-end">
         <Button
           size="sm"
           className="btn btn-light btn-sm"
           onClick={handleSignOut}
         >
-          <FaSignOutAlt />
+          Sign out <FaSignOutAlt />
         </Button>
       </div>
       <h5 className="text-center">Workout Routines</h5>

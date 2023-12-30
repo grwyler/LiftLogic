@@ -37,7 +37,7 @@ const SignIn = () => {
       <input
         type="text"
         className="form-control form-control-sm"
-        placeholder="Enter Your Username"
+        placeholder="Enter your username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
       />
@@ -45,7 +45,7 @@ const SignIn = () => {
       <input
         type="password"
         className="form-control form-control-sm mt-2"
-        placeholder="Enter Your Password"
+        placeholder="Enter your password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
@@ -55,10 +55,10 @@ const SignIn = () => {
         size="sm"
         type="submit"
       >
-        Sign In
+        Sign in
       </Button>
       <Link className="mt-2 ms-2 small" href="/signup">
-        Sign Up
+        Sign up
       </Link>
 
       {error && <div className="text-danger mt-2">{error}</div>}
