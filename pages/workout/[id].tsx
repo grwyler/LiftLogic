@@ -83,7 +83,7 @@ const WorkoutPage = () => {
     if (session?.token.user._id && formattedDate) {
       fetchExercises();
     }
-  }, [session?.token.user._id, formattedDate]);
+  }, [session?.token.user._id, formattedDate, currentDay]);
 
   const handleCurrentDayChange = (change) => {
     if (change < 0 && currentDayIndex === 0) {

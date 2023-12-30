@@ -22,9 +22,11 @@ const SetItem = ({
   workout,
 }) => {
   const { sets } = currentExercise;
-  const { actualReps, actualWeight } = set;
-  const [currentSetWeight, setCurrentSetWeight] = useState(actualWeight);
-  const [currentSetReps, setCurrentSetReps] = useState(actualReps);
+  const { weight, reps } = set;
+  const [currentSetWeight, setCurrentSetWeight] = useState(
+    roundToNearestFive(weight)
+  );
+  const [currentSetReps, setCurrentSetReps] = useState(reps);
   const repsInputRef = useRef(null);
   const weightInputRef = useRef(null);
   const { data: session } = useSession() as {
@@ -40,8 +42,6 @@ const SetItem = ({
     set.actualWeight = currentSetWeight;
     set.actualReps = currentSetReps;
     set.complete = true;
-    set.date = formattedDate;
-    set.userId = session?.token.user._id;
 
     currentExercise.sets = [
       ...sets.slice(0, setIndex),
@@ -52,6 +52,8 @@ const SetItem = ({
     // Check if all exercises are complete for the workout
     currentExercise.complete = sets.every((s) => s.complete);
     if (currentExercise.complete) {
+      currentExercise.date = formattedDate;
+      currentExercise.userId = session?.token.user._id;
       saveExercise(currentExercise);
       let nextIndex = currentExerciseIndex + 1;
       let nextSetIndex = 0;
@@ -110,9 +112,9 @@ const SetItem = ({
               <div className="text-secondary">
                 {calculateWeights(roundToNearestFive(set.weight))}
               </div>{" "}
-              {roundToNearestFive(set.weight)} lbs.
+              {roundToNearestFive(weight)} lbs.
             </div>
-            <div className="col small">{set.reps} reps</div>
+            <div className="col small">{reps} reps</div>
           </div>
           <div className="row small">
             <div className="col small">
@@ -120,7 +122,7 @@ const SetItem = ({
                 ref={weightInputRef}
                 type="number"
                 className="form-control form-control-sm"
-                value={actualWeight || currentSetWeight || ""}
+                value={currentSetWeight || weight}
                 onChange={(e) => {
                   setCurrentSetWeight(e.target.value);
                 }}
@@ -134,7 +136,7 @@ const SetItem = ({
                 ref={repsInputRef}
                 type="number"
                 className="form-control form-control-sm"
-                value={currentSetReps || ""}
+                value={currentSetReps || reps}
                 onChange={(e) => {
                   setCurrentSetReps(e.target.value);
                 }}

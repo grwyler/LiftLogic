@@ -125,7 +125,6 @@ export const calculateWeights = (totalWeight) => {
 
   let remainingWeight = (totalWeight - barbellWeight) / 2; // Divide by 2 for each side
   const requiredWeights = [];
-  debugger;
   // Sort weights in descending order
   const sortedWeights = Object.keys(availableWeights).sort(
     (a, b) => parseInt(b) - parseInt(a)
