@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { Button } from "react-bootstrap";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -35,7 +36,7 @@ const SignUp: React.FC = () => {
       <input
         type="text"
         id="username"
-        className="form-control mt-2"
+        className="form-control form-control-sm mt-2"
         placeholder="Enter a User Name"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
@@ -44,20 +45,21 @@ const SignUp: React.FC = () => {
       <input
         type="password"
         id="password"
-        className="form-control mt-2"
+        className="form-control form-control-sm mt-2"
         placeholder="Enter a Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
 
-      <button
+      <Button
+        size="sm"
         disabled={username === "" || password === ""}
         className="btn btn-primary mt-2"
         type="submit"
       >
         Sign Up
-      </button>
-      <Link className="ms-2" href="/">
+      </Button>
+      <Link className="small ms-2" href="/">
         Sign In
       </Link>
     </form>

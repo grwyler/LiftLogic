@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
+import { Button } from "react-bootstrap";
 
 const SignIn = () => {
   const [username, setUsername] = useState("");
@@ -35,7 +36,7 @@ const SignIn = () => {
     <form onSubmit={handleSubmit}>
       <input
         type="text"
-        className="form-control"
+        className="form-control form-control-sm"
         placeholder="Enter Your Username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
@@ -43,19 +44,20 @@ const SignIn = () => {
 
       <input
         type="password"
-        className="form-control mt-2"
+        className="form-control form-control-sm mt-2"
         placeholder="Enter Your Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
-      <button
+      <Button
         disabled={password === "" || username === ""}
         className="btn btn-primary mt-2"
+        size="sm"
         type="submit"
       >
         Sign In
-      </button>
-      <Link className="mt-2 ms-2" href="/signup">
+      </Button>
+      <Link className="mt-2 ms-2 small" href="/signup">
         Sign Up
       </Link>
 

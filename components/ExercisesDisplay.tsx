@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaCheck } from "react-icons/fa";
-import SetsDisplay from "./SetsDisplay";
 import { v4 } from "uuid";
 import { saveExercise } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
+import SetDisplay from "./SetItem";
+import SetItem from "./SetItem";
+import SelectedSetItem from "./SelectedSetItem";
+import CompletedSetItem from "./CompletedSetItem";
 
 const ExercisesDisplay = ({
   workout,
@@ -20,44 +23,22 @@ const ExercisesDisplay = ({
     data: (Session & { token: { user } }) | null;
   };
 
-  const handleCompleteExercise = async () => {
-    let nextIndex = currentExerciseIndex + 1;
-    while (
-      workout.exercises[nextIndex] &&
-      workout.exercises[nextIndex].complete
-    ) {
-      nextIndex++;
-    }
-    setCurrentExerciseIndex(nextIndex);
-    setCurrentSetIndex(0);
-
-    currentExercise.complete = true;
-    currentExercise.date = formattedDate;
-    currentExercise.userId = session?.token.user._id;
-    saveExercise(currentExercise);
-
-    // Check if all exercises are complete for the workout
-    workout.complete = workout.exercises.every((e) => e.complete);
-  };
   const handleWorkoutButtonClick = (exerciseIndex) => {
     if (currentExerciseIndex === exerciseIndex) {
       setCurrentExerciseIndex(-1);
     } else {
       setCurrentExerciseIndex(exerciseIndex);
     }
-    setCurrentSetIndex(0);
-  };
-  const handleResetExercise = () => {
-    currentExercise.sets.forEach((s) => {
-      s.actualReps = "";
-      s.actualWeight = "";
-    });
-    setCurrentSetIndex(0);
-    currentExercise.complete = false;
-    workout.complete = false;
-    setRoutine((prevRoutine) => ({
-      ...prevRoutine,
-    }));
+
+    let index = 0;
+    while (
+      workout.exercises[exerciseIndex] &&
+      workout.exercises[exerciseIndex].sets[index] &&
+      workout.exercises[exerciseIndex].sets[index].complete
+    ) {
+      index++;
+    }
+    setCurrentSetIndex(index);
   };
 
   return workout.exercises.map((e, exerciseIndex) => {
@@ -75,46 +56,50 @@ const ExercisesDisplay = ({
       <div key={v4()} className="text-center">
         <div className="d-flex justify-content-center alignt-items-center">
           <Button
-            variant="light"
-            className={`w-100 m-1 ${e.complete && "text-success"} ${
+            variant="secondary"
+            size="sm"
+            className={`w-100 my-1 ${e.complete && "text-white bg-success"} ${
               currentExerciseIndex === exerciseIndex && "fw-bold"
             }`}
             onClick={() => handleWorkoutButtonClick(exerciseIndex)}
+            style={{
+              boxShadow:
+                currentExerciseIndex === exerciseIndex
+                  ? "0 0 10px rgba(0, 120, 244, 0.6)" // Add your preferred glow color and intensity
+                  : "none",
+            }}
           >
             {e.name}{" "}
             <FaCheck
-              className={`ms-1 text-success ${!e.complete && "invisible"}`}
+              className={`ms-1 text-white ${!e.complete && "invisible"}`}
             />
           </Button>
-          {exerciseIndex === currentExerciseIndex && (
-            <Button
-              onClick={handleResetExercise}
-              className="m-1"
-              variant="secondary"
-            >
-              Reset
-            </Button>
-          )}
         </div>
-        {exerciseIndex === currentExerciseIndex && e.type === "weight" && (
-          <SetsDisplay
-            sets={e.sets}
-            currentExercise={currentExercise}
-            currentSetIndex={currentSetIndex}
-            setRoutine={setRoutine}
-            setCurrentSetIndex={setCurrentSetIndex}
-          />
-        )}
-        {currentExerciseIndex === exerciseIndex &&
-          !currentExercise.complete && (
-            <Button
-              onClick={handleCompleteExercise}
-              className="m-2"
-              variant="success"
-            >
-              Complete Exercise
-            </Button>
-          )}
+        {exerciseIndex === currentExerciseIndex &&
+          e.type === "weight" &&
+          currentExercise.sets.map((s, i) => {
+            return i === currentSetIndex ? (
+              <SelectedSetItem
+                set={s}
+                currentExercise={currentExercise}
+                setIndex={i}
+                currentExerciseIndex={currentExerciseIndex}
+                setCurrentSetIndex={setCurrentSetIndex}
+                formattedDate={formattedDate}
+                setRoutine={setRoutine}
+                setCurrentExerciseIndex={setCurrentExerciseIndex}
+                workout={workout}
+              />
+            ) : s.complete ? (
+              <CompletedSetItem
+                set={s}
+                setIndex={i}
+                setCurrentSetIndex={setCurrentSetIndex}
+              />
+            ) : (
+              <SetItem set={s} />
+            );
+          })}
       </div>
     );
   });

@@ -60,7 +60,9 @@ const HomePage: React.FC = () => {
       {process.env.NEXT_PUBLIC_ENV === "local" && (
         <div>
           <h2>Users</h2>
-          {users.length === 0 && <div className="text-muted">No Users</div>}
+          {users && users.length === 0 && (
+            <div className="text-muted">No Users</div>
+          )}
           {users.map((user) => (
             <div className="row align-items-center bg-light" key={user._id}>
               <div className="col-10">{user.username}</div>

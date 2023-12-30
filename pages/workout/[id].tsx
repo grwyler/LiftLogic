@@ -52,12 +52,8 @@ const WorkoutPage = () => {
     data: (Session & { token: { user } }) | null;
   };
 
-  const {
-    formattedDate,
-    currentDay,
-    capitalizedNextDay,
-    capitalizedPreviousDay,
-  } = getWorkoutVariables(currentDate, routine, currentDayIndex);
+  const { formattedDate, currentDay, previousDayShort, nextDayShort } =
+    getWorkoutVariables(currentDate, routine, currentDayIndex);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -97,6 +93,7 @@ const WorkoutPage = () => {
     } else {
       setCurrentDayIndex(currentDayIndex + change);
     }
+    setCurrentExerciseIndex(-1);
     const newDate = new Date(currentDate);
     newDate.setDate(currentDate.getDate() + change);
     setCurrentDate(newDate);
@@ -106,26 +103,26 @@ const WorkoutPage = () => {
     <div className="container-fluid">
       {workout && (
         <React.Fragment>
-          <div className="row text-center align-items-center bg-light">
-            <div className="col-4">
+          <div className="d-flex justify-content-between align-items-center bg-light">
+            <div>
               <Button
                 size="sm"
                 variant="light"
                 onClick={() => handleCurrentDayChange(-1)}
               >
-                <FaChevronLeft /> {capitalizedPreviousDay}
+                <FaChevronLeft /> {previousDayShort}
               </Button>
             </div>
-            <div className="col-4">
+            <div>
               <div className="fw-bold">{formattedDate}</div>
             </div>
-            <div className="col-4">
+            <div>
               <Button
                 size="sm"
                 variant="light"
                 onClick={() => handleCurrentDayChange(1)}
               >
-                {capitalizedNextDay} <FaChevronRight />
+                {nextDayShort} <FaChevronRight />
               </Button>
             </div>
           </div>

@@ -18,6 +18,26 @@ export const saveExercise = async (exercise) => {
   }
 };
 
+export const saveSet = async (set) => {
+  try {
+    const response = await fetch("/api/set", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ set }),
+    });
+
+    if (response.ok) {
+      console.log("User inputs saved successfully!");
+    } else {
+      console.error("Failed to save user inputs");
+    }
+  } catch (error) {
+    console.error("Error saving user inputs:", error);
+  }
+};
+
 export const updateWorkoutWithExercises = (workout, exercises) => {
   const updatedExercises = workout.exercises.map((exercise) => {
     const matchingExercise = exercises.find((fetchedExercise) => {
@@ -57,18 +77,37 @@ export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
     month: "short",
     day: "numeric",
   });
+  const { previousDayShort, nextDayShort } = getShortenedDays(currentDate);
   const currentDay = Object.keys(routine)[currentDayIndex];
-  const previousDayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
-  const previousDay = Object.keys(routine)[previousDayIndex];
-  const capitalizedPreviousDay =
-    previousDay.charAt(0).toUpperCase() + previousDay.slice(1);
-  const nextDayIndex = currentDayIndex === 6 ? 0 : currentDayIndex + 1;
-  const nextDay = Object.keys(routine)[nextDayIndex];
-  const capitalizedNextDay = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
   return {
     formattedDate,
     currentDay,
-    capitalizedNextDay,
-    capitalizedPreviousDay,
+    previousDayShort,
+    nextDayShort,
   };
+};
+
+export const roundToNearestTwoPointFive = (number) => {
+  return Math.round(number / 2.5) * 2.5;
+};
+
+// local helpers
+
+const getShortenedDays = (currentDate) => {
+  // Create Date objects for the previous and next days
+  const prevDay = new Date(currentDate);
+  prevDay.setDate(currentDate.getDate() - 1);
+
+  const nextDay = new Date(currentDate);
+  nextDay.setDate(currentDate.getDate() + 1);
+
+  // Format the dates to get the shortened days
+  const formattedPrevDay = prevDay.toLocaleDateString("en-US", {
+    weekday: "short",
+  });
+  const formattedNextDay = nextDay.toLocaleDateString("en-US", {
+    weekday: "short",
+  });
+
+  return { previousDayShort: formattedPrevDay, nextDayShort: formattedNextDay };
 };
