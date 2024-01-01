@@ -24,7 +24,7 @@ const SetItem = ({
   const { sets } = currentExercise;
   const { weight, reps } = set;
   const [currentSetWeight, setCurrentSetWeight] = useState(
-    roundToNearestFive(weight)
+    roundToNearestFive(weight).toString()
   );
   const [currentSetReps, setCurrentSetReps] = useState(reps);
   const repsInputRef = useRef(null);
@@ -120,10 +120,12 @@ const SetItem = ({
                 ref={weightInputRef}
                 type="number"
                 className="form-control form-control-sm"
-                value={currentSetWeight || weight}
+                value={currentSetWeight}
                 onChange={(e) => {
                   const newValue = parseFloat(e.target.value);
-                  setCurrentSetWeight(isNaN(newValue) ? 0 : newValue);
+                  setCurrentSetWeight(
+                    isNaN(newValue) ? "" : newValue.toString()
+                  );
                 }}
                 onFocus={() => {
                   setCurrentSetIndex(setIndex);
@@ -135,7 +137,7 @@ const SetItem = ({
                 ref={repsInputRef}
                 type="number"
                 className="form-control form-control-sm"
-                value={currentSetReps || reps}
+                value={currentSetReps}
                 onChange={(e) => {
                   setCurrentSetReps(e.target.value);
                 }}

@@ -10,10 +10,11 @@ const SignIn = () => {
   const [users, setUsers] = useState([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isLoadingUsers, setIsloadingUsers] = useState(true);
+  const [hasFailedLogin, setHasFailedLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const submitButtonRef = useRef();
-  const [error, setError] = useState(""); // New state for error message
+  const [error, setError] = useState("");
 
   const { data: session } = useSession();
 
@@ -26,6 +27,7 @@ const SignIn = () => {
       setIsloadingUsers(false);
     } catch (error) {
       console.error("Error fetching users:", error);
+      setError(error);
     }
   };
 
@@ -43,6 +45,7 @@ const SignIn = () => {
       fetchUsers();
     } catch (error) {
       console.error("Error deleting user:", error);
+      setError(error);
     }
   };
 
@@ -59,6 +62,9 @@ const SignIn = () => {
 
     if (result.error) {
       console.error("Sign-In Error:", result.error);
+      setError("👀👀 we don't know you");
+      // setHasFailedLogin(true);
+      setIsSigningIn(false);
     } else {
       console.log("User Sign-In Successful");
 
