@@ -11,13 +11,13 @@ import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 
 const SetItem = ({
+  routineName,
   set,
   currentExercise,
   setIndex,
   currentExerciseIndex,
   setCurrentSetIndex,
   formattedDate,
-  setRoutine,
   setCurrentExerciseIndex,
   workout,
 }) => {
@@ -54,6 +54,7 @@ const SetItem = ({
     if (currentExercise.complete) {
       currentExercise.date = formattedDate;
       currentExercise.userId = session?.token.user._id;
+      currentExercise.routineName = routineName;
       saveExercise(currentExercise);
       nextIndex = currentExerciseIndex + 1;
       let nextSetIndex = 0;
@@ -76,9 +77,6 @@ const SetItem = ({
         setCurrentSetIndex(nextSetIndex);
       }
     }
-    setRoutine((prevRoutine) => ({
-      ...prevRoutine,
-    }));
   };
   return (
     <div

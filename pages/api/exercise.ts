@@ -27,10 +27,12 @@ export default async function handler(
     }
   } else if (req.method === "GET") {
     // Handling GET request to retrieve exercises
-    const { userId, date } = req.query;
+    const { userId, date, routineName } = req.query;
 
-    if (!userId || !date) {
-      return res.status(400).json({ message: "User ID and date are required" });
+    if (!userId || !date || !routineName) {
+      return res
+        .status(400)
+        .json({ message: "User ID, date, routineName are required" });
     }
 
     try {
@@ -40,6 +42,7 @@ export default async function handler(
         .find({
           userId,
           date,
+          routineName,
         })
         .toArray();
 

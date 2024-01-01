@@ -1,47 +1,11 @@
 import React, { useState, useEffect } from "react";
 import SignIn from "./signin";
-import { FaTrash } from "react-icons/fa";
+import { FaSign, FaSignInAlt, FaTrash } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { Button } from "react-bootstrap";
 
 const HomePage: React.FC = () => {
-  const [users, setUsers] = useState([]);
   const router = useRouter();
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch("/api/user");
-      const data = await response.json();
-      setUsers(data.users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    }
-  };
-
-  useEffect(() => {
-    // Fetch users data from your API endpoint
-    fetchUsers();
-  }, []);
-
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      console.log("Deleting user with ID:", userId);
-
-      const response = await fetch(`/api/user?id=${userId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        console.log("User deleted successfully");
-      } else {
-        console.error("Failed to delete user. Server response:", response);
-      }
-
-      // Fetch updated user list after deletion
-      fetchUsers();
-    } catch (error) {
-      console.error("Error deleting user:", error);
-    }
-  };
 
   useEffect(() => {
     // Check if the session identifier is present in local storage
@@ -55,29 +19,8 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="container-fluid">
-      <h1>Home</h1>
+      <h3 className="m-3">Home</h3>
       <SignIn />
-      {process.env.NEXT_PUBLIC_ENV === "local" && (
-        <div>
-          <h2>Users</h2>
-          {users && users.length === 0 && (
-            <div className="text-muted">No Users</div>
-          )}
-          {users.map((user) => (
-            <div className="row align-items-center bg-light" key={user._id}>
-              <div className="col-10">{user.username}</div>
-              <div className="col-2">
-                <button
-                  className="btn btn-light btn-sm"
-                  onClick={() => handleDeleteUser(user._id)}
-                >
-                  <FaTrash className="text-danger" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

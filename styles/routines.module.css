@@ -1,0 +1,21 @@
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem;
+  background-color: #e2e6eb;
+}
+
+.navLink {
+  text-decoration: none;
+  color: #39424b;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border: #007bff;
+}
+
+.navLink:hover {
+  color: #007bff; /* Set your desired hover color */
+}

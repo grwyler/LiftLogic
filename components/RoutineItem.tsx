@@ -2,31 +2,47 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import { useSwipeable } from "react-swipeable";
-import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
+import { Session } from "next-auth";
 
-interface WorkoutItemProps {
-  workout: {
-    id: number;
+interface RoutineItemProps {
+  routine: {
     name: string;
+    description: string;
   };
   onSwipeLeft?: () => void;
+  setSelectedRoutine: (routine) => void;
 }
 
-const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onSwipeLeft }) => {
-  const { data: session } = useSession();
+const RoutineItem: React.FC<RoutineItemProps> = ({
+  routine,
+  onSwipeLeft,
+  setSelectedRoutine,
+}) => {
+  const { data: session } = useSession() as {
+    data: (Session & { token: { user } }) | null;
+  };
   const [swipeDistance, setSwipeDistance] = useState(0);
   const [hasSwipedLeft, setHasSwipedLeft] = useState(false);
-  const router = useRouter();
   const handleSelectWorkout = () => {
-    router.push(`/workout/${workout.id}`);
+    setSelectedRoutine(routine);
   };
   const handlers = useSwipeable({
-    onSwipedLeft: () => {
+    onSwipedLeft: async () => {
       if (onSwipeLeft && swipeDistance < -200 && !hasSwipedLeft) {
         setHasSwipedLeft(true);
       }
       setSwipeDistance(0);
+      try {
+        const response = await fetch(
+          `/api/routine?userId=${session?.token.user._id}&name=${routine.name}`,
+          {
+            method: "DELETE",
+          }
+        );
+      } catch (error) {
+        console.error("Error deleting workout:", error);
+      }
     },
     onSwiping: (event) => {
       setSwipeDistance(event.deltaX);
@@ -45,29 +61,32 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onSwipeLeft }) => {
     <React.Fragment>
       {hasSwipedLeft ? (
         <div
-          className="card border border-danger m-2"
+          className="card m-3"
           style={{
             boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
             transition: "transform 0.3s ease",
-            transform: `translateX(${swipeDistance}px)`,
             overflow: "visible",
           }}
         >
-          <div className="card-header bg-danger text-light">
-            <h3>Delete {workout.name}?</h3>
+          <div className="p-2">
+            <h5>Delete {routine.name}?</h5>
           </div>
-          <div className="card-body d-flex justify-content-evenly">
-            <Button variant="danger" onClick={() => onSwipeLeft()}>
+          <div className="p-2 d-flex justify-content-between align-items-center">
+            <Button size="sm" variant="danger" onClick={() => onSwipeLeft()}>
               Delete
             </Button>
-            <Button onClick={() => setHasSwipedLeft(false)} variant="secondary">
+            <Button
+              size="sm"
+              onClick={() => setHasSwipedLeft(false)}
+              variant="secondary"
+            >
               Cancel
             </Button>
           </div>
         </div>
       ) : (
         <div
-          className="card m-2"
+          className="card m-3"
           style={{
             boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
             transition: "transform 0.3s ease",
@@ -79,15 +98,15 @@ const WorkoutItem: React.FC<WorkoutItemProps> = ({ workout, onSwipeLeft }) => {
             if (!hasSwipedLeft) handleSelectWorkout();
           }}
         >
-          <div className="card-header">
-            <h3>{workout.name}</h3>
+          <div className="p-2 fw-bold">
+            <div>{routine.name}</div>
           </div>
-          <div className="card-body">Click to view workout</div>
+
+          <div className="p-2">{routine.description}</div>
         </div>
       )}
-      This is where your created workouts will go
     </React.Fragment>
   );
 };
 
-export default WorkoutItem;
+export default RoutineItem;

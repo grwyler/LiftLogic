@@ -37,6 +37,25 @@ export const saveSet = async (set) => {
     console.error("Error saving user inputs:", error);
   }
 };
+export const saveRoutine = async (routine) => {
+  try {
+    const response = await fetch("/api/routine", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ routine }),
+    });
+
+    if (response.ok) {
+      console.log("User inputs saved successfully!");
+    } else {
+      console.error("Failed to save user inputs");
+    }
+  } catch (error) {
+    console.error("Error saving user inputs:", error);
+  }
+};
 
 export const updateWorkoutWithExercises = (workout, exercises) => {
   const updatedExercises = workout.exercises.map((exercise) => {
@@ -78,10 +97,9 @@ export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
     day: "numeric",
   });
   const { previousDayShort, nextDayShort } = getShortenedDays(currentDate);
-  const currentDay = Object.keys(routine)[currentDayIndex];
+
   return {
     formattedDate,
-    currentDay,
     previousDayShort,
     nextDayShort,
   };
