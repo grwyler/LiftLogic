@@ -22,11 +22,12 @@ const SetItem = ({
   workout,
 }) => {
   const { sets } = currentExercise;
-  const { weight, reps } = set;
+  const { weight, reps, actualReps, actualWeight, name } = set;
+  const [setName, setSetName] = useState(name);
   const [currentSetWeight, setCurrentSetWeight] = useState(
-    roundToNearestFive(weight).toString()
+    actualWeight || roundToNearestFive(weight).toString()
   );
-  const [currentSetReps, setCurrentSetReps] = useState(reps);
+  const [currentSetReps, setCurrentSetReps] = useState(actualReps || reps);
   const repsInputRef = useRef(null);
   const weightInputRef = useRef(null);
   const { data: session } = useSession() as {
@@ -42,6 +43,7 @@ const SetItem = ({
     set.actualWeight = currentSetWeight;
     set.actualReps = currentSetReps;
     set.complete = true;
+    set.name = setName;
 
     currentExercise.sets = [
       ...sets.slice(0, setIndex),
@@ -93,7 +95,13 @@ const SetItem = ({
         className="card border small"
       >
         <div className="fw-bold d-flex justify-content-evenly">
-          <div className="m-1">{set.name}</div>
+          <input
+            className="m-2 form-control form-control-sm"
+            value={setName}
+            onChange={(e) => {
+              setSetName(e.target.value);
+            }}
+          />
           <Button
             type="button"
             disabled={!currentSetWeight || !currentSetReps}

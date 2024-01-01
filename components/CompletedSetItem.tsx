@@ -5,10 +5,13 @@ import { v4 } from "uuid";
 const SetItem = ({ set, setIndex, setCurrentSetIndex }) => {
   const { actualReps, actualWeight } = set;
 
+  const handleClickCompletedSet = () => {
+    setCurrentSetIndex(setIndex);
+  };
   return (
     <div
       key={v4()}
-      onClick={() => setCurrentSetIndex(setIndex)}
+      onClick={handleClickCompletedSet}
       className="card bg-light text-success small my-1"
     >
       <div>
