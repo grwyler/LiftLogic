@@ -209,6 +209,7 @@ const SetItem = ({
               <Button
                 type="button"
                 disabled={
+                  (currentExercise.type === "timed" && initialTimerActive) ||
                   (currentExercise.type === "timed" &&
                     seconds === 0 &&
                     minutes === 0 &&
