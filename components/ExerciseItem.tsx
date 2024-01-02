@@ -96,7 +96,6 @@ const ExerciseItem = ({
         </Button>
       </div>
       {exerciseIndex === currentExerciseIndex &&
-        currentExercise.type === "weight" &&
         currentExercise.sets &&
         currentExercise.sets.map((s, i) => {
           return i === currentSetIndex ? (
@@ -118,17 +117,23 @@ const ExerciseItem = ({
               set={s}
               setIndex={i}
               setCurrentSetIndex={setCurrentSetIndex}
+              type={currentExercise.type}
             />
           ) : (
             <SetItem
               key={v4()}
               set={s}
               handleDeleteSet={(setName) => handleDeleteSet(setName)}
+              type={currentExercise.type}
             />
           );
         })}
       {exerciseIndex === currentExerciseIndex && (
-        <Button variant="outline-info" className="w-100" onClick={handleAddSet}>
+        <Button
+          variant="outline-info"
+          className="w-100 my-2"
+          onClick={handleAddSet}
+        >
           Add Set <FaPlus />
         </Button>
       )}

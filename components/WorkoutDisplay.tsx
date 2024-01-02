@@ -5,16 +5,12 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaCheck,
-  FaList,
   FaSpinner,
 } from "react-icons/fa";
-import {
-  getWorkoutVariables,
-  updateWorkoutWithExercises,
-} from "../utils/helpers";
+import { getWorkoutVariables } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
-import ExercisesDisplay from "../components/ExercisesDisplay";
+import ExerciseItem from "./ExerciseItem";
 
 type Workout = {
   title: string;
@@ -44,13 +40,9 @@ type Set = {
 
 const WorkoutDisplay = ({ routine }) => {
   // local state
-  const router = useRouter();
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(true);
-  // const [workout, setWorkout] = useState<Workout | null>({
-  //   ...routine.days[Object.keys(routine.days)[currentDayIndex]],
-  // });
   const [workout, setWorkout] = useState<Workout | null>(() => {
     const currentDayKey = Object.keys(routine.days)[currentDayIndex];
     const initialWorkout = routine.days[currentDayKey];
@@ -177,13 +169,20 @@ const WorkoutDisplay = ({ routine }) => {
         </div>
       </div>
 
-      <ExercisesDisplay
-        workout={workout}
-        currentExerciseIndex={currentExerciseIndex}
-        setCurrentExerciseIndex={setCurrentExerciseIndex}
-        formattedDate={formattedDate}
-        routineName={routine.name}
-      />
+      {workout.exercises &&
+        workout.exercises.map((e, exerciseIndex) => {
+          return (
+            <ExerciseItem
+              exercise={e}
+              exerciseIndex={exerciseIndex}
+              workout={workout}
+              currentExerciseIndex={currentExerciseIndex}
+              setCurrentExerciseIndex={setCurrentExerciseIndex}
+              formattedDate={formattedDate}
+              routineName={routine.name}
+            />
+          );
+        })}
     </React.Fragment>
   );
 };

@@ -66,8 +66,11 @@ export default async function handler(
         userId,
         name,
       });
-      await disconnectFromDatabase();
+
       if (result.deletedCount === 1) {
+        // Delete related documents in the 'exercises' collection
+        const exercisesCollection = db.collection("exercises");
+        await exercisesCollection.deleteMany({ userId });
         return res
           .status(200)
           .json({ message: "Routine deleted successfully" });
@@ -77,6 +80,8 @@ export default async function handler(
     } catch (error) {
       console.error("Error deleting user:", error);
       return res.status(500).json({ error: "Internal Server Error" });
+    } finally {
+      await disconnectFromDatabase();
     }
   } else {
     // Handling other HTTP methods

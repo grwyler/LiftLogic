@@ -1,9 +1,10 @@
 import React from "react";
 import { FaCheckCircle, FaCheckDouble } from "react-icons/fa";
 import { v4 } from "uuid";
+import { formatTime } from "../utils/helpers";
 
-const SetItem = ({ set, setIndex, setCurrentSetIndex }) => {
-  const { actualReps, actualWeight } = set;
+const SetItem = ({ set, setIndex, setCurrentSetIndex, type }) => {
+  const { actualReps, actualWeight, totalSeconds } = set;
 
   const handleClickCompletedSet = () => {
     setCurrentSetIndex(setIndex);
@@ -18,8 +19,13 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex }) => {
         {set.name} <FaCheckCircle />
       </div>
       <div className="row small">
-        <div className="col small">{actualWeight} lbs.</div>
-        <div className="col small">{actualReps} reps</div>
+        {type === "weight" && (
+          <React.Fragment>
+            <div className="col small">{actualWeight} lbs.</div>
+            <div className="col small">{actualReps} reps</div>
+          </React.Fragment>
+        )}
+        {type === "timed" && <div>{formatTime(totalSeconds)}</div>}
       </div>
     </div>
   );

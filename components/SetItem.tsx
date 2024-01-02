@@ -4,8 +4,8 @@ import { roundToNearestFive } from "../utils/helpers";
 import { Button } from "react-bootstrap";
 import { IoMdClose } from "react-icons/io";
 
-const SetItem = ({ set, handleDeleteSet }) => {
-  const { weight, reps } = set;
+const SetItem = ({ set, handleDeleteSet, type }) => {
+  const { weight, reps, seconds, minutes, hours } = set;
 
   return (
     <div key={v4()} className="card bg-light text-secondary small my-1 ">
@@ -23,8 +23,19 @@ const SetItem = ({ set, handleDeleteSet }) => {
         </div>
       </div>
       <div className="row">
-        <div className="col">{roundToNearestFive(weight)} lbs.</div>
-        <div className="col">{reps} reps</div>
+        {type === "weight" && (
+          <React.Fragment>
+            <div className="col">{roundToNearestFive(weight)} lbs.</div>
+            <div className="col">{reps} reps</div>
+          </React.Fragment>
+        )}
+        {type === "timed" && (
+          <React.Fragment>
+            {hours > 0 && <div className="col">{hours} hours</div>}
+            {minutes > 0 && <div className="col">{minutes} minutes</div>}
+            {seconds > 0 && <div className="col">{seconds} seconds</div>}
+          </React.Fragment>
+        )}
       </div>
     </div>
   );

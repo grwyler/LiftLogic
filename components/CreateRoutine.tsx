@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Button, Form } from "react-bootstrap"; // Assuming you are using react-bootstrap components
-import { FaArrowLeft, FaSave, FaSpinner } from "react-icons/fa";
+import { Button, Form } from "react-bootstrap";
+import { FaSave, FaSpinner } from "react-icons/fa";
 import { saveRoutine } from "../utils/helpers";
 import { Session } from "next-auth";
 import { useSession } from "next-auth/react";
@@ -24,7 +24,17 @@ const CreateRoutine = ({ setIsCreatingRoutine, routines }) => {
           {
             name: "Dynamic Stretching Routine",
             type: "timed",
-            sets: [{ name: "Stretch and Foam Roll", seconds: 600 }],
+            sets: [
+              {
+                name: "Stretch and Foam Roll",
+                seconds: 0,
+                minutes: 15,
+                actualMinutes: "",
+                actualSeconds: "",
+                hours: 1,
+                actualHours: "",
+              },
+            ],
           },
         ],
       },
@@ -405,9 +415,33 @@ const CreateRoutine = ({ setIsCreatingRoutine, routines }) => {
             rest: 30,
             complete: false,
             sets: [
-              { name: "Working set 1", seconds: 60 },
-              { name: "Working set 2", seconds: 60 },
-              { name: "Working set 3", seconds: 60 },
+              {
+                name: "Working set 1",
+                seconds: 60,
+                actualSeconds: "",
+                minutes: 0,
+                actualMinutes: "",
+                hours: 0,
+                actualHours: "",
+              },
+              {
+                name: "Working set 2",
+                seconds: 60,
+                actualSeconds: "",
+                minutes: 0,
+                actualMinutes: "",
+                hours: 0,
+                actualHours: "",
+              },
+              {
+                name: "Working set 3",
+                seconds: 60,
+                actualSeconds: "",
+                minutes: 0,
+                actualMinutes: "",
+                hours: 0,
+                actualHours: "",
+              },
             ],
           },
         ],
@@ -474,11 +508,11 @@ const CreateRoutine = ({ setIsCreatingRoutine, routines }) => {
       >
         {isSavingRoutine ? (
           <>
-            Saving <FaSpinner />
+            Creating <FaSpinner />
           </>
         ) : (
           <>
-            Save <FaSave />
+            Create Routine <FaSave />
           </>
         )}
       </Button>

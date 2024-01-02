@@ -167,3 +167,15 @@ export const calculateWeights = (totalWeight) => {
 
   return requiredWeights.join(", ");
 };
+
+export const formatTime = (totalSeconds) => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  const formattedTime = `${hours > 0 ? hours + "h " : ""}${
+    minutes > 0 ? minutes + "m " : ""
+  }${remainingSeconds > 0 ? remainingSeconds + "s" : ""}`;
+
+  return formattedTime.trim();
+};
