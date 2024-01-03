@@ -13,19 +13,24 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex, type }) => {
     <div
       key={v4()}
       onClick={handleClickCompletedSet}
-      className="card bg-light text-success small my-1"
+      className="card bg-light text-success medium my-2 py-2 px-3"
     >
-      <div>
-        {set.name} <FaCheckCircle />
-      </div>
-      <div className="row small">
+
+      <div className="d-flex row small">
         {type === "weight" && (
           <React.Fragment>
-            <div className="col small">{actualWeight} lbs.</div>
-            <div className="col small">{actualReps} reps</div>
+            <div className="col">{actualWeight} lbs.</div>
+            <div className="col medium">{set.name} <FaCheckCircle /></div>
+            <div className="col">{actualReps} reps</div>
           </React.Fragment>
         )}
-        {type === "timed" && <div>{formatTime(totalSeconds)}</div>}
+        {type === "timed" && (
+          <React.Fragment>
+            <div className="col"></div>
+            <div className="col medium">{set.name} <FaCheckCircle /></div>
+            <div className="col">{formatTime(totalSeconds)}</div>
+          </React.Fragment>
+        )}
       </div>
     </div>
   );

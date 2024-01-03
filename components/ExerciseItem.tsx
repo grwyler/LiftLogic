@@ -72,13 +72,13 @@ const ExerciseItem = ({
     });
   };
   return (
-    <div key={v4()} className="text-center container-fluid">
+    <div key={v4()} className="text-center container-fluid border-bottom border-secondary">
       <div className="d-flex justify-content-center alignt-items-center">
         <Button
-          variant="secondary"
+          variant={`${(currentExerciseIndex === exerciseIndex) ? "primary" : "secondary"}`}
           className={`w-100 my-2 ${
             currentExercise.complete && "text-white bg-success"
-          } ${currentExerciseIndex === exerciseIndex && "fw-bold"}`}
+          } ${currentExerciseIndex === exerciseIndex && "fw-normal"}`}
           onClick={() => handleWorkoutButtonClick(exerciseIndex)}
           style={{
             boxShadow:
@@ -87,7 +87,7 @@ const ExerciseItem = ({
                 : "none",
           }}
         >
-          {currentExercise.name}{" "}
+          <span className="font-Inter fw-light">{currentExercise.name}{" "}</span>
           <FaCheck
             className={`ms-1 text-white ${
               !currentExercise.complete && "invisible"
@@ -131,7 +131,7 @@ const ExerciseItem = ({
       {exerciseIndex === currentExerciseIndex && (
         <Button
           variant="outline-info"
-          className="w-100 my-2"
+          className="w-100 mb-3"
           onClick={handleAddSet}
         >
           Add Set <FaPlus />
