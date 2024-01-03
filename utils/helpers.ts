@@ -156,7 +156,7 @@ export const calculateWeights = (totalWeight) => {
     );
 
     if (count > 0) {
-      requiredWeights.push(`${count} ${weight}${count > 1 ? "s" : ""}`);
+      requiredWeights.push(`${count}x ${weight} lbs.`);
       remainingWeight -= count * plateWeight;
     }
   }

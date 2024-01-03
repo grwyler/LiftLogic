@@ -166,27 +166,23 @@ const SetItem = ({
   return (
     <div
       key={setIndex}
-      style={{ transition: "margin .2s ease" }}
-      className="my-2"
+      style={{
+        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+        transition: "box-shadow 2s ease",
+        overflow: "visible",
+      }}
+      className={"card border small p-3 my-2 " + currentExercise.type}
     >
-      <div
-        style={{
-          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-          transition: "box-shadow 2s ease",
-          overflow: "visible",
-        }}
-        className="card border small"
-      >
-        <div className="fw-bold d-flex justify-content-evenly">
+        <div className="input-group mb-2">
           <input
-            className="m-2 form-control form-control-sm"
+            className="form-control font-Inter"
             value={setName}
             onChange={(e) => {
               setSetName(e.target.value);
             }}
           />
           {currentExercise.type === "timed" && timerActive && (
-            <Button variant="white text-secondary" onClick={handlePauseTimer}>
+            <Button variant="text-secondary bg-light border border-secondar" onClick={handlePauseTimer}>
               <FaPause />
             </Button>
           )}
@@ -198,14 +194,13 @@ const SetItem = ({
                 minutes === 0 &&
                 hours === 0
               }
-              variant="white text-success"
+              variant="text-success bg-light border border-secondar"
               onClick={handleStartTimer}
             >
               <FaPlay />
             </Button>
           )}
-          {currentExercise.type === "weight" ||
-            (currentExercise.type === "timed" && timerActive && (
+          {/* {currentExercise.type === "weight" || (currentExercise.type === "timed" && timerActive) && ( */}
               <Button
                 type="button"
                 disabled={
@@ -218,7 +213,7 @@ const SetItem = ({
                   (currentExercise.type === "weight" && !currentSetWeight)
                 }
                 size="sm"
-                variant="success m-1"
+                variant="success font-InterTight"
                 onClick={handleLogSet}
               >
                 {timerActive && currentExercise.type === "timed" ? (
@@ -229,26 +224,20 @@ const SetItem = ({
                   <>Start Timer</>
                 )}
               </Button>
-            ))}
+            {/* )} */}
         </div>
         <div className="container p-1">
           {currentExercise.type === "weight" && (
             <React.Fragment>
-              <div className="row small">
-                <div className="col small">
-                  <div className="text-secondary">
-                    {calculateWeights(roundToNearestFive(set.weight))}
-                  </div>{" "}
-                  {roundToNearestFive(weight)} lbs.
-                </div>
-                <div className="col small">{reps} reps</div>
+              <div className="col mb-2 text-secondary font-InterTight fw-bold">
+                  {calculateWeights(roundToNearestFive(set.weight))}
               </div>
               <div className="row small">
-                <div className="col small">
+                <div className="col input-group input-group-sm">
                   <input
                     ref={weightInputRef}
                     type="number"
-                    className="form-control form-control-sm"
+                    className="form-control font-Inter"
                     value={currentSetWeight}
                     onChange={(e) => {
                       const newValue = parseFloat(e.target.value);
@@ -260,12 +249,13 @@ const SetItem = ({
                       setCurrentSetIndex(setIndex);
                     }}
                   />
+                  <span className="input-group-text font-InterTight">{roundToNearestFive(weight)} lbs.</span>
                 </div>
-                <div className="col small">
+                <div className="col input-group input-group-sm">
                   <input
                     ref={repsInputRef}
                     type="number"
-                    className="form-control form-control-sm"
+                    className="form-control font-Inter"
                     value={currentSetReps}
                     onChange={(e) => {
                       setCurrentSetReps(e.target.value);
@@ -274,47 +264,47 @@ const SetItem = ({
                       setCurrentSetIndex(setIndex);
                     }}
                   />
+                  <span className="input-group-text font-InterTight">{reps} reps</span>
                 </div>
               </div>
             </React.Fragment>
           )}
           {currentExercise.type === "timed" && !timerActive ? (
-            <div className="d-flex align-items-center">
+            <div className="d-flex align-items-center input-group input-group-sm">
               <input
                 type="number"
-                className="form-control form-control-sm text-center me-1 "
+                className="form-control font-Inter form-control font-Inter-sm text-center"
                 value={hours}
                 placeholder="Hours"
                 onChange={(e) => handleInputChange(e.target.value, setHours)}
                 onBlur={handleBlur}
               />
-              <span className="me-1">h</span>
+              <span className="input-group-text font-InterTight">h</span>
 
               <input
                 type="number"
-                className="form-control form-control-sm text-center me-1"
+                className="form-control font-Inter form-control font-Inter-sm text-center"
                 value={minutes}
                 placeholder="Minutes"
                 onChange={(e) => handleInputChange(e.target.value, setMinutes)}
                 onBlur={handleBlur}
               />
-              <span className="me-1">m</span>
+              <span className="input-group-text font-InterTight">m</span>
 
               <input
                 type="number"
-                className="form-control form-control-sm text-center me-1"
+                className="form-control font-Inter form-control font-Inter-sm text-center"
                 value={seconds}
                 placeholder="Seconds"
                 onChange={(e) => handleInputChange(e.target.value, setSeconds)}
                 onBlur={handleBlur}
               />
-              <span>s</span>
+              <span className="input-group-text font-InterTight">s</span>
             </div>
           ) : (
             <div className="fw-bold m-1">{formatTime(countdown)}</div>
           )}
         </div>
-      </div>
     </div>
   );
 };

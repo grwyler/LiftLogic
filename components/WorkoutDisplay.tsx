@@ -139,29 +139,30 @@ const WorkoutDisplay = ({ routine }) => {
         <div>
           <Button
             size="sm"
-            variant="light"
+            variant="light font-InterTight"
             onClick={() => handleCurrentDayChange(-1)}
           >
             <FaChevronLeft /> {previousDayShort}
           </Button>
         </div>
         <div>
-          <div className="fw-bold">{formattedDate}</div>
+          <div className="fw-bold font-InterTight">{formattedDate}</div>
         </div>
         <div>
           <Button
             size="sm"
-            variant="light"
+            variant="light font-InterTight"
             onClick={() => handleCurrentDayChange(1)}
           >
             {nextDayShort} <FaChevronRight />
           </Button>
         </div>
       </div>
-      <div className="d-flex justify-content-center align-items-center m-3">
-        <h5 className={workout.complete ? "text-success" : ""}>
+      <div className="d-flex justify-content-center align-items-center mt-3 mb-2">
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+        <h4 className={workout.complete ? "font-InterTight text-success" : "font-InterTight"}>
           {workout.title}
-        </h5>
+        </h4>
         <div>
           <FaCheck
             className={`ms-1 text-success ${!workout.complete && "invisible"}`}
