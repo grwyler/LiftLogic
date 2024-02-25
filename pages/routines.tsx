@@ -19,7 +19,9 @@ const RoutinesPage: React.FC = () => {
       fetchWorkouts(setRoutine, session?.token.user._id);
     }
   }, [session?.token.user._id]);
-  return routine && <WorkoutDisplay routine={routine} />;
+  return (
+    routine && <WorkoutDisplay routine={routine} setRoutine={setRoutine} />
+  );
 };
 
 export default RoutinesPage;
