@@ -34,7 +34,7 @@ type Set = {
   weight: number;
 };
 
-const WorkoutDisplay = ({ routine }) => {
+const WorkoutDisplay = ({ routine, setRoutine }) => {
   // local state
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
@@ -45,15 +45,15 @@ const WorkoutDisplay = ({ routine }) => {
     workouts[selectedWorkoutIndex]
   );
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { data: session } = useSession() as {
+    data: (Session & { token: { user } }) | null;
+  };
 
   // derived state
   const currentDay = routine
     ? Object.keys(routine.days)[currentDayIndex]
     : null;
-
-  const { data: session } = useSession() as {
-    data: (Session & { token: { user } }) | null;
-  };
+  const userId = session?.token.user._id;
 
   const { formattedDate, previousDayShort, nextDayShort } = getWorkoutVariables(
     currentDate,
@@ -185,14 +185,14 @@ const WorkoutDisplay = ({ routine }) => {
             <FaSpinner />
           </div>
           {/* <button
-          onClick={() => {
-            const routineCopy = routines.Primary;
-            routineCopy.userId = session?.token.user._id;
-            saveRoutine(routineCopy);
-          }}
-        >
-          save
-        </button> */}
+            onClick={() => {
+              const routineCopy = routines.Primary;
+              routineCopy.userId = session?.token.user._id;
+              saveRoutine(routineCopy);
+            }}
+          >
+            save
+          </button> */}
         </Fragment>
       ) : (
         <Fragment>
@@ -203,6 +203,10 @@ const WorkoutDisplay = ({ routine }) => {
             setWorkouts={setWorkouts}
             selectedWorkoutIndex={selectedWorkoutIndex}
             setSelectedWorkoutIndex={setSelectedWorkoutIndex}
+            routine={routine}
+            setRoutine={setRoutine}
+            currentDayIndex={currentDayIndex}
+            userId={userId}
           />
 
           {currentWorkout.title && currentWorkout.title !== "" && (

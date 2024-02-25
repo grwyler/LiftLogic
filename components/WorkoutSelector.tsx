@@ -1,6 +1,7 @@
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useState } from "react";
 import { FaSave, FaPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
 import { IoEllipsisVertical } from "react-icons/io5";
+import { saveRoutine } from "../utils/helpers";
 
 const WorkoutSelector = ({
   currentWorkout,
@@ -9,12 +10,17 @@ const WorkoutSelector = ({
   setWorkouts,
   selectedWorkoutIndex,
   setSelectedWorkoutIndex,
+  routine,
+  setRoutine,
+  currentDayIndex,
+  userId,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
   const [isEditTitle, setIsEditTitle] = useState(false);
   const [isCreateTitle, setIsCreateTitle] = useState(workouts[0].title === "");
   const [showMenu, setShowMenu] = useState(false);
   const handleSaveTitleEdit = () => {
+    const routineCopy = { ...routine };
     setIsEditTitle(false);
     setIsCreateTitle(false);
     const workoutsCopy = [...workouts];
@@ -25,6 +31,11 @@ const WorkoutSelector = ({
     workoutsCopy[selectedWorkoutIndex] = newWorkout;
     setWorkouts(workoutsCopy);
     setCurrentWorkout(newWorkout);
+    const currentDayKey = Object.keys(routine.days)[currentDayIndex];
+    routineCopy.days[currentDayKey] = workoutsCopy;
+    routineCopy.userId = userId;
+    setRoutine(routineCopy);
+    saveRoutine(routineCopy);
   };
   const handleAddWorkout = () => {
     const workoutsCopy = [...workouts];
@@ -58,7 +69,7 @@ const WorkoutSelector = ({
     setShowMenu(false);
     setWorkoutTitle(currentWorkout.title);
   };
-  const handleDeleteTab = () => {
+  const handleDeleteWorkout = () => {
     // Display a confirmation dialog
     const isConfirmed = window.confirm(
       "Are you sure you want to delete this workout?"
@@ -66,6 +77,7 @@ const WorkoutSelector = ({
 
     // Check if the user confirmed
     if (isConfirmed) {
+      const routineCopy = { ...routine };
       // Filter out the workout with matching title
       const updatedWorkouts = workouts.filter(
         (w) => w.title !== currentWorkout.title
@@ -75,6 +87,11 @@ const WorkoutSelector = ({
       setWorkouts(updatedWorkouts);
       setShowMenu(false);
       setSelectedWorkoutIndex(0);
+      const currentDayKey = Object.keys(routine.days)[currentDayIndex];
+      routineCopy.days[currentDayKey] = updatedWorkouts;
+      routineCopy.userId = userId;
+      setRoutine(routineCopy);
+      saveRoutine(routineCopy);
     }
   };
   const handleCancelEditTitle = () => {
@@ -203,7 +220,7 @@ const WorkoutSelector = ({
                   <hr />
                   <button
                     className="btn btn-white text-danger"
-                    onClick={handleDeleteTab}
+                    onClick={handleDeleteWorkout}
                   >
                     <FaTrash />
                   </button>

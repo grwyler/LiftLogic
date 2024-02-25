@@ -15,9 +15,22 @@ export default async function handler(
     try {
       const db = await connectToDatabase();
       const collection = db.collection("routines");
+      const existingRoutine = await collection.findOne({
+        userId: routine.userId,
+      });
 
-      // Use insertOne for the latest MongoDB driver
-      await collection.insertOne(routine);
+      if (existingRoutine) {
+        delete routine._id;
+        // Update existing routine
+        await collection.updateOne(
+          { userId: routine.userId },
+          { $set: routine }
+        );
+      } else {
+        // Insert new routine
+        await collection.insertOne(routine);
+      }
+
       await disconnectFromDatabase();
 
       res.status(201).json({ message: "routine saved successfully!" });
