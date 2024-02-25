@@ -173,138 +173,145 @@ const SetItem = ({
       }}
       className={"card border small p-3 my-2 " + currentExercise.type}
     >
-        <div className="input-group mb-2">
-          <input
-            className="form-control font-Inter"
-            value={setName}
-            onChange={(e) => {
-              setSetName(e.target.value);
-            }}
-          />
-          {currentExercise.type === "timed" && timerActive && (
-            <Button variant="text-secondary bg-light border border-secondar" onClick={handlePauseTimer}>
-              <FaPause />
-            </Button>
-          )}
-          {currentExercise.type === "timed" && !timerActive && (
-            <Button
-              disabled={
-                currentExercise.type === "timed" &&
-                seconds === 0 &&
-                minutes === 0 &&
-                hours === 0
-              }
-              variant="text-success bg-light border border-secondar"
-              onClick={handleStartTimer}
-            >
-              <FaPlay />
-            </Button>
-          )}
-          {/* {currentExercise.type === "weight" || (currentExercise.type === "timed" && timerActive) && ( */}
-              <Button
-                type="button"
-                disabled={
-                  (currentExercise.type === "timed" && initialTimerActive) ||
-                  (currentExercise.type === "timed" &&
-                    seconds === 0 &&
-                    minutes === 0 &&
-                    hours === 0) ||
-                  (currentExercise.type === "weight" && !currentSetReps) ||
-                  (currentExercise.type === "weight" && !currentSetWeight)
-                }
-                size="sm"
-                variant="success font-InterTight"
-                onClick={handleLogSet}
-              >
-                {timerActive && currentExercise.type === "timed" ? (
-                  <>Complete Set</>
-                ) : currentExercise.type === "weight" ? (
-                  <>Log Set</>
-                ) : (
-                  <>Start Timer</>
-                )}
-              </Button>
-            {/* )} */}
-        </div>
-        <div className="container p-1">
-          {currentExercise.type === "weight" && (
-            <React.Fragment>
-              <div className="col mb-2 text-secondary font-InterTight fw-bold">
-                  {calculateWeights(roundToNearestFive(set.weight))}
-              </div>
-              <div className="row small">
-                <div className="col input-group input-group-sm">
-                  <input
-                    ref={weightInputRef}
-                    type="number"
-                    className="form-control font-Inter"
-                    value={currentSetWeight}
-                    onChange={(e) => {
-                      const newValue = parseFloat(e.target.value);
-                      setCurrentSetWeight(
-                        isNaN(newValue) ? "" : newValue.toString()
-                      );
-                    }}
-                    onFocus={() => {
-                      setCurrentSetIndex(setIndex);
-                    }}
-                  />
-                  <span className="input-group-text font-InterTight">{roundToNearestFive(weight)} lbs.</span>
-                </div>
-                <div className="col input-group input-group-sm">
-                  <input
-                    ref={repsInputRef}
-                    type="number"
-                    className="form-control font-Inter"
-                    value={currentSetReps}
-                    onChange={(e) => {
-                      setCurrentSetReps(e.target.value);
-                    }}
-                    onFocus={() => {
-                      setCurrentSetIndex(setIndex);
-                    }}
-                  />
-                  <span className="input-group-text font-InterTight">{reps} reps</span>
-                </div>
-              </div>
-            </React.Fragment>
-          )}
-          {currentExercise.type === "timed" && !timerActive ? (
-            <div className="d-flex align-items-center input-group input-group-sm">
-              <input
-                type="number"
-                className="form-control font-Inter form-control font-Inter-sm text-center"
-                value={hours}
-                placeholder="Hours"
-                onChange={(e) => handleInputChange(e.target.value, setHours)}
-                onBlur={handleBlur}
-              />
-              <span className="input-group-text font-InterTight">h</span>
-
-              <input
-                type="number"
-                className="form-control font-Inter form-control font-Inter-sm text-center"
-                value={minutes}
-                placeholder="Minutes"
-                onChange={(e) => handleInputChange(e.target.value, setMinutes)}
-                onBlur={handleBlur}
-              />
-              <span className="input-group-text font-InterTight">m</span>
-
-              <input
-                type="number"
-                className="form-control font-Inter form-control font-Inter-sm text-center"
-                value={seconds}
-                placeholder="Seconds"
-                onChange={(e) => handleInputChange(e.target.value, setSeconds)}
-                onBlur={handleBlur}
-              />
-              <span className="input-group-text font-InterTight">s</span>
-            </div>
+      <div className="input-group mb-2">
+        <input
+          className="form-control font-Inter"
+          value={setName}
+          onChange={(e) => {
+            setSetName(e.target.value);
+          }}
+        />
+        {currentExercise.type === "timed" && timerActive && (
+          <Button
+            variant="text-secondary bg-light border border-secondar"
+            onClick={handlePauseTimer}
+          >
+            <FaPause />
+          </Button>
+        )}
+        {currentExercise.type === "timed" && !timerActive && (
+          <Button
+            disabled={
+              currentExercise.type === "timed" &&
+              seconds === 0 &&
+              minutes === 0 &&
+              hours === 0
+            }
+            variant="text-success bg-light border border-secondar"
+            onClick={handleStartTimer}
+          >
+            <FaPlay />
+          </Button>
+        )}
+        <Button
+          type="button"
+          disabled={
+            (!timerActive && currentExercise.type === "timed") ||
+            (currentExercise.type === "timed" && initialTimerActive) ||
+            (currentExercise.type === "timed" &&
+              seconds === 0 &&
+              minutes === 0 &&
+              hours === 0) ||
+            (currentExercise.type === "weight" && !currentSetReps) ||
+            (currentExercise.type === "weight" && !currentSetWeight)
+          }
+          size="sm"
+          variant="success font-InterTight"
+          onClick={handleLogSet}
+        >
+          {timerActive && currentExercise.type === "timed" ? (
+            <>Complete Set</>
+          ) : currentExercise.type === "weight" ? (
+            <>Log Set</>
           ) : (
-            <div className="fw-bold m-1">{formatTime(countdown)}</div>
+            <>Complete Set</>
           )}
-        </div>
+        </Button>
+        {/* )} */}
+      </div>
+      <div className="container p-1">
+        {currentExercise.type === "weight" && (
+          <React.Fragment>
+            <div className="col mb-2 text-secondary font-InterTight fw-bold">
+              {calculateWeights(roundToNearestFive(set.weight))}
+            </div>
+            <div className="row small">
+              <div className="col input-group input-group-sm">
+                <input
+                  ref={weightInputRef}
+                  type="number"
+                  className="form-control font-Inter"
+                  value={currentSetWeight}
+                  onChange={(e) => {
+                    const newValue = parseFloat(e.target.value);
+                    setCurrentSetWeight(
+                      isNaN(newValue) ? "" : newValue.toString()
+                    );
+                  }}
+                  onFocus={() => {
+                    setCurrentSetIndex(setIndex);
+                  }}
+                />
+                <span className="input-group-text font-InterTight">
+                  {roundToNearestFive(weight)} lbs.
+                </span>
+              </div>
+              <div className="col input-group input-group-sm">
+                <input
+                  ref={repsInputRef}
+                  type="number"
+                  className="form-control font-Inter"
+                  value={currentSetReps}
+                  onChange={(e) => {
+                    setCurrentSetReps(e.target.value);
+                  }}
+                  onFocus={() => {
+                    setCurrentSetIndex(setIndex);
+                  }}
+                />
+                <span className="input-group-text font-InterTight">
+                  {reps} reps
+                </span>
+              </div>
+            </div>
+          </React.Fragment>
+        )}
+        {currentExercise.type === "timed" && !timerActive ? (
+          <div className="d-flex align-items-center input-group input-group-sm">
+            <input
+              type="number"
+              className="form-control font-Inter form-control font-Inter-sm text-center"
+              value={hours}
+              placeholder="Hours"
+              onChange={(e) => handleInputChange(e.target.value, setHours)}
+              onBlur={handleBlur}
+            />
+            <span className="input-group-text font-InterTight">h</span>
+
+            <input
+              type="number"
+              className="form-control font-Inter form-control font-Inter-sm text-center"
+              value={minutes}
+              placeholder="Minutes"
+              onChange={(e) => handleInputChange(e.target.value, setMinutes)}
+              onBlur={handleBlur}
+            />
+            <span className="input-group-text font-InterTight">m</span>
+
+            <input
+              type="number"
+              className="form-control font-Inter form-control font-Inter-sm text-center"
+              value={seconds}
+              placeholder="Seconds"
+              onChange={(e) => handleInputChange(e.target.value, setSeconds)}
+              onBlur={handleBlur}
+            />
+            <span className="input-group-text font-InterTight">s</span>
+          </div>
+        ) : (
+          <div className="fw-bold m-1">{formatTime(countdown)}</div>
+        )}
+      </div>
     </div>
   );
 };
