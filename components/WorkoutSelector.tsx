@@ -12,7 +12,7 @@ const WorkoutSelector = ({
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
   const [isEditTitle, setIsEditTitle] = useState(false);
-  const [isCreateTitle, setIsCreateTitle] = useState(currentWorkout !== null);
+  const [isCreateTitle, setIsCreateTitle] = useState(workouts[0].title === "");
   const [showMenu, setShowMenu] = useState(false);
   const handleSaveTitleEdit = () => {
     setIsEditTitle(false);

@@ -107,7 +107,7 @@ const WorkoutDisplay = ({ routine }) => {
 
             // Deep copy routine to avoid mutation
             const updatedWorkout = JSON.parse(
-              JSON.stringify(routine.days[currentDay])
+              JSON.stringify(routine.days[currentDay][selectedWorkoutIndex])
             );
 
             // Update the deep copy
@@ -119,7 +119,7 @@ const WorkoutDisplay = ({ routine }) => {
             const updatedRoutine = JSON.parse(JSON.stringify(routine));
             if (updatedRoutine.days[currentDay][selectedWorkoutIndex]) {
               setCurrentWorkout({
-                ...updatedRoutine.days[currentDay],
+                ...updatedRoutine.days[currentDay][selectedWorkoutIndex],
                 exercises: [
                   ...updatedRoutine.days[currentDay][selectedWorkoutIndex]
                     .exercises,
@@ -153,22 +153,7 @@ const WorkoutDisplay = ({ routine }) => {
     newDate.setDate(currentDate.getDate() + change);
     setCurrentDate(newDate);
   };
-  return isLoadingWorkout || !currentWorkout ? (
-    <Fragment>
-      <div className="spinning m-3 text-center">
-        <FaSpinner />
-      </div>
-      {/* <button
-        onClick={() => {
-          const routineCopy = routines.Primary;
-          routineCopy.userId = session?.token.user._id;
-          saveRoutine(routineCopy);
-        }}
-      >
-        save
-      </button> */}
-    </Fragment>
-  ) : (
+  return (
     <Fragment>
       <div className="d-flex justify-content-between align-items-center border bg-light p-2">
         <div>
@@ -193,34 +178,57 @@ const WorkoutDisplay = ({ routine }) => {
           </Button>
         </div>
       </div>
-      <WorkoutSelector
-        currentWorkout={currentWorkout}
-        setCurrentWorkout={setCurrentWorkout}
-        workouts={workouts}
-        setWorkouts={setWorkouts}
-        selectedWorkoutIndex={selectedWorkoutIndex}
-        setSelectedWorkoutIndex={setSelectedWorkoutIndex}
-      />
-      {currentWorkout.title && currentWorkout.title !== "" && (
+
+      {isLoadingWorkout || !currentWorkout ? (
         <Fragment>
-          {currentWorkout.exercises &&
-            currentWorkout.exercises.map((e, exerciseIndex) => {
-              return (
-                <ExerciseItem
-                  key={v4()}
-                  exercise={e}
-                  exerciseIndex={exerciseIndex}
-                  workout={currentWorkout}
-                  currentExerciseIndex={currentExerciseIndex}
-                  setCurrentExerciseIndex={setCurrentExerciseIndex}
-                  formattedDate={formattedDate}
-                  routineName={routine.name}
-                />
-              );
-            })}
-          <div className="p-2">
-            <button className="btn btn-outline-info w-100">Add Exercise</button>
+          <div className="spinning m-3 text-center">
+            <FaSpinner />
           </div>
+          {/* <button
+          onClick={() => {
+            const routineCopy = routines.Primary;
+            routineCopy.userId = session?.token.user._id;
+            saveRoutine(routineCopy);
+          }}
+        >
+          save
+        </button> */}
+        </Fragment>
+      ) : (
+        <Fragment>
+          <WorkoutSelector
+            currentWorkout={currentWorkout}
+            setCurrentWorkout={setCurrentWorkout}
+            workouts={workouts}
+            setWorkouts={setWorkouts}
+            selectedWorkoutIndex={selectedWorkoutIndex}
+            setSelectedWorkoutIndex={setSelectedWorkoutIndex}
+          />
+
+          {currentWorkout.title && currentWorkout.title !== "" && (
+            <Fragment>
+              {currentWorkout.exercises &&
+                currentWorkout.exercises.map((e, exerciseIndex) => {
+                  return (
+                    <ExerciseItem
+                      key={v4()}
+                      exercise={e}
+                      exerciseIndex={exerciseIndex}
+                      workout={currentWorkout}
+                      currentExerciseIndex={currentExerciseIndex}
+                      setCurrentExerciseIndex={setCurrentExerciseIndex}
+                      formattedDate={formattedDate}
+                      routineName={routine.name}
+                    />
+                  );
+                })}
+              <div className="p-2">
+                <button className="btn btn-outline-info w-100">
+                  Add Exercise
+                </button>
+              </div>
+            </Fragment>
+          )}
         </Fragment>
       )}
     </Fragment>
