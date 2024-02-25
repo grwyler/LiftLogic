@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { FaSave, FaPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
 import { IoEllipsisVertical } from "react-icons/io5";
 
@@ -12,9 +12,11 @@ const WorkoutSelector = ({
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
   const [isEditTitle, setIsEditTitle] = useState(false);
+  const [isCreateTitle, setIsCreateTitle] = useState(workouts[0].title === "");
   const [showMenu, setShowMenu] = useState(false);
   const handleSaveTitleEdit = () => {
-    setIsEditTitle(!isEditTitle);
+    setIsEditTitle(false);
+    setIsCreateTitle(false);
     const workoutsCopy = [...workouts];
     const newWorkout = {
       ...currentWorkout,
@@ -39,7 +41,7 @@ const WorkoutSelector = ({
 
     setWorkoutTitle(newWorkout.title);
     setShowMenu(false);
-    setIsEditTitle(true);
+    setIsCreateTitle(true);
   };
   const handleCurrentWorkoutChange = (e) => {
     const selectedTitle = e.target.value;
@@ -72,6 +74,7 @@ const WorkoutSelector = ({
       // Update the state with the filtered array
       setWorkouts(updatedWorkouts);
       setShowMenu(false);
+      setSelectedWorkoutIndex(0);
     }
   };
   const handleCancelEditTitle = () => {
@@ -80,14 +83,17 @@ const WorkoutSelector = ({
   };
   return (
     <div className="row m-0">
-      <div className={`${isEditTitle ? "col-12" : "col-10"} p-1`}>
-        {isEditTitle ? (
+      <div
+        className={`${isEditTitle || isCreateTitle ? "col-12" : "col-10"} p-1`}
+      >
+        {isEditTitle || isCreateTitle ? (
           <input
             className="form-control form-control-sm "
             type="text"
             value={workoutTitle}
             autoFocus
             onChange={(e) => setWorkoutTitle(e.target.value)}
+            placeholder="Workout name"
           />
         ) : (
           <Fragment>
@@ -127,21 +133,46 @@ const WorkoutSelector = ({
             <button
               className="btn btn-sm btn-light text-success "
               onClick={handleSaveTitleEdit}
+              disabled={
+                workoutTitle === "" ||
+                workoutTitle === currentWorkout.title ||
+                workouts.some((w) => w.title === workoutTitle)
+              }
             >
               <FaSave /> Save
             </button>
+
             <button
               className="btn btn-sm btn-light "
               onClick={handleCancelEditTitle}
+              disabled={workouts.length === 1 && workoutTitle === ""}
             >
               <FaTimes /> Cancel
+            </button>
+          </div>
+        </div>
+      ) : isCreateTitle ? (
+        <div className="col-12">
+          <div className="text-center">
+            <button
+              className="btn btn-sm btn-light text-success "
+              onClick={handleSaveTitleEdit}
+              disabled={
+                workoutTitle === "" ||
+                workouts.some(
+                  (w, i) =>
+                    w.title === workoutTitle && i !== selectedWorkoutIndex
+                )
+              }
+            >
+              <FaSave /> Create
             </button>
           </div>
         </div>
       ) : (
         <div className="col-2 pt-1">
           <button
-            className={`btn btn-sm  btn${showMenu ? "-light" : "-white"}`}
+            className={`btn  btn${showMenu ? "-light" : "-white"}`}
             onClick={() => setShowMenu(!showMenu)}
           >
             <IoEllipsisVertical />
@@ -152,30 +183,33 @@ const WorkoutSelector = ({
                 position: "absolute",
                 zIndex: 2,
                 backgroundColor: "white",
-                padding: 3,
                 boxShadow: "0px 8px 16px 0px rgba(0,0,0,0.2)",
               }}
             >
+              <hr />
               <button
-                className="btn btn-sm btn-white text-success"
+                className="btn btn-white text-success "
                 onClick={handleAddWorkout}
               >
                 <FaPlus />
               </button>
               <hr />
-              <button
-                className="btn btn-sm btn-white "
-                onClick={handleEditClick}
-              >
+              <button className="btn btn-white " onClick={handleEditClick}>
                 <FaEdit />
               </button>
-              <hr />
-              <button
-                className="btn btn-sm btn-white text-danger"
-                onClick={handleDeleteTab}
-              >
-                <FaTrash />
-              </button>
+
+              {workouts.length > 1 && (
+                <Fragment>
+                  <hr />
+                  <button
+                    className="btn btn-white text-danger"
+                    onClick={handleDeleteTab}
+                  >
+                    <FaTrash />
+                  </button>
+                  <hr />
+                </Fragment>
+              )}
             </div>
           )}
         </div>
