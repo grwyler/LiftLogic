@@ -1,16 +1,12 @@
-import { useRouter } from "next/router";
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
-import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaCheck,
-  FaSpinner,
-} from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaSpinner } from "react-icons/fa";
 import { getWorkoutVariables } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import ExerciseItem from "./ExerciseItem";
+import WorkoutSelector from "./WorkoutSelector";
+import { v4 } from "uuid";
 
 type Workout = {
   title: string;
@@ -43,15 +39,20 @@ const WorkoutDisplay = ({ routine }) => {
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(true);
-  const [workout, setWorkout] = useState<Workout | null>(() => {
-    const currentDayKey = Object.keys(routine.days)[currentDayIndex];
-    const initialWorkout = routine.days[currentDayKey];
-
-    // Deep copy the initial state to avoid mutation
-    return JSON.parse(JSON.stringify(initialWorkout));
-  });
-  const currentDay = Object.keys(routine.days)[currentDayIndex];
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
+  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(
+    workouts[selectedWorkoutIndex]
+  );
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // const [isEditTitle, setIsEditTitle] = useState(false);
+  // const [showMenu, setShowMenu] = useState(false);
+
+  // derived state
+  const currentDay = routine
+    ? Object.keys(routine.days)[currentDayIndex]
+    : null;
 
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
@@ -62,6 +63,29 @@ const WorkoutDisplay = ({ routine }) => {
     routine,
     currentDayIndex
   );
+  useEffect(() => {
+    if (workouts.length > 0) {
+      const selectedWorkout =
+        workouts[currentWorkout === null ? 0 : selectedWorkoutIndex];
+      setCurrentWorkout(selectedWorkout);
+    }
+  }, [selectedWorkoutIndex, workouts.length]);
+
+  useEffect(() => {
+    setWorkouts(() => {
+      if (routine) {
+        if (currentWorkout) {
+          setCurrentWorkout(null);
+          setSelectedWorkoutIndex(0);
+        }
+        const currentDayKey = Object.keys(routine.days)[currentDayIndex];
+        const initialWorkouts = routine.days[currentDayKey];
+
+        // Deep copy the initial state to avoid mutation
+        return JSON.parse(JSON.stringify(initialWorkouts));
+      }
+    });
+  }, [currentDayIndex]);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -73,16 +97,16 @@ const WorkoutDisplay = ({ routine }) => {
           const data = await response.json();
 
           if (data.exercises.length > 0) {
-            const updatedExercises = routine.days[currentDay].exercises.map(
-              (exercise) => {
-                const matchingExercise = data.exercises.find(
-                  (updatedExercise) => updatedExercise.name === exercise.name
-                );
+            const updatedExercises = routine.days[currentDay][
+              selectedWorkoutIndex
+            ].exercises.map((exercise) => {
+              const matchingExercise = data.exercises.find(
+                (updatedExercise) => updatedExercise.name === exercise.name
+              );
 
-                // If there's a matching exercise, use it, otherwise, keep the original exercise
-                return matchingExercise ? matchingExercise : exercise;
-              }
-            );
+              // If there's a matching exercise, use it, otherwise, keep the original exercise
+              return matchingExercise ? matchingExercise : exercise;
+            });
 
             // Deep copy routine to avoid mutation
             const updatedWorkout = JSON.parse(
@@ -92,14 +116,17 @@ const WorkoutDisplay = ({ routine }) => {
             // Update the deep copy
             updatedWorkout.exercises = updatedExercises;
 
-            setWorkout(updatedWorkout);
+            setCurrentWorkout(updatedWorkout);
           } else {
             // Deep copy routine to avoid mutation
             const updatedRoutine = JSON.parse(JSON.stringify(routine));
 
-            setWorkout({
+            setCurrentWorkout({
               ...updatedRoutine.days[currentDay],
-              exercises: [...updatedRoutine.days[currentDay].exercises],
+              exercises: [
+                ...updatedRoutine.days[currentDay][selectedWorkoutIndex]
+                  .exercises,
+              ],
             });
           }
         }
@@ -129,13 +156,24 @@ const WorkoutDisplay = ({ routine }) => {
     setCurrentDate(newDate);
   };
 
-  return isLoadingWorkout ? (
-    <div className="spinning m-3 text-center">
-      <FaSpinner />
-    </div>
+  return isLoadingWorkout || !currentWorkout ? (
+    <Fragment>
+      <div className="spinning m-3 text-center">
+        <FaSpinner />
+      </div>
+      {/* <button
+        onClick={() => {
+          const routineCopy = routines.Primary;
+          routineCopy.userId = session?.token.user._id;
+          saveRoutine(routineCopy);
+        }}
+      >
+        save
+      </button> */}
+    </Fragment>
   ) : (
-    <React.Fragment>
-      <div className="d-flex justify-content-between align-items-center border bg-light p-3">
+    <Fragment>
+      <div className="d-flex justify-content-between align-items-center border bg-light p-2">
         <div>
           <Button
             size="sm"
@@ -158,25 +196,22 @@ const WorkoutDisplay = ({ routine }) => {
           </Button>
         </div>
       </div>
-      <div className="d-flex justify-content-center align-items-center mt-3 mb-2">
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
-        <h4 className={workout.complete ? "font-InterTight text-success" : "font-InterTight"}>
-          {workout.title}
-        </h4>
-        <div>
-          <FaCheck
-            className={`ms-1 text-success ${!workout.complete && "invisible"}`}
-          />
-        </div>
-      </div>
-
-      {workout.exercises &&
-        workout.exercises.map((e, exerciseIndex) => {
+      <WorkoutSelector
+        currentWorkout={currentWorkout}
+        setCurrentWorkout={setCurrentWorkout}
+        workouts={workouts}
+        setWorkouts={setWorkouts}
+        selectedWorkoutIndex={selectedWorkoutIndex}
+        setSelectedWorkoutIndex={setSelectedWorkoutIndex}
+      />
+      {currentWorkout.exercises &&
+        currentWorkout.exercises.map((e, exerciseIndex) => {
           return (
             <ExerciseItem
+              key={v4()}
               exercise={e}
               exerciseIndex={exerciseIndex}
-              workout={workout}
+              workout={currentWorkout}
               currentExerciseIndex={currentExerciseIndex}
               setCurrentExerciseIndex={setCurrentExerciseIndex}
               formattedDate={formattedDate}
@@ -184,7 +219,10 @@ const WorkoutDisplay = ({ routine }) => {
             />
           );
         })}
-    </React.Fragment>
+      <div className="p-2">
+        <button className="btn btn-outline-info w-100">Add Exercise</button>
+      </div>
+    </Fragment>
   );
 };
 

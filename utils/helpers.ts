@@ -1,3 +1,5 @@
+import { intitialRoutine } from "./sample-data";
+
 export const saveExercise = async (exercise) => {
   try {
     const response = await fetch("/api/exercise", {
@@ -178,4 +180,17 @@ export const formatTime = (totalSeconds) => {
   }${remainingSeconds > 0 ? remainingSeconds + "s" : ""}`;
 
   return formattedTime.trim();
+};
+
+export const fetchWorkouts = async (setRoutine, userId) => {
+  try {
+    const response = await fetch(`/api/routine?userId=${userId}`);
+    if (response.ok) {
+      const data = await response.json();
+
+      setRoutine(data.routines[0] || intitialRoutine);
+    }
+  } catch (error) {
+    console.error("Error fetching users:", error);
+  }
 };
