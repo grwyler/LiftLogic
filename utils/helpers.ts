@@ -1,3 +1,4 @@
+import axios from "axios";
 import { intitialRoutine } from "./sample-data";
 
 export const saveExercise = async (exercise) => {
@@ -194,3 +195,35 @@ export const fetchWorkouts = async (setRoutine, userId) => {
     console.error("Error fetching users:", error);
   }
 };
+
+export async function getImageFromOpenAI(
+  setImage: Function,
+  setIsLoading: Function,
+  userInput: string
+) {
+  setIsLoading(true);
+
+  const prompt = userInput;
+  axios({
+    method: "post",
+    url: "https://api.openai.com/v1/images/generations",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer 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`,
+    },
+    data: {
+      prompt,
+      n: 1,
+      size: "512x512",
+      response_format: "url",
+    },
+  })
+    .then((response) => {
+      const imageUrl = response.data.data[0].url;
+      setImage(imageUrl);
+      setIsLoading(false);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+}

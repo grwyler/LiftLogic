@@ -23,14 +23,15 @@ const ExerciseItem = ({
     } else {
       setCurrentExerciseIndex(exerciseIndex);
     }
-
     let index = 0;
+
     while (
       currentExercise.sets[index] &&
       currentExercise.sets[index].complete
     ) {
       index++;
     }
+
     setCurrentSetIndex(index);
   };
   const handleAddSet = () => {
@@ -72,10 +73,15 @@ const ExerciseItem = ({
     });
   };
   return (
-    <div key={v4()} className="text-center container-fluid border-bottom border-secondary">
+    <div
+      key={v4()}
+      className="text-center container-fluid border-bottom border-secondary"
+    >
       <div className="d-flex justify-content-center alignt-items-center">
         <Button
-          variant={`${(currentExerciseIndex === exerciseIndex) ? "primary" : "secondary"}`}
+          variant={`${
+            currentExerciseIndex === exerciseIndex ? "primary" : "secondary"
+          }`}
           className={`w-100 my-2 ${
             currentExercise.complete && "text-white bg-success"
           } ${currentExerciseIndex === exerciseIndex && "fw-normal"}`}
@@ -87,7 +93,7 @@ const ExerciseItem = ({
                 : "none",
           }}
         >
-          <span className="font-Inter fw-light">{currentExercise.name}{" "}</span>
+          <span className="font-Inter fw-light">{currentExercise.name} </span>
           <FaCheck
             className={`ms-1 text-white ${
               !currentExercise.complete && "invisible"

@@ -4,8 +4,12 @@ import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import WorkoutDisplay from "../components/WorkoutDisplay";
 import { fetchWorkouts } from "../utils/helpers";
+import { useRouter } from "next/router";
+import WorkoutsManager from "../components/WorkoutsManager";
 
 const RoutinesPage: React.FC = () => {
+  const router = useRouter();
+  const { date } = router.query;
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
@@ -20,7 +24,9 @@ const RoutinesPage: React.FC = () => {
     }
   }, [session?.token.user._id]);
   return (
-    routine && <WorkoutDisplay routine={routine} setRoutine={setRoutine} />
+    routine && (
+      <WorkoutsManager routine={routine} setRoutine={setRoutine} date={date} />
+    )
   );
 };
 
