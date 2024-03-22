@@ -56,7 +56,9 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
     nextDayShort,
     isLoadingWorkout,
     currentExerciseIndex,
-  } = useWorkoutsManagerState(startDate, routine);
+    updateWorkoutInRoutine,
+    updateWorkoutsInRoutine,
+  } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
   const handleCurrentDayChange = (change) => {
     if (change < 0 && currentDayIndex === 0) {
@@ -72,27 +74,13 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
     setCurrentDate(newDate);
   };
 
-  const updateWorkoutInRoutine = (workout) => {
-    const workoutsCopy = [...workouts];
-    setCurrentWorkout(workout);
-    workoutsCopy[selectedWorkoutIndex] = workout;
-    updateWorkoutsInRoutine(workoutsCopy);
-  };
-  const updateWorkoutsInRoutine = (theWorkouts) => {
-    const routineCopy = { ...routine };
-    const currentDayKey = Object.keys(routine.days)[currentDayIndex];
-    setWorkouts(theWorkouts);
-    routineCopy.days[currentDayKey] = theWorkouts;
-    routineCopy.userId = userId;
-    setRoutine(routineCopy);
-    saveRoutine(routineCopy);
-  };
   return (
     <Fragment>
       {isAddingExercise ? (
         <AddExercise
           setIsAddingExercise={setIsAddingExercise}
           currentWorkout={currentWorkout}
+          setCurrentWorkout={setCurrentWorkout}
           updateWorkoutInRoutine={updateWorkoutInRoutine}
         />
       ) : (
@@ -132,11 +120,13 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
               />
               <WorkoutDisplay
                 currentWorkout={currentWorkout}
+                setCurrentWorkout={setCurrentWorkout}
                 currentExerciseIndex={currentExerciseIndex}
                 setCurrentExerciseIndex={setCurrentExerciseIndex}
                 formattedDate={formattedDate}
                 routineName={routine.name}
                 setIsAddingExercise={setIsAddingExercise}
+                updateWorkoutInRoutine={updateWorkoutInRoutine}
               />
             </Fragment>
           )}
@@ -146,14 +136,13 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
   );
 };
 
-const useWorkoutsManagerState = (startDate, routine) => {
+const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
   // local state
   const [currentDayIndex, setCurrentDayIndex] = useState(startDate.getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(true);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
-  debugger;
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(
     workouts.length > 0 ? workouts[selectedWorkoutIndex] : null
   );
@@ -161,6 +150,34 @@ const useWorkoutsManagerState = (startDate, routine) => {
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
+  };
+  const updateWorkoutsInRoutine = (theWorkouts: Workout[]) => {
+    const routineCopy = JSON.parse(JSON.stringify(routine));
+    const workoutsCopy = JSON.parse(JSON.stringify(theWorkouts));
+    const currentDayKey = Object.keys(routine.days)[currentDayIndex];
+    setWorkouts(workoutsCopy);
+    workoutsCopy.forEach((w) => {
+      w.complete = false;
+      w.exercises.forEach((e) => {
+        e.complete = false;
+        e.sets.forEach((s) => {
+          s.actualReps = "";
+          s.actualWeight = "";
+          s.complete = false;
+        });
+      });
+    });
+    routineCopy.days[currentDayKey] = workoutsCopy;
+    routineCopy.userId = userId;
+    setRoutine(routineCopy);
+    saveRoutine(routineCopy);
+  };
+
+  const updateWorkoutInRoutine = (workout) => {
+    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
+    setCurrentWorkout(workout);
+    workoutsCopy[selectedWorkoutIndex] = workout;
+    updateWorkoutsInRoutine(workoutsCopy);
   };
 
   // derived state
@@ -201,12 +218,11 @@ const useWorkoutsManagerState = (startDate, routine) => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
-        const url = `/api/exercise?userId=${session?.token.user._id}&date=${formattedDate}&routineName=${routine.name}`;
+        const url = `/api/exercise?userId=${session?.token.user._id}&date=${formattedDate}`;
         const response = await fetch(url);
 
         if (response.ok) {
           const data = await response.json();
-
           if (data.exercises.length > 0) {
             const updatedExercises = routine.days[currentDay][
               selectedWorkoutIndex
@@ -249,10 +265,10 @@ const useWorkoutsManagerState = (startDate, routine) => {
       }
     };
 
-    if (session?.token.user._id && formattedDate) {
+    if (userId && formattedDate) {
       fetchExercises();
     }
-  }, [session?.token.user._id, formattedDate, currentDay]);
+  }, [userId, formattedDate, currentDay, selectedWorkoutIndex]);
   return {
     currentDayIndex,
     setCurrentDayIndex,
@@ -273,6 +289,8 @@ const useWorkoutsManagerState = (startDate, routine) => {
     nextDayShort,
     isLoadingWorkout,
     currentExerciseIndex,
+    updateWorkoutInRoutine,
+    updateWorkoutsInRoutine,
   };
 };
 

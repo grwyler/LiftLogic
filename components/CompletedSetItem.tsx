@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Fragment } from "react";
 import { FaCheckCircle, FaCheckDouble } from "react-icons/fa";
 import { v4 } from "uuid";
 import { formatTime } from "../utils/helpers";
@@ -13,23 +13,23 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex, type }) => {
     <div
       key={v4()}
       onClick={handleClickCompletedSet}
-      className="card bg-light text-success medium my-2 py-2 px-3"
+      className="card bg-light m-2 py-2 px-3"
     >
+      <div className="d-flex row">
+        <div className="col">
+          {set.name} <FaCheckCircle className="text-success" />
+        </div>
+      </div>
 
       <div className="d-flex row small">
         {type === "weight" && (
-          <React.Fragment>
+          <Fragment>
             <div className="col">{actualWeight} lbs.</div>
-            <div className="col medium">{set.name} <FaCheckCircle /></div>
             <div className="col">{actualReps} reps</div>
-          </React.Fragment>
+          </Fragment>
         )}
         {type === "timed" && (
-          <React.Fragment>
-            <div className="col"></div>
-            <div className="col medium">{set.name} <FaCheckCircle /></div>
-            <div className="col">{formatTime(totalSeconds)}</div>
-          </React.Fragment>
+          <div className="col">{formatTime(totalSeconds)}</div>
         )}
       </div>
     </div>

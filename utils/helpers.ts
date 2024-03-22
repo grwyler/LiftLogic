@@ -188,7 +188,6 @@ export const fetchWorkouts = async (setRoutine, userId) => {
     const response = await fetch(`/api/routine?userId=${userId}`);
     if (response.ok) {
       const data = await response.json();
-
       setRoutine(data.routines[0] || intitialRoutine);
     }
   } catch (error) {

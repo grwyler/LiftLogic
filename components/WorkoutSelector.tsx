@@ -1,6 +1,8 @@
 import React, { Fragment, useState } from "react";
+import { Button } from "react-bootstrap";
 import { FaSave, FaPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
 import { IoEllipsisVertical } from "react-icons/io5";
+import CRUDMenu from "./CRUDMenu";
 
 const WorkoutSelector = ({
   currentWorkout,
@@ -18,7 +20,7 @@ const WorkoutSelector = ({
   const handleSaveTitleEdit = () => {
     setIsEditTitle(false);
     setIsCreateTitle(false);
-    const workoutsCopy = [...workouts];
+    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
     const newWorkout = {
       ...currentWorkout,
       title: workoutTitle,
@@ -27,7 +29,7 @@ const WorkoutSelector = ({
     updateWorkoutsInRoutine(workoutsCopy);
   };
   const handleAddWorkout = () => {
-    const workoutsCopy = [...workouts];
+    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
     const newWorkout = {
       title: `Workout ${workouts.length}`,
       complete: false,
@@ -49,8 +51,7 @@ const WorkoutSelector = ({
     const selectedWorkout = workouts.find(
       (workout) => workout.title === selectedTitle
     );
-
-    setCurrentWorkout(selectedWorkout);
+    // setCurrentWorkout(selectedWorkout);
     setSelectedWorkoutIndex(selectedIndex);
   };
   const handleEditClick = () => {
@@ -82,11 +83,11 @@ const WorkoutSelector = ({
   return (
     <div className="row m-0">
       <div
-        className={`${isEditTitle || isCreateTitle ? "col-12" : "col-10"} p-1`}
+        className={`${isEditTitle || isCreateTitle ? "col-12" : "col-10"} p-2`}
       >
         {isEditTitle || isCreateTitle ? (
           <input
-            className="form-control form-control-sm "
+            className="form-control form-control-sm"
             type="text"
             value={workoutTitle}
             autoFocus
@@ -152,8 +153,9 @@ const WorkoutSelector = ({
       ) : isCreateTitle ? (
         <div className="col-12">
           <div className="text-center">
-            <button
-              className="btn btn-sm btn-light text-success "
+            <Button
+              size="sm"
+              variant="light text-success"
               onClick={handleSaveTitleEdit}
               disabled={
                 workoutTitle === "" ||
@@ -164,52 +166,24 @@ const WorkoutSelector = ({
               }
             >
               <FaSave /> Create
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <div className="col-2 pt-1">
-          <button
-            className={`btn  btn${showMenu ? "-light" : "-white"}`}
+          <Button
+            size="sm"
+            variant={`${showMenu ? "light" : "white"}`}
             onClick={() => setShowMenu(!showMenu)}
           >
             <IoEllipsisVertical />
-          </button>
-          {showMenu && (
-            <div
-              style={{
-                position: "absolute",
-                zIndex: 2,
-                backgroundColor: "white",
-                boxShadow: "0px 8px 16px 0px rgba(0,0,0,0.2)",
-              }}
-            >
-              <hr />
-              <button
-                className="btn btn-white text-success "
-                onClick={handleAddWorkout}
-              >
-                <FaPlus />
-              </button>
-              <hr />
-              <button className="btn btn-white " onClick={handleEditClick}>
-                <FaEdit />
-              </button>
-
-              {workouts.length > 1 && (
-                <Fragment>
-                  <hr />
-                  <button
-                    className="btn btn-white text-danger"
-                    onClick={handleDeleteWorkout}
-                  >
-                    <FaTrash />
-                  </button>
-                  <hr />
-                </Fragment>
-              )}
-            </div>
-          )}
+          </Button>
+          <CRUDMenu
+            handleCreate={handleAddWorkout}
+            canRead={showMenu}
+            handleUpdate={handleEditClick}
+            handleDelete={workouts.length > 1 ? handleDeleteWorkout : undefined}
+          />
         </div>
       )}
     </div>

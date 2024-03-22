@@ -8,7 +8,7 @@ const SetItem = ({ set, handleDeleteSet, type }) => {
   const { weight, reps, seconds, minutes, hours } = set;
 
   return (
-    <div key={v4()} className="card bg-light text-secondary medium my-2">
+    <div key={v4()} className="card bg-light text-secondary m-2">
       <div className="d-flex justify-content-between small px-3 py-2 align-items-center">
         {type === "weight" && (
           <React.Fragment>

@@ -26,3 +26,11 @@
   flex: 1;
   font-size: 16px;
 }
+
+.flip-icon {
+  transition: transform 2s ease;
+}
+
+.flip-icon.rotate {
+  transform: rotate(180deg);
+}

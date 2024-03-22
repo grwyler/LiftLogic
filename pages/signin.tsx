@@ -5,12 +5,13 @@ import { useSession, signIn } from "next-auth/react";
 import { Button } from "react-bootstrap";
 import { FaSave, FaSignInAlt, FaSpinner, FaTrash } from "react-icons/fa";
 import user from "./api/user";
+import UserTable from "../components/UserTable";
 
 const SignIn = () => {
   const [users, setUsers] = useState([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isLoadingUsers, setIsloadingUsers] = useState(true);
-  const [hasFailedLogin, setHasFailedLogin] = useState(false);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const submitButtonRef = useRef();
@@ -34,20 +35,6 @@ const SignIn = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
-
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const response = await fetch(`/api/user?id=${userId}`, {
-        method: "DELETE",
-      });
-
-      // Fetch updated user list after deletion
-      fetchUsers();
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      setError(error);
-    }
-  };
 
   const handleSubmit = async (theUsername?, thePassword?) => {
     setIsSigningIn(true);
@@ -125,32 +112,14 @@ const SignIn = () => {
             <div className="text-muted">No Users</div>
           )}
           {users.map((user) => (
-            <div
-              className="d-flex justify-content-between bg-light border border-white p-3"
-              key={user._id}
-            >
-              <Button
-                size="sm"
-                variant="light"
-                title="signin as this pussy"
-                onClick={() => {
-                  setUsername(user.username);
-                  setPassword(user.password);
-                  handleSubmit(user.username, user.password);
-                }}
-              >
-                <FaSignInAlt className="text-primary" /> {user.username}
-              </Button>
-
-              <Button
-                size="sm"
-                variant="light"
-                title="delete this pussy"
-                onClick={() => handleDeleteUser(user._id)}
-              >
-                <FaTrash className="text-danger" />
-              </Button>
-            </div>
+            <UserTable
+              user={user}
+              setUsername={setUsername}
+              setPassword={setPassword}
+              handleSubmit={handleSubmit}
+              fetchUsers={fetchUsers}
+              setError={setError}
+            />
           ))}
         </div>
       )}

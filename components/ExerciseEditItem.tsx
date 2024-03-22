@@ -1,0 +1,229 @@
+import React, { Fragment, useEffect, useState } from "react";
+import { Button } from "react-bootstrap";
+import { FaMinus, FaPlus } from "react-icons/fa";
+import SetEditTimerItem from "./SetEditTimerItem";
+import SetEditWeightItem from "./SetEditWeightItem";
+import { DragDropContext, Droppable } from "react-beautiful-dnd";
+import TimerInput from "./TimerInput";
+
+const ExerciseEditItem = ({
+  index,
+  exercise,
+  handleRemoveExercise,
+  selectedExercises,
+  setSelectedExercises,
+}) => {
+  const [mySets, setMySets] = useState(exercise.sets);
+  const [mySetLength, setMySetLength] = useState(exercise.sets.length);
+  const [myOneRepMax, setMyOneRepMax] = useState(exercise.oneRepMax);
+  const [mySeconds, setMySeconds] = useState(exercise.seconds);
+  const [myMinutes, setMyMinutes] = useState(exercise.minutes);
+  const [myHours, setMyHours] = useState(exercise.hours);
+  const handleUpdateOneRepMax = (oneRepMax) => {
+    setMyOneRepMax(oneRepMax);
+  };
+  useEffect(() => {
+    if (
+      ((exercise.type === "weight" && myOneRepMax) ||
+        exercise.type === "timed") &&
+      mySetLength >= 0 &&
+      mySetLength !== mySets.length
+    ) {
+      const minWeight = myOneRepMax * 0.6;
+      // exerciseCopy.sets = [];
+      setMySets([]);
+      const newSets = [];
+      if (mySetLength === 1) {
+        // If only one set is requested, set weight directly to 195 (or closest to 1 rep max)
+        const roundedWeight = Math.round((myOneRepMax * 0.8) / 2.5) * 2.5; // Round to nearest 2.5 lbs
+        let newSet;
+        if (exercise.type === "weight") {
+          newSet = {
+            name: "Working Set 1",
+            reps: 5,
+            actualReps: "",
+            actualWeight: "",
+            weight: roundedWeight,
+          };
+        } else {
+          newSet = {
+            name: "Working Set 1",
+            seconds: mySeconds,
+            minutes: myMinutes,
+            hours: myHours,
+            actualSeconds: "",
+            actualMinutes: "",
+            actualHours: "",
+          };
+        }
+
+        setMySets([newSet]);
+        newSets.push(newSet);
+      } else if (mySetLength > 1) {
+        const increment = (myOneRepMax - minWeight) / mySetLength - 1; // Calculate the weight increment
+
+        for (let i = 0; i < mySetLength; i++) {
+          let newSet;
+          if (exercise.type === "weight") {
+            let weight = minWeight + increment * i; // Start from minWeight and increment by the calculated amount
+            let roundedWeight = Math.round(weight / 2.5) * 2.5; // Round to nearest 2.5 lbs
+            let reps = i === 0 ? 10 : i === mySetLength - 1 ? 2 : 6; // 10 reps for first set, 6 reps for intermediate sets, 2 rep for last set
+            newSet = {
+              name: `Working Set ${i + 1}`,
+              reps,
+              actualReps: "",
+              actualWeight: "",
+              weight: roundedWeight,
+            };
+          } else {
+            newSet = {
+              name: `Working Set ${i + 1}`,
+              seconds: mySeconds,
+              minutes: myMinutes,
+              hours: myHours,
+              actualSeconds: "",
+              actualMinutes: "",
+              actualHours: "",
+            };
+          }
+
+          newSets.push(newSet);
+          setMySets(newSets);
+        }
+      }
+      const selectedExercisesCopy = [...selectedExercises];
+      selectedExercisesCopy[selectedExercises.indexOf(exercise)] = {
+        ...exercise,
+        sets: newSets,
+      };
+      setSelectedExercises(selectedExercisesCopy);
+    }
+  }, [mySetLength, myOneRepMax, mySets]);
+  const handleDragEnd = (result) => {
+    if (!result.destination) {
+      return; // Dropped outside the list
+    }
+
+    const { source, destination } = result;
+    if (source.index === destination.index) {
+      return; // Item dropped at the same position
+    }
+
+    const newSets = Array.from(mySets);
+    const [removed] = newSets.splice(source.index, 1);
+    newSets.splice(destination.index, 0, removed);
+
+    setMySets(newSets);
+  };
+  const handleInputChange = (value, setValue) => {
+    const trimmedValue = value.toString().replace(/^0+/, ""); // Remove leading zeros
+    const intValue = parseInt(trimmedValue, 10);
+    setValue(isNaN(intValue) ? 0 : trimmedValue);
+  };
+
+  return (
+    <div key={index} className={`card border-primary m-2`}>
+      <div
+        className={`card-header d-flex justify-content-between align-items-center bg-primary text-white`}
+      >
+        <div className="card-title">{exercise.name}</div>
+        <Button
+          variant="light"
+          size="sm"
+          onClick={() => handleRemoveExercise(exercise)}
+        >
+          Remove <FaMinus />
+        </Button>
+      </div>
+      <div className="card-body">
+        <div className="container-fluid">
+          <div className="row my-2">
+            {exercise.type === "timed" ? (
+              <TimerInput
+                hours={myHours}
+                setHours={setMyHours}
+                minutes={myMinutes}
+                setMinutes={setMyMinutes}
+                seconds={mySeconds}
+                setSeconds={setMySeconds}
+                handleBlur={() => {}}
+                handleInputChange={handleInputChange}
+              />
+            ) : (
+              <Fragment>
+                <div className="col-5">1 Rep Max</div>
+                <div className="col-7">
+                  <div className="input-group">
+                    <input
+                      type="number"
+                      min={0}
+                      max={1000}
+                      className="form-control"
+                      autoFocus
+                      value={myOneRepMax}
+                      onChange={(e) => handleUpdateOneRepMax(e.target.value)}
+                    />
+                    <span className="input-group-text font-InterTight">
+                      lbs.
+                    </span>
+                  </div>
+                </div>
+              </Fragment>
+            )}
+          </div>
+          <div className="row my-2">
+            <div className="col-5">Sets</div>
+            <div className="col-7">
+              <div className="input-group">
+                <Button
+                  variant="light"
+                  disabled={
+                    mySetLength === 0 ||
+                    (!myOneRepMax && exercise.type === "weight")
+                  }
+                  onClick={() => setMySetLength(mySetLength - 1)}
+                >
+                  <FaMinus />
+                </Button>
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  className="form-control text-center"
+                  value={mySetLength}
+                  onChange={(e) => setMySetLength(e.target.value)}
+                  disabled={!myOneRepMax && exercise.type === "weight"}
+                />
+                <Button
+                  variant="light"
+                  disabled={!myOneRepMax && exercise.type === "weight"}
+                  onClick={() => setMySetLength(mySetLength + 1)}
+                >
+                  <FaPlus />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="sets">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef}>
+                  {mySets.map((set, index) => {
+                    if (exercise.type === "timed") {
+                      return <SetEditTimerItem set={set} index={index} />;
+                    } else {
+                      return <SetEditWeightItem set={set} index={index} />;
+                    }
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ExerciseEditItem;

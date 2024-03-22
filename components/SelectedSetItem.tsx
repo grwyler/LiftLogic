@@ -4,11 +4,13 @@ import {
   formatTime,
   roundToNearestFive,
   saveExercise,
+  saveSet,
 } from "../utils/helpers";
 import { Button } from "react-bootstrap";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { FaPause, FaPlay } from "react-icons/fa";
+import TimerInput from "./TimerInput";
 
 const SetItem = ({
   routineName,
@@ -127,6 +129,7 @@ const SetItem = ({
     set.totalSeconds = totalSeconds - countdown;
     set.complete = true;
     set.name = setName;
+    // saveSet(set);
 
     currentExercise.sets = [
       ...sets.slice(0, setIndex),
@@ -171,21 +174,18 @@ const SetItem = ({
         transition: "box-shadow 2s ease",
         overflow: "visible",
       }}
-      className={"card border small p-3 my-2 " + currentExercise.type}
+      className={"card small p-3 m-2 " + currentExercise.type}
     >
       <div className="input-group mb-2">
         <input
-          className="form-control font-Inter"
+          className="form-control font-Inter small"
           value={setName}
           onChange={(e) => {
             setSetName(e.target.value);
           }}
         />
         {currentExercise.type === "timed" && timerActive && (
-          <Button
-            variant="text-secondary bg-light border border-secondar"
-            onClick={handlePauseTimer}
-          >
+          <Button variant="white text-secondary" onClick={handlePauseTimer}>
             <FaPause />
           </Button>
         )}
@@ -197,7 +197,7 @@ const SetItem = ({
               minutes === 0 &&
               hours === 0
             }
-            variant="text-success bg-light border border-secondar"
+            variant="white text-primary"
             onClick={handleStartTimer}
           >
             <FaPlay />
@@ -277,37 +277,16 @@ const SetItem = ({
           </React.Fragment>
         )}
         {currentExercise.type === "timed" && !timerActive ? (
-          <div className="d-flex align-items-center input-group input-group-sm">
-            <input
-              type="number"
-              className="form-control font-Inter form-control font-Inter-sm text-center"
-              value={hours}
-              placeholder="Hours"
-              onChange={(e) => handleInputChange(e.target.value, setHours)}
-              onBlur={handleBlur}
-            />
-            <span className="input-group-text font-InterTight">h</span>
-
-            <input
-              type="number"
-              className="form-control font-Inter form-control font-Inter-sm text-center"
-              value={minutes}
-              placeholder="Minutes"
-              onChange={(e) => handleInputChange(e.target.value, setMinutes)}
-              onBlur={handleBlur}
-            />
-            <span className="input-group-text font-InterTight">m</span>
-
-            <input
-              type="number"
-              className="form-control font-Inter form-control font-Inter-sm text-center"
-              value={seconds}
-              placeholder="Seconds"
-              onChange={(e) => handleInputChange(e.target.value, setSeconds)}
-              onBlur={handleBlur}
-            />
-            <span className="input-group-text font-InterTight">s</span>
-          </div>
+          <TimerInput
+            hours={hours}
+            setHours={setHours}
+            minutes={minutes}
+            setMinutes={setMinutes}
+            seconds={seconds}
+            setSeconds={setSeconds}
+            handleBlur={handleBlur}
+            handleInputChange={handleInputChange}
+          />
         ) : (
           <div className="fw-bold m-1">{formatTime(countdown)}</div>
         )}

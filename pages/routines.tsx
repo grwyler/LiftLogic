@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
-import WorkoutDisplay from "../components/WorkoutDisplay";
 import { fetchWorkouts } from "../utils/helpers";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
+import { FaSpinner } from "react-icons/fa";
 
 const RoutinesPage: React.FC = () => {
   const router = useRouter();
@@ -23,10 +23,13 @@ const RoutinesPage: React.FC = () => {
       fetchWorkouts(setRoutine, session?.token.user._id);
     }
   }, [session?.token.user._id]);
-  return (
-    routine && (
-      <WorkoutsManager routine={routine} setRoutine={setRoutine} date={date} />
-    )
+  return routine ? (
+    <WorkoutsManager routine={routine} setRoutine={setRoutine} date={date} />
+  ) : (
+    <div className="spinning d-flex p-5 justify-content-center align-items-center">
+      Loading
+      <FaSpinner className="ms-2" />
+    </div>
   );
 };
 
