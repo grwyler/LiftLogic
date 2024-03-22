@@ -32,7 +32,7 @@ const ExerciseEditItem = ({
       const minWeight = myOneRepMax * 0.6;
       // exerciseCopy.sets = [];
       setMySets([]);
-      const newSets = [];
+      let newSets = [];
       if (mySetLength === 1) {
         // If only one set is requested, set weight directly to 195 (or closest to 1 rep max)
         const roundedWeight = Math.round((myOneRepMax * 0.8) / 2.5) * 2.5; // Round to nearest 2.5 lbs
@@ -56,10 +56,8 @@ const ExerciseEditItem = ({
             actualHours: "",
           };
         }
-
-        setMySets([newSet]);
         newSets.push(newSet);
-      } else if (mySetLength > 1) {
+      } else if (mySetLength > 1 && mySetLength > mySets.length) {
         const increment = (myOneRepMax - minWeight) / mySetLength - 1; // Calculate the weight increment
 
         for (let i = 0; i < mySetLength; i++) {
@@ -88,9 +86,11 @@ const ExerciseEditItem = ({
           }
 
           newSets.push(newSet);
-          setMySets(newSets);
         }
+      } else if (mySetLength > 1 && mySetLength < mySets.length) {
+        newSets = newSets.slice(0, mySetLength);
       }
+      setMySets(newSets);
       const selectedExercisesCopy = [...selectedExercises];
       selectedExercisesCopy[selectedExercises.indexOf(exercise)] = {
         ...exercise,
