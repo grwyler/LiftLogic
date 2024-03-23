@@ -18,7 +18,10 @@ const HomePage: React.FC = () => {
   }, []);
 
   return (
-    <div className="container-fluid">
+    <div
+      className="container border p-2 rounded vh-100"
+      style={{ maxWidth: 600 }}
+    >
       <h3 className="m-3">Home</h3>
       <SignIn />
     </div>

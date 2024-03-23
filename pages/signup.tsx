@@ -44,7 +44,11 @@ const SignUp: React.FC = () => {
   };
 
   return (
-    <form className="container" onSubmit={handleSubmit}>
+    <form
+      className="container border p-2 rounded vh-100"
+      style={{ maxWidth: 600 }}
+      onSubmit={handleSubmit}
+    >
       <input
         type="text"
         id="username"

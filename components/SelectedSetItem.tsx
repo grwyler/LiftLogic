@@ -21,6 +21,7 @@ const SelectedSetItem = ({
   formattedDate,
   setCurrentExerciseIndex,
   workout,
+  darkMode,
 }) => {
   const { sets } = currentExercise;
   const {
@@ -178,11 +179,13 @@ const SelectedSetItem = ({
         transition: "box-shadow 2s ease",
         overflow: "visible",
       }}
-      className={"card small p-3 m-2 " + currentExercise.type}
+      className={`card small p-3 m-2 ${darkMode ? "bg-dark border-light" : ""}`}
     >
       <div className="input-group mb-2">
         <input
-          className="form-control font-Inter small"
+          className={`form-control font-Inter small ${
+            darkMode ? "bg-dark text-white" : ""
+          }`}
           value={setName}
           onChange={(e) => {
             setSetName(e.target.value);
@@ -243,7 +246,9 @@ const SelectedSetItem = ({
                 <input
                   ref={weightInputRef}
                   type="number"
-                  className="form-control font-Inter"
+                  className={`form-control font-Inter ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
                   value={currentSetWeight}
                   onChange={(e) => {
                     const newValue = parseFloat(e.target.value);
@@ -255,7 +260,11 @@ const SelectedSetItem = ({
                     setCurrentSetIndex(setIndex);
                   }}
                 />
-                <span className="input-group-text font-InterTight">
+                <span
+                  className={`input-group-text font-InterTight ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
+                >
                   {roundToNearestFive(weight)} lbs.
                 </span>
               </div>
@@ -263,7 +272,9 @@ const SelectedSetItem = ({
                 <input
                   ref={repsInputRef}
                   type="number"
-                  className="form-control font-Inter"
+                  className={`form-control font-Inter ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
                   value={currentSetReps}
                   onChange={(e) => {
                     setCurrentSetReps(e.target.value);
@@ -272,7 +283,11 @@ const SelectedSetItem = ({
                     setCurrentSetIndex(setIndex);
                   }}
                 />
-                <span className="input-group-text font-InterTight">
+                <span
+                  className={`input-group-text font-InterTight ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
+                >
                   {reps} reps
                 </span>
               </div>
@@ -289,6 +304,7 @@ const SelectedSetItem = ({
             setSeconds={setSeconds}
             handleBlur={handleBlur}
             handleInputChange={handleInputChange}
+            darkMode={darkMode}
           />
         ) : (
           <div className="fw-bold m-1">{formatTime(countdown)}</div>

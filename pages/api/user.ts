@@ -8,14 +8,21 @@ export default async function handler(
   res: NextApiResponse
 ) {
   if (req.method === "GET") {
+    const { id } = req.query;
     try {
       // Connect to the MongoDB database
       const db = await connectToDatabase();
-
-      // Query the users collection to get all users
-      const users = await db.collection("users").find({}).toArray();
-      await disconnectFromDatabase();
-      res.status(200).json({ users });
+      if (id) {
+        const user = await db
+          .collection("users")
+          .findOne({ _id: new ObjectId(id as string) });
+        res.status(200).json({ user });
+      } else {
+        // Query the users collection to get all users
+        const users = await db.collection("users").find({}).toArray();
+        await disconnectFromDatabase();
+        res.status(200).json({ users });
+      }
     } catch (error) {
       console.error("MongoDB query error:", error);
       res.status(500).json({ message: "Internal Server Error" });
@@ -54,35 +61,39 @@ export default async function handler(
     } finally {
       await disconnectFromDatabase();
     }
-  } else if (req.method === "PUT") {
-    const { id } = req.query;
-    const { name, email } = req.body;
+  } else if (req.method === "POST") {
+    const { user } = req.body;
 
-    if (!id) {
-      return res.status(400).json({ error: "User ID is required" });
+    if (!user) {
+      return res.status(400).json({ error: "User is required" });
     }
-
-    if (!name || !email) {
-      return res
-        .status(400)
-        .json({ error: "Name and email are required for update" });
-    }
-
     try {
       const db = await connectToDatabase();
       const collection = db.collection("users");
 
-      const result = await collection.updateOne(
-        { _id: new ObjectId(id as string) },
-        { $set: { name, email } }
-      );
+      const existingUser = await collection.findOne({
+        _id: new ObjectId(user._id as string),
+      });
+
+      if (existingUser) {
+        // Remove _id field from the user object to prevent updating it
+        const { _id, ...updatedUser } = user;
+
+        // Construct the update document using $set operator
+        const updateDocument = {
+          $set: updatedUser,
+        };
+
+        // Update existing user
+        await collection.updateOne({ _id: existingUser._id }, updateDocument);
+      } else {
+        // Insert new user
+        await collection.insertOne(user);
+      }
+
       await disconnectFromDatabase();
 
-      if (result.modifiedCount === 1) {
-        return res.status(200).json({ message: "User updated successfully" });
-      } else {
-        return res.status(404).json({ error: "User not found" });
-      }
+      res.status(200).json({ message: "User saved successfully!" });
     } catch (error) {
       console.error("Error updating user:", error);
       return res.status(500).json({ error: "Internal Server Error" });

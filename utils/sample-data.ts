@@ -1,15 +1,13 @@
 export const intitialRoutine = {
-  name: "Primary",
-  description: "Click to view workout",
   days: {
     sunday: [
       {
-        title: "Sunday",
+        title: "Sunday Workout",
         complete: false,
         exercises: [],
       },
     ],
-    monday: [{ title: "Monday", complete: false, exercises: [] }],
+    monday: [{ title: "Monday Workout", complete: false, exercises: [] }],
     tuesday: [
       {
         title: "Tuesday",
@@ -17,16 +15,16 @@ export const intitialRoutine = {
         exercises: [],
       },
     ],
-    wednesday: [{ title: "Wednesday", complete: false, exercises: [] }],
+    wednesday: [{ title: "Wednesday Workout", complete: false, exercises: [] }],
     thursday: [
       {
-        title: "Thursday",
+        title: "Thursday Workout",
         complete: false,
         exercises: [],
       },
     ],
-    friday: [{ title: "Friday", complete: false, exercises: [] }],
-    saturday: [{ title: "Saturday", complete: false, exercises: [] }],
+    friday: [{ title: "Friday Workout", complete: false, exercises: [] }],
+    saturday: [{ title: "Saturday Workout", complete: false, exercises: [] }],
   },
 };
 

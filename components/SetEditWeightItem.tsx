@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Draggable } from "react-beautiful-dnd";
 
-const SetEditWeightItem = ({ set, index }) => {
+const SetEditWeightItem = ({ set, index, darkMode }) => {
   const [mySet, setMySet] = useState(set);
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
         <div
-          className="card my-2"
+          className={`card my-2 ${darkMode ? "bg-dark text-white" : ""}`}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           ref={provided.innerRef}

@@ -2,21 +2,16 @@ import React from "react";
 import { Button } from "react-bootstrap";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
-const DaySwitcher = ({
-  previousDayShort,
-  formattedDate,
-  nextDayShort,
-  handleCurrentDayChange,
-}) => {
+const DaySwitcher = ({ formattedDate, handleCurrentDayChange, darkMode }) => {
   return (
-    <div className="d-flex justify-content-between align-items-center border bg-light p-2">
+    <div className="d-flex justify-content-between align-items-center p-2">
       <div>
         <Button
           size="sm"
-          variant="light font-InterTight"
+          variant={darkMode ? "dark" : "white"}
           onClick={() => handleCurrentDayChange(-1)}
         >
-          <FaChevronLeft /> {previousDayShort}
+          <FaChevronLeft />
         </Button>
       </div>
       <div>
@@ -25,10 +20,10 @@ const DaySwitcher = ({
       <div>
         <Button
           size="sm"
-          variant="light font-InterTight"
+          variant={darkMode ? "dark" : "white"}
           onClick={() => handleCurrentDayChange(1)}
         >
-          {nextDayShort} <FaChevronRight />
+          <FaChevronRight />
         </Button>
       </div>
     </div>

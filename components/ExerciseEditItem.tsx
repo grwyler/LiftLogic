@@ -13,6 +13,7 @@ const ExerciseEditItem = ({
   selectedExercises,
   setSelectedExercises,
   isValid,
+  darkMode,
 }) => {
   const {
     setMyOneRepMax,
@@ -65,7 +66,7 @@ const ExerciseEditItem = ({
       key={index}
       className={`card border-primary m-2 ${
         isValid ? "border-primary" : "border-secondary"
-      }`}
+      } ${darkMode ? "bg-dark" : ""}`}
     >
       <div
         className={`card-header d-flex justify-content-between align-items-center text-white ${
@@ -74,14 +75,14 @@ const ExerciseEditItem = ({
       >
         <div className="card-title">{exercise.name}</div>
         <Button
-          variant="light"
+          variant={darkMode ? "dark" : "light"}
           size="sm"
           onClick={() => handleRemoveExercise(exercise)}
         >
           Remove <FaMinus />
         </Button>
       </div>
-      <div className="card-body">
+      <div className={`card-body ${darkMode ? "text-light" : ""}`}>
         <div className="container-fluid">
           <div className="row my-2">
             {exercise.type === "timed" ? (
@@ -94,6 +95,7 @@ const ExerciseEditItem = ({
                 setSeconds={setMySeconds}
                 handleBlur={() => {}}
                 handleInputChange={handleInputChange}
+                darkMode={darkMode}
               />
             ) : (
               <Fragment>
@@ -104,12 +106,18 @@ const ExerciseEditItem = ({
                       type="number"
                       min={0}
                       max={1000}
-                      className="form-control"
+                      className={`form-control form-control-sm ${
+                        darkMode ? "bg-dark" : ""
+                      }`}
                       autoFocus
                       value={myOneRepMax}
                       onChange={(e) => handleUpdateOneRepMax(e.target.value)}
                     />
-                    <span className="input-group-text font-InterTight">
+                    <span
+                      className={`input-group-text font-InterTight ${
+                        darkMode ? "bg-dark text-white" : ""
+                      }`}
+                    >
                       lbs.
                     </span>
                   </div>
@@ -122,7 +130,9 @@ const ExerciseEditItem = ({
             <div className="col-7">
               <div className="input-group">
                 <Button
-                  variant="light"
+                  variant={darkMode ? "dark" : "light"}
+                  size="sm"
+                  className="border-light"
                   disabled={mySetLength === 0 || isInvalid}
                   onClick={() => setMySetLength(mySetLength - 1)}
                 >
@@ -132,13 +142,17 @@ const ExerciseEditItem = ({
                   type="number"
                   min={0}
                   max={500}
-                  className="form-control text-center"
+                  className={`form-control form-control-sm text-center ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
                   value={mySetLength}
                   onChange={(e) => setMySetLength(e.target.value)}
                   disabled={isInvalid}
                 />
                 <Button
-                  variant="light"
+                  size="sm"
+                  className="border-light"
+                  variant={darkMode ? "dark" : "light"}
                   disabled={isInvalid}
                   onClick={() => setMySetLength(mySetLength + 1)}
                 >
@@ -153,9 +167,21 @@ const ExerciseEditItem = ({
                 <div {...provided.droppableProps} ref={provided.innerRef}>
                   {mySets.map((set, index) => {
                     if (exercise.type === "timed") {
-                      return <SetEditTimerItem set={set} index={index} />;
+                      return (
+                        <SetEditTimerItem
+                          set={set}
+                          index={index}
+                          darkMode={darkMode}
+                        />
+                      );
                     } else {
-                      return <SetEditWeightItem set={set} index={index} />;
+                      return (
+                        <SetEditWeightItem
+                          set={set}
+                          index={index}
+                          darkMode={darkMode}
+                        />
+                      );
                     }
                   })}
                   {provided.placeholder}

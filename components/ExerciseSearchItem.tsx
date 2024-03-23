@@ -2,9 +2,19 @@ import React from "react";
 import { Button } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
 
-const ExerciseSearchItem = ({ index, exercise, handleAddExercise }) => {
+const ExerciseSearchItem = ({
+  index,
+  exercise,
+  handleAddExercise,
+  darkMode,
+}) => {
   return (
-    <div key={index} className={`card m-2`}>
+    <div
+      key={index}
+      className={`card m-2 ${
+        darkMode ? "bg-dark text-white border-light" : ""
+      }`}
+    >
       <div
         className={`card-header d-flex justify-content-between align-items-center`}
       >

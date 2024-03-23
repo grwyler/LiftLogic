@@ -8,6 +8,7 @@ function EquipmentAccordion({
   requiredEquipment,
   selectedEquipment,
   setSelectedEquipment,
+  darkMode,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -35,10 +36,10 @@ function EquipmentAccordion({
 
   return (
     <Accordion>
-      <Card>
+      <Card className={darkMode ? "bg-dark border-light" : ""}>
         <Card.Header className="d-flex justify-content-between">
           <Button
-            variant="white"
+            variant={darkMode ? "dark" : "white"}
             onClick={handleToggleCollapse}
             aria-expanded={!isCollapsed}
             aria-controls="equipmentCollapse"

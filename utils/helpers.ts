@@ -59,6 +59,25 @@ export const saveRoutine = async (routine) => {
     console.error("Error saving user inputs:", error);
   }
 };
+export const saveUser = async (user) => {
+  try {
+    const response = await fetch("/api/user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user }),
+    });
+
+    if (response.ok) {
+      console.log("User inputs saved successfully!");
+    } else {
+      console.error("Failed to save user inputs");
+    }
+  } catch (error) {
+    console.error("Error saving user inputs:", error);
+  }
+};
 
 export const updateWorkoutWithExercises = (workout, exercises) => {
   const updatedExercises = workout.exercises.map((exercise) => {
@@ -95,8 +114,8 @@ export const updateWorkoutWithExercises = (workout, exercises) => {
 
 export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
   const formattedDate = currentDate.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
   });
   const { previousDayShort, nextDayShort } = getShortenedDays(currentDate);
@@ -229,4 +248,14 @@ export async function getImageFromOpenAI(
 
 export const deepCopy = (object) => {
   return JSON.parse(JSON.stringify(object));
+};
+
+export const fetchUser = async (setUser, id) => {
+  try {
+    const response = await fetch(`/api/user?id=${id}`);
+    const data = await response.json();
+    setUser(data.user);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+  }
 };

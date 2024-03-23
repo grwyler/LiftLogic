@@ -12,6 +12,7 @@ const AddExercise = ({
   currentWorkout,
   setCurrentWorkout,
   updateWorkoutInRoutine,
+  darkMode,
 }) => {
   const {
     exercises,
@@ -61,10 +62,15 @@ const AddExercise = ({
 
   return (
     <Fragment>
-      <div className="d-flex m-2 align-items-center sticky-top bg-white justify-content-between">
+      <div
+        style={{ zIndex: 2 }}
+        className={`d-flex m-2 align-items-center sticky-top justify-content-between ${
+          darkMode ? "bg-dark text-white" : "bg-white"
+        }`}
+      >
         <Button
           onClick={() => setIsAddingExercise(false)}
-          variant="white"
+          variant={darkMode ? "dark" : "white"}
           className="me-2"
         >
           <FaChevronLeft />
@@ -90,12 +96,14 @@ const AddExercise = ({
             setSelectedExercises={setSelectedExercises}
             handleRemoveExercise={handleRemoveExercise}
             isValid={validExercises.includes(exercise)}
+            darkMode={darkMode}
           />
         ))}
         <EquipmentAccordion
           selectedEquipment={selectedEquipment}
           setSelectedEquipment={setSelectedEquipment}
           requiredEquipment={requiredEquipment}
+          darkMode={darkMode}
         />
         <input
           type="text"
@@ -113,6 +121,7 @@ const AddExercise = ({
                 index={index}
                 exercise={exercise}
                 handleAddExercise={handleAddExercise}
+                darkMode={darkMode}
               />
             );
           }

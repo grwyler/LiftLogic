@@ -23,6 +23,7 @@ const ExerciseItem = ({
   shownMenuIndex,
   setShownMenuIndex,
   updateWorkoutInRoutine,
+  darkMode,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
@@ -88,7 +89,11 @@ const ExerciseItem = ({
     <div
       key={v4()}
       className={`text-center mx-2 rounded ${
-        currentExerciseIndex === exerciseIndex ? "bg-light" : ""
+        currentExerciseIndex === exerciseIndex
+          ? darkMode
+            ? "bg-dark"
+            : "bg-light"
+          : ""
       }`}
       style={{
         boxShadow:
@@ -97,11 +102,15 @@ const ExerciseItem = ({
             : "none",
       }}
     >
-      <div className="d-flex justify-content-center align-items-center">
-        <div className={`w-100 m-2 bg-light rounded p-1 `}>
+      <div className="d-flex justify-content-center align-items-center ">
+        <div
+          className={`w-100 m-2 rounded p-1 bg-${
+            darkMode ? "dark border-light" : "light"
+          }`}
+        >
           <Button
             size="sm"
-            variant="light"
+            variant={darkMode ? "dark" : "light"}
             className="float-start"
             onClick={() => handleWorkoutButtonClick(exerciseIndex)}
           >
@@ -120,7 +129,13 @@ const ExerciseItem = ({
           <div className="float-end">
             <Button
               size="sm"
-              variant={shownMenuIndex === exerciseIndex ? "secondary" : "light"}
+              variant={
+                shownMenuIndex === exerciseIndex
+                  ? "secondary"
+                  : darkMode
+                  ? "dark"
+                  : "light"
+              }
               onClick={() =>
                 setShownMenuIndex(
                   shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
@@ -151,6 +166,7 @@ const ExerciseItem = ({
               formattedDate={formattedDate}
               setCurrentExerciseIndex={setCurrentExerciseIndex}
               workout={workout}
+              darkMode={darkMode}
             />
           ) : s.complete ? (
             <CompletedSetItem
@@ -159,6 +175,7 @@ const ExerciseItem = ({
               setIndex={i}
               setCurrentSetIndex={setCurrentSetIndex}
               type={currentExercise.type}
+              darkMode={darkMode}
             />
           ) : (
             <SetItem
@@ -166,13 +183,14 @@ const ExerciseItem = ({
               set={s}
               handleDeleteSet={(setName) => handleDeleteSet(setName)}
               type={currentExercise.type}
+              darkMode={darkMode}
             />
           );
         })}
       {exerciseIndex === currentExerciseIndex && (
         <Button
-          variant="white text-primary"
-          className="m-2"
+          variant={darkMode ? "dark" : "white"}
+          className="m-2 text-primary"
           onClick={handleAddSet}
         >
           Add Set <IoAddCircleOutline />

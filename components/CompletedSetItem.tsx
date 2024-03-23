@@ -3,7 +3,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { v4 } from "uuid";
 import { formatTime } from "../utils/helpers";
 
-const SetItem = ({ set, setIndex, setCurrentSetIndex, type }) => {
+const SetItem = ({ set, setIndex, setCurrentSetIndex, type, darkMode }) => {
   const { actualReps, actualWeight, totalSeconds } = set;
 
   const handleClickCompletedSet = () => {
@@ -13,7 +13,9 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex, type }) => {
     <div
       key={v4()}
       onClick={handleClickCompletedSet}
-      className="card bg-light m-2 py-2 px-3"
+      className={`card m-2 py-2 px-3 bg-${
+        darkMode ? "dark text-light border-success" : "light"
+      }`}
     >
       <div className="d-flex row">
         <div className="col">

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
@@ -59,7 +59,7 @@ const SignIn = () => {
     }
   };
   return (
-    <React.Fragment>
+    <Fragment>
       <form>
         <input
           type="text"
@@ -123,7 +123,7 @@ const SignIn = () => {
           ))}
         </div>
       )}
-    </React.Fragment>
+    </Fragment>
   );
 };
 

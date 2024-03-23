@@ -14,6 +14,7 @@ const WorkoutDisplay = ({
   routineName,
   setIsAddingExercise,
   updateWorkoutInRoutine,
+  darkMode,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
 
@@ -35,6 +36,7 @@ const WorkoutDisplay = ({
               shownMenuIndex={shownMenuIndex}
               setShownMenuIndex={setShownMenuIndex}
               updateWorkoutInRoutine={updateWorkoutInRoutine}
+              darkMode={darkMode}
             />
           );
         })}

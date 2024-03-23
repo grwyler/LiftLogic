@@ -34,7 +34,7 @@ type Set = {
   weight: number;
 };
 
-const WorkoutsManager = ({ routine, setRoutine, date }) => {
+const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
   const startDate = date ? new Date(date) : new Date();
   const {
     currentDayIndex,
@@ -43,7 +43,6 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
     currentDate,
     setCurrentDate,
     workouts,
-    setWorkouts,
     currentWorkout,
     setCurrentWorkout,
     selectedWorkoutIndex,
@@ -51,9 +50,7 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
     userId,
     isAddingExercise,
     setIsAddingExercise,
-    previousDayShort,
     formattedDate,
-    nextDayShort,
     isLoadingWorkout,
     currentExerciseIndex,
     updateWorkoutInRoutine,
@@ -82,14 +79,14 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
           currentWorkout={currentWorkout}
           setCurrentWorkout={setCurrentWorkout}
           updateWorkoutInRoutine={updateWorkoutInRoutine}
+          darkMode={darkMode}
         />
       ) : (
         <Fragment>
           <DaySwitcher
-            previousDayShort={previousDayShort}
             formattedDate={formattedDate}
-            nextDayShort={nextDayShort}
             handleCurrentDayChange={handleCurrentDayChange}
+            darkMode={darkMode}
           />
 
           {isLoadingWorkout || !currentWorkout ? (
@@ -113,10 +110,10 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
                 currentWorkout={currentWorkout}
                 setCurrentWorkout={setCurrentWorkout}
                 workouts={workouts}
-                setWorkouts={setWorkouts}
                 selectedWorkoutIndex={selectedWorkoutIndex}
                 setSelectedWorkoutIndex={setSelectedWorkoutIndex}
                 updateWorkoutsInRoutine={updateWorkoutsInRoutine}
+                darkMode={darkMode}
               />
               <WorkoutDisplay
                 currentWorkout={currentWorkout}
@@ -127,6 +124,7 @@ const WorkoutsManager = ({ routine, setRoutine, date }) => {
                 routineName={routine.name}
                 setIsAddingExercise={setIsAddingExercise}
                 updateWorkoutInRoutine={updateWorkoutInRoutine}
+                darkMode={darkMode}
               />
             </Fragment>
           )}
@@ -186,7 +184,7 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
     : null;
   const userId = session?.token.user._id;
 
-  const { formattedDate, previousDayShort, nextDayShort } = getWorkoutVariables(
+  const { formattedDate } = getWorkoutVariables(
     currentDate,
     routine,
     currentDayIndex
@@ -276,7 +274,6 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
     currentDate,
     setCurrentDate,
     workouts,
-    setWorkouts,
     currentWorkout,
     setCurrentWorkout,
     selectedWorkoutIndex,
@@ -284,9 +281,7 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
     userId,
     isAddingExercise,
     setIsAddingExercise,
-    previousDayShort,
     formattedDate,
-    nextDayShort,
     isLoadingWorkout,
     currentExerciseIndex,
     updateWorkoutInRoutine,

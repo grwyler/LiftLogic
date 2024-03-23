@@ -1,17 +1,18 @@
 import React, { Fragment, useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaSave, FaPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
+import { FaSave, FaTimes } from "react-icons/fa";
 import { IoEllipsisVertical } from "react-icons/io5";
 import CRUDMenu from "./CRUDMenu";
+import { deepCopy } from "../utils/helpers";
 
 const WorkoutSelector = ({
   currentWorkout,
   setCurrentWorkout,
   workouts,
-  setWorkouts,
   selectedWorkoutIndex,
   setSelectedWorkoutIndex,
   updateWorkoutsInRoutine,
+  darkMode,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
   const [isEditTitle, setIsEditTitle] = useState(false);
@@ -29,29 +30,11 @@ const WorkoutSelector = ({
     updateWorkoutsInRoutine(workoutsCopy);
   };
   const handleAddWorkout = () => {
-    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
-    const newWorkout = {
-      title: `Workout ${workouts.length}`,
-      complete: false,
-      exercises: [],
-    };
-    setCurrentWorkout(newWorkout);
-    setSelectedWorkoutIndex(workoutsCopy.length);
-
-    workoutsCopy.push(newWorkout);
-    setWorkouts(workoutsCopy);
-
-    setWorkoutTitle(newWorkout.title);
-    setShowMenu(false);
     setIsCreateTitle(true);
+    setWorkoutTitle(`Workout ${workouts.length}`);
   };
   const handleCurrentWorkoutChange = (e) => {
-    const selectedTitle = e.target.value;
     const selectedIndex = e.target.selectedIndex;
-    const selectedWorkout = workouts.find(
-      (workout) => workout.title === selectedTitle
-    );
-    // setCurrentWorkout(selectedWorkout);
     setSelectedWorkoutIndex(selectedIndex);
   };
   const handleEditClick = () => {
@@ -67,8 +50,9 @@ const WorkoutSelector = ({
 
     // Check if the user confirmed
     if (isConfirmed) {
+      const workoutsCopy = deepCopy(workouts);
       // Filter out the workout with matching title
-      const updatedWorkouts = workouts.filter(
+      const updatedWorkouts = workoutsCopy.filter(
         (w) => w.title !== currentWorkout.title
       );
       updateWorkoutsInRoutine(updatedWorkouts);
@@ -80,14 +64,31 @@ const WorkoutSelector = ({
     setIsEditTitle(false);
     setWorkoutTitle(currentWorkout.title);
   };
+  const handleCancelSaveTitle = () => {
+    setIsCreateTitle(false);
+    setWorkoutTitle(currentWorkout.title);
+  };
+  const handleCreateWorkout = () => {
+    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
+    const newWorkout = {
+      title: workoutTitle,
+      complete: false,
+      exercises: [],
+    };
+    setCurrentWorkout(newWorkout);
+    workoutsCopy.push(newWorkout);
+    updateWorkoutsInRoutine(workoutsCopy);
+    setShowMenu(false);
+    setIsCreateTitle(false);
+  };
   return (
-    <div className="row m-0">
+    <div className="row m-0 border rounded">
       <div
         className={`${isEditTitle || isCreateTitle ? "col-12" : "col-10"} p-2`}
       >
         {isEditTitle || isCreateTitle ? (
           <input
-            className="form-control form-control-sm"
+            className="form-control form-control-sm "
             type="text"
             value={workoutTitle}
             autoFocus
@@ -102,16 +103,18 @@ const WorkoutSelector = ({
               </div>
             )}
             {workouts.length > 1 && (
-              <div className="dropdown text-center">
+              <div className="dropdown text-center ">
                 <select
-                  className="btn btn-outline-white dropdown-toggle w-100"
+                  className={`btn btn-outline-white dropdown-toggle w-100 ${
+                    darkMode ? "text-white" : ""
+                  }`}
                   onChange={handleCurrentWorkoutChange}
                   defaultValue={currentWorkout.title}
                 >
                   {workouts.map((workout) => {
                     return (
                       <option
-                        className="dropdown-item"
+                        className="dropdown-item text-dark"
                         key={`${workout.title}-dropdown-item`}
                         value={workout.title}
                       >
@@ -127,10 +130,10 @@ const WorkoutSelector = ({
       </div>
 
       {isEditTitle ? (
-        <div className="col-12">
+        <div className="col-12 ">
           <div className="text-center">
             <button
-              className="btn btn-sm btn-light text-success "
+              className="btn btn-sm btn-white text-success "
               onClick={handleSaveTitleEdit}
               disabled={
                 workoutTitle === "" ||
@@ -142,7 +145,7 @@ const WorkoutSelector = ({
             </button>
 
             <button
-              className="btn btn-sm btn-light "
+              className="btn btn-sm btn-white "
               onClick={handleCancelEditTitle}
               disabled={workouts.length === 1 && workoutTitle === ""}
             >
@@ -156,7 +159,7 @@ const WorkoutSelector = ({
             <Button
               size="sm"
               variant="light text-success"
-              onClick={handleSaveTitleEdit}
+              onClick={handleCreateWorkout}
               disabled={
                 workoutTitle === "" ||
                 workouts.some(
@@ -167,17 +170,28 @@ const WorkoutSelector = ({
             >
               <FaSave /> Create
             </Button>
+            {
+              <Button
+                variant="white"
+                size="sm"
+                onClick={handleCancelSaveTitle}
+                disabled={workouts.length === 1 && workoutTitle === ""}
+              >
+                <FaTimes /> Cancel
+              </Button>
+            }
           </div>
         </div>
       ) : (
-        <div className="col-2 pt-1">
+        <div className="col-2 pt-1 text-end pe-0">
           <Button
             size="sm"
-            variant={`${showMenu ? "light" : "white"}`}
+            variant={`${showMenu ? "light" : darkMode ? "dark" : "white"}`}
             onClick={() => setShowMenu(!showMenu)}
           >
             <IoEllipsisVertical />
           </Button>
+
           <CRUDMenu
             handleCreate={handleAddWorkout}
             canRead={showMenu}
