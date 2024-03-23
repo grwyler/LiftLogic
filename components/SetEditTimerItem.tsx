@@ -30,7 +30,12 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
           <div className="card-body ">
             <div>
               Set Name
-              <input className="form-control" value={set.name} />
+              <input
+                className={`form-control ${
+                  darkMode ? "bg-dark text-white" : ""
+                }`}
+                value={set.name}
+              />
             </div>
             <div>
               Time

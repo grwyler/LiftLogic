@@ -20,7 +20,7 @@ const SetEditWeightItem = ({ set, index, darkMode }) => {
         >
           <div className="card-header d-flex align-items-center justify-content-between">
             <input
-              className="form-control"
+              className={`form-control ${darkMode ? "bg-dark text-white" : ""}`}
               value={mySet.name}
               onChange={(e) => setMySet({ ...mySet, name: e.target.value })}
             />
@@ -31,19 +31,29 @@ const SetEditWeightItem = ({ set, index, darkMode }) => {
               Suggested Weight
               <div className="input-group">
                 <input
-                  className="form-control"
+                  className={`form-control ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
                   value={mySet.weight}
                   onChange={(e) =>
                     setMySet({ ...mySet, weight: e.target.value })
                   }
                 />
-                <span className="input-group-text font-InterTight">lbs.</span>
+                <span
+                  className={`input-group-text font-InterTight ${
+                    darkMode ? "bg-dark text-white" : ""
+                  }`}
+                >
+                  lbs.
+                </span>
               </div>
             </div>
             <div>
               Reps
               <input
-                className="form-control"
+                className={`form-control ${
+                  darkMode ? "bg-dark text-white" : ""
+                }`}
                 value={mySet.reps}
                 onChange={(e) => setMySet({ ...mySet, reps: e.target.value })}
               />

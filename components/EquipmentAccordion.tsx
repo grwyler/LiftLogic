@@ -50,6 +50,8 @@ function EquipmentAccordion({
             variant={
               selectedEquipment.length === requiredEquipment.length
                 ? "secondary"
+                : darkMode
+                ? "dark"
                 : "white"
             }
             onClick={handleSelectAll}

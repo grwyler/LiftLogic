@@ -107,7 +107,7 @@ const ExerciseEditItem = ({
                       min={0}
                       max={1000}
                       className={`form-control form-control-sm ${
-                        darkMode ? "bg-dark" : ""
+                        darkMode ? "bg-dark text-white" : ""
                       }`}
                       autoFocus
                       value={myOneRepMax}

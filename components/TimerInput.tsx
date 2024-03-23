@@ -16,7 +16,7 @@ const TimerInput = ({
       <input
         type="number"
         className={`form-control font-Inter form-control font-Inter-sm text-center ${
-          darkMode ? "bg-dark" : ""
+          darkMode ? "bg-dark text-white" : ""
         }`}
         value={hours}
         placeholder="Hours"
@@ -34,7 +34,7 @@ const TimerInput = ({
       <input
         type="number"
         className={`form-control font-Inter form-control font-Inter-sm text-center ${
-          darkMode ? "bg-dark" : ""
+          darkMode ? "bg-dark text-white" : ""
         }`}
         value={minutes}
         placeholder="Minutes"
@@ -52,7 +52,7 @@ const TimerInput = ({
       <input
         type="number"
         className={`form-control font-Inter form-control font-Inter-sm text-center ${
-          darkMode ? "bg-dark" : ""
+          darkMode ? "bg-dark text-white" : ""
         }`}
         value={seconds}
         placeholder="Seconds"
