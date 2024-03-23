@@ -14,98 +14,29 @@ const ExerciseEditItem = ({
   setSelectedExercises,
   isValid,
 }) => {
-  const [mySets, setMySets] = useState(exercise.sets);
-  const [mySetLength, setMySetLength] = useState(exercise.sets.length);
-  const [myOneRepMax, setMyOneRepMax] = useState(exercise.oneRepMax);
-  const [mySeconds, setMySeconds] = useState(exercise.seconds);
-  const [myMinutes, setMyMinutes] = useState(exercise.minutes);
-  const [myHours, setMyHours] = useState(exercise.hours);
+  const {
+    setMyOneRepMax,
+    mySets,
+    setMySets,
+    myHours,
+    setMyHours,
+    myMinutes,
+    setMyMinutes,
+    mySeconds,
+    setMySeconds,
+    myOneRepMax,
+    mySetLength,
+    setMySetLength,
+    isInvalid,
+  } = useExerciseEditItemState(
+    selectedExercises,
+    setSelectedExercises,
+    exercise
+  );
+
   const handleUpdateOneRepMax = (oneRepMax) => {
     setMyOneRepMax(oneRepMax);
   };
-
-  const isInvalid =
-    (!myOneRepMax && exercise.type === "weight") ||
-    (!myHours && !myMinutes && !mySeconds && exercise.type === "timed");
-  useEffect(() => {
-    if (
-      ((exercise.type === "weight" && myOneRepMax) ||
-        exercise.type === "timed") &&
-      mySetLength >= 0 &&
-      mySetLength !== mySets.length
-    ) {
-      const minWeight = myOneRepMax * 0.6;
-      // exerciseCopy.sets = [];
-      setMySets([]);
-      let newSets = [];
-      if (mySetLength === 1) {
-        // If only one set is requested, set weight directly to 195 (or closest to 1 rep max)
-        const roundedWeight = Math.round((myOneRepMax * 0.8) / 2.5) * 2.5; // Round to nearest 2.5 lbs
-        let newSet;
-        if (exercise.type === "weight") {
-          newSet = {
-            name: "Working Set 1",
-            reps: 5,
-            actualReps: "",
-            actualWeight: "",
-            weight: roundedWeight,
-          };
-        } else {
-          newSet = {
-            name: "Working Set 1",
-            seconds: mySeconds,
-            minutes: myMinutes,
-            hours: myHours,
-            actualSeconds: "",
-            actualMinutes: "",
-            actualHours: "",
-          };
-        }
-        newSets.push(newSet);
-      } else if (mySetLength > 1 && mySetLength > mySets.length) {
-        const increment = (myOneRepMax - minWeight) / mySetLength - 1; // Calculate the weight increment
-
-        for (let i = 0; i < mySetLength; i++) {
-          let newSet;
-          if (exercise.type === "weight") {
-            let weight = minWeight + increment * i; // Start from minWeight and increment by the calculated amount
-            let roundedWeight = Math.round(weight / 2.5) * 2.5; // Round to nearest 2.5 lbs
-            let reps = i === 0 ? 10 : i === mySetLength - 1 ? 2 : 6; // 10 reps for first set, 6 reps for intermediate sets, 2 rep for last set
-            newSet = {
-              name: `Working Set ${i + 1}`,
-              reps,
-              actualReps: "",
-              actualWeight: "",
-              weight: roundedWeight,
-            };
-          } else {
-            newSet = {
-              name: `Working Set ${i + 1}`,
-              seconds: mySeconds,
-              minutes: myMinutes,
-              hours: myHours,
-              actualSeconds: "",
-              actualMinutes: "",
-              actualHours: "",
-            };
-          }
-
-          newSets.push(newSet);
-        }
-      } else if (mySetLength > 1 && mySetLength < mySets.length) {
-        newSets = newSets.slice(0, mySetLength);
-      }
-      setMySets(newSets);
-      const selectedExercisesCopy = JSON.parse(
-        JSON.stringify(selectedExercises)
-      );
-      selectedExercisesCopy[selectedExercises.indexOf(exercise)] = {
-        ...exercise,
-        sets: newSets,
-      };
-      setSelectedExercises(selectedExercisesCopy);
-    }
-  }, [mySetLength, myOneRepMax, mySets, mySeconds, myMinutes, myHours]);
 
   const handleDragEnd = (result) => {
     if (!result.destination) {
@@ -236,6 +167,116 @@ const ExerciseEditItem = ({
       </div>
     </div>
   );
+};
+
+const useExerciseEditItemState = (
+  selectedExercises,
+  setSelectedExercises,
+  exercise
+) => {
+  const [mySets, setMySets] = useState(exercise.sets);
+  const [mySetLength, setMySetLength] = useState(exercise.sets.length);
+  const [myOneRepMax, setMyOneRepMax] = useState(exercise.oneRepMax);
+  const [mySeconds, setMySeconds] = useState(exercise.seconds);
+  const [myMinutes, setMyMinutes] = useState(exercise.minutes);
+  const [myHours, setMyHours] = useState(exercise.hours);
+  const isInvalid =
+    (!myOneRepMax && exercise.type === "weight") ||
+    (!myHours && !myMinutes && !mySeconds && exercise.type === "timed");
+  useEffect(() => {
+    if (
+      ((exercise.type === "weight" && myOneRepMax) ||
+        exercise.type === "timed") &&
+      mySetLength >= 0 &&
+      mySetLength !== mySets.length
+    ) {
+      const minWeight = myOneRepMax * 0.6;
+      // exerciseCopy.sets = [];
+      setMySets([]);
+      let newSets = [];
+      if (mySetLength === 1) {
+        // If only one set is requested, set weight directly to 195 (or closest to 1 rep max)
+        const roundedWeight = Math.round((myOneRepMax * 0.8) / 2.5) * 2.5; // Round to nearest 2.5 lbs
+        let newSet;
+        if (exercise.type === "weight") {
+          newSet = {
+            name: "Working Set 1",
+            reps: 5,
+            actualReps: "",
+            actualWeight: "",
+            weight: roundedWeight,
+          };
+        } else {
+          newSet = {
+            name: "Working Set 1",
+            seconds: mySeconds,
+            minutes: myMinutes,
+            hours: myHours,
+            actualSeconds: "",
+            actualMinutes: "",
+            actualHours: "",
+          };
+        }
+        newSets.push(newSet);
+      } else if (mySetLength > 1 && mySetLength > mySets.length) {
+        const increment = (myOneRepMax - minWeight) / mySetLength - 1; // Calculate the weight increment
+
+        for (let i = 0; i < mySetLength; i++) {
+          let newSet;
+          if (exercise.type === "weight") {
+            let weight = minWeight + increment * i; // Start from minWeight and increment by the calculated amount
+            let roundedWeight = Math.round(weight / 2.5) * 2.5; // Round to nearest 2.5 lbs
+            let reps = i === 0 ? 10 : i === mySetLength - 1 ? 2 : 6; // 10 reps for first set, 6 reps for intermediate sets, 2 rep for last set
+            newSet = {
+              name: `Working Set ${i + 1}`,
+              reps,
+              actualReps: "",
+              actualWeight: "",
+              weight: roundedWeight,
+            };
+          } else {
+            newSet = {
+              name: `Working Set ${i + 1}`,
+              seconds: mySeconds,
+              minutes: myMinutes,
+              hours: myHours,
+              actualSeconds: "",
+              actualMinutes: "",
+              actualHours: "",
+            };
+          }
+
+          newSets.push(newSet);
+        }
+      } else if (mySetLength > 1 && mySetLength < mySets.length) {
+        newSets = newSets.slice(0, mySetLength);
+      }
+      setMySets(newSets);
+      const selectedExercisesCopy = JSON.parse(
+        JSON.stringify(selectedExercises)
+      );
+      selectedExercisesCopy[selectedExercises.indexOf(exercise)] = {
+        ...exercise,
+        sets: newSets,
+      };
+      setSelectedExercises(selectedExercisesCopy);
+    }
+  }, [mySetLength, myOneRepMax, mySets, mySeconds, myMinutes, myHours]);
+  return {
+    setMyOneRepMax,
+    mySets,
+    setMySets,
+    myHours,
+    setMyHours,
+    myMinutes,
+    setMyMinutes,
+    mySeconds,
+    setMySeconds,
+    myOneRepMax,
+    mySetLength,
+    setMySetLength,
+    isInvalid,
+  };
 };
 
 export default ExerciseEditItem;

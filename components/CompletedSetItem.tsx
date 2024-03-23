@@ -1,5 +1,5 @@
 import React, { Fragment } from "react";
-import { FaCheckCircle, FaCheckDouble } from "react-icons/fa";
+import { FaCheckCircle } from "react-icons/fa";
 import { v4 } from "uuid";
 import { formatTime } from "../utils/helpers";
 

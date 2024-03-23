@@ -4,7 +4,6 @@ import {
   formatTime,
   roundToNearestFive,
   saveExercise,
-  saveSet,
 } from "../utils/helpers";
 import { Button } from "react-bootstrap";
 import { useSession } from "next-auth/react";

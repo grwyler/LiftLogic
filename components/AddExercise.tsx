@@ -13,10 +13,16 @@ const AddExercise = ({
   setCurrentWorkout,
   updateWorkoutInRoutine,
 }) => {
-  const [exercises, setExercises] = useState([]);
-  const [selectedExercises, setSelectedExercises] = useState([]);
-  const [selectedEquipment, setSelectedEquipment] = useState([]);
-  const [validExercises, setValidExercises] = useState([]);
+  const {
+    exercises,
+    setExercises,
+    selectedExercises,
+    setSelectedExercises,
+    validExercises,
+    selectedEquipment,
+    setSelectedEquipment,
+  } = useAddExerciseState();
+
   const handleSearch = (event) => {
     const exercisesCopy = deepCopy(exercises);
     const filterText = event.target.value.toLowerCase();
@@ -52,27 +58,7 @@ const AddExercise = ({
       selectedExercisesCopy.filter((e) => e.name !== exercise.name)
     );
   };
-  useEffect(() => {
-    const exercisesCopy = deepCopy(initialExercises);
-    const filteredExercises = exercisesCopy.filter((exercise) =>
-      exercise.requiredEquipment.every((equipment) =>
-        selectedEquipment.includes(equipment)
-      )
-    );
-    setExercises(filteredExercises);
-  }, [selectedEquipment]);
-  useEffect(() => {
-    // Make a copy of the selectedExercises list
-    const selectedExercisesCopy = [...selectedExercises];
 
-    // Filter out exercises with sets length greater than 0
-    const filteredExercises = selectedExercisesCopy.filter(
-      (exercise) => exercise.sets.length > 0
-    );
-
-    // Set the validExercises state to the filtered array
-    setValidExercises(filteredExercises);
-  }, [selectedExercises]);
   return (
     <Fragment>
       <div className="d-flex m-2 align-items-center sticky-top bg-white justify-content-between">
@@ -134,6 +120,43 @@ const AddExercise = ({
       </div>
     </Fragment>
   );
+};
+
+const useAddExerciseState = () => {
+  const [exercises, setExercises] = useState([]);
+  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [selectedEquipment, setSelectedEquipment] = useState([]);
+  const [validExercises, setValidExercises] = useState([]);
+  useEffect(() => {
+    const exercisesCopy = deepCopy(initialExercises);
+    const filteredExercises = exercisesCopy.filter((exercise) =>
+      exercise.requiredEquipment.every((equipment) =>
+        selectedEquipment.includes(equipment)
+      )
+    );
+    setExercises(filteredExercises);
+  }, [selectedEquipment]);
+  useEffect(() => {
+    // Make a copy of the selectedExercises list
+    const selectedExercisesCopy = [...selectedExercises];
+
+    // Filter out exercises with sets length greater than 0
+    const filteredExercises = selectedExercisesCopy.filter(
+      (exercise) => exercise.sets.length > 0
+    );
+
+    // Set the validExercises state to the filtered array
+    setValidExercises(filteredExercises);
+  }, [selectedExercises]);
+  return {
+    exercises,
+    setExercises,
+    selectedExercises,
+    setSelectedExercises,
+    validExercises,
+    selectedEquipment,
+    setSelectedEquipment,
+  };
 };
 
 export default AddExercise;

@@ -1,7 +1,4 @@
 import React, { useState } from "react";
-import { Button } from "react-bootstrap";
-import { FaGripVertical } from "react-icons/fa";
-import { IoClose } from "react-icons/io5";
 import { Draggable } from "react-beautiful-dnd";
 
 const SetEditWeightItem = ({ set, index }) => {
