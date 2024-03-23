@@ -12,7 +12,7 @@ import { Session } from "next-auth";
 import { FaPause, FaPlay } from "react-icons/fa";
 import TimerInput from "./TimerInput";
 
-const SetItem = ({
+const SelectedSetItem = ({
   routineName,
   set,
   currentExercise,
@@ -34,14 +34,19 @@ const SetItem = ({
     actualMinutes,
     actualHours,
   } = set;
+
   const [hours, setHours] = useState(
-    actualHours === "" ? parseInt(set.hours) : parseInt(actualHours) || 0
+    actualHours === "" ? parseInt(set.hours) || 0 : parseInt(actualHours) || 0
   );
   const [minutes, setMinutes] = useState(
-    actualMinutes === "" ? parseInt(set.minutes) : parseInt(actualMinutes) || 0
+    actualMinutes === ""
+      ? parseInt(set.minutes) || 0
+      : parseInt(actualMinutes) || 0
   );
   const [seconds, setSeconds] = useState(
-    actualSeconds === "" ? parseInt(set.seconds) : parseInt(actualSeconds) || 0
+    actualSeconds === ""
+      ? parseInt(set.seconds) || 0
+      : parseInt(actualSeconds) || 0
   );
   const [setName, setSetName] = useState(name);
   const [currentSetWeight, setCurrentSetWeight] = useState(
@@ -227,7 +232,6 @@ const SetItem = ({
             <>Complete Set</>
           )}
         </Button>
-        {/* )} */}
       </div>
       <div className="container p-1">
         {currentExercise.type === "weight" && (
@@ -295,4 +299,4 @@ const SetItem = ({
   );
 };
 
-export default SetItem;
+export default SelectedSetItem;

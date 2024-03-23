@@ -226,3 +226,7 @@ export async function getImageFromOpenAI(
       console.error(error);
     });
 }
+
+export const deepCopy = (object) => {
+  return JSON.parse(JSON.stringify(object));
+};

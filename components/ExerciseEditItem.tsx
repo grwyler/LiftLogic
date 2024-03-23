@@ -12,6 +12,7 @@ const ExerciseEditItem = ({
   handleRemoveExercise,
   selectedExercises,
   setSelectedExercises,
+  isValid,
 }) => {
   const [mySets, setMySets] = useState(exercise.sets);
   const [mySetLength, setMySetLength] = useState(exercise.sets.length);
@@ -22,6 +23,10 @@ const ExerciseEditItem = ({
   const handleUpdateOneRepMax = (oneRepMax) => {
     setMyOneRepMax(oneRepMax);
   };
+
+  const isInvalid =
+    (!myOneRepMax && exercise.type === "weight") ||
+    (!myHours && !myMinutes && !mySeconds && exercise.type === "timed");
   useEffect(() => {
     if (
       ((exercise.type === "weight" && myOneRepMax) ||
@@ -91,14 +96,17 @@ const ExerciseEditItem = ({
         newSets = newSets.slice(0, mySetLength);
       }
       setMySets(newSets);
-      const selectedExercisesCopy = [...selectedExercises];
+      const selectedExercisesCopy = JSON.parse(
+        JSON.stringify(selectedExercises)
+      );
       selectedExercisesCopy[selectedExercises.indexOf(exercise)] = {
         ...exercise,
         sets: newSets,
       };
       setSelectedExercises(selectedExercisesCopy);
     }
-  }, [mySetLength, myOneRepMax, mySets]);
+  }, [mySetLength, myOneRepMax, mySets, mySeconds, myMinutes, myHours]);
+
   const handleDragEnd = (result) => {
     if (!result.destination) {
       return; // Dropped outside the list
@@ -122,9 +130,16 @@ const ExerciseEditItem = ({
   };
 
   return (
-    <div key={index} className={`card border-primary m-2`}>
+    <div
+      key={index}
+      className={`card border-primary m-2 ${
+        isValid ? "border-primary" : "border-secondary"
+      }`}
+    >
       <div
-        className={`card-header d-flex justify-content-between align-items-center bg-primary text-white`}
+        className={`card-header d-flex justify-content-between align-items-center text-white ${
+          isValid ? "bg-primary" : "bg-secondary"
+        }`}
       >
         <div className="card-title">{exercise.name}</div>
         <Button
@@ -177,10 +192,7 @@ const ExerciseEditItem = ({
               <div className="input-group">
                 <Button
                   variant="light"
-                  disabled={
-                    mySetLength === 0 ||
-                    (!myOneRepMax && exercise.type === "weight")
-                  }
+                  disabled={mySetLength === 0 || isInvalid}
                   onClick={() => setMySetLength(mySetLength - 1)}
                 >
                   <FaMinus />
@@ -192,11 +204,11 @@ const ExerciseEditItem = ({
                   className="form-control text-center"
                   value={mySetLength}
                   onChange={(e) => setMySetLength(e.target.value)}
-                  disabled={!myOneRepMax && exercise.type === "weight"}
+                  disabled={isInvalid}
                 />
                 <Button
                   variant="light"
-                  disabled={!myOneRepMax && exercise.type === "weight"}
+                  disabled={isInvalid}
                   onClick={() => setMySetLength(mySetLength + 1)}
                 >
                   <FaPlus />
