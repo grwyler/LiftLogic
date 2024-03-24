@@ -1,5 +1,5 @@
 import React, { Fragment, useEffect, useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { fetchUser, fetchWorkouts } from "../utils/helpers";
 import { useRouter } from "next/router";
@@ -11,8 +11,9 @@ import { Button } from "react-bootstrap";
 const RoutinesPage: React.FC = () => {
   const router = useRouter();
   const { date } = router.query;
-  const { data: session } = useSession() as {
+  const { data: session, status } = useSession() as {
     data: (Session & { token: { user } }) | null;
+    status: any;
   };
   const [routine, setRoutine] = useState<{
     name: string;
@@ -21,46 +22,33 @@ const RoutinesPage: React.FC = () => {
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  // const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
 
-  // useEffect(() => {
-  //   setIsMounted(true); // Component is mounted
-  //   return () => {
-  //     setIsMounted(false); // Component is unmounted
-  //   };
-  // }, []);
+  useEffect(() => {
+    if (status === "loading") return; // Wait until session status is resolved
 
-  // useEffect(() => {
-  //   if (user) {
-  //     setDarkMode(user.darkMode || false);
-  //   }
-  // });
+    // Check if session exists in client-side storage
+    const storedSession = localStorage.getItem("session");
+    if (!session && storedSession) {
+      signIn(); // Restore session if it exists in storage
+    }
+  }, [session, status]);
 
-  // useEffect(() => {
-  //   if (
-  //     session &&
-  //     session.token &&
-  //     session.token.user &&
-  //     session.token.user._id &&
-  //     isMounted
-  //   ) {
-  //     const fetchUserData = async () => {
-  //       try {
-  //         await Promise.all([
-  //           fetchWorkouts(setRoutine, session.token.user._id),
-  //           fetchUser(setUser, session.token.user._id),
-  //         ]);
-  //       } catch (error) {
-  //         console.error("Error fetching data:", error);
-  //       }
-  //     };
+  useEffect(() => {
+    if (session) {
+      // Save session data to client-side storage
+      localStorage.setItem("session", JSON.stringify(session));
+    } else {
+      // Clear session data from client-side storage
+      localStorage.removeItem("session");
+    }
+  }, [session]);
 
-  //     fetchUserData();
-  //   } else if (!session && isMounted) {
-  //     // Redirect user to login page
-  //     router.push("/");
-  //   }
-  // }, [session, isMounted]);
+  useEffect(() => {
+    if (!session && status === "authenticated") {
+      router.push("/");
+    }
+  }, [session, status, router]);
+
   useEffect(() => {
     if (
       session &&
@@ -82,8 +70,6 @@ const RoutinesPage: React.FC = () => {
       };
       fetchUserData();
       setLoading(false);
-    } else {
-      router.push("/"); // Redirect user to login page if not authenticated
     }
   }, [session]);
 
