@@ -170,6 +170,7 @@ const ExerciseEditItem = ({
                     if (exercise.type === "timed") {
                       return (
                         <SetEditTimerItem
+                          key={`set-edit-timer-${set.name}-${index}`}
                           set={set}
                           index={index}
                           darkMode={darkMode}
@@ -178,6 +179,7 @@ const ExerciseEditItem = ({
                     } else {
                       return (
                         <SetEditWeightItem
+                          key={`set-edit-weight-${set.name}-${index}`}
                           set={set}
                           index={index}
                           darkMode={darkMode}

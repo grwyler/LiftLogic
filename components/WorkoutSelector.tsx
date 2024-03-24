@@ -82,7 +82,7 @@ const WorkoutSelector = ({
     setIsCreateTitle(false);
   };
   return (
-    <div className="row m-0 border rounded">
+    <div className="row m-0  rounded">
       <div
         className={`${isEditTitle || isCreateTitle ? "col-12" : "col-10"} p-2`}
       >

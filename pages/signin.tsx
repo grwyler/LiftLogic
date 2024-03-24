@@ -1,7 +1,7 @@
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { Button } from "react-bootstrap";
 import { FaSignInAlt, FaSpinner } from "react-icons/fa";
 import UserTable from "../components/UserTable";
@@ -15,8 +15,6 @@ const SignIn = () => {
   const [password, setPassword] = useState("");
   const submitButtonRef = useRef();
   const [error, setError] = useState("");
-
-  const { data: session } = useSession();
 
   const router = useRouter();
   const fetchUsers = async () => {
@@ -50,13 +48,9 @@ const SignIn = () => {
     });
 
     if (result.error) {
-      console.error("Sign-In Error:", result.error);
       setError("👀👀 we don't know you");
-      // setHasFailedLogin(true);
       setIsSigningIn(false);
     } else {
-      console.log("User Sign-In Successful");
-
       router.push("/routines");
     }
   };
@@ -116,6 +110,7 @@ const SignIn = () => {
           {users &&
             users.map((user) => (
               <UserTable
+                key={`user-table-column-${user.username}`}
                 user={user}
                 setUsername={setUsername}
                 setPassword={setPassword}

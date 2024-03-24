@@ -118,6 +118,7 @@ const AddExercise = ({
           ) {
             return (
               <ExerciseSearchItem
+                key={`exercise-search-item-${exercise.name}-${index}`}
                 index={index}
                 exercise={exercise}
                 handleAddExercise={handleAddExercise}

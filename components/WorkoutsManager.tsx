@@ -88,7 +88,7 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
             handleCurrentDayChange={handleCurrentDayChange}
             darkMode={darkMode}
           />
-
+          <hr />
           {isLoadingWorkout || !currentWorkout ? (
             <Fragment>
               <div className="spinning m-3 text-center">

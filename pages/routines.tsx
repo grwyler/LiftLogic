@@ -89,10 +89,12 @@ const RoutinesPage: React.FC = () => {
 
   useEffect(() => {
     // Request wake lock permission
-    let wakeLock = null;
+    let wakeLock: any = null; // Use 'any' type for navigator
+
     const requestWakeLock = async () => {
       try {
-        wakeLock = await navigator.wakeLock.request("screen");
+        // Use type assertion to inform TypeScript that 'navigator' has 'wakeLock' property
+        wakeLock = await (navigator as any).wakeLock.request("screen");
         console.log("Wake Lock active!");
       } catch (err) {
         console.error(`${err.name}, ${err.message}`);
@@ -117,6 +119,7 @@ const RoutinesPage: React.FC = () => {
   }, [user]);
   const handleSignOut = async () => {
     try {
+      setDarkMode(null);
       await signOut({ redirect: false, callbackUrl: "/" }); // Set redirect to true if you want to redirect the user after signing out
     } catch (error) {
       console.error("Error signing out:", error);
@@ -124,14 +127,12 @@ const RoutinesPage: React.FC = () => {
   };
   return (
     <div
-      className={`container p-2 rounded vh-100 ${
-        darkMode ? "text-white bg-dark" : ""
-      }`}
+      className={`container p-2 vh-100 ${darkMode ? "text-white bg-dark" : ""}`}
       style={{ maxWidth: 600, height: "100vh", overflowY: "auto" }}
     >
       {!loading && user && routine ? (
         <Fragment>
-          <div className="d-flex justify-content-between">
+          <div className="d-flex justify-content-between ">
             <UserProfile
               user={user}
               setUser={setUser}
@@ -145,7 +146,7 @@ const RoutinesPage: React.FC = () => {
               <FaSignOutAlt />
             </Button>
           </div>
-
+          <hr />
           <WorkoutsManager
             routine={routine}
             setRoutine={setRoutine}
