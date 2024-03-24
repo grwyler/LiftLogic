@@ -1,5 +1,5 @@
 // pages/api/signup.ts
-import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {

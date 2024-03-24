@@ -1,12 +1,12 @@
-// pages/routines.tsx
 import React, { Fragment, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { fetchUser, fetchWorkouts } from "../utils/helpers";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
-import { FaSpinner } from "react-icons/fa";
+import { FaSignOutAlt, FaSpinner } from "react-icons/fa";
 import UserProfile from "../components/UserProfile";
+import { Button } from "react-bootstrap";
 
 const RoutinesPage: React.FC = () => {
   const router = useRouter();
@@ -20,36 +20,132 @@ const RoutinesPage: React.FC = () => {
   } | null>(null);
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [isLoadingUser, setIsloadingUser] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  // const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
+
+  // useEffect(() => {
+  //   setIsMounted(true); // Component is mounted
+  //   return () => {
+  //     setIsMounted(false); // Component is unmounted
+  //   };
+  // }, []);
+
+  // useEffect(() => {
+  //   if (user) {
+  //     setDarkMode(user.darkMode || false);
+  //   }
+  // });
+
+  // useEffect(() => {
+  //   if (
+  //     session &&
+  //     session.token &&
+  //     session.token.user &&
+  //     session.token.user._id &&
+  //     isMounted
+  //   ) {
+  //     const fetchUserData = async () => {
+  //       try {
+  //         await Promise.all([
+  //           fetchWorkouts(setRoutine, session.token.user._id),
+  //           fetchUser(setUser, session.token.user._id),
+  //         ]);
+  //       } catch (error) {
+  //         console.error("Error fetching data:", error);
+  //       }
+  //     };
+
+  //     fetchUserData();
+  //   } else if (!session && isMounted) {
+  //     // Redirect user to login page
+  //     router.push("/");
+  //   }
+  // }, [session, isMounted]);
+  useEffect(() => {
+    if (
+      session &&
+      session.token &&
+      session.token.user &&
+      session.token.user._id
+    ) {
+      const fetchUserData = async () => {
+        try {
+          await Promise.all([
+            fetchWorkouts(setRoutine, session.token.user._id),
+            fetchUser(setUser, session.token.user._id),
+          ]);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        } finally {
+          setLoading(false); // Update loading state after fetching data
+        }
+      };
+      fetchUserData();
+      setLoading(false);
+    } else {
+      router.push("/"); // Redirect user to login page if not authenticated
+    }
+  }, [session]);
 
   useEffect(() => {
-    if (user) {
-      setDarkMode(user.darkMode || false);
-    }
-  });
-  useEffect(() => {
-    if (session?.token.user._id) {
-      fetchWorkouts(setRoutine, session?.token.user._id);
-      fetchUser(setUser, session?.token.user._id);
-    }
-  }, [session?.token.user._id]);
+    // Request wake lock permission
+    let wakeLock = null;
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        console.log("Wake Lock active!");
+      } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    };
 
+    requestWakeLock();
+
+    // Cleanup function to release wake lock when the component unmounts
+    return () => {
+      if (wakeLock !== null) {
+        wakeLock.release();
+        console.log("Wake Lock released!");
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user && user.darkMode !== undefined && !darkMode) {
+      setDarkMode(user.darkMode);
+    }
+  }, [user]);
+  const handleSignOut = async () => {
+    try {
+      await signOut({ redirect: false, callbackUrl: "/" }); // Set redirect to true if you want to redirect the user after signing out
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
   return (
     <div
-      className={`container border p-2 rounded vh-100 ${
-        darkMode ? "bg-dark text-white" : ""
+      className={`container p-2 rounded vh-100 ${
+        darkMode ? "text-white bg-dark" : ""
       }`}
       style={{ maxWidth: 600, height: "100vh", overflowY: "auto" }}
     >
-      {routine && user ? (
+      {!loading && user && routine ? (
         <Fragment>
-          <UserProfile
-            user={user}
-            setUser={setUser}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-          />
+          <div className="d-flex justify-content-between">
+            <UserProfile
+              user={user}
+              setUser={setUser}
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+            />
+            <Button
+              variant={darkMode ? "bg-custom-dark text-white" : "white"}
+              onClick={handleSignOut}
+            >
+              <FaSignOutAlt />
+            </Button>
+          </div>
+
           <WorkoutsManager
             routine={routine}
             setRoutine={setRoutine}

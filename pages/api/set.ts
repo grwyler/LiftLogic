@@ -1,6 +1,6 @@
 // pages/api/exercise.ts
 import { NextApiRequest, NextApiResponse } from "next";
-import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 
 export default async function handler(
   req: NextApiRequest,

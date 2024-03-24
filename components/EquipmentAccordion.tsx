@@ -36,10 +36,15 @@ function EquipmentAccordion({
 
   return (
     <Accordion>
-      <Card className={darkMode ? "bg-dark border-light" : ""}>
-        <Card.Header className="d-flex justify-content-between">
+      <Card>
+        <Card.Header
+          className={`d-flex justify-content-between ${
+            darkMode ? "bg-custom-dark text-white" : ""
+          }`}
+        >
           <Button
-            variant={darkMode ? "dark" : "white"}
+            variant={darkMode ? "bg-custom-dark text-white" : "white"}
+            size="sm"
             onClick={handleToggleCollapse}
             aria-expanded={!isCollapsed}
             aria-controls="equipmentCollapse"
@@ -51,9 +56,10 @@ function EquipmentAccordion({
               selectedEquipment.length === requiredEquipment.length
                 ? "secondary"
                 : darkMode
-                ? "dark"
+                ? "bg-custom-dark text-white"
                 : "white"
             }
+            size="sm"
             onClick={handleSelectAll}
             aria-expanded={!isCollapsed}
             aria-controls="equipmentCollapse"
@@ -64,7 +70,10 @@ function EquipmentAccordion({
           </Button>
         </Card.Header>
         <Accordion.Collapse eventKey="0" in={!isCollapsed}>
-          <Card.Body id="equipmentCollapse">
+          <Card.Body
+            id="equipmentCollapse"
+            className={`${darkMode ? "bg-dark" : ""}`}
+          >
             {requiredEquipment.map((equipment, index) => (
               <button
                 key={index}

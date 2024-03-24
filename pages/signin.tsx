@@ -3,8 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import { Button } from "react-bootstrap";
-import { FaSave, FaSignInAlt, FaSpinner, FaTrash } from "react-icons/fa";
-import user from "./api/user";
+import { FaSignInAlt, FaSpinner } from "react-icons/fa";
 import UserTable from "../components/UserTable";
 
 const SignIn = () => {
@@ -24,7 +23,10 @@ const SignIn = () => {
     try {
       const response = await fetch("/api/user");
       const data = await response.json();
-      setUsers(data.users);
+
+      if (data.users && Object.keys(data.users).length > 0) {
+        setUsers(data.users);
+      }
       setIsloadingUsers(false);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -111,16 +113,17 @@ const SignIn = () => {
           {!isLoadingUsers && users && users.length === 0 && (
             <div className="text-muted">No Users</div>
           )}
-          {users.map((user) => (
-            <UserTable
-              user={user}
-              setUsername={setUsername}
-              setPassword={setPassword}
-              handleSubmit={handleSubmit}
-              fetchUsers={fetchUsers}
-              setError={setError}
-            />
-          ))}
+          {users &&
+            users.map((user) => (
+              <UserTable
+                user={user}
+                setUsername={setUsername}
+                setPassword={setPassword}
+                handleSubmit={handleSubmit}
+                fetchUsers={fetchUsers}
+                setError={setError}
+              />
+            ))}
         </div>
       )}
     </Fragment>

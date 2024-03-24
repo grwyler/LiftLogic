@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import TimerInput from "./TimerInput";
 import { Draggable } from "react-beautiful-dnd";
+import { emptyOrNullToZero } from "../utils/helpers";
 
 const SetEditTimerItem = ({ set, index, darkMode }) => {
-  const [hours, setHours] = useState(set.hours || 0);
-  const [minutes, setMinutes] = useState(set.minutes || 0);
-  const [seconds, setSeconds] = useState(set.seconds || 0);
+  const [hours, setHours] = useState(emptyOrNullToZero(set.hours));
+  const [minutes, setMinutes] = useState(emptyOrNullToZero(set.minutes));
+  const [seconds, setSeconds] = useState(emptyOrNullToZero(set.seconds));
 
   const handleBlur = () => {};
 
@@ -14,9 +15,7 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
         <div
-          className={`card my-2 ${
-            darkMode ? "bg-dark border-light text-white" : ""
-          }`}
+          className={`card my-2 ${darkMode ? "bg-custom-dark text-white" : ""}`}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           ref={provided.innerRef}

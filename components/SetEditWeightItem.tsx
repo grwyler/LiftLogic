@@ -7,7 +7,9 @@ const SetEditWeightItem = ({ set, index, darkMode }) => {
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
         <div
-          className={`card my-2 ${darkMode ? "bg-dark text-white" : ""}`}
+          className={`card my-2 ${
+            darkMode ? "bg-custom-dark text-white " : ""
+          }`}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           ref={provided.innerRef}
@@ -49,7 +51,7 @@ const SetEditWeightItem = ({ set, index, darkMode }) => {
               </div>
             </div>
             <div>
-              Reps
+              Suggested Reps
               <input
                 className={`form-control ${
                   darkMode ? "bg-dark text-white" : ""

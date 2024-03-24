@@ -5,6 +5,7 @@ import SetEditTimerItem from "./SetEditTimerItem";
 import SetEditWeightItem from "./SetEditWeightItem";
 import { DragDropContext, Droppable } from "react-beautiful-dnd";
 import TimerInput from "./TimerInput";
+import { emptyOrNullToZero } from "../utils/helpers";
 
 const ExerciseEditItem = ({
   index,
@@ -66,12 +67,12 @@ const ExerciseEditItem = ({
       key={index}
       className={`card border-primary m-2 ${
         isValid ? "border-primary" : "border-secondary"
-      } ${darkMode ? "bg-dark" : ""}`}
+      } `}
     >
       <div
-        className={`card-header d-flex justify-content-between align-items-center text-white ${
+        className={`card-header d-flex justify-content-between align-items-center text-white  ${
           isValid ? "bg-primary" : "bg-secondary"
-        }`}
+        } `}
       >
         <div className="card-title">{exercise.name}</div>
         <Button
@@ -82,7 +83,7 @@ const ExerciseEditItem = ({
           Remove <FaMinus />
         </Button>
       </div>
-      <div className={`card-body ${darkMode ? "text-light" : ""}`}>
+      <div className={`card-body ${darkMode ? "bg-dark text-light" : ""}`}>
         <div className="container-fluid">
           <div className="row my-2">
             {exercise.type === "timed" ? (
@@ -203,9 +204,10 @@ const useExerciseEditItemState = (
   const [mySets, setMySets] = useState(exercise.sets);
   const [mySetLength, setMySetLength] = useState(exercise.sets.length);
   const [myOneRepMax, setMyOneRepMax] = useState(exercise.oneRepMax);
-  const [mySeconds, setMySeconds] = useState(exercise.seconds);
-  const [myMinutes, setMyMinutes] = useState(exercise.minutes);
-  const [myHours, setMyHours] = useState(exercise.hours);
+
+  const [myHours, setMyHours] = useState(emptyOrNullToZero(exercise.hours));
+  const [myMinutes, setMyMinutes] = useState(emptyOrNullToZero(exercise.hours));
+  const [mySeconds, setMySeconds] = useState(emptyOrNullToZero(exercise.hours));
   const isInvalid =
     (!myOneRepMax && exercise.type === "weight") ||
     (!myHours && !myMinutes && !mySeconds && exercise.type === "timed");

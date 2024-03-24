@@ -179,7 +179,7 @@ const SelectedSetItem = ({
         transition: "box-shadow 2s ease",
         overflow: "visible",
       }}
-      className={`card small p-3 m-2 ${darkMode ? "bg-dark border-light" : ""}`}
+      className={`card small p-3 m-2 ${darkMode ? "bg-dark" : ""}`}
     >
       <div className="input-group mb-2">
         <input

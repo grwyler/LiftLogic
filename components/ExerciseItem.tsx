@@ -88,10 +88,10 @@ const ExerciseItem = ({
   return (
     <div
       key={v4()}
-      className={`text-center mx-2 rounded ${
+      className={`text-center m-2 rounded ${
         currentExerciseIndex === exerciseIndex
           ? darkMode
-            ? "bg-dark"
+            ? "bg-custom-dark"
             : "bg-light"
           : ""
       }`}
@@ -104,13 +104,13 @@ const ExerciseItem = ({
     >
       <div className="d-flex justify-content-center align-items-center ">
         <div
-          className={`w-100 m-2 rounded p-1 bg-${
-            darkMode ? "dark border-light" : "light"
+          className={`w-100 m-2 rounded p-1 ${
+            darkMode ? "bg-custom-dark " : "bg-light"
           }`}
         >
           <Button
             size="sm"
-            variant={darkMode ? "dark" : "light"}
+            variant={darkMode ? "bg-custom-dark text-white" : "light"}
             className="float-start"
             onClick={() => handleWorkoutButtonClick(exerciseIndex)}
           >
@@ -133,7 +133,7 @@ const ExerciseItem = ({
                 shownMenuIndex === exerciseIndex
                   ? "secondary"
                   : darkMode
-                  ? "dark"
+                  ? "bg-custom-dark text-white"
                   : "light"
               }
               onClick={() =>
@@ -189,7 +189,7 @@ const ExerciseItem = ({
         })}
       {exerciseIndex === currentExerciseIndex && (
         <Button
-          variant={darkMode ? "dark" : "white"}
+          variant={darkMode ? "bg-custom-dark " : "white"}
           className="m-2 text-primary"
           onClick={handleAddSet}
         >

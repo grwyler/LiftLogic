@@ -254,8 +254,18 @@ export const fetchUser = async (setUser, id) => {
   try {
     const response = await fetch(`/api/user?id=${id}`);
     const data = await response.json();
+
     setUser(data.user);
   } catch (error) {
     console.error("Error fetching users:", error);
+  }
+};
+
+export const emptyOrNullToZero = (value) => {
+  // Check if the value is an empty string or null
+  if (value === "" || !value) {
+    return 0; // Return 0 if empty string or null
+  } else {
+    return value; // Return the original value if not empty string or null
   }
 };

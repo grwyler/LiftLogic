@@ -1,77 +1,69 @@
 // pages/api/user.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { ObjectId } from "mongodb";
-import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method === "GET") {
-    const { id } = req.query;
-    try {
-      // Connect to the MongoDB database
+  try {
+    if (req.method === "GET") {
       const db = await connectToDatabase();
+      const userCollection = await db.collection("users");
+      const { id } = req.query;
       if (id) {
-        const user = await db
-          .collection("users")
-          .findOne({ _id: new ObjectId(id as string) });
-        res.status(200).json({ user });
+        const matchingUser = await userCollection.findOne({
+          _id: new ObjectId(id as string),
+        });
+
+        if (!matchingUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({ user: matchingUser });
       } else {
-        // Query the users collection to get all users
-        const users = await db.collection("users").find({}).toArray();
-        await disconnectFromDatabase();
-        res.status(200).json({ users });
+        const users = await userCollection.find({}).toArray();
+        return res.status(200).json({ users });
       }
-    } catch (error) {
-      console.error("MongoDB query error:", error);
-      res.status(500).json({ message: "Internal Server Error" });
-    }
-  } else if (req.method === "DELETE") {
-    const { id } = req.query;
-
-    if (!id) {
-      return res.status(400).json({ error: "User ID is required" });
-    }
-
-    try {
+    } else if (req.method === "DELETE") {
       const db = await connectToDatabase();
-      const collection = db.collection("users");
+      const userCollection = await db.collection("users");
+      const { id } = req.query;
+      if (!id) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
 
-      const result = await collection.deleteOne({
+      const result = await userCollection.deleteOne({
         _id: new ObjectId(id as string),
       });
 
       if (result.deletedCount === 1) {
+        const routineCollection = await db.collection("routines");
+        const exerciseCollection = await db.collection("exercises");
+        const setCollection = await db.collection("sets");
         // Delete related documents in the 'routines' collection
-        const routinesCollection = db.collection("routines");
-        await routinesCollection.deleteMany({ userId: id });
+        await routineCollection.deleteMany({ userId: id });
 
         // Delete related documents in the 'exercises' collection
-        const exercisesCollection = db.collection("exercises");
-        await exercisesCollection.deleteMany({ userId: id });
+        await exerciseCollection.deleteMany({ userId: id });
+
+        // Delete related documents in the 'sets' collection
+        await setCollection.deleteMany({ userId: id });
 
         return res.status(200).json({ message: "User deleted successfully" });
       } else {
         return res.status(404).json({ error: "User not found" });
       }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
-    } finally {
-      await disconnectFromDatabase();
-    }
-  } else if (req.method === "POST") {
-    const { user } = req.body;
-
-    if (!user) {
-      return res.status(400).json({ error: "User is required" });
-    }
-    try {
+    } else if (req.method === "POST") {
       const db = await connectToDatabase();
-      const collection = db.collection("users");
+      const userCollection = await db.collection("users");
+      const { user } = req.body;
+      if (!user) {
+        return res.status(400).json({ error: "User is required" });
+      }
 
-      const existingUser = await collection.findOne({
+      const existingUser = await userCollection.findOne({
         _id: new ObjectId(user._id as string),
       });
 
@@ -85,20 +77,20 @@ export default async function handler(
         };
 
         // Update existing user
-        await collection.updateOne({ _id: existingUser._id }, updateDocument);
-      } else {
-        // Insert new user
-        await collection.insertOne(user);
+        await userCollection.updateOne(
+          { _id: existingUser._id },
+          updateDocument
+        );
       }
 
-      await disconnectFromDatabase();
-
-      res.status(200).json({ message: "User saved successfully!" });
-    } catch (error) {
-      console.error("Error updating user:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
+      return res.status(200).json({ message: "User saved successfully!" });
+    } else {
+      return res.status(405).json({ message: "Method Not Allowed" });
     }
-  } else {
-    res.status(405).json({ message: "Method Not Allowed" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    await disconnectFromDatabase();
   }
 }

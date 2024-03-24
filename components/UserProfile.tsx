@@ -27,7 +27,7 @@ function UserProfile({ user, setUser, darkMode, setDarkMode }) {
   };
 
   return (
-    <div className="user-profile-container">
+    <div className="user-profile-container" style={{ width: "200px" }}>
       <Button
         className={`user-profile-button ${
           darkMode ? "dark-mode" : "light-mode"
@@ -39,7 +39,7 @@ function UserProfile({ user, setUser, darkMode, setDarkMode }) {
       {showSettings && (
         <div
           className={`user-settings ${
-            darkMode ? "bg-dark text-white" : "text-dark"
+            darkMode ? "bg-custom-dark text-white" : "text-dark"
           }`}
         >
           <Form onSubmit={handleSubmit}>

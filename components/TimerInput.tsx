@@ -58,6 +58,7 @@ const TimerInput = ({
         placeholder="Seconds"
         onChange={(e) => handleInputChange(e.target.value, setSeconds)}
         onBlur={handleBlur}
+        autoFocus
       />
       <span
         className={`input-group-text font-InterTight ${

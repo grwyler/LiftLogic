@@ -1,6 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import connectToDatabase from "../../../utils/mongodb";
+import {
+  connectToDatabase,
+  disconnectFromDatabase,
+} from "../../../utils/mongodb";
 
 export default NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
@@ -13,18 +16,24 @@ export default NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const db = await connectToDatabase();
+        try {
+          const db = await connectToDatabase();
 
-        const user = await db.collection("users").findOne({
-          username: credentials.username,
-          password: credentials.password, // TODO: Hash the password before storing and comparing
-        });
+          const user = await db.collection("users").findOne({
+            username: credentials.username,
+            password: credentials.password, // TODO: Hash the password before storing and comparing
+          });
 
-        if (user) {
-          // Any object returned here will be saved in the JSON Web Token
-          return Promise.resolve(user);
-        } else {
-          return Promise.resolve(null);
+          if (user) {
+            // Any object returned here will be saved in the JSON Web Token
+            return Promise.resolve(user);
+          } else {
+            return Promise.resolve(null);
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          await disconnectFromDatabase();
         }
       },
     }),

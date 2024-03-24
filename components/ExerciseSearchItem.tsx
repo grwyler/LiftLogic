@@ -11,16 +11,14 @@ const ExerciseSearchItem = ({
   return (
     <div
       key={index}
-      className={`card m-2 ${
-        darkMode ? "bg-dark text-white border-light" : ""
-      }`}
+      className={`card m-2 ${darkMode ? "bg-custom-dark text-white" : ""}`}
     >
       <div
         className={`card-header d-flex justify-content-between align-items-center`}
       >
         <div className="card-title">{exercise.name}</div>
         <Button
-          variant="primary"
+          variant="outline-primary"
           size="sm"
           onClick={() => handleAddExercise(exercise)}
         >

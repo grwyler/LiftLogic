@@ -1,103 +1,84 @@
 // pages/api/routine.ts
 import { NextApiRequest, NextApiResponse } from "next";
-import connectToDatabase, { disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method === "POST") {
-    // Handling POST request to save a routine
+  try {
+    const db = await connectToDatabase();
+    const routineCollection = db.collection("routines");
+    const exerciseCollection = db.collection("exercises");
     const { routine } = req.body;
+    const { userId } = req.query;
+    if (req.method === "POST") {
+      // Handling POST request to save a routine
 
-    console.log("Received routine:", routine);
-
-    try {
-      const db = await connectToDatabase();
-      const collection = db.collection("routines");
-      const existingRoutine = await collection.findOne({
+      const existingRoutine = await routineCollection.findOne({
         userId: routine.userId,
       });
 
       if (existingRoutine) {
         delete routine._id;
         // Update existing routine
-        await collection.updateOne(
+        await routineCollection.updateOne(
           { userId: routine.userId },
           { $set: routine }
         );
       } else {
         // Insert new routine
-        await collection.insertOne(routine);
+        await routineCollection.insertOne(routine);
       }
 
-      await disconnectFromDatabase();
+      return res.status(201).json({ message: "routine saved successfully!" });
+    } else if (req.method === "GET") {
+      // Handling GET request to retrieve routines
 
-      res.status(201).json({ message: "routine saved successfully!" });
-    } catch (error) {
-      console.error("MongoDB connection or insertion error:", error);
-      res.status(500).json({ message: "Internal Server Error" });
-    }
-  } else if (req.method === "GET") {
-    // Handling GET request to retrieve routines
-    const { userId } = req.query;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
 
-    if (!userId) {
-      return res.status(400).json({ message: "User ID is required" });
-    }
-
-    try {
-      const db = await connectToDatabase();
-      const routines = await db
-        .collection("routines")
+      const routines = await routineCollection
         .find({
           userId,
         })
         .toArray();
 
       // Return a success status (200) with an array of exercises
-      res.status(200).json({ routines });
-      await disconnectFromDatabase();
-    } catch (error) {
-      console.error("MongoDB connection or query error:", error);
-      res.status(500).json({ message: "Internal Server Error" });
-    }
-  } else if (req.method === "DELETE") {
-    const { userId, name } = req.query;
+      return res.status(200).json({ routines });
+    } else if (req.method === "DELETE") {
+      const { userId, name } = req.query;
 
-    if (!userId || !name) {
-      return res
-        .status(400)
-        .json({ error: "User ID and the name of the routine is required" });
-    }
+      if (!userId || !name) {
+        return res
+          .status(400)
+          .json({ error: "User ID and the name of the routine is required" });
+      }
 
-    try {
-      const db = await connectToDatabase();
-      const collection = db.collection("routines");
-
-      const result = await collection.deleteOne({
+      const result = await routineCollection.deleteOne({
         userId,
         name,
       });
 
       if (result.deletedCount === 1) {
         // Delete related documents in the 'exercises' collection
-        const exercisesCollection = db.collection("exercises");
-        await exercisesCollection.deleteMany({ userId });
+
+        await exerciseCollection.deleteMany({ userId });
         return res
           .status(200)
           .json({ message: "Routine deleted successfully" });
       } else {
         return res.status(404).json({ error: "Routine not found" });
       }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
-    } finally {
-      await disconnectFromDatabase();
+    } else {
+      // Handling other HTTP methods
+      return res.status(405).json({ message: "Method Not Allowed" });
     }
-  } else {
-    // Handling other HTTP methods
-    res.status(405).json({ message: "Method Not Allowed" });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    await disconnectFromDatabase();
   }
 }
