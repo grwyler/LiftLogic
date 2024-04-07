@@ -6,6 +6,7 @@ import ExerciseEditItem from "./ExerciseEditItem";
 import ExerciseSearchItem from "./ExerciseSearchItem";
 import EquipmentAccordion from "./EquipmentAccordion";
 import { deepCopy } from "../utils/helpers";
+import { v4 } from "uuid";
 
 const AddExercise = ({
   setIsAddingExercise,
@@ -90,6 +91,7 @@ const AddExercise = ({
       <div className="container-fluid">
         {selectedExercises.map((exercise, index) => (
           <ExerciseEditItem
+            key={v4()}
             index={index}
             exercise={exercise}
             selectedExercises={selectedExercises}
