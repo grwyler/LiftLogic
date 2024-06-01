@@ -106,7 +106,7 @@ const RoutinesPage: React.FC = () => {
   const handleSignOut = async () => {
     try {
       setDarkMode(null);
-      await signOut({ redirect: false, callbackUrl: "/" }); // Set redirect to true if you want to redirect the user after signing out
+      await signOut({ redirect: true, callbackUrl: "/" });
     } catch (error) {
       console.error("Error signing out:", error);
     }
