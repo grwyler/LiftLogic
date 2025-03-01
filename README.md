@@ -6,6 +6,6 @@ $env:MONGODB_URI="mongodb+srv://grwyler:KD3N0S1wrdwaKN0L@liftlogic.tds3b6t.mongo
 $env:NEXTAUTH_SECRET="mysecretkey123"  
 $env:NEXTAUTH_URL="http://localhost:3000"
 
-## deploy
+## Deploy
 
 vercel --prod
