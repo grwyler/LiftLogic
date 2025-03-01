@@ -208,8 +208,12 @@ const useExerciseEditItemState = (
   const [myOneRepMax, setMyOneRepMax] = useState(exercise.oneRepMax);
 
   const [myHours, setMyHours] = useState(emptyOrNullToZero(exercise.hours));
-  const [myMinutes, setMyMinutes] = useState(emptyOrNullToZero(exercise.hours));
-  const [mySeconds, setMySeconds] = useState(emptyOrNullToZero(exercise.hours));
+  const [myMinutes, setMyMinutes] = useState(
+    emptyOrNullToZero(exercise.minuntes)
+  );
+  const [mySeconds, setMySeconds] = useState(
+    emptyOrNullToZero(exercise.seconds)
+  );
   const isInvalid =
     (!myOneRepMax && exercise.type === "weight") ||
     (!myHours && !myMinutes && !mySeconds && exercise.type === "timed");
