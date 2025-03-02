@@ -75,3 +75,13 @@
 .bg-custom-dark {
   background-color: #333;
 }
+
+.form-control {
+  border: 2px solid #ccc; /* Light border */
+  border-radius: 8px; /* Softer edges */
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.rotate-180 {
+  transform: rotate(180deg);
+}

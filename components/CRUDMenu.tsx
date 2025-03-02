@@ -12,7 +12,7 @@ const CRUDMenu = ({
     <Fragment>
       {canRead && (
         <div
-          className="rounded"
+          className="rounded d-flex justify-content-center align-items-center"
           style={{
             position: "absolute",
             zIndex: 3,
@@ -22,39 +22,21 @@ const CRUDMenu = ({
         >
           {handleCreate && (
             <Fragment>
-              <Button
-                variant="white text-success"
-                className="mt-3"
-                onClick={handleCreate}
-              >
+              <Button variant="white text-success" onClick={handleCreate}>
                 <FaPlus />
               </Button>
               <hr />
             </Fragment>
           )}
           {handleUpdate && (
-            <Button
-              variant="white"
-              className={
-                handleCreate && handleDelete
-                  ? "my-1"
-                  : handleCreate && !handleDelete
-                  ? "mb-3"
-                  : "my-3"
-              }
-              onClick={handleUpdate}
-            >
+            <Button variant="white" onClick={handleUpdate}>
               <FaEdit />
             </Button>
           )}
           {handleDelete && (
             <Fragment>
               <hr />
-              <Button
-                variant="white text-danger"
-                className="mb-3"
-                onClick={handleDelete}
-              >
+              <Button variant="white text-danger" onClick={handleDelete}>
                 <FaTrash />
               </Button>
             </Fragment>

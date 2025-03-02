@@ -11,7 +11,7 @@ const SetItem = ({ set, setIndex, setCurrentSetIndex, type, darkMode }) => {
   };
   return (
     <div
-      key={v4()}
+      key={`card-set-${set.name}-${setIndex}`}
       onClick={handleClickCompletedSet}
       className={`card m-2 py-2 px-3 bg-${
         darkMode ? "dark text-light border-success" : "light"

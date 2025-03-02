@@ -91,7 +91,7 @@ const AddExercise = ({
       <div className="container-fluid">
         {selectedExercises.map((exercise, index) => (
           <ExerciseEditItem
-            key={v4()}
+            key={`exercise-edit-item-${exercise.name}`}
             index={index}
             exercise={exercise}
             selectedExercises={selectedExercises}

@@ -9,7 +9,7 @@ const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
 
   return (
     <div
-      key={v4()}
+      key={`card-set-item-${set.name}`}
       className={`card m-2 ${
         darkMode
           ? "bg-dark text-light border-secondary"

@@ -4,7 +4,6 @@ import { FaCheck } from "react-icons/fa";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
-import { v4 } from "uuid";
 import {
   IoAddCircleOutline,
   IoCaretDown,
@@ -28,43 +27,33 @@ const ExerciseItem = ({
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
 
-  const handleWorkoutButtonClick = (exerciseIndex) => {
-    if (currentExerciseIndex === exerciseIndex) {
-      setCurrentExerciseIndex(-1);
-    } else {
-      setCurrentExerciseIndex(exerciseIndex);
-    }
-    let index = 0;
+  const handleWorkoutButtonClick = (index) => {
+    setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
 
-    while (
-      currentExercise.sets[index] &&
-      currentExercise.sets[index].complete
-    ) {
-      index++;
-    }
-
-    setCurrentSetIndex(index);
+    const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);
+    setCurrentSetIndex(nextSetIndex !== -1 ? nextSetIndex : 0);
   };
+
   const handleAddSet = () => {
     const sets = [...currentExercise.sets];
-    if (sets && sets.length > 0) {
-      const lastSet = sets[sets.length - 1];
-      const count = isNaN(parseInt(lastSet.name.slice(lastSet.name.length - 1)))
-        ? 0
-        : parseInt(lastSet.name.slice(lastSet.name.length - 1)) + 1;
-      const newSet = {
-        ...lastSet,
-        weight: lastSet.weight + lastSet.weight * 0.05,
-        reps: lastSet.reps,
-        actualWeight: "",
-        actualReps: "",
-        complete: false,
-        name: `${lastSet.name.slice(0, lastSet.name.length - 1)}${count}`,
-      };
-      sets.push(newSet);
-      setCurrentExercise({ ...currentExercise, sets });
-    }
+
+    if (sets.length === 0) return; // Avoid error on empty sets
+
+    const lastSet = sets[sets.length - 1];
+    const newSetNumber = sets.length + 1;
+
+    const newSet = {
+      ...lastSet,
+      weight: lastSet.weight + lastSet.weight * 0.05,
+      actualWeight: "",
+      actualReps: "",
+      complete: false,
+      name: `Working Set ${newSetNumber}`,
+    };
+
+    setCurrentExercise({ ...currentExercise, sets: [...sets, newSet] });
   };
+
   const handleDeleteSet = (setName) => {
     const sets = [...currentExercise.sets];
     setCurrentExercise({
@@ -72,6 +61,7 @@ const ExerciseItem = ({
       sets: sets.filter((s) => s.name !== setName),
     });
   };
+
   const handleDeleteExercise = () => {
     const workoutCopy = JSON.parse(JSON.stringify(workout));
     workoutCopy.exercises.splice(exerciseIndex, 1);
@@ -85,9 +75,10 @@ const ExerciseItem = ({
 
     setShownMenuIndex(-1);
   };
+
   return (
     <div
-      key={v4()}
+      key={`exercise-${exercise.name}-${exerciseIndex}`}
       className={`text-center m-2 rounded ${
         currentExerciseIndex === exerciseIndex
           ? darkMode
@@ -96,10 +87,13 @@ const ExerciseItem = ({
           : ""
       }`}
       style={{
+        border:
+          currentExerciseIndex === exerciseIndex ? "2px solid #007bff" : "none",
         boxShadow:
           currentExerciseIndex === exerciseIndex
-            ? "0px 0px 10px rgba(50, 50, 50, .8)"
+            ? "0px 4px 12px rgba(0, 123, 255, 0.2)" // Softer glow effect
             : "none",
+        transition: "all 0.2s ease-in-out",
       }}
     >
       <div className="d-flex justify-content-center align-items-center ">
@@ -111,14 +105,15 @@ const ExerciseItem = ({
           <Button
             size="sm"
             variant={darkMode ? "bg-custom-dark text-white" : "light"}
-            className="float-start"
+            className="float-start d-flex align-items-center"
             onClick={() => handleWorkoutButtonClick(exerciseIndex)}
           >
-            {currentExerciseIndex === exerciseIndex ? (
-              <IoCaretDown className="flip-icon rotate" />
-            ) : (
-              <IoCaretDown className="flip-icon" />
-            )}
+            <IoCaretDown
+              className={`flip-icon ${
+                currentExerciseIndex === exerciseIndex ? "rotate-180" : ""
+              }`}
+              style={{ transition: "transform 0.2s ease-in-out" }}
+            />
           </Button>
           {currentExercise.name}
 
@@ -136,13 +131,14 @@ const ExerciseItem = ({
                   ? "bg-custom-dark text-white"
                   : "light"
               }
+              className="ms-2 p-2"
               onClick={() =>
                 setShownMenuIndex(
                   shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
                 )
               }
             >
-              <IoEllipsisHorizontal />
+              <IoEllipsisHorizontal size={18} />
             </Button>
             <CRUDMenu
               canRead={shownMenuIndex === exerciseIndex}
@@ -156,7 +152,7 @@ const ExerciseItem = ({
         currentExercise.sets.map((s, i) => {
           return i === currentSetIndex ? (
             <SelectedSetItem
-              key={v4()}
+              key={`selectedSetItem-${i}`}
               routineName={routineName}
               set={s}
               currentExercise={currentExercise}
@@ -170,7 +166,7 @@ const ExerciseItem = ({
             />
           ) : s.complete ? (
             <CompletedSetItem
-              key={v4()}
+              key={`completedSetItem-${i}`}
               set={s}
               setIndex={i}
               setCurrentSetIndex={setCurrentSetIndex}
@@ -179,7 +175,7 @@ const ExerciseItem = ({
             />
           ) : (
             <SetItem
-              key={v4()}
+              key={`setItem-${i}`}
               set={s}
               handleDeleteSet={(setName) => handleDeleteSet(setName)}
               type={currentExercise.type}
@@ -190,10 +186,10 @@ const ExerciseItem = ({
       {exerciseIndex === currentExerciseIndex && (
         <Button
           variant={darkMode ? "bg-custom-dark " : "white"}
-          className="m-2 text-primary"
+          className="mt-3 mb-2 text-primary w-100 d-flex align-items-center justify-content-center"
           onClick={handleAddSet}
         >
-          Add Set <IoAddCircleOutline />
+          <IoAddCircleOutline className="me-1" /> Add Set
         </Button>
       )}
     </div>

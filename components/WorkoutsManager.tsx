@@ -55,19 +55,29 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
     currentExerciseIndex,
     updateWorkoutInRoutine,
     updateWorkoutsInRoutine,
+    isEditTitle,
+    setIsEditTitle,
+    isCreateTitle,
+    setIsCreateTitle,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
-  const handleCurrentDayChange = (change) => {
-    if (change < 0 && currentDayIndex === 0) {
-      setCurrentDayIndex(6);
-    } else if (change > 0 && currentDayIndex === 6) {
-      setCurrentDayIndex(0);
+  const handleCurrentDayChange = (change, isDateSelection) => {
+    let newDate = new Date(currentDate);
+    if (isDateSelection) {
+      newDate = change;
+      setCurrentDayIndex(change.getDay());
     } else {
-      setCurrentDayIndex(currentDayIndex + change);
+      if (change < 0 && currentDayIndex === 0) {
+        setCurrentDayIndex(6);
+      } else if (change > 0 && currentDayIndex === 6) {
+        setCurrentDayIndex(0);
+      } else {
+        setCurrentDayIndex(currentDayIndex + change);
+      }
+      newDate.setDate(currentDate.getDate() + change);
     }
+
     setCurrentExerciseIndex(-1);
-    const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() + change);
     setCurrentDate(newDate);
   };
 
@@ -84,7 +94,7 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
       ) : (
         <Fragment>
           <DaySwitcher
-            formattedDate={formattedDate}
+            currentDate={currentDate}
             handleCurrentDayChange={handleCurrentDayChange}
             darkMode={darkMode}
           />
@@ -107,6 +117,10 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
           ) : (
             <Fragment>
               <WorkoutSelector
+                isEditTitle={isEditTitle}
+                setIsEditTitle={setIsEditTitle}
+                isCreateTitle={isCreateTitle}
+                setIsCreateTitle={setIsCreateTitle}
                 currentWorkout={currentWorkout}
                 setCurrentWorkout={setCurrentWorkout}
                 workouts={workouts}
@@ -115,17 +129,19 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
                 updateWorkoutsInRoutine={updateWorkoutsInRoutine}
                 darkMode={darkMode}
               />
-              <WorkoutDisplay
-                currentWorkout={currentWorkout}
-                setCurrentWorkout={setCurrentWorkout}
-                currentExerciseIndex={currentExerciseIndex}
-                setCurrentExerciseIndex={setCurrentExerciseIndex}
-                formattedDate={formattedDate}
-                routineName={routine.name}
-                setIsAddingExercise={setIsAddingExercise}
-                updateWorkoutInRoutine={updateWorkoutInRoutine}
-                darkMode={darkMode}
-              />
+              {!isEditTitle && !isCreateTitle && (
+                <WorkoutDisplay
+                  currentWorkout={currentWorkout}
+                  setCurrentWorkout={setCurrentWorkout}
+                  currentExerciseIndex={currentExerciseIndex}
+                  setCurrentExerciseIndex={setCurrentExerciseIndex}
+                  formattedDate={formattedDate}
+                  routineName={routine.name}
+                  setIsAddingExercise={setIsAddingExercise}
+                  updateWorkoutInRoutine={updateWorkoutInRoutine}
+                  darkMode={darkMode}
+                />
+              )}
             </Fragment>
           )}
         </Fragment>
@@ -146,6 +162,8 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
   );
   const [currentDate, setCurrentDate] = useState(startDate);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
+  const [isEditTitle, setIsEditTitle] = useState(false);
+  const [isCreateTitle, setIsCreateTitle] = useState(false);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
@@ -286,6 +304,10 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
     currentExerciseIndex,
     updateWorkoutInRoutine,
     updateWorkoutsInRoutine,
+    isEditTitle,
+    setIsEditTitle,
+    isCreateTitle,
+    setIsCreateTitle,
   };
 };
 

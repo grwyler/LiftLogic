@@ -13,6 +13,7 @@
   "dependencies": {
     "axios": "^1.6.7",
     "bootstrap": "^5.3.2",
+    "date-fns": "^4.1.0",
     "gh-pages": "^6.1.1",
     "mongodb": "^6.3.0",
     "next": "latest",
@@ -21,6 +22,7 @@
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-bootstrap": "^2.9.2",
+    "react-datepicker": "^8.1.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.12.0",
     "react-swipeable": "^7.0.1",
