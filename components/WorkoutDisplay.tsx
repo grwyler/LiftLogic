@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import ExerciseItem from "./ExerciseItem";
 
@@ -18,7 +18,11 @@ const WorkoutDisplay = ({
   darkMode,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
-
+  useEffect(() => {
+    if (currentWorkout.exercises.length === 1) {
+      setCurrentExerciseIndex(0);
+    }
+  }, []);
   return (
     <Fragment>
       {currentWorkout.exercises &&
@@ -50,8 +54,9 @@ const WorkoutDisplay = ({
           Add Exercise <IoAddCircleOutline />
         </Button> */}
         <Button
-          variant="outline-secondary"
-          className="mt-2"
+          variant="white"
+          className="mt-2 text-primary"
+          size="sm"
           onClick={() => setIsAddingExercise(true)}
         >
           <FaPlus /> Add Exercise

@@ -269,3 +269,6 @@ export const emptyOrNullToZero = (value) => {
     return value; // Return the original value if not empty string or null
   }
 };
+
+export const toTitleCase = (text: string) =>
+  text.replace(/\b\w/g, (char) => char.toUpperCase());

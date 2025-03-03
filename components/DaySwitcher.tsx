@@ -8,7 +8,7 @@ const DaySwitcher = ({ currentDate, handleCurrentDayChange, darkMode }) => {
     <div className="d-flex justify-content-between align-items-center p-2">
       {/* Left Button */}
       <Button
-        size="md"
+        size="lg"
         variant={darkMode ? "dark" : "white"}
         onClick={() => handleCurrentDayChange(-1)}
       >
@@ -20,18 +20,19 @@ const DaySwitcher = ({ currentDate, handleCurrentDayChange, darkMode }) => {
         <DatePicker
           selected={currentDate}
           className="form-control text-center fw-bold w-100"
-          onChange={(date) => handleCurrentDayChange(date, true)}
-          dateFormat="EEEE, MMMM d, yyyy"
+          onChange={(date: Date | null) => handleCurrentDayChange(date, true)}
+          dateFormat="EEEE, MMMM d"
           showPopperArrow={false}
           popperPlacement="bottom"
-          wrapperClassName="w-100" // Ensures the wrapper takes full width
-          style={{ width: "100%", minWidth: "0" }} // Forces full width
+          wrapperClassName="w-100"
+          onFocus={(e) => e.target.blur()}
+          onChangeRaw={(e) => e.preventDefault()}
         />
       </div>
 
       {/* Right Button */}
       <Button
-        size="md"
+        size="lg"
         variant={darkMode ? "dark" : "white"}
         onClick={() => handleCurrentDayChange(1)}
       >

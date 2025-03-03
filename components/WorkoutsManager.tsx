@@ -7,6 +7,7 @@ import WorkoutSelector from "./WorkoutSelector";
 import AddExercise from "./AddExercise";
 import DaySwitcher from "./DaySwitcher";
 import WorkoutDisplay from "./WorkoutDisplay";
+import ExerciseSelector from "./ExerciseSelector";
 
 type Workout = {
   title: string;
@@ -81,15 +82,89 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
     setCurrentDate(newDate);
   };
 
+  // const addExerciseToWorkout = (exercise) => {
+  //   const currentWorkoutCopy = JSON.parse(JSON.stringify(currentWorkout));
+
+  //   currentWorkoutCopy.exercises.push(exercise);
+
+  //   setCurrentWorkout(currentWorkoutCopy);
+  //   updateWorkoutInRoutine(currentWorkoutCopy);
+  //   setIsAddingExercise(false);
+  // };
+  const addExerciseToWorkout = (exercise) => {
+    // Determine workout type based on equipment
+    const isWeighted = !exercise.equipment.toLowerCase().includes("bodyweight");
+    const workoutType = isWeighted ? "weight" : "timed";
+
+    const defaultMaxWeight = 35; // Default for weight-based exercises
+    const defaultTime = 60; // Default for timed exercises (e.g., 60 seconds)
+
+    const transformedExercise = {
+      name: exercise.name,
+      type: workoutType,
+      max: isWeighted ? defaultMaxWeight : defaultTime, // Max weight or duration
+      rest: 120,
+      complete: false,
+      sets: isWeighted
+        ? [
+            {
+              name: "Working set 1",
+              reps: 10,
+              percentage: 0.75,
+              actualReps: "",
+              actualWeight: "",
+              weight: defaultMaxWeight * 0.75,
+            },
+            {
+              name: "Working set 2",
+              reps: 10,
+              percentage: 0.78,
+              actualReps: "",
+              actualWeight: "",
+              weight: defaultMaxWeight * 0.78,
+            },
+            {
+              name: "Working set 3",
+              reps: 10,
+              percentage: 0.82,
+              actualReps: "",
+              actualWeight: "",
+              weight: defaultMaxWeight * 0.82,
+            },
+          ]
+        : [
+            {
+              name: "Timed Set",
+              duration: defaultTime,
+              actualDuration: "",
+              complete: false,
+            },
+          ],
+    };
+
+    // Clone and update workout
+    const currentWorkoutCopy = JSON.parse(JSON.stringify(currentWorkout));
+    currentWorkoutCopy.exercises.push(transformedExercise);
+
+    setCurrentWorkout(currentWorkoutCopy);
+    updateWorkoutInRoutine(currentWorkoutCopy);
+    setIsAddingExercise(false);
+  };
+
   return (
     <Fragment>
       {isAddingExercise ? (
-        <AddExercise
+        // <AddExercise
+        //   setIsAddingExercise={setIsAddingExercise}
+        //   currentWorkout={currentWorkout}
+        //   setCurrentWorkout={setCurrentWorkout}
+        //   updateWorkoutInRoutine={updateWorkoutInRoutine}
+        //   darkMode={darkMode}
+        // />
+        <ExerciseSelector
           setIsAddingExercise={setIsAddingExercise}
-          currentWorkout={currentWorkout}
-          setCurrentWorkout={setCurrentWorkout}
-          updateWorkoutInRoutine={updateWorkoutInRoutine}
-          darkMode={darkMode}
+          addExerciseToWorkout={addExerciseToWorkout}
+          darkMode={false}
         />
       ) : (
         <Fragment>
@@ -129,6 +204,7 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
                 updateWorkoutsInRoutine={updateWorkoutsInRoutine}
                 darkMode={darkMode}
               />
+              <hr />
               {!isEditTitle && !isCreateTitle && (
                 <WorkoutDisplay
                   currentWorkout={currentWorkout}

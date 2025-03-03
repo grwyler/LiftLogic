@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaCheck } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaPlus } from "react-icons/fa";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
@@ -10,6 +10,7 @@ import {
   IoEllipsisHorizontal,
 } from "react-icons/io5";
 import CRUDMenu from "./CRUDMenu";
+import { toTitleCase } from "../utils/helpers";
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
@@ -79,7 +80,7 @@ const ExerciseItem = ({
   return (
     <div
       key={`exercise-${exercise.name}-${exerciseIndex}`}
-      className={`text-center m-2 rounded ${
+      className={`text-center rounded ${
         currentExerciseIndex === exerciseIndex
           ? darkMode
             ? "bg-custom-dark"
@@ -88,7 +89,9 @@ const ExerciseItem = ({
       }`}
       style={{
         border:
-          currentExerciseIndex === exerciseIndex ? "2px solid #007bff" : "none",
+          currentExerciseIndex === exerciseIndex
+            ? "2px solid #007bff"
+            : "1px  rgba(0, 123, 255, 0.2)",
         boxShadow:
           currentExerciseIndex === exerciseIndex
             ? "0px 4px 12px rgba(0, 123, 255, 0.2)" // Softer glow effect
@@ -96,26 +99,23 @@ const ExerciseItem = ({
         transition: "all 0.2s ease-in-out",
       }}
     >
-      <div className="d-flex justify-content-center align-items-center ">
+      <div
+        className="d-flex justify-content-center align-items-center "
+        onClick={() => handleWorkoutButtonClick(exerciseIndex)}
+      >
         <div
-          className={`w-100 m-2 rounded p-1 ${
+          className={`w-100 m-2 rounded d-flex justify-content-between align-items-center p-1 ${
             darkMode ? "bg-custom-dark " : "bg-light"
-          }`}
+          } ${currentExerciseIndex === exerciseIndex ? "" : "border"}`}
         >
-          <Button
-            size="sm"
-            variant={darkMode ? "bg-custom-dark text-white" : "light"}
-            className="float-start d-flex align-items-center"
-            onClick={() => handleWorkoutButtonClick(exerciseIndex)}
-          >
-            <IoCaretDown
-              className={`flip-icon ${
-                currentExerciseIndex === exerciseIndex ? "rotate-180" : ""
-              }`}
-              style={{ transition: "transform 0.2s ease-in-out" }}
-            />
-          </Button>
-          {currentExercise.name}
+          <FaChevronDown
+            className={`flip-icon ${
+              currentExerciseIndex === exerciseIndex ? "rotate-180" : ""
+            }`}
+            style={{ transition: "transform 0.2s ease-in-out" }}
+          />
+
+          {toTitleCase(currentExercise.name)}
 
           {currentExercise.complete && (
             <FaCheck className={`ms-2 text-success `} />
@@ -189,7 +189,7 @@ const ExerciseItem = ({
           className="mt-3 mb-2 text-primary w-100 d-flex align-items-center justify-content-center"
           onClick={handleAddSet}
         >
-          <IoAddCircleOutline className="me-1" /> Add Set
+          <FaPlus className="me-1" /> Add Set
         </Button>
       )}
     </div>

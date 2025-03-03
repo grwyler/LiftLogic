@@ -8,27 +8,33 @@ export default async function handler(
 ) {
   try {
     const db = await connectToDatabase();
+    if (!db) {
+      console.error("Database connection failed.");
+      return res.status(500).json({ message: "Database connection failed." });
+    }
     const routineCollection = db.collection("routines");
     const exerciseCollection = db.collection("exercises");
     const { routine } = req.body;
-    const { userId } = req.query;
+    const userId = routine?._id || req.query?.userId;
     if (req.method === "POST") {
       // Handling POST request to save a routine
 
       const existingRoutine = await routineCollection.findOne({
-        userId: routine.userId,
+        userId,
       });
 
+      delete routine._id;
+
       if (existingRoutine) {
-        delete routine._id;
         // Update existing routine
-        await routineCollection.updateOne(
-          { userId: routine.userId },
-          { $set: routine }
-        );
+        await routineCollection.updateOne({ userId }, { $set: routine });
       } else {
         // Insert new routine
-        await routineCollection.insertOne(routine);
+        try {
+          await routineCollection.insertOne(routine);
+        } catch (error) {
+          console.error("Failed to instert Routine: ", error);
+        }
       }
 
       return res.status(201).json({ message: "routine saved successfully!" });

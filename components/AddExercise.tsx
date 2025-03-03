@@ -7,6 +7,7 @@ import ExerciseSearchItem from "./ExerciseSearchItem";
 import EquipmentAccordion from "./EquipmentAccordion";
 import { deepCopy } from "../utils/helpers";
 import { v4 } from "uuid";
+import axios from "axios";
 
 const AddExercise = ({
   setIsAddingExercise,
@@ -113,7 +114,7 @@ const AddExercise = ({
           placeholder="Search..."
           onChange={handleSearch}
         />
-        {exercises.map((exercise, index) => {
+        {/* {exercises.map((exercise, index) => {
           if (
             !currentWorkout.exercises.some((e) => e.name === exercise.name) &&
             !selectedExercises.includes(exercise)
@@ -128,7 +129,34 @@ const AddExercise = ({
               />
             );
           }
-        })}
+        })} */}
+        {/* {exercises.map((exercise, index) => {
+          if (
+            !currentWorkout.exercises.some((e) => e.name === exercise.name) &&
+            !selectedExercises.includes(exercise)
+          ) {
+            return (
+              <ExerciseSearchItem
+                key={`exercise-search-item-${exercise.name}-${index}`}
+                index={index}
+                exercise={exercise}
+                handleAddExercise={handleAddExercise}
+                darkMode={darkMode}
+              />
+            );
+          }
+        })} */}
+        <div>
+          <h2>Exercise List</h2>
+          <ul>
+            {exercises.slice(0, 10).map((exercise) => (
+              <li key={exercise.id}>
+                <strong>{exercise.name}</strong> - {exercise.bodyPart} (
+                {exercise.equipment})
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </Fragment>
   );
@@ -136,18 +164,49 @@ const AddExercise = ({
 
 const useAddExerciseState = () => {
   const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [selectedEquipment, setSelectedEquipment] = useState([]);
   const [validExercises, setValidExercises] = useState([]);
+
   useEffect(() => {
-    const exercisesCopy = deepCopy(initialExercises);
-    const filteredExercises = exercisesCopy.filter((exercise) =>
-      exercise.requiredEquipment.every((equipment) =>
-        selectedEquipment.includes(equipment)
-      )
-    );
-    setExercises(filteredExercises);
-  }, [selectedEquipment]);
+    const fetchExercises = async () => {
+      try {
+        const response = await axios.get("/api/exercises");
+        setExercises(response.data);
+      } catch (err) {
+        setError("Failed to load exercises.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExercises();
+  }, []);
+  // useEffect(() => {
+  //   const exercisesCopy = deepCopy(initialExercises);
+  //   const filteredExercises = exercisesCopy.filter((exercise) =>
+  //     exercise.requiredEquipment.every((equipment) =>
+  //       selectedEquipment.includes(equipment)
+  //     )
+  //   );
+  //   setExercises(filteredExercises);
+  // }, [selectedEquipment]);
+  // useEffect(() => {
+  //   if (selectedEquipment.length === 0) {
+  //     setExercises(deepCopy(initialExercises)); // Show all exercises when no filter is applied
+  //   } else {
+  //     const exercisesCopy = deepCopy(initialExercises);
+  //     const filteredExercises = exercisesCopy.filter((exercise) =>
+  //       exercise.requiredEquipment.some((equipment) =>
+  //         selectedEquipment.includes(equipment)
+  //       )
+  //     );
+  //     setExercises(filteredExercises);
+  //   }
+  // }, [selectedEquipment]);
   useEffect(() => {
     // Make a copy of the selectedExercises list
     const selectedExercisesCopy = [...selectedExercises];

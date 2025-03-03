@@ -58,7 +58,7 @@ const WorkoutSelector = ({
       const workoutsCopy = deepCopy(workouts);
       // Filter out the workout with matching title
       const updatedWorkouts = workoutsCopy.filter(
-        (w) => w.title === workouts[selectedWorkoutIndex].title
+        (w) => w.title !== workouts[selectedWorkoutIndex].title
       );
       updateWorkoutsInRoutine(updatedWorkouts);
       setShowMenu(false);
@@ -87,10 +87,11 @@ const WorkoutSelector = ({
     updateWorkoutsInRoutine(workoutsCopy);
     setShowMenu(false);
     setIsCreateTitle(false);
+    setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };
   return (
     <div className="row m-0  rounded">
-      <div className="col-12 p-2">
+      <div className="col-12">
         {isEditTitle || isCreateTitle ? (
           <input
             className="form-control form-control-sm text-center"
@@ -113,7 +114,7 @@ const WorkoutSelector = ({
                   else handleEditClick();
                 }}
               >
-                <h2 className="fs-2 fw-bold mt-3">{currentWorkout.title}</h2>
+                <h2 className="fs-2 fw-bold mt-3">{workoutTitle}</h2>
               </button>
               {workouts.length > 1 && (
                 <Fragment>
@@ -154,8 +155,9 @@ const WorkoutSelector = ({
                 : "Current workout"}
             </small>
             <Button
-              variant="outline-primary"
+              variant="white"
               className="mt-2"
+              size="sm"
               onClick={handleAddWorkout}
             >
               <FaPlus /> Add Workout
