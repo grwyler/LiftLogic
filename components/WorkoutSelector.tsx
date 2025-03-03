@@ -1,8 +1,6 @@
 import React, { Fragment, useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaEdit, FaPlus, FaSave, FaTimes, FaTrash } from "react-icons/fa";
-import { IoAddCircleOutline, IoEllipsisVertical } from "react-icons/io5";
-import CRUDMenu from "./CRUDMenu";
 import { deepCopy } from "../utils/helpers";
 
 const WorkoutSelector = ({
@@ -19,8 +17,6 @@ const WorkoutSelector = ({
   setIsCreateTitle,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
-  // const [isEditTitle, setIsEditTitle] = useState(false);
-  // const [isCreateTitle, setIsCreateTitle] = useState(workouts[0].title === "");
   const [showMenu, setShowMenu] = useState(false);
   const handleSaveTitleEdit = () => {
     setIsEditTitle(false);
@@ -38,7 +34,6 @@ const WorkoutSelector = ({
     setWorkoutTitle(`Workout ${workouts.length + 1}`);
   };
   const handleCurrentWorkoutChange = (index) => {
-    // const selectedIndex = e.target.selectedIndex;
     setShowMenu(false);
     setSelectedWorkoutIndex(index);
   };
