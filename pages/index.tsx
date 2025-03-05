@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import SignIn from "./signin";
-import { FaSign, FaSignInAlt, FaTrash } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { Button } from "react-bootstrap";
 
 const HomePage: React.FC = () => {
   const router = useRouter();
