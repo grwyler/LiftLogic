@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button, Form, InputGroup, Spinner, Table } from "react-bootstrap";
 import { FaChevronLeft, FaPlus } from "react-icons/fa";
+import { initialExercises } from "../utils/sample-data";
 
 const ExerciseSelector = ({
   setIsAddingExercise,
@@ -62,7 +63,14 @@ const ExerciseSelector = ({
         const response = await axios.get(apiUrl);
         setExercises(response.data);
       } catch (err) {
-        setError("Failed to load exercises.");
+        if (
+          err.message.includes(
+            "You have exceeded the MONTHLY quota for Requests on your current plan, BASIC"
+          )
+        ) {
+          setError("Failed to API, using local data");
+        }
+        setExercises(initialExercises);
         console.error(err);
       } finally {
         setLoading(false);
@@ -71,7 +79,19 @@ const ExerciseSelector = ({
 
     fetchExercises();
   }, [filters, searchQuery]); // Trigger fetch when filters or search change
-
+  const handleAddExercise = (exercise) => {
+    setIsAddingExercise(false);
+    addExerciseToWorkout({
+      ...exercise,
+      sets: [
+        {
+          actualReps: "",
+          actualWeight: "",
+          complete: false,
+        },
+      ],
+    });
+  };
   return (
     <div className="container">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -170,18 +190,7 @@ const ExerciseSelector = ({
                     <Button
                       variant="light"
                       className="w-100 text-success"
-                      onClick={() =>
-                        addExerciseToWorkout({
-                          ...exercise,
-                          sets: [
-                            {
-                              actualReps: "",
-                              actualWeight: "",
-                              complete: false,
-                            },
-                          ],
-                        })
-                      }
+                      onClick={() => handleAddExercise(exercise)}
                     >
                       <FaPlus /> Add Exercise
                     </Button>

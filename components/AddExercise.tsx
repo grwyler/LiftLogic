@@ -1,12 +1,9 @@
 import React, { Fragment, useEffect, useState } from "react";
 import { FaChevronLeft, FaPlus } from "react-icons/fa";
-import { initialExercises, requiredEquipment } from "../utils/sample-data";
+import { requiredEquipment } from "../utils/sample-data";
 import { Button } from "react-bootstrap";
 import ExerciseEditItem from "./ExerciseEditItem";
-import ExerciseSearchItem from "./ExerciseSearchItem";
 import EquipmentAccordion from "./EquipmentAccordion";
-import { deepCopy } from "../utils/helpers";
-import { v4 } from "uuid";
 import axios from "axios";
 
 const AddExercise = ({
@@ -27,7 +24,7 @@ const AddExercise = ({
   } = useAddExerciseState();
 
   const handleSearch = (event) => {
-    const exercisesCopy = deepCopy(exercises);
+    const exercisesCopy = structuredClone(exercises);
     const filterText = event.target.value.toLowerCase();
     setExercises(
       exercisesCopy.filter(
@@ -38,14 +35,14 @@ const AddExercise = ({
     );
   };
   const handleAddExercise = (exercise) => {
-    const selectedExercisesCopy = JSON.parse(JSON.stringify(selectedExercises));
+    const selectedExercisesCopy = structuredClone(selectedExercises);
 
     selectedExercisesCopy.push(exercise);
     setSelectedExercises(selectedExercisesCopy);
   };
 
   const handleAddExercises = () => {
-    const currentWorkoutCopy = JSON.parse(JSON.stringify(currentWorkout));
+    const currentWorkoutCopy = structuredClone(currentWorkout);
 
     selectedExercises.forEach((exercise) => {
       currentWorkoutCopy.exercises.push(exercise);
@@ -56,7 +53,7 @@ const AddExercise = ({
   };
 
   const handleRemoveExercise = (exercise) => {
-    const selectedExercisesCopy = JSON.parse(JSON.stringify(selectedExercises));
+    const selectedExercisesCopy = structuredClone(selectedExercises);
     setSelectedExercises(
       selectedExercisesCopy.filter((e) => e.name !== exercise.name)
     );

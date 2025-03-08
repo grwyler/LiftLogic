@@ -1,11 +1,9 @@
 import React, { Fragment, useState } from "react";
 import { Button } from "react-bootstrap";
 import { FaEdit, FaPlus, FaSave, FaTimes, FaTrash } from "react-icons/fa";
-import { deepCopy } from "../utils/helpers";
 
 const WorkoutSelector = ({
   currentWorkout,
-  setCurrentWorkout,
   workouts,
   selectedWorkoutIndex,
   setSelectedWorkoutIndex,
@@ -21,7 +19,7 @@ const WorkoutSelector = ({
   const handleSaveTitleEdit = () => {
     setIsEditTitle(false);
     setIsCreateTitle(false);
-    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
+    const workoutsCopy = structuredClone(workouts);
     const newWorkout = {
       ...currentWorkout,
       title: workoutTitle,
@@ -50,7 +48,7 @@ const WorkoutSelector = ({
 
     // Check if the user confirmed
     if (isConfirmed) {
-      const workoutsCopy = deepCopy(workouts);
+      const workoutsCopy = structuredClone(workouts);
       // Filter out the workout with matching title
       const updatedWorkouts = workoutsCopy.filter(
         (w) => w.title !== workouts[selectedWorkoutIndex].title
@@ -63,21 +61,16 @@ const WorkoutSelector = ({
   };
   const handleCancelEditTitle = () => {
     setIsEditTitle(false);
-    setWorkoutTitle(workouts[selectedWorkoutIndex].title);
-  };
-  const handleCancelSaveTitle = () => {
     setIsCreateTitle(false);
     setWorkoutTitle(workouts[selectedWorkoutIndex].title);
-    setShowMenu(false);
   };
   const handleCreateWorkout = () => {
-    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
+    const workoutsCopy = structuredClone(workouts);
     const newWorkout = {
       title: workoutTitle,
       complete: false,
       exercises: [],
     };
-    setCurrentWorkout(newWorkout);
     workoutsCopy.push(newWorkout);
     updateWorkoutsInRoutine(workoutsCopy);
     setShowMenu(false);
@@ -85,11 +78,13 @@ const WorkoutSelector = ({
     setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };
   return (
-    <div className="row m-0  rounded">
+    <div className="row m-0 rounded">
       <div className="col-12">
         {isEditTitle || isCreateTitle ? (
           <input
-            className="form-control form-control-sm text-center"
+            className={`form-control text-center ${
+              darkMode ? "bg-dark text-white" : ""
+            }`}
             type="text"
             value={workoutTitle}
             autoFocus
@@ -150,119 +145,49 @@ const WorkoutSelector = ({
                 : "Current workout"}
             </small>
             <Button
-              variant="white"
-              className="mt-2"
+              variant={`${darkMode ? "dark" : "white"}`}
+              className={`mt-2 `}
               size="sm"
               onClick={handleAddWorkout}
             >
               <FaPlus /> Add Workout
             </Button>
           </div>
-
-          // <div className="d-flex justify-content-center align-items-center">
-          //   {workouts.length === 1 && (
-          //     <div>{workouts[selectedWorkoutIndex].title}</div>
-          //   )}
-          //   {workouts.length > 1 && (
-          //     <div className="dropdown text-center ">
-          //       <select
-          //         className={`btn btn-outline-white dropdown-toggle w-100 ${
-          //           darkMode ? "text-white" : ""
-          //         }`}
-          //         onChange={handleCurrentWorkoutChange}
-          //         defaultValue={currentWorkout.title}
-          //       >
-          //         {workouts.map((workout) => {
-          //           return (
-          //             <option
-          //               className="dropdown-item text-dark"
-          //               key={`${workout.title}-dropdown-item`}
-          //               value={workout.title}
-          //             >
-          //               {workout.title}
-          //             </option>
-          //           );
-          //         })}
-          //       </select>
-          //     </div>
-          //   )}
-          //   <Button
-          //     variant={darkMode ? "dark" : "white"}
-          //     className="text-center pt-1"
-          //     onClick={() => setShowMenu(!showMenu)}
-          //   >
-          //     <IoEllipsisVertical />
-          //     <div className="mt-1">
-          //       <CRUDMenu
-          //         handleCreate={handleAddWorkout}
-          //         canRead={showMenu}
-          //         handleUpdate={handleEditClick}
-          //         handleDelete={
-          //           workouts.length > 1 ? handleDeleteWorkout : undefined
-          //         }
-          //       />
-          //     </div>
-          //   </Button>
-          // </div>
         )}
       </div>
 
-      {isEditTitle ? (
-        <div className="col-12 ">
-          <div className="text-center">
-            <button
-              className="btn btn-sm btn-white text-success "
-              onClick={handleSaveTitleEdit}
-              disabled={
-                workoutTitle === "" ||
-                workoutTitle === workouts[selectedWorkoutIndex].title ||
-                workouts.some((w) => w.title === workoutTitle)
-              }
-            >
-              <FaSave /> Save
-            </button>
-
-            <button
-              className="btn btn-sm btn-white "
-              onClick={handleCancelEditTitle}
-              disabled={workouts.length === 1 && workoutTitle === ""}
-            >
-              <FaTimes /> Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        isCreateTitle && (
-          <div className="col-12">
-            <div className="text-center">
-              <Button
-                size="sm"
-                variant="light text-success"
-                onClick={handleCreateWorkout}
-                disabled={
-                  workoutTitle === "" ||
-                  workouts[selectedWorkoutIndex].title === workoutTitle
-                  // workouts.some(
-                  //   (w, i) =>
-                  //     w.title === workoutTitle && i !== selectedWorkoutIndex
-                  // )
-                }
-              >
+      {(isCreateTitle || isEditTitle) && (
+        <div className="d-flex justify-content-center">
+          <Button
+            variant="success"
+            className="mx-1 my-2"
+            onClick={isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit}
+            disabled={
+              workoutTitle === "" ||
+              workoutTitle === workouts[selectedWorkoutIndex].title ||
+              workouts.some((w) => w.title === workoutTitle)
+            }
+          >
+            {isCreateTitle ? (
+              <>
                 <FaSave /> Create
-              </Button>
-              {
-                <Button
-                  variant="white"
-                  size="sm"
-                  onClick={handleCancelSaveTitle}
-                  disabled={workouts.length === 1 && workoutTitle === ""}
-                >
-                  <FaTimes /> Cancel
-                </Button>
-              }
-            </div>
-          </div>
-        )
+              </>
+            ) : (
+              <>
+                <FaSave /> Save
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="secondary"
+            className="mx-1 my-2"
+            onClick={handleCancelEditTitle}
+            disabled={workouts.length === 1 && workoutTitle === ""}
+          >
+            <FaTimes /> Cancel
+          </Button>
+        </div>
       )}
     </div>
   );

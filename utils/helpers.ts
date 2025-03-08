@@ -245,11 +245,6 @@ export async function getImageFromOpenAI(
       console.error(error);
     });
 }
-
-export const deepCopy = (object) => {
-  return JSON.parse(JSON.stringify(object));
-};
-
 export const fetchUser = async (setUser, id) => {
   try {
     const response = await fetch(`/api/user?id=${id}`);

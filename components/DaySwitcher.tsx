@@ -19,7 +19,9 @@ const DaySwitcher = ({ currentDate, handleCurrentDayChange, darkMode }) => {
       <div className="d-flex flex-grow-1 px-2">
         <DatePicker
           selected={currentDate}
-          className="form-control text-center fw-bold w-100"
+          className={`form-control text-center fw-bold w-100 ${
+            darkMode ? "bg-dark text-white" : ""
+          }`}
           onChange={(date: Date | null) => handleCurrentDayChange(date, true)}
           dateFormat="EEEE, MMMM d"
           showPopperArrow={false}

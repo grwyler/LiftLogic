@@ -1,4 +1,10 @@
-import React, { Fragment, useEffect, useState } from "react";
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { FaSpinner } from "react-icons/fa";
 import { getWorkoutVariables, saveRoutine } from "../utils/helpers";
 import { useSession } from "next-auth/react";
@@ -35,132 +41,114 @@ type Set = {
   weight: number;
 };
 
+const DEFAULT_MAX_WEIGHT = 35; // Default max weight
+const DEFAULT_TIME = 60; // Default time for timed exercises
+const DEFAULT_REST_TIME = 120; // Rest time in seconds
+
+const generateWeightedSets = (maxWeight) => [
+  {
+    name: "Working set 1",
+    reps: 10,
+    percentage: 0.75,
+    actualReps: "",
+    actualWeight: "",
+    weight: maxWeight * 0.75,
+  },
+  {
+    name: "Working set 2",
+    reps: 10,
+    percentage: 0.78,
+    actualReps: "",
+    actualWeight: "",
+    weight: maxWeight * 0.78,
+  },
+  {
+    name: "Working set 3",
+    reps: 10,
+    percentage: 0.82,
+    actualReps: "",
+    actualWeight: "",
+    weight: maxWeight * 0.82,
+  },
+];
+
+const generateTimedSet = (time) => [
+  {
+    name: "Timed Set",
+    duration: time,
+    actualDuration: "",
+    complete: false,
+  },
+];
+
 const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
   const startDate = date ? new Date(date) : new Date();
   const {
     currentDayIndex,
     setCurrentDayIndex,
-    setCurrentExerciseIndex,
     currentDate,
     setCurrentDate,
     workouts,
     currentWorkout,
-    setCurrentWorkout,
     selectedWorkoutIndex,
     setSelectedWorkoutIndex,
-    userId,
+    currentExerciseIndex,
+    setCurrentExerciseIndex,
     isAddingExercise,
     setIsAddingExercise,
-    formattedDate,
-    isLoadingWorkout,
-    currentExerciseIndex,
-    updateWorkoutInRoutine,
-    updateWorkoutsInRoutine,
     isEditTitle,
     setIsEditTitle,
     isCreateTitle,
     setIsCreateTitle,
+    isLoadingWorkout,
+    updateWorkoutInRoutine,
+    updateWorkoutsInRoutine,
+    formattedDate,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
   const handleCurrentDayChange = (change, isDateSelection) => {
-    let newDate = new Date(currentDate);
+    let newDate;
+    let newDayIndex;
+
     if (isDateSelection) {
-      newDate = change;
-      setCurrentDayIndex(change.getDay());
+      newDate = new Date(change);
+      newDayIndex = newDate.getDay();
     } else {
-      if (change < 0 && currentDayIndex === 0) {
-        setCurrentDayIndex(6);
-      } else if (change > 0 && currentDayIndex === 6) {
-        setCurrentDayIndex(0);
-      } else {
-        setCurrentDayIndex(currentDayIndex + change);
-      }
-      newDate.setDate(currentDate.getDate() + change);
+      newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + change);
+      newDayIndex = (currentDayIndex + change + 7) % 7; // Ensures it wraps around correctly
     }
 
+    setCurrentDayIndex(newDayIndex);
     setCurrentExerciseIndex(-1);
     setCurrentDate(newDate);
   };
 
-  // const addExerciseToWorkout = (exercise) => {
-  //   const currentWorkoutCopy = JSON.parse(JSON.stringify(currentWorkout));
-
-  //   currentWorkoutCopy.exercises.push(exercise);
-
-  //   setCurrentWorkout(currentWorkoutCopy);
-  //   updateWorkoutInRoutine(currentWorkoutCopy);
-  //   setIsAddingExercise(false);
-  // };
   const addExerciseToWorkout = (exercise) => {
+    const workoutCopy = structuredClone(workouts[selectedWorkoutIndex]);
+    const exercisesCopy = structuredClone(workoutCopy.exercises);
     // Determine workout type based on equipment
-    const isWeighted = !exercise.equipment.toLowerCase().includes("bodyweight");
+    const isWeighted =
+      exercise?.equipment?.trim().toLowerCase() !== "bodyweight";
     const workoutType = isWeighted ? "weight" : "timed";
-
-    const defaultMaxWeight = 35; // Default for weight-based exercises
-    const defaultTime = 60; // Default for timed exercises (e.g., 60 seconds)
 
     const transformedExercise = {
       name: exercise.name,
       type: workoutType,
-      max: isWeighted ? defaultMaxWeight : defaultTime, // Max weight or duration
-      rest: 120,
+      max: isWeighted ? DEFAULT_MAX_WEIGHT : DEFAULT_TIME,
+      rest: DEFAULT_REST_TIME,
       complete: false,
       sets: isWeighted
-        ? [
-            {
-              name: "Working set 1",
-              reps: 10,
-              percentage: 0.75,
-              actualReps: "",
-              actualWeight: "",
-              weight: defaultMaxWeight * 0.75,
-            },
-            {
-              name: "Working set 2",
-              reps: 10,
-              percentage: 0.78,
-              actualReps: "",
-              actualWeight: "",
-              weight: defaultMaxWeight * 0.78,
-            },
-            {
-              name: "Working set 3",
-              reps: 10,
-              percentage: 0.82,
-              actualReps: "",
-              actualWeight: "",
-              weight: defaultMaxWeight * 0.82,
-            },
-          ]
-        : [
-            {
-              name: "Timed Set",
-              duration: defaultTime,
-              actualDuration: "",
-              complete: false,
-            },
-          ],
+        ? generateWeightedSets(DEFAULT_MAX_WEIGHT)
+        : generateTimedSet(DEFAULT_TIME),
     };
-
-    // Clone and update workout
-    const currentWorkoutCopy = JSON.parse(JSON.stringify(currentWorkout));
-    currentWorkoutCopy.exercises.push(transformedExercise);
-
-    setCurrentWorkout(currentWorkoutCopy);
-    updateWorkoutInRoutine(currentWorkoutCopy);
-    setIsAddingExercise(false);
+    exercisesCopy.push(transformedExercise);
+    updateWorkoutInRoutine({ ...workoutCopy, exercises: exercisesCopy });
   };
 
   return (
     <Fragment>
       {isAddingExercise ? (
-        // <AddExercise
-        //   setIsAddingExercise={setIsAddingExercise}
-        //   currentWorkout={currentWorkout}
-        //   setCurrentWorkout={setCurrentWorkout}
-        //   updateWorkoutInRoutine={updateWorkoutInRoutine}
-        //   darkMode={darkMode}
-        // />
         <ExerciseSelector
           setIsAddingExercise={setIsAddingExercise}
           addExerciseToWorkout={addExerciseToWorkout}
@@ -179,15 +167,6 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
               <div className="spinning m-3 text-center">
                 <FaSpinner />
               </div>
-              {/* <button
-            onClick={() => {
-              const routineCopy = routines.Primary;
-              routineCopy.userId = session?.token.user._id;
-              saveRoutine(routineCopy);
-            }}
-          >
-            save
-          </button> */}
             </Fragment>
           ) : (
             <Fragment>
@@ -197,7 +176,6 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
                 isCreateTitle={isCreateTitle}
                 setIsCreateTitle={setIsCreateTitle}
                 currentWorkout={currentWorkout}
-                setCurrentWorkout={setCurrentWorkout}
                 workouts={workouts}
                 selectedWorkoutIndex={selectedWorkoutIndex}
                 setSelectedWorkoutIndex={setSelectedWorkoutIndex}
@@ -208,7 +186,6 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
               {!isEditTitle && !isCreateTitle && (
                 <WorkoutDisplay
                   currentWorkout={currentWorkout}
-                  setCurrentWorkout={setCurrentWorkout}
                   currentExerciseIndex={currentExerciseIndex}
                   setCurrentExerciseIndex={setCurrentExerciseIndex}
                   formattedDate={formattedDate}
@@ -227,129 +204,120 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
 };
 
 const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
-  // local state
+  // Local state
   const [currentDayIndex, setCurrentDayIndex] = useState(startDate.getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(true);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
-  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(
-    workouts.length > 0 ? workouts[selectedWorkoutIndex] : null
-  );
   const [currentDate, setCurrentDate] = useState(startDate);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [isEditTitle, setIsEditTitle] = useState(false);
   const [isCreateTitle, setIsCreateTitle] = useState(false);
+
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
-  const updateWorkoutsInRoutine = (theWorkouts: Workout[]) => {
-    const routineCopy = JSON.parse(JSON.stringify(routine));
-    const workoutsCopy = JSON.parse(JSON.stringify(theWorkouts));
-    const currentDayKey = Object.keys(routine.days)[currentDayIndex];
-    setWorkouts(workoutsCopy);
-    workoutsCopy.forEach((w) => {
-      w.complete = false;
-      w.exercises.forEach((e) => {
-        e.complete = false;
-        e.sets.forEach((s) => {
-          s.actualReps = "";
-          s.actualWeight = "";
-          s.complete = false;
-        });
-      });
-    });
-    routineCopy.days[currentDayKey] = workoutsCopy;
-    routineCopy.userId = userId;
-    setRoutine(routineCopy);
-    saveRoutine(routineCopy);
-  };
 
-  const updateWorkoutInRoutine = (workout) => {
-    const workoutsCopy = JSON.parse(JSON.stringify(workouts));
-    setCurrentWorkout(workout);
-    workoutsCopy[selectedWorkoutIndex] = workout;
-    updateWorkoutsInRoutine(workoutsCopy);
-  };
+  const userId = session?.token?.user?._id;
 
-  // derived state
-  const currentDay = routine
-    ? Object.keys(routine.days)[currentDayIndex]
-    : null;
-  const userId = session?.token.user._id;
-
+  // Derived state
+  const currentDay = useMemo(
+    () => (routine ? Object.keys(routine.days)[currentDayIndex] : null),
+    [routine, currentDayIndex]
+  );
   const { formattedDate } = getWorkoutVariables(
     currentDate,
     routine,
     currentDayIndex
   );
-  useEffect(() => {
-    if (workouts.length > 0) {
-      const selectedWorkout =
-        workouts[currentWorkout === null ? 0 : selectedWorkoutIndex];
-      setCurrentWorkout(selectedWorkout);
-    }
-  }, [selectedWorkoutIndex, workouts.length]);
 
+  // Derive current workout instead of storing it separately
+  const currentWorkout = useMemo(
+    () => workouts[selectedWorkoutIndex] || null,
+    [workouts, selectedWorkoutIndex]
+  );
+
+  /** Updates the entire workout list in routine */
+  const updateWorkoutsInRoutine = useCallback(
+    (updatedWorkouts: Workout[]) => {
+      if (!routine || !currentDay) return;
+
+      const newRoutine = structuredClone(routine);
+      const newWorkouts = structuredClone(updatedWorkouts).map((workout) => ({
+        ...workout,
+        complete: false,
+        exercises: workout.exercises.map((exercise) => ({
+          ...exercise,
+          complete: false,
+          sets: exercise.sets.map((set) => ({
+            ...set,
+            actualReps: "",
+            actualWeight: "",
+            complete: false,
+          })),
+        })),
+      }));
+
+      newRoutine.days[currentDay] = newWorkouts;
+      newRoutine.userId = userId;
+
+      setWorkouts(newWorkouts);
+      setRoutine(newRoutine);
+      saveRoutine(newRoutine);
+    },
+    [routine, currentDay, userId, setRoutine]
+  );
+
+  /** Updates a single workout inside the routine */
+  const updateWorkoutInRoutine = useCallback(
+    (updatedWorkout: Workout) => {
+      const newWorkouts = structuredClone(workouts);
+      newWorkouts[selectedWorkoutIndex] = updatedWorkout;
+      updateWorkoutsInRoutine(newWorkouts);
+    },
+    [workouts, selectedWorkoutIndex, updateWorkoutsInRoutine]
+  );
+
+  // Effect: Update workouts when the current day changes
   useEffect(() => {
+    if (!routine || !currentDay) return;
+
     setWorkouts(() => {
-      if (routine) {
-        if (currentWorkout) {
-          setCurrentWorkout(null);
-          setSelectedWorkoutIndex(0);
-        }
-        const currentDayKey = Object.keys(routine.days)[currentDayIndex];
-        const initialWorkouts = routine.days[currentDayKey];
-
-        // Deep copy the initial state to avoid mutation
-        return JSON.parse(JSON.stringify(initialWorkouts));
+      if (currentWorkout) {
+        setSelectedWorkoutIndex(0);
       }
+      return structuredClone(routine.days[currentDay]) || [];
     });
-  }, [currentDayIndex]);
+  }, [routine, currentDay]);
 
+  // Effect: Fetch exercises when user, date, or workout changes
   useEffect(() => {
+    if (!userId || !formattedDate || !currentDay) return;
+
     const fetchExercises = async () => {
+      setIsLoadingWorkout(true);
       try {
-        const url = `/api/exercise?userId=${session?.token.user._id}&date=${formattedDate}`;
-        const response = await fetch(url);
+        const response = await fetch(
+          `/api/exercise?userId=${userId}&date=${formattedDate}`
+        );
+        if (!response.ok) return;
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.exercises.length > 0) {
-            const updatedExercises = routine.days[currentDay][
-              selectedWorkoutIndex
-            ].exercises.map((exercise) => {
-              const matchingExercise = data.exercises.find(
-                (updatedExercise) => updatedExercise.name === exercise.name
-              );
+        const data = await response.json();
+        if (data.exercises.length === 0) return;
 
-              // If there's a matching exercise, use it, otherwise, keep the original exercise
-              return matchingExercise ? matchingExercise : exercise;
-            });
-
-            // Deep copy routine to avoid mutation
-            const updatedWorkout = JSON.parse(
-              JSON.stringify(routine.days[currentDay][selectedWorkoutIndex])
+        setWorkouts((prevWorkouts) => {
+          const newWorkouts = structuredClone(prevWorkouts);
+          newWorkouts[selectedWorkoutIndex].exercises = newWorkouts[
+            selectedWorkoutIndex
+          ].exercises.map((exercise) => {
+            const matchingExercise = data.exercises.find(
+              (updatedExercise) => updatedExercise.name === exercise.name
             );
-
-            // Update the deep copy
-            updatedWorkout.exercises = updatedExercises;
-
-            setCurrentWorkout(updatedWorkout);
-          } else {
-            // Deep copy routine to avoid mutation
-            const updatedRoutine = JSON.parse(JSON.stringify(routine));
-            if (updatedRoutine.days[currentDay][selectedWorkoutIndex]) {
-              setCurrentWorkout({
-                ...updatedRoutine.days[currentDay][selectedWorkoutIndex],
-                exercises: [
-                  ...updatedRoutine.days[currentDay][selectedWorkoutIndex]
-                    .exercises,
-                ],
-              });
-            }
-          }
-        }
+            return matchingExercise || exercise;
+          });
+          return newWorkouts;
+        });
       } catch (error) {
         console.error("Error fetching exercises:", error);
       } finally {
@@ -357,33 +325,30 @@ const useWorkoutsManagerState = (startDate, routine, setRoutine) => {
       }
     };
 
-    if (userId && formattedDate) {
-      fetchExercises();
-    }
+    fetchExercises();
   }, [userId, formattedDate, currentDay, selectedWorkoutIndex]);
+
   return {
     currentDayIndex,
     setCurrentDayIndex,
-    setCurrentExerciseIndex,
     currentDate,
     setCurrentDate,
     workouts,
     currentWorkout,
-    setCurrentWorkout,
     selectedWorkoutIndex,
     setSelectedWorkoutIndex,
-    userId,
+    currentExerciseIndex,
+    setCurrentExerciseIndex,
     isAddingExercise,
     setIsAddingExercise,
-    formattedDate,
-    isLoadingWorkout,
-    currentExerciseIndex,
-    updateWorkoutInRoutine,
-    updateWorkoutsInRoutine,
     isEditTitle,
     setIsEditTitle,
     isCreateTitle,
     setIsCreateTitle,
+    isLoadingWorkout,
+    updateWorkoutInRoutine,
+    updateWorkoutsInRoutine,
+    formattedDate,
   };
 };
 

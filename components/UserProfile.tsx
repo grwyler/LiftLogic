@@ -2,14 +2,15 @@ import React, { useState } from "react";
 import { Button, Form, FormGroup, FormCheck } from "react-bootstrap";
 import { saveUser } from "../utils/helpers";
 
-function UserProfile({ user, setUser, darkMode, setDarkMode }) {
+function UserProfile({ user, setUser }) {
+  const { darkMode, username } = user;
   const [showSettings, setShowSettings] = useState(false);
   const [isDarkModeOn, setIsdarkModeOn] = useState(darkMode);
 
   const toggleSettings = () => {
-    if (showSettings) {
-      setIsdarkModeOn(user.darkMode || false);
-    }
+    // if (showSettings) {
+    //   setIsdarkModeOn(darkMode);
+    // }
     setShowSettings(!showSettings);
   };
 
@@ -18,12 +19,11 @@ function UserProfile({ user, setUser, darkMode, setDarkMode }) {
   };
 
   const handleSubmit = (e) => {
+    const newUser = { ...user, darkMode: isDarkModeOn };
     e.preventDefault();
     setShowSettings(false);
-    setDarkMode(isDarkModeOn);
-    user.darkMode = isDarkModeOn;
-    setUser(user);
-    saveUser(user);
+    setUser(newUser);
+    saveUser(newUser);
   };
 
   return (
@@ -34,7 +34,7 @@ function UserProfile({ user, setUser, darkMode, setDarkMode }) {
         }`}
         onClick={toggleSettings}
       >
-        {user.username}
+        {username}
       </Button>
       {showSettings && (
         <div

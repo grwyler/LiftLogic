@@ -1,16 +1,13 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaCheck, FaChevronDown, FaPlus } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaEllipsisH, FaPlus } from "react-icons/fa";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
-import {
-  IoAddCircleOutline,
-  IoCaretDown,
-  IoEllipsisHorizontal,
-} from "react-icons/io5";
+import { IoEllipsisHorizontal } from "react-icons/io5";
 import CRUDMenu from "./CRUDMenu";
 import { toTitleCase } from "../utils/helpers";
+import ExerciseEditItem from "./ExerciseEditItem";
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
@@ -19,7 +16,6 @@ const ExerciseItem = ({
   setCurrentExerciseIndex,
   formattedDate,
   routineName,
-  setCurrentWorkout,
   shownMenuIndex,
   setShownMenuIndex,
   updateWorkoutInRoutine,
@@ -27,10 +23,11 @@ const ExerciseItem = ({
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
-
+    setShownMenuIndex(-1);
     const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);
     setCurrentSetIndex(nextSetIndex !== -1 ? nextSetIndex : 0);
   };
@@ -63,28 +60,43 @@ const ExerciseItem = ({
     });
   };
 
-  const handleDeleteExercise = () => {
-    const workoutCopy = JSON.parse(JSON.stringify(workout));
+  const handleDelete = () => {
+    const workoutCopy = structuredClone(workout);
     workoutCopy.exercises.splice(exerciseIndex, 1);
     const currentWorkout = {
       ...workout,
       exercises: workoutCopy.exercises,
     };
 
-    setCurrentWorkout(currentWorkout);
     updateWorkoutInRoutine(currentWorkout);
 
     setShownMenuIndex(-1);
   };
 
-  return (
+  const handleUpdate = () => {
+    setShownMenuIndex(-1);
+    setIsEditing(true);
+  };
+  return isEditing ? (
+    <ExerciseEditItem
+      index={exerciseIndex}
+      exercise={currentExercise}
+      setCurrentExercise={setCurrentExercise}
+      handleRemoveExercise={undefined}
+      selectedExercises={undefined}
+      setSelectedExercises={undefined}
+      isValid={true}
+      darkMode={darkMode}
+      setIsEditing={setIsEditing}
+    />
+  ) : (
     <div
       key={`exercise-${exercise.name}-${exerciseIndex}`}
       className={`text-center rounded ${
         currentExerciseIndex === exerciseIndex
           ? darkMode
             ? "bg-custom-dark"
-            : "bg-light"
+            : "bg-white"
           : ""
       }`}
       style={{
@@ -121,28 +133,31 @@ const ExerciseItem = ({
             <FaCheck className={`ms-2 text-success `} />
           )}
 
-          <div className="float-end">
+          <div>
             <Button
               size="sm"
               variant={
                 shownMenuIndex === exerciseIndex
-                  ? "secondary"
+                  ? "outline-dark"
                   : darkMode
                   ? "bg-custom-dark text-white"
                   : "light"
               }
               className="ms-2 p-2"
-              onClick={() =>
+              style={{ zIndex: 100 }}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevents handleWorkoutButtonClick from being triggered
                 setShownMenuIndex(
                   shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
-                )
-              }
+                );
+              }}
             >
-              <IoEllipsisHorizontal size={18} />
+              <FaEllipsisH />
             </Button>
             <CRUDMenu
               canRead={shownMenuIndex === exerciseIndex}
-              handleDelete={handleDeleteExercise}
+              handleDelete={handleDelete}
+              handleUpdate={handleUpdate}
             />
           </div>
         </div>

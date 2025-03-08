@@ -8,7 +8,6 @@ import { FaPlus } from "react-icons/fa";
 
 const WorkoutDisplay = ({
   currentWorkout,
-  setCurrentWorkout,
   currentExerciseIndex,
   setCurrentExerciseIndex,
   formattedDate,
@@ -37,7 +36,6 @@ const WorkoutDisplay = ({
               setCurrentExerciseIndex={setCurrentExerciseIndex}
               formattedDate={formattedDate}
               routineName={routineName}
-              setCurrentWorkout={setCurrentWorkout}
               shownMenuIndex={shownMenuIndex}
               setShownMenuIndex={setShownMenuIndex}
               updateWorkoutInRoutine={updateWorkoutInRoutine}
