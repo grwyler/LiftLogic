@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         password: password, // TODO: hash passwords before storing them in production
       });
       await disconnectFromDatabase();
-      console.log("result.insertedCount: ", result.insertedCount);
+
       // Check the result and send a response
       if (result.insertedId) {
         console.log("User registered successfully!");

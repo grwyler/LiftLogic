@@ -10,7 +10,6 @@ import { getWorkoutVariables, saveRoutine } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import WorkoutSelector from "./WorkoutSelector";
-import AddExercise from "./AddExercise";
 import DaySwitcher from "./DaySwitcher";
 import WorkoutDisplay from "./WorkoutDisplay";
 import ExerciseSelector from "./ExerciseSelector";
@@ -141,7 +140,7 @@ const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
       sets: isWeighted
         ? generateWeightedSets(DEFAULT_MAX_WEIGHT)
         : generateTimedSet(DEFAULT_TIME),
-    };
+    } as Exercise;
     exercisesCopy.push(transformedExercise);
     updateWorkoutInRoutine({ ...workoutCopy, exercises: exercisesCopy });
   };

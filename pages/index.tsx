@@ -20,7 +20,7 @@ const HomePage: React.FC = () => {
       className="container border p-2 rounded vh-100"
       style={{ maxWidth: 600 }}
     >
-      <h3 className="m-3">Home</h3>
+      <h3 className="m-3 text-center">Home</h3>
       <SignIn />
     </div>
   );

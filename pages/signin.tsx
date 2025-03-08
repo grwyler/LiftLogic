@@ -56,46 +56,48 @@ const SignIn = () => {
   };
   return (
     <Fragment>
-      <form>
-        <input
-          type="text"
-          className="form-control form-control-sm"
-          placeholder="Enter your username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+      <div className="d-flex justify-content-center">
+        <form className="w-50">
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
 
-        <input
-          type="password"
-          className="form-control form-control-sm mt-2"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <Button
-          ref={submitButtonRef}
-          disabled={password === "" || username === "" || isSigningIn}
-          variant="primary"
-          className={`my-3 ${isSigningIn ? "spinning" : ""}`}
-          size="sm"
-          onClick={() => handleSubmit()}
-        >
-          {isSigningIn ? (
-            <>
-              Signing in <FaSpinner />
-            </>
-          ) : (
-            <>
-              Sign in <FaSignInAlt />
-            </>
-          )}
-        </Button>
-        <Link className="my-3 ms-3 small" href="/signup">
-          Sign up
-        </Link>
+          <input
+            type="password"
+            className="form-control form-control-sm mt-2"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button
+            ref={submitButtonRef}
+            disabled={password === "" || username === "" || isSigningIn}
+            variant="primary"
+            className={`my-3 ${isSigningIn ? "spinning" : ""}`}
+            size="sm"
+            onClick={() => handleSubmit()}
+          >
+            {isSigningIn ? (
+              <>
+                Signing in <FaSpinner />
+              </>
+            ) : (
+              <>
+                Sign in <FaSignInAlt />
+              </>
+            )}
+          </Button>
+          <Link className="my-3 ms-3 small" href="/signup">
+            Sign up
+          </Link>
 
-        {error && <div className="text-danger mt-2">{error}</div>}
-      </form>
+          {error && <div className="text-danger mt-2">{error}</div>}
+        </form>
+      </div>
       {process.env.NEXT_PUBLIC_ENV === "local" && (
         <div className="mt-3 ">
           <h5>Users</h5>

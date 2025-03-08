@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
+import dynamic from "next/dynamic";
 
 const RoutinesPage: React.FC = () => {
   const router = useRouter();
