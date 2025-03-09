@@ -81,39 +81,6 @@ export const saveUser = async (user) => {
   }
 };
 
-export const updateWorkoutWithExercises = (workout, exercises) => {
-  const updatedExercises = workout.exercises.map((exercise) => {
-    const matchingExercise = exercises.find((fetchedExercise) => {
-      const isMatch = exercise.name === fetchedExercise.name;
-      return isMatch;
-    });
-
-    if (matchingExercise) {
-      const updatedSets = exercise.sets.map((set, setIndex) => {
-        const fetchedSet = matchingExercise.sets[setIndex];
-        return {
-          ...set,
-          actualReps: fetchedSet.actualReps,
-          actualWeight: fetchedSet.actualWeight,
-        };
-      });
-
-      return {
-        ...exercise,
-        sets: updatedSets,
-        complete: matchingExercise.complete,
-      };
-    } else {
-      return exercise; // Keep unchanged exercises as is
-    }
-  });
-
-  return {
-    ...workout,
-    exercises: updatedExercises,
-  };
-};
-
 export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     weekday: "long",

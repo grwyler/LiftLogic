@@ -32,8 +32,6 @@ export default NextAuth({
           }
         } catch (error) {
           console.error(error);
-        } finally {
-          await disconnectFromDatabase();
         }
       },
     }),

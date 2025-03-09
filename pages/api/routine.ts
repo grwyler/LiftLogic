@@ -84,7 +84,5 @@ export default async function handler(
   } catch (error) {
     console.error("Error deleting user:", error);
     return res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await disconnectFromDatabase();
   }
 }

@@ -148,7 +148,7 @@ const SelectedSetItem = ({
       currentExercise.date = formattedDate;
       currentExercise.userId = session?.token.user._id;
       currentExercise.routineName = routineName;
-      saveExercise(currentExercise);
+
       nextIndex = currentExerciseIndex + 1;
       let nextSetIndex = 0;
       while (
@@ -170,6 +170,7 @@ const SelectedSetItem = ({
         setCurrentSetIndex(nextSetIndex);
       }
     }
+    saveExercise(currentExercise);
   };
   return (
     <div

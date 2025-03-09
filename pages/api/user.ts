@@ -90,7 +90,5 @@ export default async function handler(
   } catch (error) {
     console.error("Error updating user:", error);
     return res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await disconnectFromDatabase();
   }
 }

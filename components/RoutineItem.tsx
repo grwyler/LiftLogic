@@ -34,7 +34,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({
       }
       setSwipeDistance(0);
       try {
-        const response = await fetch(
+        await fetch(
           `/api/routine?userId=${session?.token.user._id}&name=${routine.name}`,
           {
             method: "DELETE",

@@ -8,21 +8,19 @@ let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
 
 export async function connectToDatabase(): Promise<Db> {
-  try {
-    if (!cachedClient) {
-      cachedClient = new MongoClient(uri);
-      await cachedClient.connect();
-    }
-
-    if (!cachedDb) {
-      cachedDb = cachedClient.db(dbName);
-    }
-
+  if (cachedDb) {
     return cachedDb;
-  } catch (error) {
-    console.error("Error connecting to the database:", error);
-    throw error;
   }
+
+  if (!cachedClient) {
+    cachedClient = new MongoClient(uri, {
+      maxPoolSize: 10, // Limits connection pool size to prevent excessive connections
+    });
+    await cachedClient.connect();
+  }
+
+  cachedDb = cachedClient.db(dbName);
+  return cachedDb;
 }
 
 export async function disconnectFromDatabase(): Promise<void> {
