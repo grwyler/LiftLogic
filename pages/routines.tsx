@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { Session } from "next-auth";
@@ -6,11 +8,9 @@ import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
-import dynamic from "next/dynamic";
 
 const RoutinesPage: React.FC = () => {
   const router = useRouter();
-  const { date } = router.query;
   const { data: session, status } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
     status: any;
@@ -50,7 +50,6 @@ const RoutinesPage: React.FC = () => {
   // Fetch user and routine data
   useEffect(() => {
     if (!session?.token?.user?._id) {
-      setLoading(false);
       return;
     }
 
@@ -62,13 +61,14 @@ const RoutinesPage: React.FC = () => {
         ]);
       } catch (error) {
         console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchData();
-  }, [session]);
+    if (!user) {
+      fetchData();
+      setLoading(false);
+    }
+  }, [session, user]);
 
   // Wake Lock
   useEffect(() => {
@@ -107,7 +107,6 @@ const RoutinesPage: React.FC = () => {
           <WorkoutsManager
             routine={routine}
             setRoutine={setRoutine}
-            date={date}
             darkMode={darkMode}
           />
         </>

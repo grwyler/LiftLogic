@@ -32,7 +32,7 @@ const SignUp: React.FC = () => {
       if (response.ok && result) {
         console.log("User registered successfully!");
 
-        router.push("/routines");
+        router.push("/user");
       } else {
         setIsSigningIn(false);
         console.error("Error during registration:", response.statusText);
