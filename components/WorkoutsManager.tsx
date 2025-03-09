@@ -80,8 +80,8 @@ const generateTimedSet = (time) => [
   },
 ];
 
-const WorkoutsManager = ({ routine, setRoutine, date, darkMode }) => {
-  const startDate = date ? new Date(date) : new Date();
+const WorkoutsManager = ({ routine, setRoutine, darkMode }) => {
+  const startDate = new Date();
   const {
     currentDayIndex,
     setCurrentDayIndex,

@@ -70,9 +70,11 @@ export const saveUser = async (user) => {
     });
 
     if (response.ok) {
-      console.log("User inputs saved successfully!");
+      const data = await response.json(); // ✅ Parse response JSON
+      data.success = true;
+      return data; // ✅ Return the response data
     } else {
-      console.error("Failed to save user inputs");
+      return { success: false };
     }
   } catch (error) {
     console.error("Error saving user inputs:", error);
