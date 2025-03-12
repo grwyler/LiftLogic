@@ -11,9 +11,15 @@
     "deploy": "npm run build && gh-pages -d out"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.7",
+    "@mui/material": "^6.4.7",
+    "@mui/x-date-pickers": "^7.27.3",
+    "@types/react-transition-group": "^4.4.12",
     "axios": "^1.6.7",
     "bootstrap": "^5.3.2",
-    "date-fns": "^4.1.0",
+    "date-fns": "^2.29.3",
     "gh-pages": "^6.1.1",
     "mongodb": "^6.3.0",
     "next": "latest",
