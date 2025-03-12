@@ -42,12 +42,28 @@ export const saveSet = async (set) => {
 };
 export const saveRoutine = async (routine) => {
   try {
+    // Create a deep copy of the routine and filter out non-persistent exercises
+    const filteredRoutine = structuredClone(routine);
+
+    if (filteredRoutine.days) {
+      Object.keys(filteredRoutine.days).forEach((day) => {
+        filteredRoutine.days[day] = filteredRoutine.days[day].map(
+          (workout) => ({
+            ...workout,
+            exercises: workout.exercises
+              ? workout.exercises.filter((exercise) => exercise.isPersistent)
+              : [],
+          })
+        );
+      });
+    }
+
     const response = await fetch("/api/routine", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ routine }),
+      body: JSON.stringify({ routine: filteredRoutine }),
     });
 
     if (response.ok) {
@@ -79,21 +95,6 @@ export const saveUser = async (user) => {
   } catch (error) {
     console.error("Error saving user inputs:", error);
   }
-};
-
-export const getWorkoutVariables = (currentDate, routine, currentDayIndex) => {
-  const formattedDate = currentDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-  const { previousDayShort, nextDayShort } = getShortenedDays(currentDate);
-
-  return {
-    formattedDate,
-    previousDayShort,
-    nextDayShort,
-  };
 };
 
 export const roundToNearestFive = (number) => {
@@ -171,12 +172,12 @@ export const formatTime = (totalSeconds) => {
   return formattedTime.trim();
 };
 
-export const fetchWorkouts = async (setRoutine, userId) => {
+export const fetchRoutine = async (userId) => {
   try {
     const response = await fetch(`/api/routine?userId=${userId}`);
     if (response.ok) {
       const data = await response.json();
-      setRoutine(data.routines[0] || intitialRoutine);
+      return data.routine || intitialRoutine;
     }
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -214,12 +215,12 @@ export async function getImageFromOpenAI(
       console.error(error);
     });
 }
-export const fetchUser = async (setUser, id) => {
+export const fetchUser = async (id) => {
   try {
     const response = await fetch(`/api/user?id=${id}`);
     const data = await response.json();
 
-    setUser(data.user);
+    return data.user;
   } catch (error) {
     console.error("Error fetching users:", error);
   }

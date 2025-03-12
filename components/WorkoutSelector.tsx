@@ -1,8 +1,9 @@
-import React, { Fragment, useState } from "react";
-import { Button } from "react-bootstrap";
-import { FaEdit, FaPlus, FaSave, FaTimes, FaTrash } from "react-icons/fa";
+import React, { useState } from "react";
+import WorkoutTitleAccordion from "./WorkoutTitleAccordion";
+import { saveRoutine } from "../utils/helpers";
 
 const WorkoutSelector = ({
+  setRoutine,
   currentWorkout,
   workouts,
   selectedWorkoutIndex,
@@ -13,31 +14,54 @@ const WorkoutSelector = ({
   setIsEditTitle,
   isCreateTitle,
   setIsCreateTitle,
+  setIsAddingExercise,
+  currentDay,
+  setIsPersistent,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
-  const [showMenu, setShowMenu] = useState(false);
+  const capitalizedDay =
+    currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
+
   const handleSaveTitleEdit = () => {
-    setIsEditTitle(false);
-    setIsCreateTitle(false);
-    const workoutsCopy = structuredClone(workouts);
-    const newWorkout = {
+    // Create the updated workout object with the new title.
+    const updatedWorkout = {
       ...currentWorkout,
       title: workoutTitle,
     };
-    workoutsCopy[selectedWorkoutIndex] = newWorkout;
-    updateWorkoutsInRoutine(workoutsCopy);
+
+    // Update the routine state with the new workout title.
+    setRoutine((prevRoutine) => {
+      // Ensure routine exists and that the current day key is valid.
+      if (!prevRoutine || !prevRoutine.days || !prevRoutine.days[currentDay]) {
+        return prevRoutine;
+      }
+
+      // Create a deep copy of the routine to avoid mutations.
+      const updatedRoutine = structuredClone(prevRoutine);
+
+      // Replace the workout at the selected index with the updated workout.
+      updatedRoutine.days[currentDay][selectedWorkoutIndex] = updatedWorkout;
+
+      // Save the updated routine (e.g. to local storage or backend).
+      saveRoutine(updatedRoutine);
+
+      return updatedRoutine;
+    });
+
+    // Exit title edit modes.
+    setIsEditTitle(false);
+    setIsCreateTitle(false);
   };
+
   const handleAddWorkout = () => {
     setIsCreateTitle(true);
     setWorkoutTitle(`Workout ${workouts.length + 1}`);
   };
   const handleCurrentWorkoutChange = (index) => {
-    setShowMenu(false);
     setSelectedWorkoutIndex(index);
   };
   const handleEditClick = () => {
     setIsEditTitle(true);
-    setShowMenu(false);
     setWorkoutTitle(workoutTitle);
   };
   const handleDeleteWorkout = () => {
@@ -54,7 +78,6 @@ const WorkoutSelector = ({
         (w) => w.title !== workouts[selectedWorkoutIndex].title
       );
       updateWorkoutsInRoutine(updatedWorkouts);
-      setShowMenu(false);
       setSelectedWorkoutIndex(0);
       setWorkoutTitle(updatedWorkouts[0].title);
     }
@@ -73,123 +96,28 @@ const WorkoutSelector = ({
     };
     workoutsCopy.push(newWorkout);
     updateWorkoutsInRoutine(workoutsCopy);
-    setShowMenu(false);
     setIsCreateTitle(false);
     setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };
   return (
-    <div className="row m-0 rounded">
-      <div className="col-12">
-        {isEditTitle || isCreateTitle ? (
-          <input
-            className={`form-control text-center ${
-              darkMode ? "bg-dark text-white" : ""
-            }`}
-            type="text"
-            value={workoutTitle}
-            autoFocus
-            onChange={(e) => setWorkoutTitle(e.target.value)}
-            placeholder="Workout name"
-          />
-        ) : (
-          <div className="d-flex flex-column align-items-center">
-            {/* Title Area */}
-            <div className="position-relative d-flex align-items-center">
-              <button
-                className={`fw-bold btn btn-link ${
-                  darkMode ? "text-white" : "text-dark"
-                } text-decoration-none`}
-                onClick={() => {
-                  if (workouts.length > 1) setShowMenu(!showMenu);
-                  else handleEditClick();
-                }}
-              >
-                <h2 className="fs-2 fw-bold mt-3">{workoutTitle}</h2>
-              </button>
-              {workouts.length > 1 && (
-                <Fragment>
-                  <Button size="sm" variant="white" onClick={handleEditClick}>
-                    <FaEdit className="text-secondary" />
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="white"
-                    onClick={handleDeleteWorkout}
-                  >
-                    <FaTrash className="text-danger" />
-                  </Button>
-                </Fragment>
-              )}
-            </div>
-
-            {/* Dropdown for Selecting a Workout (only if multiple exist) */}
-            {showMenu && workouts.length > 1 && (
-              <div className="dropdown-menu show text-center">
-                {workouts.map((workout, index) => (
-                  <button
-                    key={`${workout.title}-dropdown-item`}
-                    className="dropdown-item"
-                    onClick={() => handleCurrentWorkoutChange(index)}
-                  >
-                    {workout.title}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Context Hint */}
-            <small className={`${darkMode ? "text-light" : "text-muted"}`}>
-              {workouts.length > 1
-                ? "Click to switch workout"
-                : "Current workout"}
-            </small>
-            <Button
-              variant={`${darkMode ? "dark" : "white"}`}
-              className={`mt-2 `}
-              size="sm"
-              onClick={handleAddWorkout}
-            >
-              <FaPlus /> Add Workout
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {(isCreateTitle || isEditTitle) && (
-        <div className="d-flex justify-content-center">
-          <Button
-            variant="success"
-            className="mx-1 my-2"
-            onClick={isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit}
-            disabled={
-              workoutTitle === "" ||
-              workoutTitle === workouts[selectedWorkoutIndex].title ||
-              workouts.some((w) => w.title === workoutTitle)
-            }
-          >
-            {isCreateTitle ? (
-              <>
-                <FaSave /> Create
-              </>
-            ) : (
-              <>
-                <FaSave /> Save
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="secondary"
-            className="mx-1 my-2"
-            onClick={handleCancelEditTitle}
-            disabled={workouts.length === 1 && workoutTitle === ""}
-          >
-            <FaTimes /> Cancel
-          </Button>
-        </div>
-      )}
-    </div>
+    <WorkoutTitleAccordion
+      workoutTitle={workoutTitle}
+      workouts={workouts}
+      selectedWorkoutIndex={selectedWorkoutIndex}
+      isEditTitle={isEditTitle}
+      isCreateTitle={isCreateTitle}
+      darkMode={darkMode}
+      handleEditClick={handleEditClick}
+      handleDeleteWorkout={handleDeleteWorkout}
+      handleCurrentWorkoutChange={handleCurrentWorkoutChange}
+      handleAddWorkout={handleAddWorkout}
+      setIsAddingExercise={setIsAddingExercise}
+      handleCreateWorkout={handleCreateWorkout}
+      handleSaveTitleEdit={handleSaveTitleEdit}
+      handleCancelEditTitle={handleCancelEditTitle}
+      setWorkoutTitle={setWorkoutTitle}
+      setIsPersistent={setIsPersistent}
+    />
   );
 };
 

@@ -133,6 +133,7 @@ const SelectedSetItem = ({
     set.actualMinutes = minutes;
     set.totalSeconds = totalSeconds - countdown;
     set.complete = true;
+    set.completedDate = new Date();
     set.name = setName;
     // saveSet(set);
 
@@ -143,11 +144,13 @@ const SelectedSetItem = ({
     ];
 
     // Check if all exercises are complete for the workout
+
     currentExercise.complete = sets.every((s) => s.complete);
     if (currentExercise.complete) {
       currentExercise.date = formattedDate;
       currentExercise.userId = session?.token.user._id;
       currentExercise.routineName = routineName;
+      currentExercise.completedDate = new Date();
 
       nextIndex = currentExerciseIndex + 1;
       let nextSetIndex = 0;

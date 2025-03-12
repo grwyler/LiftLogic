@@ -8,6 +8,7 @@ const ExerciseSelector = ({
   setIsAddingExercise,
   addExerciseToWorkout,
   darkMode,
+  isPersistent,
 }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ const ExerciseSelector = ({
         setEquipment(equipmentRes.data);
         setTargets(targetsRes.data);
       } catch (err) {
-        console.error("Error fetching filter lists:", err);
+        // console.error("Error fetching filter lists:", err);
       }
     };
 
@@ -63,15 +64,9 @@ const ExerciseSelector = ({
         const response = await axios.get(apiUrl);
         setExercises(response.data);
       } catch (err) {
-        if (
-          err.message.includes(
-            "You have exceeded the MONTHLY quota for Requests on your current plan, BASIC"
-          )
-        ) {
-          setError("Failed to API, using local data");
-        }
+        setError("API is down, using a static list of exercises");
         setExercises(initialExercises);
-        console.error(err);
+        console.log("API is down");
       } finally {
         setLoading(false);
       }
@@ -83,6 +78,7 @@ const ExerciseSelector = ({
     setIsAddingExercise(false);
     addExerciseToWorkout({
       ...exercise,
+      isPersistent,
       sets: [
         {
           actualReps: "",
@@ -167,10 +163,9 @@ const ExerciseSelector = ({
         <div className="text-center">
           <Spinner animation="border" />
         </div>
-      ) : error ? (
-        <div className="alert alert-danger">{error}</div>
       ) : (
         <div className="row">
+          <div className="alert alert-warning">{error}</div>
           {exercises.map((exercise) => (
             <div key={exercise.id} className="col-12 col-md-6 col-lg-4 mb-3">
               <div className="card shadow-sm h-100">
@@ -192,7 +187,7 @@ const ExerciseSelector = ({
                       className="w-100 text-success"
                       onClick={() => handleAddExercise(exercise)}
                     >
-                      <FaPlus /> Add Exercise
+                      <FaPlus /> Add Exercise to Routine
                     </Button>
                   </div>
                 </div>

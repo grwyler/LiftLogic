@@ -13,8 +13,9 @@ const WorkoutDisplay = ({
   formattedDate,
   routineName,
   setIsAddingExercise,
-  updateWorkoutInRoutine,
+  updateExercisesInRoutine,
   darkMode,
+  setIsPersistent,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   useEffect(() => {
@@ -38,26 +39,22 @@ const WorkoutDisplay = ({
               routineName={routineName}
               shownMenuIndex={shownMenuIndex}
               setShownMenuIndex={setShownMenuIndex}
-              updateWorkoutInRoutine={updateWorkoutInRoutine}
+              updateExercisesInRoutine={updateExercisesInRoutine}
               darkMode={darkMode}
             />
           );
         })}
-      <div className="p-2 d-flex justify-content-center">
-        {/* <Button
-          onClick={() => setIsAddingExercise(true)}
-          variant="white text-primary"
-          className="w-100"
-        >
-          Add Exercise <IoAddCircleOutline />
-        </Button> */}
+      <div className="d-flex justify-content-center">
         <Button
           variant="white"
-          className="mt-2 text-primary"
           size="sm"
-          onClick={() => setIsAddingExercise(true)}
+          title="Adds an exercise only to the currently selected day"
+          onClick={() => {
+            setIsPersistent(false);
+            setIsAddingExercise(true);
+          }}
         >
-          <FaPlus /> Add Exercise
+          <FaPlus /> Add Exercise to Today
         </Button>
       </div>
     </Fragment>

@@ -10,10 +10,10 @@ export default async function handler(
     const { exercise } = req.body;
     const db = await connectToDatabase();
     const exerciseCollection = db.collection("exercises");
-    const { userId, date } = req.query;
+    const { userId, date, routineName } = req.query;
     if (req.method === "POST") {
       // Handling POST request to save an exercise
-
+      console.log(exercise);
       // Use insertOne for the latest MongoDB driver
       await exerciseCollection.insertOne(exercise);
 
@@ -29,9 +29,10 @@ export default async function handler(
         .find({
           userId,
           date,
+          routineName,
         })
         .toArray();
-
+      exercises.forEach((e) => console.log(JSON.stringify(e)));
       return res.status(200).json({ exercises });
     } else {
       // Handling other HTTP methods
@@ -40,7 +41,5 @@ export default async function handler(
   } catch (error) {
     console.error("MongoDB connection or query error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    await disconnectFromDatabase();
   }
 }

@@ -111,7 +111,10 @@ const UserHomePage = () => {
 
     const fetchData = async () => {
       try {
-        await Promise.all([fetchUser(setUser, session.token.user._id)]);
+        const [userData] = await Promise.all([
+          fetchUser(session.token.user._id),
+        ]);
+        setUser(userData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {

@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import { Button } from "react-bootstrap";
-import { FaCheck, FaChevronDown, FaEllipsisH, FaPlus } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaPlus } from "react-icons/fa";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
-import { IoEllipsisHorizontal } from "react-icons/io5";
-import CRUDMenu from "./CRUDMenu";
 import { toTitleCase } from "../utils/helpers";
 import ExerciseEditItem from "./ExerciseEditItem";
+import CRUDMenuButton from "./CRUDMenuButton";
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
@@ -18,7 +17,7 @@ const ExerciseItem = ({
   routineName,
   shownMenuIndex,
   setShownMenuIndex,
-  updateWorkoutInRoutine,
+  updateExercisesInRoutine,
   darkMode,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
@@ -68,7 +67,7 @@ const ExerciseItem = ({
       exercises: workoutCopy.exercises,
     };
 
-    updateWorkoutInRoutine(currentWorkout);
+    updateExercisesInRoutine(workoutCopy.exercises);
 
     setShownMenuIndex(-1);
   };
@@ -126,40 +125,21 @@ const ExerciseItem = ({
             }`}
             style={{ transition: "transform 0.2s ease-in-out" }}
           />
-
           {toTitleCase(currentExercise.name)}
-
           {currentExercise.complete && (
             <FaCheck className={`ms-2 text-success `} />
           )}
-
-          <div>
-            <Button
-              size="sm"
-              variant={
-                shownMenuIndex === exerciseIndex
-                  ? "outline-dark"
-                  : darkMode
-                  ? "bg-custom-dark text-white"
-                  : "light"
-              }
-              className="ms-2 p-2"
-              style={{ zIndex: 100 }}
-              onClick={(e) => {
-                e.stopPropagation(); // Prevents handleWorkoutButtonClick from being triggered
-                setShownMenuIndex(
-                  shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
-                );
-              }}
-            >
-              <FaEllipsisH />
-            </Button>
-            <CRUDMenu
-              canRead={shownMenuIndex === exerciseIndex}
-              handleDelete={handleDelete}
-              handleUpdate={handleUpdate}
-            />
-          </div>
+          <CRUDMenuButton
+            darkMode={darkMode}
+            handleDelete={handleDelete}
+            handleUpdate={handleUpdate}
+            onClickMenuButton={() => {
+              setShownMenuIndex(
+                shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
+              );
+            }}
+            show={shownMenuIndex === exerciseIndex}
+          />
         </div>
       </div>
       {exerciseIndex === currentExerciseIndex &&
