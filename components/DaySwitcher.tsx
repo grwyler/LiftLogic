@@ -1,61 +1,130 @@
-import React, { Fragment, useState } from "react";
-import { Button } from "react-bootstrap";
-import DatePicker from "react-datepicker";
+import React, { useState } from "react";
+import { Box, Paper, IconButton, Button, TextField } from "@mui/material";
 import {
-  FaCalendar,
-  FaCalendarDay,
-  FaChevronLeft,
-  FaChevronRight,
-} from "react-icons/fa";
+  ChevronLeft,
+  ChevronRight,
+  CalendarToday,
+  CalendarViewDay,
+} from "@mui/icons-material";
+import { DatePicker, StaticDatePicker } from "@mui/x-date-pickers";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-const DaySwitcher = ({ currentDate, handleCurrentDayChange, darkMode }) => {
+const DaySwitcher = ({
+  currentDate,
+  handleCurrentDayChange,
+  setCurrentDate,
+  darkMode,
+}) => {
   const [isInline, setIsInline] = useState(false);
+
+  const handlePreviousDay = () => {
+    setCurrentDate((prevDate) => {
+      handleCurrentDayChange(-1);
+      const newDate = new Date(prevDate);
+      newDate.setDate(prevDate.getDate() - 1);
+      return newDate;
+    });
+  };
+
+  const handleNextDay = () => {
+    setCurrentDate((prevDate) => {
+      handleCurrentDayChange(1);
+      const newDate = new Date(prevDate);
+      newDate.setDate(prevDate.getDate() + 1);
+      return newDate;
+    });
+  };
+
+  const handleBackToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    handleCurrentDayChange(today, true);
+  };
+
+  const isToday = currentDate.toDateString() === new Date().toDateString();
+
   return (
-    <Fragment>
-      <div className="d-flex justify-content-between align-items-center">
-        {/* Left Button */}
-        <Button
-          size="lg"
-          variant={darkMode ? "dark" : "white"}
-          onClick={() => handleCurrentDayChange(-1)}
-        >
-          <FaChevronLeft />
-        </Button>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 2,
+        bgcolor: darkMode ? "grey.900" : "background.paper",
+        color: darkMode ? "grey.100" : "text.primary",
+      }}
+    >
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        {!isInline && (
+          <IconButton onClick={handlePreviousDay} size="large">
+            <ChevronLeft fontSize="inherit" />
+          </IconButton>
+        )}
 
-        {/* Date Picker Wrapper (Ensures Full Width) */}
-        <div className="d-flex flex-grow-1 px-2">
-          <DatePicker
-            selected={currentDate}
-            className={`form-control text-center fw-bold w-100 ${
-              darkMode ? "bg-dark text-white" : ""
-            }`}
-            onChange={(date: Date | null) => handleCurrentDayChange(date, true)}
-            dateFormat="EEEE, MMMM d"
-            showPopperArrow={false}
-            popperPlacement="bottom"
-            wrapperClassName="w-100"
-            onFocus={(e) => e.target.blur()}
-            onChangeRaw={(e) => e.preventDefault()}
-            highlightDates={[new Date()]}
-            inline={isInline}
-          />
-        </div>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          {isInline ? (
+            <StaticDatePicker
+              displayStaticWrapperAs="desktop"
+              value={currentDate}
+              onChange={(newDate) => {
+                if (newDate) {
+                  setCurrentDate(newDate);
+                  handleCurrentDayChange(newDate, true);
+                }
+              }}
+            />
+          ) : (
+            <DatePicker
+              value={currentDate}
+              onChange={(newDate) => {
+                if (newDate) {
+                  setCurrentDate(newDate);
+                  handleCurrentDayChange(newDate, true);
+                }
+              }}
+              format="EEEE, MMMM d"
+              slots={{
+                textField: (params) => (
+                  <TextField
+                    {...params}
+                    variant="standard"
+                    sx={{ mx: 2, width: "100%", textAlign: "center" }}
+                    InputProps={{
+                      ...params.InputProps,
+                      style: { textAlign: "center", fontWeight: 600 },
+                      readOnly: true,
+                    }}
+                  />
+                ),
+              }}
+            />
+          )}
+        </LocalizationProvider>
 
-        {/* Right Button */}
+        {!isInline && (
+          <IconButton onClick={handleNextDay} size="large">
+            <ChevronRight fontSize="inherit" />
+          </IconButton>
+        )}
+      </Box>
+
+      <Box display="flex" justifyContent="center" mt={2}>
         <Button
-          size="lg"
-          variant={darkMode ? "dark" : "white"}
-          onClick={() => handleCurrentDayChange(1)}
+          variant="text"
+          startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
+          onClick={() => setIsInline((prev) => !prev)}
         >
-          <FaChevronRight />
+          {isInline ? "Inline" : "Popper"}
         </Button>
-      </div>
-      <div className="d-flex justify-content-center pt-2">
-        <Button variant="white" onClick={() => setIsInline(!isInline)}>
-          {!isInline ? <FaCalendar /> : <FaCalendarDay />}
-        </Button>
-      </div>
-    </Fragment>
+      </Box>
+
+      {!isToday && (
+        <Box display="flex" justifyContent="center" mt={1}>
+          <Button variant="outlined" onClick={handleBackToToday}>
+            Back to Today
+          </Button>
+        </Box>
+      )}
+    </Paper>
   );
 };
 
