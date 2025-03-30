@@ -1,4 +1,4 @@
-import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase } from "../../utils/mongodb";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
@@ -19,7 +19,6 @@ export default async function handler(req, res) {
 
       // Store the session identifier in the user document in the database
       await collection.updateOne({ _id: user._id }, { $set: { sessionId } });
-      await disconnectFromDatabase();
       res.status(200).json({ sessionId });
     } catch (error) {
       console.error("MongoDB connection or sign-in error:", error);

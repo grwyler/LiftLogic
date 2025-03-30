@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Card, CardContent, TextField, Typography, Box } from "@mui/material";
 import TimerInput from "./TimerInput";
 import { Draggable } from "react-beautiful-dnd";
 import { emptyOrNullToZero } from "../utils/helpers";
@@ -9,35 +10,47 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
   const [seconds, setSeconds] = useState(emptyOrNullToZero(set.seconds));
 
   const handleBlur = () => {};
-
   const handleInputChange = () => {};
+
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
-        <div
-          className={`card my-2 ${darkMode ? "bg-custom-dark text-white" : ""}`}
+        <Card
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           ref={provided.innerRef}
-          style={{
-            ...provided.draggableProps.style,
+          sx={{
+            my: 2,
+            backgroundColor: darkMode ? "grey.900" : "white",
+            color: darkMode ? "grey.100" : "text.primary",
             boxShadow: snapshot.isDragging
-              ? "0 4px 8px 0 rgba(0, 0, 0, 0.2)"
+              ? "0 4px 8px rgba(0,0,0,0.2)"
               : "none",
+            transition: "box-shadow 0.3s ease",
           }}
         >
-          <div className="card-body ">
-            <div>
-              Set Name
-              <input
-                className={`form-control ${
-                  darkMode ? "bg-dark text-white" : ""
-                }`}
+          <CardContent>
+            <Box mb={2}>
+              <Typography variant="subtitle2" gutterBottom>
+                Set Name
+              </Typography>
+              <TextField
+                fullWidth
+                variant="outlined"
                 value={set.name}
+                InputProps={{
+                  readOnly: true,
+                }}
+                sx={{
+                  backgroundColor: darkMode ? "grey.800" : "inherit",
+                  "& input": { color: darkMode ? "white" : "inherit" },
+                }}
               />
-            </div>
-            <div>
-              Time
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Time
+              </Typography>
               <TimerInput
                 hours={hours}
                 setHours={setHours}
@@ -49,9 +62,9 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
                 handleInputChange={handleInputChange}
                 darkMode={darkMode}
               />
-            </div>
-          </div>
-        </div>
+            </Box>
+          </CardContent>
+        </Card>
       )}
     </Draggable>
   );

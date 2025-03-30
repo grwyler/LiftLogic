@@ -1,6 +1,6 @@
 // pages/api/exercise.ts
 import { NextApiRequest, NextApiResponse } from "next";
-import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase } from "../../utils/mongodb";
 
 export default async function handler(
   req: NextApiRequest,
@@ -18,7 +18,6 @@ export default async function handler(
 
       // Use insertOne for the latest MongoDB driver
       await collection.insertOne(set);
-      await disconnectFromDatabase();
 
       res.status(201).json({ message: "Set saved successfully!" });
     } catch (error) {
@@ -44,7 +43,6 @@ export default async function handler(
         .toArray();
 
       // Return a success status (200) with an array of exercises
-      await disconnectFromDatabase();
       res.status(200).json({ exercises });
     } catch (error) {
       console.error("MongoDB connection or query error:", error);

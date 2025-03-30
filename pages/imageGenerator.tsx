@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { getImageFromOpenAI } from "../utils/helpers";
 import { FaSpinner } from "react-icons/fa";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 const imageGeneratorHome = () => {
   const [userPrompt, setUserPrompt] = useState("");

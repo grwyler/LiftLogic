@@ -1,63 +1,69 @@
-import React, { Fragment, useEffect, useState } from "react";
-import { Button } from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { Box, Button } from "@mui/material";
 import ExerciseItem from "./ExerciseItem";
-
-import { v4 } from "uuid";
-import { IoAddCircleOutline } from "react-icons/io5";
-import { FaPlus } from "react-icons/fa";
+import AddIcon from "@mui/icons-material/Add";
 
 const WorkoutDisplay = ({
+  exercises,
   currentWorkout,
   currentExerciseIndex,
   setCurrentExerciseIndex,
   formattedDate,
   routineName,
   setIsAddingExercise,
-  updateExercisesInRoutine,
   darkMode,
   setIsPersistent,
+  setRefetchExercises,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
+
   useEffect(() => {
-    if (currentWorkout.exercises.length === 1) {
+    if (exercises.length === 1) {
       setCurrentExerciseIndex(0);
     }
-  }, []);
+  }, [exercises, setCurrentExerciseIndex]);
+
   return (
-    <Fragment>
-      {currentWorkout.exercises &&
-        currentWorkout.exercises.map((e, exerciseIndex) => {
-          return (
-            <ExerciseItem
-              key={`exercise-item-${exerciseIndex}`}
-              exercise={e}
-              exerciseIndex={exerciseIndex}
-              workout={currentWorkout}
-              currentExerciseIndex={currentExerciseIndex}
-              setCurrentExerciseIndex={setCurrentExerciseIndex}
-              formattedDate={formattedDate}
-              routineName={routineName}
-              shownMenuIndex={shownMenuIndex}
-              setShownMenuIndex={setShownMenuIndex}
-              updateExercisesInRoutine={updateExercisesInRoutine}
-              darkMode={darkMode}
-            />
-          );
-        })}
-      <div className="d-flex justify-content-center">
+    <Box>
+      {exercises.map((e, exerciseIndex) => (
+        <ExerciseItem
+          setRefetchExercises={setRefetchExercises}
+          key={`exercise-item-${exerciseIndex}`}
+          exercise={e}
+          exerciseIndex={exerciseIndex}
+          workout={currentWorkout}
+          currentExerciseIndex={currentExerciseIndex}
+          setCurrentExerciseIndex={setCurrentExerciseIndex}
+          formattedDate={formattedDate}
+          routineName={routineName}
+          shownMenuIndex={shownMenuIndex}
+          setShownMenuIndex={setShownMenuIndex}
+          darkMode={darkMode}
+        />
+      ))}
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
         <Button
-          variant="white"
-          size="sm"
+          variant="outlined"
+          size="small"
           title="Adds an exercise only to the currently selected day"
           onClick={() => {
             setIsPersistent(false);
             setIsAddingExercise(true);
           }}
+          startIcon={<AddIcon />}
+          sx={{
+            color: darkMode ? "white" : "black",
+            borderColor: darkMode ? "grey.700" : "grey.300",
+            backgroundColor: darkMode ? "grey.800" : "white",
+            "&:hover": {
+              backgroundColor: darkMode ? "grey.700" : "grey.100",
+            },
+          }}
         >
-          <FaPlus /> Add Exercise to Today
+          Add Exercise to Today
         </Button>
-      </div>
-    </Fragment>
+      </Box>
+    </Box>
   );
 };
 

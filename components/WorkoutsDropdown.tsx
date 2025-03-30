@@ -1,29 +1,45 @@
-import React from "react";
-import { Dropdown } from "react-bootstrap";
-import {
-  FaArrowUp,
-  FaCartArrowDown,
-  FaRecycle,
-  FaRetweet,
-} from "react-icons/fa";
+import React, { useState } from "react";
+import { Button, Menu, MenuItem } from "@mui/material";
+import CachedIcon from "@mui/icons-material/Cached"; // Similar to FaRetweet
 
 function WorkoutDropdown({ workouts, darkMode, handleCurrentWorkoutChange }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleItemClick = (index) => {
+    handleCurrentWorkoutChange(index);
+    handleClose();
+  };
+
   return (
-    <Dropdown>
-      <Dropdown.Toggle variant={darkMode ? "dark" : "white"} size="sm">
-        <FaRetweet /> Switch Workout
-      </Dropdown.Toggle>
-      <Dropdown.Menu>
+    <>
+      <Button
+        size="small"
+        variant={darkMode ? "contained" : "outlined"}
+        onClick={handleClick}
+        startIcon={<CachedIcon />}
+      >
+        Switch Workout
+      </Button>
+      <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
         {workouts.map((workout, index) => (
-          <Dropdown.Item
+          <MenuItem
             key={`${workout.title}-${index}`}
-            onClick={() => handleCurrentWorkoutChange(index)}
+            onClick={() => handleItemClick(index)}
           >
             {workout.title}
-          </Dropdown.Item>
+          </MenuItem>
         ))}
-      </Dropdown.Menu>
-    </Dropdown>
+      </Menu>
+    </>
   );
 }
 

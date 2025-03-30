@@ -1,6 +1,6 @@
 import React from "react";
-import { Button } from "react-bootstrap";
-import { FaEllipsisH } from "react-icons/fa";
+import { Box, IconButton } from "@mui/material";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import CRUDMenu from "./CRUDMenu";
 
 type ExerciseMenuProps = {
@@ -19,30 +19,37 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
   show,
 }) => {
   return (
-    <div>
-      <Button
-        size="sm"
-        variant={
-          show
-            ? "outline-dark"
-            : darkMode
-            ? "bg-custom-dark text-white"
-            : "white"
-        }
-        className="ms-2 p-2"
+    <Box position="relative">
+      <IconButton
+        size="small"
         onClick={(e) => {
           e.stopPropagation(); // Prevents parent click handlers from triggering
           onClickMenuButton();
         }}
+        sx={{
+          ml: 1,
+          // Subtle background highlight only if menu is open or on hover
+          backgroundColor: show
+            ? darkMode
+              ? "grey.700"
+              : "grey.200"
+            : "transparent",
+          color: darkMode ? "#fff" : "inherit",
+          "&:hover": {
+            backgroundColor: darkMode ? "grey.700" : "grey.200",
+          },
+          transition: "background-color 0.2s",
+        }}
       >
-        <FaEllipsisH />
-      </Button>
+        <MoreHorizIcon />
+      </IconButton>
+
       <CRUDMenu
         canRead={show}
         handleDelete={handleDelete}
         handleUpdate={handleUpdate}
       />
-    </div>
+    </Box>
   );
 };
 

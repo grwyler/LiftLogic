@@ -1,7 +1,7 @@
 // pages/api/user.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { ObjectId } from "mongodb";
-import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase } from "../../utils/mongodb";
 
 export default async function handler(
   req: NextApiRequest,

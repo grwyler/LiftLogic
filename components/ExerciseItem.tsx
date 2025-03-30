@@ -1,12 +1,17 @@
 import React, { useState } from "react";
-import { Button } from "react-bootstrap";
-import { FaCheck, FaChevronDown, FaPlus } from "react-icons/fa";
+import { Paper, Box, Button, Typography, IconButton } from "@mui/material";
+import RepeatIcon from "@mui/icons-material/Repeat";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CheckIcon from "@mui/icons-material/Check";
+import AddIcon from "@mui/icons-material/Add";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
-import { toTitleCase } from "../utils/helpers";
 import ExerciseEditItem from "./ExerciseEditItem";
 import CRUDMenuButton from "./CRUDMenuButton";
+import { deleteExercise, saveExercise, toTitleCase } from "../utils/helpers";
+import { FaReply } from "react-icons/fa";
+
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
@@ -17,8 +22,8 @@ const ExerciseItem = ({
   routineName,
   shownMenuIndex,
   setShownMenuIndex,
-  updateExercisesInRoutine,
   darkMode,
+  setRefetchExercises,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
@@ -33,12 +38,9 @@ const ExerciseItem = ({
 
   const handleAddSet = () => {
     const sets = [...currentExercise.sets];
-
-    if (sets.length === 0) return; // Avoid error on empty sets
-
+    if (sets.length === 0) return;
     const lastSet = sets[sets.length - 1];
     const newSetNumber = sets.length + 1;
-
     const newSet = {
       ...lastSet,
       weight: lastSet.weight + lastSet.weight * 0.05,
@@ -47,7 +49,6 @@ const ExerciseItem = ({
       complete: false,
       name: `Working Set ${newSetNumber}`,
     };
-
     setCurrentExercise({ ...currentExercise, sets: [...sets, newSet] });
   };
 
@@ -59,135 +60,185 @@ const ExerciseItem = ({
     });
   };
 
-  const handleDelete = () => {
-    const workoutCopy = structuredClone(workout);
-    workoutCopy.exercises.splice(exerciseIndex, 1);
-    const currentWorkout = {
-      ...workout,
-      exercises: workoutCopy.exercises,
-    };
-
-    updateExercisesInRoutine(workoutCopy.exercises);
-
+  const handleDelete = async (exercise) => {
+    // Hide any menus
     setShownMenuIndex(-1);
+    // Delete the exercise
+    await deleteExercise(exercise._id);
+    // Toggle the refetchExercises state to trigger a refetch
+    setRefetchExercises((prev) => !prev);
   };
 
   const handleUpdate = () => {
     setShownMenuIndex(-1);
     setIsEditing(true);
   };
-  return isEditing ? (
-    <ExerciseEditItem
-      index={exerciseIndex}
-      exercise={currentExercise}
-      setCurrentExercise={setCurrentExercise}
-      handleRemoveExercise={undefined}
-      selectedExercises={undefined}
-      setSelectedExercises={undefined}
-      isValid={true}
-      darkMode={darkMode}
-      setIsEditing={setIsEditing}
-    />
-  ) : (
-    <div
+
+  // Callback to handle saving the updated exercise
+  const handleExerciseSave = (updatedExercise) => {
+    setIsEditing(false);
+    saveExercise(updatedExercise);
+  };
+
+  if (isEditing) {
+    return (
+      <ExerciseEditItem
+        index={exerciseIndex}
+        exercise={currentExercise}
+        onSave={handleExerciseSave} // Pass the callback to update parent state
+        onCancel={() => setIsEditing(false)}
+        darkMode={darkMode}
+        isValid={true}
+      />
+    );
+  }
+
+  const [isRepeating, setIsRepeating] = useState(exercise.isPersistent);
+
+  const toggleRepeat = (e) => {
+    e.stopPropagation();
+    setIsRepeating((prev) => {
+      const isPersistent = !prev;
+      saveExercise({ ...exercise, isPersistent });
+      return isPersistent;
+    });
+  };
+
+  return (
+    <Paper
       key={`exercise-${exercise.name}-${exerciseIndex}`}
-      className={`text-center rounded ${
-        currentExerciseIndex === exerciseIndex
-          ? darkMode
-            ? "bg-custom-dark"
-            : "bg-white"
-          : ""
-      }`}
-      style={{
+      elevation={currentExerciseIndex === exerciseIndex ? 4 : 1}
+      sx={{
+        p: 2,
+        my: 2,
+        borderRadius: 2,
+        backgroundColor:
+          currentExerciseIndex === exerciseIndex
+            ? darkMode
+              ? "grey.800"
+              : "white"
+            : darkMode
+            ? "grey.900"
+            : "transparent",
         border:
           currentExerciseIndex === exerciseIndex
             ? "2px solid #007bff"
-            : "1px  rgba(0, 123, 255, 0.2)",
-        boxShadow:
-          currentExerciseIndex === exerciseIndex
-            ? "0px 4px 12px rgba(0, 123, 255, 0.2)" // Softer glow effect
-            : "none",
+            : "1px solid rgba(0,123,255,0.2)",
         transition: "all 0.2s ease-in-out",
+        "&:hover": {
+          boxShadow: "0px 4px 16px rgba(0,123,255,0.3)",
+        },
       }}
     >
-      <div
-        className="d-flex justify-content-center align-items-center "
+      {/* Header Area */}
+      <Box
+        className="d-flex justify-content-between align-items-center"
         onClick={() => handleWorkoutButtonClick(exerciseIndex)}
       >
-        <div
-          className={`w-100 m-2 rounded d-flex justify-content-between align-items-center p-1 ${
-            darkMode ? "bg-custom-dark " : "bg-light"
-          } ${currentExerciseIndex === exerciseIndex ? "" : "border"}`}
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          className="d-flex justify-content-center"
         >
-          <FaChevronDown
-            className={`flip-icon ${
-              currentExerciseIndex === exerciseIndex ? "rotate-180" : ""
-            }`}
-            style={{ transition: "transform 0.2s ease-in-out" }}
-          />
-          {toTitleCase(currentExercise.name)}
-          {currentExercise.complete && (
-            <FaCheck className={`ms-2 text-success `} />
-          )}
           <CRUDMenuButton
             darkMode={darkMode}
-            handleDelete={handleDelete}
+            handleDelete={() => handleDelete(exercise)}
             handleUpdate={handleUpdate}
-            onClickMenuButton={() => {
+            onClickMenuButton={() =>
               setShownMenuIndex(
                 shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
-              );
-            }}
+              )
+            }
             show={shownMenuIndex === exerciseIndex}
           />
-        </div>
-      </div>
+          <IconButton
+            onClick={toggleRepeat}
+            title="Toggle on to make this exercise repeat next week"
+          >
+            <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
+          </IconButton>
+        </Box>
+
+        <Typography variant="h6">
+          {toTitleCase(currentExercise.name)}
+        </Typography>
+        {currentExercise.complete && (
+          <CheckIcon sx={{ color: "success.main", mr: 1 }} />
+        )}
+
+        <ExpandMoreIcon
+          sx={{
+            transition: "transform 0.2s ease-in-out",
+            transform:
+              currentExerciseIndex === exerciseIndex
+                ? "rotate(180deg)"
+                : "rotate(0deg)",
+          }}
+        />
+      </Box>
+      {/* Set Items */}
       {exerciseIndex === currentExerciseIndex &&
         currentExercise.sets &&
         currentExercise.sets.map((s, i) => {
-          return i === currentSetIndex ? (
-            <SelectedSetItem
-              key={`selectedSetItem-${i}`}
-              routineName={routineName}
-              set={s}
-              currentExercise={currentExercise}
-              setIndex={i}
-              currentExerciseIndex={currentExerciseIndex}
-              setCurrentSetIndex={setCurrentSetIndex}
-              formattedDate={formattedDate}
-              setCurrentExerciseIndex={setCurrentExerciseIndex}
-              workout={workout}
-              darkMode={darkMode}
-            />
-          ) : s.complete ? (
-            <CompletedSetItem
-              key={`completedSetItem-${i}`}
-              set={s}
-              setIndex={i}
-              setCurrentSetIndex={setCurrentSetIndex}
-              type={currentExercise.type}
-              darkMode={darkMode}
-            />
-          ) : (
-            <SetItem
-              key={`setItem-${i}`}
-              set={s}
-              handleDeleteSet={(setName) => handleDeleteSet(setName)}
-              type={currentExercise.type}
-              darkMode={darkMode}
-            />
-          );
+          if (i === currentSetIndex) {
+            return (
+              <SelectedSetItem
+                key={`selectedSetItem-${i}`}
+                routineName={routineName}
+                set={s}
+                currentExercise={currentExercise}
+                setIndex={i}
+                currentExerciseIndex={currentExerciseIndex}
+                setCurrentSetIndex={setCurrentSetIndex}
+                formattedDate={formattedDate}
+                setCurrentExerciseIndex={setCurrentExerciseIndex}
+                workout={workout}
+                darkMode={darkMode}
+              />
+            );
+          } else if (s.complete) {
+            return (
+              <CompletedSetItem
+                key={`completedSetItem-${i}`}
+                set={s}
+                setIndex={i}
+                setCurrentSetIndex={setCurrentSetIndex}
+                type={currentExercise.type}
+                darkMode={darkMode}
+              />
+            );
+          } else {
+            return (
+              <SetItem
+                key={`setItem-${i}`}
+                set={s}
+                handleDeleteSet={(setName) => handleDeleteSet(setName)}
+                type={currentExercise.type}
+                darkMode={darkMode}
+              />
+            );
+          }
         })}
+      {/* Add Set Button */}
       {exerciseIndex === currentExerciseIndex && (
         <Button
-          variant={darkMode ? "bg-custom-dark " : "white"}
-          className="mt-3 mb-2 text-primary w-100 d-flex align-items-center justify-content-center"
+          variant="outlined"
+          size="small"
+          title="Adds an exercise only to the currently selected day"
           onClick={handleAddSet}
+          startIcon={<AddIcon />}
+          sx={{
+            mt: 3,
+            mb: 2,
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <FaPlus className="me-1" /> Add Set
+          Add Set
         </Button>
       )}
-    </div>
+    </Paper>
   );
 };
 

@@ -1,5 +1,5 @@
 // pages/api/signup.ts
-import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
+import { connectToDatabase } from "../../utils/mongodb";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
@@ -17,7 +17,6 @@ export default async function handler(req, res) {
         username: username,
         password: password, // TODO: hash passwords before storing them in production
       });
-      await disconnectFromDatabase();
 
       // Check the result and send a response
       if (result.insertedId) {

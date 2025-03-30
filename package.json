@@ -7,8 +7,7 @@
     "dev": "next",
     "build": "next build",
     "start": "next start",
-    "type-check": "tsc",
-    "deploy": "npm run build && gh-pages -d out"
+    "type-check": "tsc"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -17,7 +16,7 @@
     "@mui/material": "^6.4.7",
     "@mui/x-date-pickers": "^7.27.3",
     "@types/react-transition-group": "^4.4.12",
-    "axios": "^1.6.7",
+    "axios": "^1.8.2",
     "bootstrap": "^5.3.2",
     "date-fns": "^2.29.3",
     "gh-pages": "^6.1.1",

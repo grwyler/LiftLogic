@@ -21,6 +21,26 @@ export const saveExercise = async (exercise) => {
   }
 };
 
+export const deleteExercise = async (exerciseId) => {
+  try {
+    const response = await fetch("/api/exercise", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ exerciseId }),
+    });
+
+    if (response.ok) {
+      console.log("Exercise deleted successfully!");
+    } else {
+      console.error("Failed to delete exercise");
+    }
+  } catch (error) {
+    console.error("Error deleting exercise:", error);
+  }
+};
+
 export const saveSet = async (set) => {
   try {
     const response = await fetch("/api/set", {

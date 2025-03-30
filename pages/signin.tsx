@@ -1,35 +1,42 @@
 "use client";
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import NextLink from "next/link";
 import { signIn } from "next-auth/react";
-import { Button } from "react-bootstrap";
-import { FaSignInAlt, FaSpinner } from "react-icons/fa";
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Link,
+  CircularProgress,
+} from "@mui/material";
+import { FaSignInAlt } from "react-icons/fa";
 import UserTable from "../components/UserTable";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 const SignIn = () => {
   const [users, setUsers] = useState([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isLoadingUsers, setIsloadingUsers] = useState(true);
-
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const submitButtonRef = useRef();
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
   const [error, setError] = useState("");
-
   const router = useRouter();
+
   const fetchUsers = async () => {
     try {
       const response = await fetch("/api/user");
       const data = await response.json();
-
       if (data.users && Object.keys(data.users).length > 0) {
         setUsers(data.users);
       }
-      setIsloadingUsers(false);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      setError(error);
+      setIsLoadingUsers(false);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      setError("Error fetching users");
+      setIsLoadingUsers(false);
     }
   };
 
@@ -37,17 +44,15 @@ const SignIn = () => {
     fetchUsers();
   }, []);
 
-  const handleSubmit = async (theUsername?, thePassword?) => {
+  const handleSubmit = async (theUsername?: string, thePassword?: string) => {
     setIsSigningIn(true);
-    // Sign in using NextAuth
-    const myUsername = theUsername ? theUsername : username;
-    const myPassword = thePassword ? thePassword : password;
+    const myUsername = theUsername || username;
+    const myPassword = thePassword || password;
     const result = await signIn("credentials", {
       username: myUsername,
       password: myPassword,
       redirect: false,
     });
-
     if (result.error) {
       setError("👀👀 we don't know you");
       setIsSigningIn(false);
@@ -55,76 +60,115 @@ const SignIn = () => {
       router.push("/routines");
     }
   };
-  return (
-    <Fragment>
-      <div className="d-flex justify-content-center">
-        <form className="w-50">
-          <input
-            type="text"
-            className="form-control form-control-sm"
-            placeholder="Enter your username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
 
-          <input
-            type="password"
-            className="form-control form-control-sm mt-2"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <Button
-            ref={submitButtonRef}
-            disabled={password === "" || username === "" || isSigningIn}
-            variant="primary"
-            className={`my-3 ${isSigningIn ? "spinning" : ""}`}
-            size="sm"
-            onClick={() => handleSubmit()}
-          >
-            {isSigningIn ? (
-              <>
-                Signing in <FaSpinner />
-              </>
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        mt: 4,
+        px: 2,
+      }}
+    >
+      <Box
+        component="form"
+        sx={{ width: "50%", maxWidth: 400, justifyContent: "center" }}
+      >
+        <TextField
+          fullWidth
+          variant="outlined"
+          size="small"
+          placeholder="Enter your username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          fullWidth
+          variant="outlined"
+          size="small"
+          placeholder="Enter your password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        <Button
+          ref={submitButtonRef}
+          disabled={!username || !password || isSigningIn}
+          variant="contained"
+          color="primary"
+          onClick={() => handleSubmit()}
+          sx={{ mb: 2 }}
+          startIcon={
+            isSigningIn ? (
+              <CircularProgress size={16} color="inherit" />
             ) : (
-              <>
-                Sign in <FaSignInAlt />
-              </>
-            )}
-          </Button>
-          <Link className="my-3 ms-3 small" href="/signup">
+              <FaSignInAlt />
+            )
+          }
+        >
+          {isSigningIn ? "Signing in" : "Sign in"}
+        </Button>
+
+        <NextLink href="/signup" passHref legacyBehavior>
+          <Link
+            variant="body2"
+            sx={{ display: "block", mt: 2, width: "100%" }}
+            component="a"
+          >
             Sign up
           </Link>
+        </NextLink>
 
-          {error && <div className="text-danger mt-2">{error}</div>}
-        </form>
-      </div>
+        {error && (
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            {error}
+          </Typography>
+        )}
+      </Box>
+
       {process.env.NEXT_PUBLIC_ENV === "local" && (
-        <div className="mt-3 ">
-          <h5>Users</h5>
-          {isLoadingUsers && (
-            <div className="spinning">
-              Loading users <FaSpinner />
-            </div>
+        <Box sx={{ mt: 3, width: "100%", maxWidth: 600 }}>
+          <Typography variant="h6">Users</Typography>
+          {isLoadingUsers ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mt: 2,
+              }}
+            >
+              <LoadingIndicator />
+            </Box>
+          ) : (
+            <>
+              {users && users.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No Users
+                </Typography>
+              )}
+              {users &&
+                users.map((user) => (
+                  <UserTable
+                    key={`user-table-column-${user.username}`}
+                    user={user}
+                    setUsername={setUsername}
+                    setPassword={setPassword}
+                    handleSubmit={handleSubmit}
+                    fetchUsers={fetchUsers}
+                    setError={setError}
+                  />
+                ))}
+            </>
           )}
-          {!isLoadingUsers && users && users.length === 0 && (
-            <div className="text-muted">No Users</div>
-          )}
-          {users &&
-            users.map((user) => (
-              <UserTable
-                key={`user-table-column-${user.username}`}
-                user={user}
-                setUsername={setUsername}
-                setPassword={setPassword}
-                handleSubmit={handleSubmit}
-                fetchUsers={fetchUsers}
-                setError={setError}
-              />
-            ))}
-        </div>
+        </Box>
       )}
-    </Fragment>
+    </Box>
   );
 };
 

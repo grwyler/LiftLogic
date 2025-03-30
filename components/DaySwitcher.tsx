@@ -47,11 +47,13 @@ const DaySwitcher = ({
   return (
     <Paper
       elevation={3}
-      sx={{
+      sx={(theme) => ({
         p: 2,
-        bgcolor: darkMode ? "grey.900" : "background.paper",
-        color: darkMode ? "grey.100" : "text.primary",
-      }}
+        bgcolor: darkMode
+          ? theme.palette.grey[900]
+          : theme.palette.background.paper,
+        color: darkMode ? theme.palette.grey[100] : theme.palette.text.primary,
+      })}
     >
       <Box display="flex" alignItems="center" justifyContent="space-between">
         {!isInline && (
@@ -87,10 +89,14 @@ const DaySwitcher = ({
                   <TextField
                     {...params}
                     variant="standard"
-                    sx={{ mx: 2, width: "100%", textAlign: "center" }}
+                    sx={{
+                      mx: 2,
+                      width: "100%",
+                      textAlign: "center",
+                      "& input": { fontWeight: 600, textAlign: "center" },
+                    }}
                     InputProps={{
                       ...params.InputProps,
-                      style: { textAlign: "center", fontWeight: 600 },
                       readOnly: true,
                     }}
                   />

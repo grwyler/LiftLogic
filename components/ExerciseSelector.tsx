@@ -1,22 +1,45 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Button, Form, InputGroup, Spinner, Table } from "react-bootstrap";
-import { FaChevronLeft, FaPlus } from "react-icons/fa";
+import {
+  Box,
+  Button,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Card,
+  CardContent,
+  Typography,
+  Alert,
+} from "@mui/material";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import AddIcon from "@mui/icons-material/Add";
 import { initialExercises } from "../utils/sample-data";
 
-const ExerciseSelector = ({
+interface ExerciseSelectorProps {
+  setIsAddingExercise: (value: boolean) => void;
+  addExerciseToWorkout: (exercise: any) => void;
+  darkMode: boolean;
+  isPersistent: boolean;
+  currentWorkoutTitle: string;
+}
+
+const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   setIsAddingExercise,
   addExerciseToWorkout,
   darkMode,
   isPersistent,
+  currentWorkoutTitle,
 }) => {
-  const [exercises, setExercises] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [bodyParts, setBodyParts] = useState([]);
-  const [equipment, setEquipment] = useState([]);
-  const [targets, setTargets] = useState([]);
+  const [exercises, setExercises] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [bodyParts, setBodyParts] = useState<string[]>([]);
+  const [equipment, setEquipment] = useState<string[]>([]);
+  const [targets, setTargets] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     bodyPart: "",
     equipment: "",
@@ -36,7 +59,14 @@ const ExerciseSelector = ({
         setEquipment(equipmentRes.data);
         setTargets(targetsRes.data);
       } catch (err) {
-        // console.error("Error fetching filter lists:", err);
+        console.warn(
+          "API rate limit reached. Using static fallback lists.",
+          err
+        );
+        setError("API request limit reached. Using static lists.");
+        setBodyParts(["chest", "back", "legs", "shoulders", "arms"]);
+        setEquipment(["barbell", "dumbbell", "machine", "bodyweight"]);
+        setTargets(["upper chest", "lats", "hamstrings", "quads", "biceps"]);
       }
     };
 
@@ -49,7 +79,7 @@ const ExerciseSelector = ({
       setLoading(true);
       setError(null);
 
-      let apiUrl = "/api/exercises?type=all"; // Default: Get all exercises
+      let apiUrl = "/api/exercises?type=all";
 
       if (filters.bodyPart)
         apiUrl = `/api/exercises?type=bodyPart&param=${filters.bodyPart}`;
@@ -66,137 +96,192 @@ const ExerciseSelector = ({
       } catch (err) {
         setError("API is down, using a static list of exercises");
         setExercises(initialExercises);
-        console.log("API is down");
       } finally {
         setLoading(false);
       }
     };
 
     fetchExercises();
-  }, [filters, searchQuery]); // Trigger fetch when filters or search change
-  const handleAddExercise = (exercise) => {
-    setIsAddingExercise(false);
+  }, [filters, searchQuery]);
+
+  // When API is down, filter the static list locally
+  const displayedExercises = error
+    ? initialExercises.filter((exercise) =>
+        exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : exercises;
+
+  // Simplified add exercise handler – delegate to parent's handler
+  const handleAddExercise = (exercise: any) => {
     addExerciseToWorkout({
       ...exercise,
+      routineName: currentWorkoutTitle,
       isPersistent,
-      sets: [
-        {
-          actualReps: "",
-          actualWeight: "",
-          complete: false,
-        },
-      ],
     });
   };
+
   return (
-    <div className="container">
-      <div className="d-flex justify-content-between align-items-center mb-3">
+    <Box sx={{ p: 2 }}>
+      {/* Back Button */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Button
           onClick={() => setIsAddingExercise(false)}
-          variant={darkMode ? "dark" : "white"}
+          variant={darkMode ? "contained" : "outlined"}
+          startIcon={<ChevronLeftIcon />}
+          sx={darkMode ? { bgcolor: "grey.800", color: "white" } : {}}
         >
-          <FaChevronLeft /> Back
+          Back
         </Button>
-      </div>
+      </Box>
 
-      <h3 className="text-center mb-3">Select an Exercise</h3>
+      <Typography variant="h5" align="center" gutterBottom>
+        Select an Exercise
+      </Typography>
 
-      {/* Search & Filter Section */}
-      <InputGroup className="mb-3">
-        <Form.Control
-          type="text"
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
           placeholder="Search exercises..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-      </InputGroup>
+      </Box>
 
-      <div className="d-flex gap-2 flex-wrap mb-3">
-        <Form.Select
-          className="flex-grow-1"
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, bodyPart: e.target.value }))
-          }
-          value={filters.bodyPart}
-        >
-          <option value="">Filter by Body Part</option>
-          {bodyParts.map((part) => (
-            <option key={part} value={part}>
-              {part}
-            </option>
-          ))}
-        </Form.Select>
+      {!error && (
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}>
+          <FormControl fullWidth>
+            <InputLabel>Filter by Body Part</InputLabel>
+            <Select
+              label="Filter by Body Part"
+              value={filters.bodyPart}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, bodyPart: e.target.value }))
+              }
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {bodyParts.map((part) => (
+                <MenuItem key={part} value={part}>
+                  {part}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-        <Form.Select
-          className="flex-grow-1"
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, equipment: e.target.value }))
-          }
-          value={filters.equipment}
-        >
-          <option value="">Filter by Equipment</option>
-          {equipment.map((eq) => (
-            <option key={eq} value={eq}>
-              {eq}
-            </option>
-          ))}
-        </Form.Select>
+          <FormControl fullWidth>
+            <InputLabel>Filter by Equipment</InputLabel>
+            <Select
+              label="Filter by Equipment"
+              value={filters.equipment}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, equipment: e.target.value }))
+              }
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {equipment.map((eq) => (
+                <MenuItem key={eq} value={eq}>
+                  {eq}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-        <Form.Select
-          className="flex-grow-1"
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, target: e.target.value }))
-          }
-          value={filters.target}
-        >
-          <option value="">Filter by Target Muscle</option>
-          {targets.map((target) => (
-            <option key={target} value={target}>
-              {target}
-            </option>
-          ))}
-        </Form.Select>
-      </div>
+          <FormControl fullWidth>
+            <InputLabel>Filter by Target Muscle</InputLabel>
+            <Select
+              label="Filter by Target Muscle"
+              value={filters.target}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, target: e.target.value }))
+              }
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {targets.map((target) => (
+                <MenuItem key={target} value={target}>
+                  {target}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
 
-      {/* Exercise List */}
       {loading ? (
-        <div className="text-center">
-          <Spinner animation="border" />
-        </div>
+        <Box sx={{ textAlign: "center" }}>
+          <CircularProgress />
+        </Box>
       ) : (
-        <div className="row">
-          <div className="alert alert-warning">{error}</div>
-          {exercises.map((exercise) => (
-            <div key={exercise.id} className="col-12 col-md-6 col-lg-4 mb-3">
-              <div className="card shadow-sm h-100">
-                <div className="card-body d-flex flex-column">
-                  <h5 className="card-title">{exercise.name}</h5>
-                  <p className="text-muted mb-1">
-                    <strong>Body Part:</strong> {exercise.bodyPart}
-                  </p>
-                  <p className="text-muted mb-1">
-                    <strong>Equipment:</strong> {exercise.equipment}
-                  </p>
-                  <p className="text-muted">
-                    <strong>Target:</strong> {exercise.target}
-                  </p>
-
-                  <div className="mt-auto">
+        <Box>
+          {error && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              justifyContent: "center",
+            }}
+          >
+            {displayedExercises.map((exercise) => (
+              <Box
+                key={exercise.id}
+                sx={{ flex: "1 1 300px", maxWidth: "350px" }}
+              >
+                <Card
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: 3,
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="div">
+                      {exercise.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>Body Part:</strong> {exercise.bodyPart}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>Equipment:</strong> {exercise.equipment}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>Target:</strong> {exercise.target}
+                    </Typography>
+                  </CardContent>
+                  <Box sx={{ p: 2 }}>
                     <Button
-                      variant="light"
-                      className="w-100 text-success"
+                      variant="outlined"
+                      fullWidth
+                      color="success"
+                      startIcon={<AddIcon />}
                       onClick={() => handleAddExercise(exercise)}
                     >
-                      <FaPlus /> Add Exercise to Routine
+                      Add Exercise to Routine
                     </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+                  </Box>
+                </Card>
+              </Box>
+            ))}
+          </Box>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 

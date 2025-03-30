@@ -2,13 +2,30 @@ import React, { useState } from "react";
 import WorkoutTitleAccordion from "./WorkoutTitleAccordion";
 import { saveRoutine } from "../utils/helpers";
 
-const WorkoutSelector = ({
+interface WorkoutSelectorProps {
+  setRoutine: (routine: any) => void;
+  currentWorkout: any;
+  workouts: any[];
+  selectedWorkoutIndex: number;
+  setSelectedWorkoutIndex: (index: number) => void;
+  // updateExercisesInRoutine: (workouts?: any) => void; // added property
+  darkMode: boolean;
+  isEditTitle: boolean;
+  setIsEditTitle: (value: boolean) => void;
+  isCreateTitle: boolean;
+  setIsCreateTitle: (value: boolean) => void;
+  setIsAddingExercise: (value: boolean) => void;
+  currentDay: string;
+  setIsPersistent: (value: boolean) => void;
+}
+
+const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
   setRoutine,
   currentWorkout,
   workouts,
   selectedWorkoutIndex,
   setSelectedWorkoutIndex,
-  updateWorkoutsInRoutine,
+  // updateExercisesInRoutine,
   darkMode,
   isEditTitle,
   setIsEditTitle,
@@ -19,36 +36,23 @@ const WorkoutSelector = ({
   setIsPersistent,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
-  const capitalizedDay =
-    currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
 
   const handleSaveTitleEdit = () => {
-    // Create the updated workout object with the new title.
     const updatedWorkout = {
       ...currentWorkout,
       title: workoutTitle,
     };
 
-    // Update the routine state with the new workout title.
-    setRoutine((prevRoutine) => {
-      // Ensure routine exists and that the current day key is valid.
+    setRoutine((prevRoutine: any) => {
       if (!prevRoutine || !prevRoutine.days || !prevRoutine.days[currentDay]) {
         return prevRoutine;
       }
-
-      // Create a deep copy of the routine to avoid mutations.
       const updatedRoutine = structuredClone(prevRoutine);
-
-      // Replace the workout at the selected index with the updated workout.
       updatedRoutine.days[currentDay][selectedWorkoutIndex] = updatedWorkout;
-
-      // Save the updated routine (e.g. to local storage or backend).
       saveRoutine(updatedRoutine);
-
       return updatedRoutine;
     });
 
-    // Exit title edit modes.
     setIsEditTitle(false);
     setIsCreateTitle(false);
   };
@@ -57,36 +61,40 @@ const WorkoutSelector = ({
     setIsCreateTitle(true);
     setWorkoutTitle(`Workout ${workouts.length + 1}`);
   };
-  const handleCurrentWorkoutChange = (index) => {
+
+  const handleCurrentWorkoutChange = (index: number) => {
     setSelectedWorkoutIndex(index);
   };
+
   const handleEditClick = () => {
     setIsEditTitle(true);
-    setWorkoutTitle(workoutTitle);
   };
+
   const handleDeleteWorkout = () => {
-    // Display a confirmation dialog
     const isConfirmed = window.confirm(
       "Are you sure you want to delete this workout?"
     );
-
-    // Check if the user confirmed
     if (isConfirmed) {
       const workoutsCopy = structuredClone(workouts);
-      // Filter out the workout with matching title
       const updatedWorkouts = workoutsCopy.filter(
-        (w) => w.title !== workouts[selectedWorkoutIndex].title
+        (w: any) => w.title !== workouts[selectedWorkoutIndex].title
       );
-      updateWorkoutsInRoutine(updatedWorkouts);
+      // updateExercisesInRoutine(updatedWorkouts);
       setSelectedWorkoutIndex(0);
-      setWorkoutTitle(updatedWorkouts[0].title);
+      if (updatedWorkouts.length > 0) {
+        setWorkoutTitle(updatedWorkouts[0].title);
+      } else {
+        setWorkoutTitle("");
+      }
     }
   };
+
   const handleCancelEditTitle = () => {
     setIsEditTitle(false);
     setIsCreateTitle(false);
     setWorkoutTitle(workouts[selectedWorkoutIndex].title);
   };
+
   const handleCreateWorkout = () => {
     const workoutsCopy = structuredClone(workouts);
     const newWorkout = {
@@ -95,10 +103,11 @@ const WorkoutSelector = ({
       exercises: [],
     };
     workoutsCopy.push(newWorkout);
-    updateWorkoutsInRoutine(workoutsCopy);
+    // updateExercisesInRoutine(workoutsCopy);
     setIsCreateTitle(false);
     setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };
+
   return (
     <WorkoutTitleAccordion
       workoutTitle={workoutTitle}

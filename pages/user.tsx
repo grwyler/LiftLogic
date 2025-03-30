@@ -11,8 +11,13 @@ import { set } from "date-fns";
 import { toast } from "react-toastify";
 
 import { useRouter } from "next/navigation";
+import { Box, Typography } from "@mui/material";
+interface UserPageProps {
+  darkMode: boolean;
+  setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
+}
 
-const UserHomePage = () => {
+const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
   const { data: session, status } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
     status: any;
@@ -143,11 +148,24 @@ const UserHomePage = () => {
                 id="darkModeSwitch"
                 label="Dark Mode"
                 checked={isDarkModeOn}
-                onChange={() => {
-                  setIsDarkModeOn(!isDarkModeOn);
-                }}
+                onChange={() => {}}
               />
             </FormGroup>
+            <Box sx={{ p: 2 }}>
+              <Typography variant="h5" gutterBottom>
+                User Page
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => setDarkMode((prev) => !prev)}
+              >
+                Toggle Dark Mode
+              </Button>
+              <Typography sx={{ mt: 2 }}>
+                Dark Mode is {darkMode ? "ON" : "OFF"}.
+              </Typography>
+            </Box>
+
             <div className="container">
               <div className="row">
                 {/* Height */}

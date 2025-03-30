@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import { Draggable } from "react-beautiful-dnd";
-import { Button } from "react-bootstrap";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  TextField,
+  IconButton,
+  Box,
+  Typography,
+} from "@mui/material";
 import { FaTrash } from "react-icons/fa";
 
 const SetEditWeightItem = ({
@@ -15,79 +23,118 @@ const SetEditWeightItem = ({
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
-        <div
-          className={`card my-2 ${
-            darkMode ? "bg-custom-dark text-white " : ""
-          }`}
+        <Card
+          ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          ref={provided.innerRef}
-          style={{
-            ...provided.draggableProps.style,
+          sx={{
+            my: 2,
+            backgroundColor: darkMode ? "grey.900" : "white",
+            color: darkMode ? "grey.100" : "text.primary",
             boxShadow: snapshot.isDragging
-              ? "0 4px 8px 0 rgba(0, 0, 0, 0.2)"
+              ? "0px 4px 8px rgba(0,0,0,0.2)"
               : "none",
+            transition: "box-shadow 0.3s ease",
           }}
         >
-          <div className="card-header d-flex align-items-center justify-content-between">
-            <input
-              className={`form-control ${darkMode ? "bg-dark text-white" : ""}`}
-              value={mySet.name}
-              onChange={(e) => setMySet({ ...mySet, name: e.target.value })}
-            />
-            <Button
-              variant="light"
-              className="ms-3"
-              disabled={index === 0}
-              onClick={() => handleDeleteSet(mySet)}
-            >
-              <FaTrash />
-            </Button>
-          </div>
+          <CardHeader
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              // Typically CardHeader places title on the left, action on the right.
+              // We'll override that to match your layout
+              "& .MuiCardHeader-title": {
+                flexGrow: 1,
+                marginRight: 2,
+              },
+            }}
+            title={
+              <TextField
+                fullWidth
+                variant="outlined"
+                size="small"
+                value={mySet.name}
+                onChange={(e) => setMySet({ ...mySet, name: e.target.value })}
+                sx={{
+                  backgroundColor: darkMode ? "grey.800" : "inherit",
+                  "& input": {
+                    color: darkMode ? "white" : "inherit",
+                  },
+                }}
+              />
+            }
+            action={
+              <IconButton
+                onClick={() => handleDeleteSet(mySet)}
+                disabled={index === 0}
+                sx={{
+                  color: darkMode ? "grey.300" : "inherit",
+                }}
+              >
+                <FaTrash />
+              </IconButton>
+            }
+          />
+          <CardContent>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              {/* Weight Field */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Weight
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    disabled={!isManualEdit}
+                    value={mySet.weight}
+                    onChange={(e) =>
+                      setMySet({ ...mySet, weight: e.target.value })
+                    }
+                    sx={{
+                      backgroundColor: darkMode ? "grey.800" : "inherit",
+                      "& input": {
+                        color: darkMode ? "white" : "inherit",
+                      },
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ ml: 1 }}>
+                    lbs
+                  </Typography>
+                </Box>
+              </Box>
 
-          <div className="card-body d-flex">
-            <div className="p-1">
-              <div className="d-flex input-group">
-                <input
-                  className={`form-control  ${
-                    darkMode ? "bg-dark text-white" : ""
-                  }`}
-                  disabled={!isManualEdit}
-                  value={mySet.weight}
-                  onChange={(e) =>
-                    setMySet({ ...mySet, weight: e.target.value })
-                  }
-                />
-                <span
-                  className={`input-group-text font-InterTight ${
-                    darkMode ? "bg-dark text-white" : ""
-                  }`}
-                >
-                  lbs.
-                </span>
-              </div>
-            </div>
-            <div className="p-1">
-              <div className="d-flex input-group">
-                <input
-                  className={`form-control  ${
-                    darkMode ? "bg-dark text-white" : ""
-                  }`}
-                  disabled={!isManualEdit}
-                  value={mySet.reps}
-                  onChange={(e) => setMySet({ ...mySet, reps: e.target.value })}
-                />
-                <span
-                  className={`input-group-text font-InterTight ${
-                    darkMode ? "bg-dark text-white" : ""
-                  }`}
-                >
+              {/* Reps Field */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary">
                   Reps
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    disabled={!isManualEdit}
+                    value={mySet.reps}
+                    onChange={(e) =>
+                      setMySet({ ...mySet, reps: e.target.value })
+                    }
+                    sx={{
+                      backgroundColor: darkMode ? "grey.800" : "inherit",
+                      "& input": {
+                        color: darkMode ? "white" : "inherit",
+                      },
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ ml: 1 }}>
+                    reps
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
       )}
     </Draggable>
   );

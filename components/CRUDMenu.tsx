@@ -1,71 +1,107 @@
-import React, { Fragment } from "react";
-import { Button } from "react-bootstrap";
-import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
+import React from "react";
+import { Box, Button, Divider } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 
-const CRUDMenu = ({
-  handleCreate = undefined,
+type CRUDMenuProps = {
+  darkMode?: boolean;
+  handleCreate?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  canRead: boolean;
+  handleUpdate?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  handleDelete?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+};
+
+const CRUDMenu: React.FC<CRUDMenuProps> = ({
+  handleCreate,
   canRead,
-  handleUpdate = undefined,
-  handleDelete = undefined,
+  handleUpdate,
+  handleDelete,
 }) => {
-  const myHandleCreate = (e) => {
+  const myHandleCreate = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (handleCreate) {
       e.stopPropagation();
       handleCreate(e);
     }
   };
-  const myHandleUpdate = (e) => {
+
+  const myHandleUpdate = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (handleUpdate) {
       e.stopPropagation();
       handleUpdate(e);
     }
   };
-  const myHandleDelete = (e) => {
+
+  const myHandleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (handleDelete) {
       e.stopPropagation();
       handleDelete(e);
     }
   };
+
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
+    <Box sx={{ position: "relative", display: "inline-block" }}>
       {canRead && (
-        <div
-          className="rounded d-flex flex-column align-items-center mt-4"
-          style={{
+        <Box
+          sx={{
             position: "absolute",
-            top: "0", // Adjust as needed
-            right: "0", // Align to the right of the parent
+            top: 20,
+            right: 0,
             zIndex: 3,
             backgroundColor: "white",
             boxShadow: "0px 8px 16px 0px rgba(0,0,0,0.2)",
-            padding: "8px",
-            borderRadius: "6px",
+            p: 1,
+            borderRadius: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
           {handleCreate && (
             <>
-              <Button variant="white text-success" onClick={myHandleCreate}>
-                <FaPlus />
+              <Button
+                onClick={myHandleCreate}
+                sx={{
+                  color: "green",
+                  minWidth: "auto",
+                  p: 0.5,
+                }}
+              >
+                <AddIcon />
               </Button>
-              <hr className="w-100 my-1" />
+              <Divider sx={{ width: "100%", my: 0.5 }} />
             </>
           )}
           {handleUpdate && (
-            <Button variant="white" onClick={myHandleUpdate}>
-              <FaEdit />
+            <Button
+              onClick={myHandleUpdate}
+              sx={{
+                color: "inherit",
+                minWidth: "auto",
+                p: 0.5,
+              }}
+            >
+              <EditIcon />
             </Button>
           )}
           {handleDelete && (
             <>
-              <hr className="w-100 my-1" />
-              <Button variant="white text-danger" onClick={myHandleDelete}>
-                <FaTrash />
+              <Divider sx={{ width: "100%", my: 0.5 }} />
+              <Button
+                onClick={myHandleDelete}
+                sx={{
+                  color: "red",
+                  minWidth: "auto",
+                  p: 0.5,
+                }}
+              >
+                <DeleteIcon />
               </Button>
             </>
           )}
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 

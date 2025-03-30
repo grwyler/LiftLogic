@@ -1,8 +1,18 @@
-import React, { useState } from "react";
-import { Button } from "react-bootstrap";
-import { FaPlus, FaSave, FaTimes, FaChevronDown } from "react-icons/fa";
+import React from "react";
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography,
+  Box,
+  Button,
+  IconButton,
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import AddIcon from "@mui/icons-material/Add";
+import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
 import WorkoutDropdown from "./WorkoutsDropdown";
-import { CSSTransition } from "react-transition-group";
 import CRUDMenuButton from "./CRUDMenuButton";
 
 const WorkoutTitleAccordion = ({
@@ -23,9 +33,11 @@ const WorkoutTitleAccordion = ({
   setWorkoutTitle,
   setIsPersistent,
 }) => {
-  // Track whether accordion is open
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
-  const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+  const [showTitleMenu, setShowTitleMenu] = React.useState(false);
+
+  // Force the accordion open if editing or creating
+  const forcedOpen = isEditTitle || isCreateTitle;
 
   // Helper to capitalize day or other text
   function capitalizeFirstLetter(str = "") {
@@ -36,130 +48,155 @@ const WorkoutTitleAccordion = ({
   const currentDay = "tuesday";
   const capitalizedDay = capitalizeFirstLetter(currentDay);
 
+  const handleAccordionToggle = (event, newExpanded) => {
+    // Only allow toggling if we aren't forced open
+    if (!forcedOpen) {
+      setShowTitleMenu(false);
+      setExpanded(newExpanded);
+    }
+  };
+
   const handleUpdateWorkout = () => {
     handleEditClick();
     setShowTitleMenu(false);
   };
 
+  const isLastWorkout = workouts.length === 1;
+  const currentWorkout = workouts[selectedWorkoutIndex];
+
   return (
-    <div className="row m-0 rounded">
-      <div className="col-12">
-        {/* If we're editing or creating, show input */}
+    <Accordion
+      expanded={forcedOpen || expanded}
+      onChange={handleAccordionToggle}
+      sx={{
+        backgroundColor: darkMode ? "grey.900" : "background.paper",
+        color: darkMode ? "grey.100" : "text.primary",
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{
+          "& .MuiAccordionSummary-content": {
+            alignItems: "center",
+            justifyContent: "space-between",
+          },
+        }}
+      >
         {isEditTitle || isCreateTitle ? (
-          <input
-            className={`form-control text-center ${
-              darkMode ? "bg-dark text-white" : ""
-            }`}
-            type="text"
-            value={workoutTitle}
-            autoFocus
-            onChange={(e) => setWorkoutTitle(e.target.value)}
-            placeholder="Workout name"
-          />
-        ) : (
-          <div className="d-flex flex-column align-items-center">
-            {/* Title Area / Accordion Toggle */}
-            <div
-              className="d-flex align-items-center justify-content-between w-100"
-              onClick={() => {
-                setShowTitleMenu(false);
-                setIsAccordionOpen(!isAccordionOpen);
+          <Box flex={1} display="flex" justifyContent="center">
+            <input
+              type="text"
+              value={workoutTitle}
+              autoFocus
+              onChange={(e) => setWorkoutTitle(e.target.value)}
+              placeholder="Workout name"
+              style={{
+                textAlign: "center",
+                backgroundColor: darkMode ? "#333" : "inherit",
+                color: darkMode ? "#fff" : "inherit",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+                padding: "8px",
+                width: "100%",
               }}
-            >
-              <FaChevronDown
-                className={`flip-icon ${isAccordionOpen ? "rotate-180" : ""}`}
-                style={{ transition: "transform 0.2s ease-in-out" }}
-              />
-              <h2 className="fw-bold">{workoutTitle}</h2>
+            />
+          </Box>
+        ) : (
+          <>
+            <Box onClick={(e) => e.stopPropagation()}>
               <CRUDMenuButton
                 darkMode={darkMode}
-                handleDelete={handleDeleteWorkout}
+                handleDelete={isLastWorkout ? undefined : handleDeleteWorkout}
                 handleUpdate={handleUpdateWorkout}
-                onClickMenuButton={() => {
-                  setShowTitleMenu(!showTitleMenu);
-                }}
+                onClickMenuButton={() => setShowTitleMenu((prev) => !prev)}
                 show={showTitleMenu}
               />
-            </div>
-            <CSSTransition
-              in={isAccordionOpen}
-              timeout={300}
-              classNames="accordion"
-              unmountOnExit
+            </Box>
+            <Typography
+              variant="h6"
+              component="div"
+              sx={{ flexGrow: 1, textAlign: "center", fontWeight: "bold" }}
             >
-              <div className="container">
-                {workouts.length > 1 && (
-                  <div className="row text-center">
-                    <WorkoutDropdown
-                      workouts={workouts}
-                      darkMode={darkMode}
-                      handleCurrentWorkoutChange={handleCurrentWorkoutChange}
-                    />
-                  </div>
-                )}
-                <div className="row">
-                  <Button
-                    onClick={handleAddWorkout}
-                    variant={darkMode ? "dark" : "white"}
-                    size="sm"
-                  >
-                    <FaPlus /> Add New Workout Routine
-                  </Button>
-                </div>
-                <div className="row">
-                  <Button
-                    variant="white"
-                    size="sm"
-                    title={`Adds an Exercise that repeats every ${capitalizedDay}`}
-                    onClick={() => {
-                      setIsPersistent(true);
-                      setIsAddingExercise(true);
-                    }}
-                  >
-                    <FaPlus /> Add Recurring Exercise
-                  </Button>
-                </div>
-              </div>
-            </CSSTransition>
-          </div>
+              {workoutTitle}
+            </Typography>
+          </>
         )}
-      </div>
+      </AccordionSummary>
 
-      {/* Save / Cancel Buttons (shown if editing or creating) */}
-      {(isCreateTitle || isEditTitle) && (
-        <div className="d-flex justify-content-center">
-          <Button
-            variant="success"
-            className="mx-1 my-2"
-            onClick={isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit}
-            disabled={
-              workoutTitle === "" ||
-              workoutTitle === workouts[selectedWorkoutIndex].title ||
-              workouts.some((w) => w.title === workoutTitle)
-            }
-          >
-            {isCreateTitle ? (
-              <>
-                <FaSave /> Create
-              </>
-            ) : (
-              <>
-                <FaSave /> Save
-              </>
+      <AccordionDetails>
+        {isEditTitle || isCreateTitle ? (
+          <Box display="flex" justifyContent="center" mt={2}>
+            <Button
+              variant="contained"
+              color="success"
+              sx={{ mx: 1 }}
+              onClick={
+                isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
+              }
+              disabled={
+                !workoutTitle ||
+                workoutTitle === currentWorkout.title ||
+                workouts.some((w) => w.title === workoutTitle)
+              }
+              startIcon={<SaveIcon />}
+            >
+              {isCreateTitle ? "Create" : "Save"}
+            </Button>
+
+            <Button
+              variant="outlined"
+              sx={{ mx: 1 }}
+              onClick={handleCancelEditTitle}
+              disabled={isLastWorkout && !workoutTitle}
+              startIcon={<CloseIcon />}
+            >
+              Cancel
+            </Button>
+          </Box>
+        ) : (
+          <Box>
+            {/* Show the WorkoutDropdown if there's more than one workout */}
+            {workouts.length > 1 && (
+              <Box sx={{ textAlign: "center", mb: 2 }}>
+                <WorkoutDropdown
+                  workouts={workouts}
+                  darkMode={darkMode}
+                  handleCurrentWorkoutChange={handleCurrentWorkoutChange}
+                />
+              </Box>
             )}
-          </Button>
 
-          <Button
-            variant="secondary"
-            className="mx-1 my-2"
-            onClick={handleCancelEditTitle}
-            disabled={workouts.length === 1 && workoutTitle === ""}
-          >
-            <FaTimes /> Cancel
-          </Button>
-        </div>
-      )}
-    </div>
+            <Box sx={{ mb: 2 }}>
+              <Button
+                onClick={handleAddWorkout}
+                variant={darkMode ? "contained" : "outlined"}
+                size="small"
+                fullWidth
+                startIcon={<AddIcon />}
+              >
+                Add New Workout Routine
+              </Button>
+            </Box>
+
+            <Box>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                title={`Adds an Exercise that repeats every ${capitalizedDay}`}
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setIsPersistent(true);
+                  setIsAddingExercise(true);
+                }}
+              >
+                Add Recurring Exercise
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </AccordionDetails>
+    </Accordion>
   );
 };
 

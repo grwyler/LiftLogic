@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Button } from "react-bootstrap";
-import { FaSignInAlt, FaSpinner, FaTrash } from "react-icons/fa";
+import { Box, Button } from "@mui/material";
+import { FaSignInAlt, FaTrash } from "react-icons/fa";
+import LoadingIndicator from "./LoadingIndicator";
 
 const UserTable = ({
   user,
@@ -11,14 +12,11 @@ const UserTable = ({
   setError,
 }) => {
   const [isDeletingUser, setIsDeletingUser] = useState(false);
-  const handleDeleteUser = async (userId: string) => {
+
+  const handleDeleteUser = async (userId) => {
     try {
       setIsDeletingUser(true);
-      await fetch(`/api/user?id=${userId}`, {
-        method: "DELETE",
-      });
-
-      // Fetch updated user list after deletion
+      await fetch(`/api/user?id=${userId}`, { method: "DELETE" });
       await fetchUsers();
       setIsDeletingUser(false);
     } catch (error) {
@@ -27,39 +25,48 @@ const UserTable = ({
       setIsDeletingUser(false);
     }
   };
+
   return (
-    <div
-      className="d-flex justify-content-between bg-light border border-white p-3"
+    <Box
       key={user._id}
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        bgcolor: "grey.100",
+        border: "1px solid",
+        borderColor: "grey.300",
+        p: 2,
+        borderRadius: 1,
+      }}
     >
       <Button
-        size="sm"
-        variant="light"
-        title="signin as this pussy"
+        variant="outlined"
+        size="small"
+        title="Sign in as this user"
         onClick={() => {
           setUsername(user.username);
           setPassword(user.password);
           handleSubmit(user.username, user.password);
         }}
+        startIcon={<FaSignInAlt style={{ color: "blue" }} />}
       >
-        <FaSignInAlt className="text-primary" /> {user.username}
+        {user.username}
       </Button>
 
       <Button
-        size="sm"
-        variant="light"
-        title="delete this pussy"
+        variant="outlined"
+        size="small"
+        title="Delete this user"
         onClick={() => handleDeleteUser(user._id)}
       >
         {isDeletingUser ? (
-          <div className="spinning">
-            <FaSpinner />
-          </div>
+          <LoadingIndicator />
         ) : (
-          <FaTrash className="text-danger" />
+          <FaTrash style={{ color: "red" }} />
         )}
       </Button>
-    </div>
+    </Box>
   );
 };
 

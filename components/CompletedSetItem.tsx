@@ -1,6 +1,5 @@
 import React, { Fragment } from "react";
 import { FaCheckCircle } from "react-icons/fa";
-import { v4 } from "uuid";
 import { formatTime } from "../utils/helpers";
 
 const SetItem = ({ set, setIndex, setCurrentSetIndex, type, darkMode }) => {

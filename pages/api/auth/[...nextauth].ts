@@ -1,9 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import {
-  connectToDatabase,
-  disconnectFromDatabase,
-} from "../../../utils/mongodb";
+import { connectToDatabase } from "../../../utils/mongodb";
 
 export default NextAuth({
   secret: process.env.NEXTAUTH_SECRET,

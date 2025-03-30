@@ -1,50 +1,63 @@
 import React, { Fragment } from "react";
-import { v4 } from "uuid";
 import { roundToNearestFive } from "../utils/helpers";
-import { Button } from "react-bootstrap";
-import { IoMdClose } from "react-icons/io";
+import { Card, CardContent, Box, Typography, IconButton } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
   const { weight, reps, seconds, minutes, hours } = set;
 
   return (
-    <div
+    <Card
       key={`card-set-item-${set.name}`}
-      className={`card m-2 ${
-        darkMode
-          ? "bg-dark text-light border-secondary"
-          : "bg-light text-secondary"
-      }`}
+      sx={{
+        m: 2,
+        backgroundColor: darkMode ? "grey.900" : "grey.100",
+        color: darkMode ? "white" : "black",
+        border: darkMode ? "1px solid #6c757d" : "1px solid #dee2e6",
+      }}
     >
-      <div className="d-flex justify-content-between small px-3 py-2 align-items-center">
-        {type === "weight" && (
-          <Fragment>
-            <div>{roundToNearestFive(weight)} lbs.</div>
-            <div>{set.name}</div>
-            <div>{reps} reps</div>
-          </Fragment>
-        )}
-        {type === "timed" && (
-          <Fragment>
-            <div></div>
-            <div>{set.name}</div>
-            {hours > 0 && <div>{hours}h</div>}
-            {minutes > 0 && <div>{minutes}m</div>}
-            {seconds > 0 && <div>{seconds}s</div>}
-          </Fragment>
-        )}
-        <div>
-          <Button
-            size="sm"
-            className="p-0 m-0"
-            variant={darkMode ? "dark" : "light"}
-            onClick={() => handleDeleteSet(set.name)}
-          >
-            <IoMdClose />
-          </Button>
-        </div>
-      </div>
-    </div>
+      <CardContent
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          p: 2,
+        }}
+      >
+        <Box
+          sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1 }}
+        >
+          {type === "weight" && (
+            <Fragment>
+              <Typography variant="body2">
+                {roundToNearestFive(weight)} lbs.
+              </Typography>
+              <Typography variant="body2">{set.name}</Typography>
+              <Typography variant="body2">{reps} reps</Typography>
+            </Fragment>
+          )}
+          {type === "timed" && (
+            <Fragment>
+              <Typography variant="body2">{set.name}</Typography>
+              {hours > 0 && <Typography variant="body2">{hours}h</Typography>}
+              {minutes > 0 && (
+                <Typography variant="body2">{minutes}m</Typography>
+              )}
+              {seconds > 0 && (
+                <Typography variant="body2">{seconds}s</Typography>
+              )}
+            </Fragment>
+          )}
+        </Box>
+        <IconButton
+          size="small"
+          onClick={() => handleDeleteSet(set.name)}
+          sx={{ ml: 2, p: 0 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </CardContent>
+    </Card>
   );
 };
 
