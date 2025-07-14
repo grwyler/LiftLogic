@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
-import { ObjectId } from "mongodb";
+import { Filter, ObjectId } from "mongodb";
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,9 +12,34 @@ export default async function handler(
 
     if (req.method === "POST") {
       const { exercise } = req.body;
-      console.log("Saving exercise:", exercise);
-      await exerciseCollection.insertOne(exercise);
-      return res.status(201).json({ message: "Exercise saved successfully!" });
+      // await exerciseCollection.insertOne(exercise);
+      // return res.status(201).json({ message: "Exercise saved successfully!" });
+
+      // pick the fields that uniquely identify one exercise record for a user
+      const filter: Filter<{ userId: string; date: string; name: string }> = {
+        userId: exercise.userId,
+        date: exercise.date,
+        name: exercise.name,
+      };
+
+      // everything in exercise becomes the new state of the doc
+      const update = {
+        $set: exercise,
+        $currentDate: { updatedAt: true as const },
+      };
+
+      const result = await exerciseCollection.updateOne(filter, update, {
+        upsert: true,
+      });
+
+      /*
+       * result.matchedCount   → 1 if we updated an existing doc
+       * result.upsertedCount  → 1 if a new doc was inserted
+       */
+
+      return res
+        .status(result.upsertedCount ? 201 : 200)
+        .json({ message: "Exercise saved successfully!" });
     } else if (req.method === "GET") {
       try {
         const { userId, date, routineName } = req.query;
