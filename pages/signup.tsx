@@ -12,8 +12,16 @@ import {
   Typography,
   Link,
   CircularProgress,
+  Card,
+  CardContent,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -21,6 +29,7 @@ const SignUp: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,80 +120,119 @@ const SignUp: React.FC = () => {
           The smartest way to track and optimize your fitness progress
         </Typography>
       </Box>
-
-      {/* Sign-Up Form */}
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
+      {/* Sign-Up Form */}(
+      <Card
+        elevation={4}
         sx={{
           width: "100%",
-          maxWidth: 400,
-          p: 3,
-          mt: 3,
-          boxShadow: 3,
-          borderRadius: 2,
-          border: "1px solid #ddd",
-          backgroundColor: "white",
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
+          maxWidth: 420,
+          mx: "auto",
+          mt: 6,
+          borderRadius: 3,
         }}
       >
-        <TextField
-          id="username"
-          label="Username"
-          variant="outlined"
-          size="medium"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          fullWidth
-        />
-
-        <TextField
-          id="password"
-          label="Password"
-          variant="outlined"
-          size="medium"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          fullWidth
-        />
-
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={!username || !password || isSigningIn}
+        <CardContent
+          component="form"
+          onSubmit={handleSubmit}
           sx={{
-            height: 45,
-            fontSize: "1rem",
-            borderRadius: 2,
-            textTransform: "none",
+            p: { xs: 3, sm: 4 },
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
           }}
-          startIcon={
-            isSigningIn ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              <LoginIcon />
-            )
-          }
         >
-          {isSigningIn ? "Signing in" : "Sign up"}
-        </Button>
-
-        <NextLink href="/" passHref legacyBehavior>
-          <Link variant="body2" align="center">
-            Sign in
-          </Link>
-        </NextLink>
-
-        {error && (
-          <Typography variant="body2" color="error" align="center">
-            {error}
+          {/* header */}
+          <Typography variant="h5" fontWeight={600} textAlign="center">
+            Create your account
           </Typography>
-        )}
-      </Box>
+
+          {/* username */}
+          <TextField
+            id="username"
+            label="Username or Email"
+            variant="outlined"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailOutlinedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {/* password w/ toggle */}
+          <TextField
+            id="password"
+            label="Password"
+            variant="outlined"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlinedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    onClick={() => setShowPassword((p) => !p)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {/* CTA */}
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={!username || !password || isSigningIn}
+            sx={{
+              textTransform: "none",
+              height: 48,
+              fontSize: "1rem",
+              borderRadius: 2,
+            }}
+            startIcon={
+              isSigningIn ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <LoginIcon />
+              )
+            }
+          >
+            {isSigningIn ? "Signing up…" : "Sign up"}
+          </Button>
+
+          {/* footer */}
+          <Typography variant="body2" textAlign="center" color="text.secondary">
+            Already have an account?{" "}
+            <NextLink href="/" passHref legacyBehavior>
+              <Link underline="hover">Sign in</Link>
+            </NextLink>
+          </Typography>
+
+          {error && (
+            <Typography variant="body2" color="error" textAlign="center">
+              {error}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 };
