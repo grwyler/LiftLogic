@@ -84,7 +84,10 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entry }),
   });
-  if (!res.ok) throw new Error(`saveWorkoutEntry ${res.status}`);
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(`saveWorkoutEntry ${res.status}: ${message}`);
+  }
   return res.json();
 };
 

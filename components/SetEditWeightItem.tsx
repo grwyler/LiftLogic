@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Draggable } from "react-beautiful-dnd";
 import {
   Card,
@@ -17,8 +17,20 @@ const SetEditWeightItem = ({
   darkMode,
   handleDeleteSet,
   isManualEdit,
+  onChangeSet,
 }) => {
   const [mySet, setMySet] = useState(set);
+
+  useEffect(() => {
+    setMySet(set);
+  }, [set]);
+
+  const updateSet = (nextSet) => {
+    setMySet(nextSet);
+    if (onChangeSet) {
+      onChangeSet(nextSet);
+    }
+  };
 
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
@@ -54,7 +66,7 @@ const SetEditWeightItem = ({
                 variant="outlined"
                 size="small"
                 value={mySet.name}
-                onChange={(e) => setMySet({ ...mySet, name: e.target.value })}
+                onChange={(e) => updateSet({ ...mySet, name: e.target.value })}
                 sx={{
                   backgroundColor: darkMode ? "grey.800" : "inherit",
                   "& input": {
@@ -90,7 +102,7 @@ const SetEditWeightItem = ({
                     disabled={!isManualEdit}
                     value={mySet.weight}
                     onChange={(e) =>
-                      setMySet({ ...mySet, weight: e.target.value })
+                      updateSet({ ...mySet, weight: e.target.value })
                     }
                     sx={{
                       backgroundColor: darkMode ? "grey.800" : "inherit",
@@ -118,7 +130,7 @@ const SetEditWeightItem = ({
                     disabled={!isManualEdit}
                     value={mySet.reps}
                     onChange={(e) =>
-                      setMySet({ ...mySet, reps: e.target.value })
+                      updateSet({ ...mySet, reps: e.target.value })
                     }
                     sx={{
                       backgroundColor: darkMode ? "grey.800" : "inherit",

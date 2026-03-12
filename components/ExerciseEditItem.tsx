@@ -284,6 +284,12 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     );
   };
 
+  const handleSetChange = (setIndex: number, nextSet: any) => {
+    setMySets((prevSets) =>
+      prevSets.map((set, index) => (index === setIndex ? nextSet : set))
+    );
+  };
+
   const handleSave = () => {
     const updatedExercise = {
       ...exercise,
@@ -470,6 +476,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                         index={setIndex}
                         isManualEdit={true}
                         darkMode={darkMode}
+                        onChangeSet={(nextSet) => handleSetChange(setIndex, nextSet)}
                         handleDeleteSet={(setToRemove) =>
                           setMySets(mySets.filter((s) => s.name !== setToRemove.name))
                         }
