@@ -3,8 +3,8 @@ import axios from "axios";
 
 const API_BASE_URL = "https://exercisedb.p.rapidapi.com";
 const HEADERS = {
-  "x-rapidapi-host": process.env.NEXT_PUBLIC_RAPIDAPI_HOST,
-  "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI_KEY,
+  // "x-rapidapi-host": process.env.NEXT_PUBLIC_RAPIDAPI_HOST,
+  // "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI_KEY,
 };
 
 export default async function handler(

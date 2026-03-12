@@ -1,15 +1,3 @@
-export const intitialRoutine = {
-  days: {
-    sunday: [{ title: "Sunday Workout", exercises: [] }],
-    monday: [{ title: "Monday Workout", exercises: [] }],
-    tuesday: [{ title: "Tuesday Workout", exercises: [] }],
-    wednesday: [{ title: "Wednesday Workout", exercises: [] }],
-    thursday: [{ title: "Thursday Workout", exercises: [] }],
-    friday: [{ title: "Friday Workout", exercises: [] }],
-    saturday: [{ title: "Saturday Workout", exercises: [] }],
-  },
-};
-
 export const initialExercises = [
   {
     name: "Squats",

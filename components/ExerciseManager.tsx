@@ -3,11 +3,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  useRadioGroup,
 } from "@mui/material";
 import ExerciseSelector from "./ExerciseSelector";
 import ExerciseEditItem from "./ExerciseEditItem";
-import { saveExercise } from "../utils/helpers";
+import { saveRecurringRule, saveWorkoutEntry } from "../utils/helpers";
 
 interface ExerciseManagerProps {
   index: number;
@@ -32,25 +31,46 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   date,
   setRefetchExercises,
 }) => {
-  const dayOfTheWeek = date.split(",")[0].trim();
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
 
+  const normalizeExerciseId = (exercise: any) =>
+    String(
+      exercise.exerciseId ??
+        exercise.id ??
+        exercise._id ??
+        exercise.name?.toLowerCase().replace(/\s+/g, "-")
+    );
+
+  const resolveExerciseType = (exercise: any) =>
+    exercise.type === "timed" ? "timed" : "weight";
+
   // When an exercise is added, default it to one set and open the modal for editing.
   const handleAddExercise = (exercise: any) => {
+    const exerciseType = resolveExerciseType(exercise);
     const defaultSet = {
-      name: "Working Set 1",
-      reps: 10,
-      weight: exercise.max || DEFAULT_MAX_WEIGHT,
-      actualWeight: "",
-      actualReps: "",
+      ...(exerciseType === "timed"
+        ? {
+            name: "Timed Set 1",
+            seconds: 60,
+            actualSeconds: "",
+          }
+        : {
+            name: "Working Set 1",
+            reps: 10,
+            weight: exercise.max || DEFAULT_MAX_WEIGHT,
+            actualWeight: "",
+            actualReps: "",
+          }),
       complete: false,
     };
     const newExercise = {
       ...exercise,
+      type: exerciseType,
+      exerciseId: normalizeExerciseId(exercise),
       routineName: currentWorkoutTitle,
       userId,
-      date: isPersistent ? dayOfTheWeek : date,
+      date,
       isPersistent,
       sets: [defaultSet], // default to 1 set
     };
@@ -64,13 +84,37 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   };
 
   // When saving, call updateExercise so the parent can update the existing exercise.
-  const handleSaveEdit = (updatedExercise: any) => {
-    // updateExercise(updatedExercise);
-    // setSelectedExercise(updatedExercise);
+  const handleSaveEdit = async (updatedExercise: any) => {
+    if (isPersistent) {
+      const parsedDate = new Date(updatedExercise.date);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error(`Invalid recurring date: ${updatedExercise.date}`);
+      }
+
+      await saveRecurringRule({
+        userId: updatedExercise.userId,
+        exerciseId: normalizeExerciseId(updatedExercise),
+        exerciseName: updatedExercise.name,
+        exerciseType: resolveExerciseType(updatedExercise),
+        routineName: updatedExercise.routineName,
+        dayOfWeek: parsedDate.getDay(),
+        intervalWeeks: 1,
+        startDate: parsedDate,
+        templateSets: updatedExercise.sets,
+        defaultMax: updatedExercise.max,
+        defaultRest: updatedExercise.rest,
+        active: true,
+      } as any);
+    } else {
+      await saveWorkoutEntry({
+        ...updatedExercise,
+        exerciseId: normalizeExerciseId(updatedExercise),
+      });
+    }
+
+    setRefetchExercises(true);
     setOpenEditModal(false);
     setIsAddingExercise(false);
-    saveExercise(updatedExercise);
-    setRefetchExercises((prev: boolean) => !prev);
   };
 
   const handleCancelEdit = () => {

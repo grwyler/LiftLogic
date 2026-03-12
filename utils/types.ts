@@ -1,3 +1,5 @@
+import { ObjectId } from "mongodb";
+
 export interface ExerciseSet {
   name: string;
   reps?: number;
@@ -12,6 +14,7 @@ export interface ExerciseSet {
   hours?: number;
   actualHours?: string;
 }
+
 export interface Exercise {
   name: string;
   type: "timed" | "weight";
@@ -20,6 +23,7 @@ export interface Exercise {
   complete: boolean;
   sets: ExerciseSet[];
 }
+
 interface Day {
   title: string;
   complete?: boolean;
@@ -38,4 +42,46 @@ export interface Routine {
     friday: Day;
     saturday: Day;
   };
+}
+
+export interface ExerciseCatalogDoc {
+  _id?: ObjectId;
+  name: string;
+  type: "weight" | "timed";
+  defaultMax?: number;
+  videoUrl?: string;
+  muscleGroup?: string;
+  createdBy?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface RecurringRuleDoc {
+  _id?: ObjectId;
+  userId: string;
+  exerciseId: ObjectId | string;
+  routineName: string;
+  dayOfWeek: number;
+  intervalWeeks: number;
+  startDate: Date;
+  endDate?: Date;
+  templateSets?: ExerciseSet[];
+  active: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface WorkoutEntryDoc {
+  _id?: ObjectId;
+  userId: string;
+  exerciseId: ObjectId | string;
+  routineName: string;
+  date: Date;
+  rest?: number;
+  complete?: boolean;
+  sets?: ExerciseSet[];
+  ruleId?: string;
+  skipped?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

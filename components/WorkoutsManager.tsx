@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { saveRoutine } from "../utils/helpers";
+import { fetchDay, fetchExercises, saveRoutine } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import WorkoutSelector from "./WorkoutSelector";
@@ -186,7 +186,7 @@ const WorkoutsManager: React.FC<{
                   currentExerciseIndex={currentExerciseIndex}
                   setCurrentExerciseIndex={setCurrentExerciseIndex}
                   formattedDate={formattedDate}
-                  routineName={routine.name}
+                  routineName={currentWorkout.title}
                   setIsAddingExercise={setIsAddingExercise}
                   darkMode={darkMode}
                   setIsPersistent={setIsPersistent}
@@ -239,33 +239,31 @@ const useWorkoutsManagerState = (
     weekday: "long",
     month: "long",
     day: "numeric",
+    year: "numeric",
   });
 
   const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
   useEffect(() => {
-    if (!userId || !formattedDate || !currentDay || !currentWorkout?.title)
+    if (
+      !userId ||
+      !formattedDate ||
+      !currentDate ||
+      !currentDay ||
+      !currentWorkout?.title
+    )
       return;
-
-    const fetchExercises = async () => {
-      setIsLoadingWorkout(true);
-      try {
-        const response = await fetch(
-          `/api/exercise?userId=${userId}&date=${formattedDate}&routineName=${currentWorkout.title}`
-        );
-        if (!response.ok) return;
-        const data = await response.json();
-        setExercises(data.exercises);
-      } catch (error) {
-        console.error("Error fetching exercises:", error);
-      } finally {
-        setIsLoadingWorkout(false);
-      }
-    };
-
-    fetchExercises();
+    setRefetchExercises(false);
+    setIsLoadingWorkout(true);
+    fetchDay(userId, formattedDate, currentWorkout?.title).then((routines) => {
+      const exercises =
+        routines.find((r) => r.title === currentWorkout?.title)?.exercises ||
+        [];
+      setExercises(exercises);
+      setIsLoadingWorkout(false);
+    });
   }, [
     userId,
-    formattedDate,
+    currentDate,
     currentDay,
     selectedWorkoutIndex,
     currentWorkout?.title,

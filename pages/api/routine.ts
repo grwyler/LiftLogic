@@ -15,7 +15,7 @@ export default async function handler(
     const routineCollection = db.collection("routines");
     const exerciseCollection = db.collection("exercises");
     const { routine } = req.body;
-    const userId = routine?._id || req.query?.userId;
+    const userId = routine?.userId || req.query?.userId;
     const defaultRoutine = {
       userId,
       days: {

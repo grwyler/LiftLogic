@@ -3,7 +3,7 @@ import {
   calculateWeights,
   formatTime,
   roundToNearestFive,
-  saveExercise,
+  saveWorkoutEntry,
 } from "../utils/helpers";
 import {
   Box,
@@ -138,56 +138,89 @@ const SelectedSetItem = ({
   }, [countdown, totalSeconds, timerActive, initialTimerActive]);
 
   const handleLogSet = () => {
-    let nextIndex = setIndex + 1;
-    while (sets[nextIndex] && sets[nextIndex].complete) {
-      nextIndex++;
-    }
-    setCurrentSetIndex(nextIndex);
-    // Update set values
-    set.actualWeight = currentSetWeight;
-    set.actualReps = currentSetReps;
-    set.actualSeconds = seconds;
-    set.actualMinutes = minutes;
-    set.totalSeconds = totalSeconds - countdown;
-    set.complete = true;
-    set.completedDate = new Date();
-    set.name = setName;
+    /* ------------------------------------------------------------------ */
+    /* 1. Build an immutable copy of the updated set array                */
+    /* ------------------------------------------------------------------ */
+    const updatedSets = sets.map((s, i) =>
+      i === setIndex
+        ? {
+            ...s,
+            name: setName,
+            actualWeight: currentSetWeight,
+            actualReps: currentSetReps,
+            actualSeconds: seconds,
+            actualMinutes: minutes,
+            totalSeconds: totalSeconds - countdown,
+            complete: true,
+            completedDate: new Date(),
+          }
+        : s
+    );
 
-    currentExercise.sets = [
-      ...sets.slice(0, setIndex),
-      set,
-      ...sets.slice(setIndex + 1),
-    ];
+    /* ------------------------------------------------------------------ */
+    /* 2. Advance to next incomplete set (or stay at end if none)         */
+    /* ------------------------------------------------------------------ */
+    const nextSetIndex = updatedSets.findIndex(
+      (s, i) => i > setIndex && !s.complete
+    );
+    setCurrentSetIndex(nextSetIndex === -1 ? updatedSets.length : nextSetIndex);
 
-    currentExercise.complete = sets.every((s) => s.complete);
-    if (currentExercise.complete) {
-      currentExercise.date = formattedDate;
-      currentExercise.userId = session?.token.user._id;
-      currentExercise.routineName = routineName;
-      currentExercise.completedDate = new Date();
+    /* ------------------------------------------------------------------ */
+    /* 3. Update the current exercise object                              */
+    /* ------------------------------------------------------------------ */
+    const exerciseComplete = updatedSets.every((s) => s.complete);
 
-      nextIndex = currentExerciseIndex + 1;
-      let nextSetIndex = 0;
-      while (
-        workout.exercises[nextIndex] &&
-        workout.exercises[nextIndex].complete
-      ) {
-        nextIndex++;
+    const updatedExercise = {
+      ...currentExercise,
+      sets: updatedSets,
+      complete: exerciseComplete,
+      ...(exerciseComplete && {
+        date: formattedDate,
+        userId: session?.token.user._id,
+        routineName,
+        completedDate: new Date(),
+      }),
+    };
+
+    /* ------------------------------------------------------------------ */
+    /* 4. Splice the exercise back into the workout array                 */
+    /* ------------------------------------------------------------------ */
+    const updatedExercises = [...workout.exercises];
+    updatedExercises[currentExerciseIndex] = updatedExercise;
+
+    /* ------------------------------------------------------------------ */
+    /* 5. If the exercise is done, jump to the next incomplete exercise   */
+    /* ------------------------------------------------------------------ */
+    if (exerciseComplete) {
+      const nextExerciseIndex = updatedExercises.findIndex(
+        (ex, i) => i > currentExerciseIndex && !ex.complete
+      );
+
+      if (nextExerciseIndex !== -1) {
+        setCurrentExerciseIndex(nextExerciseIndex);
+
+        const firstOpenSet = updatedExercises[nextExerciseIndex].sets.findIndex(
+          (s) => !s.complete
+        );
+        setCurrentSetIndex(firstOpenSet === -1 ? 0 : firstOpenSet);
+      } else {
+        workout.complete = true; // whole routine finished
       }
-      workout.complete = !workout.exercises[nextIndex];
-      if (!workout.complete) {
-        setCurrentExerciseIndex(nextIndex);
-        while (
-          workout.exercises[nextIndex] &&
-          workout.exercises[nextIndex].sets[nextSetIndex] &&
-          workout.exercises[nextIndex].sets[nextSetIndex].complete
-        ) {
-          nextSetIndex++;
-        }
-        setCurrentSetIndex(nextSetIndex);
-      }
     }
-    saveExercise(currentExercise);
+
+    /* ------------------------------------------------------------------ */
+    /* 6. Persist to the DB                                               */
+    /* ------------------------------------------------------------------ */
+    saveWorkoutEntry({
+      // WorkoutEntryDoc shape
+      userId: session?.token.user._id,
+      exerciseId: updatedExercise._id, // make sure you have this id on the exercise
+      routineName,
+      date: formattedDate,
+      rest: updatedExercise.rest,
+      complete: updatedExercise.complete,
+      sets: updatedExercise.sets,
+    });
   };
 
   return (

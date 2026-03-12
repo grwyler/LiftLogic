@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import WorkoutTitleAccordion from "./WorkoutTitleAccordion";
-import { saveRoutine } from "../utils/helpers";
 
 interface WorkoutSelectorProps {
   setRoutine: (routine: any) => void;
@@ -37,21 +36,17 @@ const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
 
+  useEffect(() => {
+    setWorkoutTitle(currentWorkout?.title || "");
+  }, [currentWorkout?.title]);
+
   const handleSaveTitleEdit = () => {
-    const updatedWorkout = {
+    const workoutsCopy = structuredClone(workouts);
+    workoutsCopy[selectedWorkoutIndex] = {
       ...currentWorkout,
       title: workoutTitle,
     };
-
-    setRoutine((prevRoutine: any) => {
-      if (!prevRoutine || !prevRoutine.days || !prevRoutine.days[currentDay]) {
-        return prevRoutine;
-      }
-      const updatedRoutine = structuredClone(prevRoutine);
-      updatedRoutine.days[currentDay][selectedWorkoutIndex] = updatedWorkout;
-      saveRoutine(updatedRoutine);
-      return updatedRoutine;
-    });
+    setRoutine(workoutsCopy);
 
     setIsEditTitle(false);
     setIsCreateTitle(false);
@@ -79,10 +74,18 @@ const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
       const updatedWorkouts = workoutsCopy.filter(
         (w: any) => w.title !== workouts[selectedWorkoutIndex].title
       );
-      // updateExercisesInRoutine(updatedWorkouts);
-      setSelectedWorkoutIndex(0);
+      setRoutine(updatedWorkouts);
+      setSelectedWorkoutIndex(
+        updatedWorkouts.length === 0
+          ? 0
+          : Math.min(selectedWorkoutIndex, updatedWorkouts.length - 1)
+      );
       if (updatedWorkouts.length > 0) {
-        setWorkoutTitle(updatedWorkouts[0].title);
+        const nextIndex = Math.min(
+          selectedWorkoutIndex,
+          updatedWorkouts.length - 1
+        );
+        setWorkoutTitle(updatedWorkouts[nextIndex].title);
       } else {
         setWorkoutTitle("");
       }
@@ -103,7 +106,7 @@ const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
       exercises: [],
     };
     workoutsCopy.push(newWorkout);
-    // updateExercisesInRoutine(workoutsCopy);
+    setRoutine(workoutsCopy);
     setIsCreateTitle(false);
     setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };

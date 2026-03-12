@@ -9,8 +9,17 @@ import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
 import ExerciseEditItem from "./ExerciseEditItem";
 import CRUDMenuButton from "./CRUDMenuButton";
-import { deleteExercise, saveExercise, toTitleCase } from "../utils/helpers";
-import { FaReply } from "react-icons/fa";
+import {
+  deactivateRecurringRule,
+  deleteWorkoutEntry,
+  saveRecurringRule,
+  saveWorkoutEntry,
+  toTitleCase,
+} from "../utils/helpers";
+import { useSession } from "next-auth/react";
+import { Session } from "next-auth";
+import DeleteDialog from "./DeleteDialog";
+import { toast } from "react-toastify";
 
 const ExerciseItem = ({
   exercise,
@@ -28,6 +37,11 @@ const ExerciseItem = ({
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
+  const { data: session } = useSession() as {
+    data: (Session & { token: { user } }) | null;
+  };
 
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
@@ -60,13 +74,36 @@ const ExerciseItem = ({
     });
   };
 
-  const handleDelete = async (exercise) => {
-    // Hide any menus
-    setShownMenuIndex(-1);
-    // Delete the exercise
-    await deleteExercise(exercise._id);
-    // Toggle the refetchExercises state to trigger a refetch
-    setRefetchExercises((prev) => !prev);
+  const handleDelete = async (scope: "today" | "all") => {
+    try {
+      if (scope === "today" && currentExercise.ruleId) {
+        await saveWorkoutEntry({
+          userId: session!.token.user._id,
+          exerciseId: currentExercise.exerciseId,
+          routineName,
+          date: formattedDate,
+          rest: currentExercise.rest ?? 0,
+          complete: false,
+          sets: [],
+          ruleId: currentExercise.ruleId,
+          skipped: true,
+        });
+      }
+
+      if (scope === "all" && currentExercise.ruleId) {
+        await deactivateRecurringRule(currentExercise.ruleId);
+      }
+
+      if (currentExercise._id && !currentExercise.ruleId) {
+        await deleteWorkoutEntry(currentExercise._id);
+      }
+
+      setRefetchExercises(true);
+      toast.success(scope === "all" ? "Deleted everywhere" : "Deleted today");
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    }
   };
 
   const handleUpdate = () => {
@@ -74,10 +111,10 @@ const ExerciseItem = ({
     setIsEditing(true);
   };
 
-  // Callback to handle saving the updated exercise
   const handleExerciseSave = (updatedExercise) => {
     setIsEditing(false);
-    saveExercise(updatedExercise);
+    saveWorkoutEntry(updatedExercise);
+    setRefetchExercises(true);
   };
 
   if (isEditing) {
@@ -85,7 +122,7 @@ const ExerciseItem = ({
       <ExerciseEditItem
         index={exerciseIndex}
         exercise={currentExercise}
-        onSave={handleExerciseSave} // Pass the callback to update parent state
+        onSave={handleExerciseSave}
         onCancel={() => setIsEditing(false)}
         darkMode={darkMode}
         isValid={true}
@@ -93,15 +130,66 @@ const ExerciseItem = ({
     );
   }
 
-  const [isRepeating, setIsRepeating] = useState(exercise.isPersistent);
-
-  const toggleRepeat = (e) => {
+  const toggleRepeat = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsRepeating((prev) => {
-      const isPersistent = !prev;
-      saveExercise({ ...exercise, isPersistent });
-      return isPersistent;
-    });
+    const parseFormattedDate = (str: string): Date | null => {
+      const safe = `${str.trim()} ${new Date().getFullYear()}`;
+      const d = new Date(safe);
+      return isNaN(+d) ? null : d;
+    };
+
+    const parsedDate = parseFormattedDate(formattedDate);
+    if (!parsedDate) return console.error("Bad date:", formattedDate);
+
+    setIsRepeating((p) => !p);
+    const willRepeat = !isRepeating;
+
+    try {
+      if (willRepeat) {
+        const savedRule = await saveRecurringRule({
+          userId: session!.token.user._id,
+          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+          exerciseName: currentExercise.name,
+          exerciseType: currentExercise.type,
+          routineName,
+          dayOfWeek: parsedDate.getDay(),
+          intervalWeeks: 1,
+          startDate: parsedDate,
+          templateSets: currentExercise.sets,
+          active: true,
+        } as any);
+
+        setCurrentExercise((prev) => ({
+          ...prev,
+          isRepeating: true,
+          ruleId: savedRule._id,
+        }));
+
+        saveWorkoutEntry({
+          ...currentExercise,
+          isRepeating: true,
+          ruleId: savedRule._id.toString(),
+          date: parsedDate.toISOString().slice(0, 10),
+        });
+      } else {
+        if (currentExercise.ruleId) {
+          await deactivateRecurringRule(currentExercise.ruleId);
+        }
+        setCurrentExercise((prev) => ({
+          ...prev,
+          isRepeating: false,
+          ruleId: undefined,
+        }));
+        saveWorkoutEntry({
+          ...currentExercise,
+          isRepeating: false,
+          ruleId: undefined,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setIsRepeating((p) => !p);
+    }
   };
 
   return (
@@ -130,7 +218,6 @@ const ExerciseItem = ({
         },
       }}
     >
-      {/* Header Area */}
       <Box
         className="d-flex justify-content-between align-items-center"
         onClick={() => handleWorkoutButtonClick(exerciseIndex)}
@@ -141,7 +228,13 @@ const ExerciseItem = ({
         >
           <CRUDMenuButton
             darkMode={darkMode}
-            handleDelete={() => handleDelete(exercise)}
+            handleDelete={() => {
+              if (currentExercise.isRepeating) {
+                setShowDeleteDialog(true);
+              } else {
+                handleDelete("today");
+              }
+            }}
             handleUpdate={handleUpdate}
             onClickMenuButton={() =>
               setShownMenuIndex(
@@ -154,7 +247,9 @@ const ExerciseItem = ({
             onClick={toggleRepeat}
             title="Toggle on to make this exercise repeat next week"
           >
-            <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
+            <RepeatIcon
+              color={currentExercise.isRepeating ? "primary" : "disabled"}
+            />
           </IconButton>
         </Box>
 
@@ -175,7 +270,7 @@ const ExerciseItem = ({
           }}
         />
       </Box>
-      {/* Set Items */}
+
       {exerciseIndex === currentExerciseIndex &&
         currentExercise.sets &&
         currentExercise.sets.map((s, i) => {
@@ -218,7 +313,7 @@ const ExerciseItem = ({
             );
           }
         })}
-      {/* Add Set Button */}
+
       {exerciseIndex === currentExerciseIndex && (
         <Button
           variant="outlined"
@@ -238,6 +333,20 @@ const ExerciseItem = ({
           Add Set
         </Button>
       )}
+
+      <DeleteDialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onDeleteToday={() => {
+          handleDelete("today");
+          setShowDeleteDialog(false);
+        }}
+        onDeleteAll={() => {
+          handleDelete("all");
+          setShowDeleteDialog(false);
+        }}
+        targetDate={formattedDate}
+      />
     </Paper>
   );
 };
