@@ -1,9 +1,5 @@
 import React, { Dispatch, SetStateAction, useState } from "react";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-} from "@mui/material";
+import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import ExerciseSelector from "./ExerciseSelector";
 import ExerciseEditItem from "./ExerciseEditItem";
 import { saveRecurringRule, saveWorkoutEntry } from "../utils/helpers";
@@ -34,19 +30,23 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
 
-  const normalizeExerciseId = (exercise: any) =>
-    String(
+  const normalizeExerciseId = (exercise: any) => {
+    if (!exercise) {
+      throw new Error("Exercise is required");
+    }
+
+    return String(
       exercise.exerciseId ??
         exercise.id ??
         exercise._id ??
         exercise.name?.toLowerCase().replace(/\s+/g, "-")
     );
+  };
 
   const resolveExerciseType = (exercise: any) =>
     exercise.type === "timed" ? "timed" : "weight";
 
-  // When an exercise is added, default it to one set and open the modal for editing.
-  const handleAddExercise = (exercise: any) => {
+  const buildExerciseDraft = (exercise: any) => {
     const exerciseType = resolveExerciseType(exercise);
     const defaultSet = {
       ...(exerciseType === "timed"
@@ -75,16 +75,10 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       sets: [defaultSet], // default to 1 set
     };
 
-    // Add the new exercise to the routine
-    // addExerciseToWorkout(newExercise);
-
-    // Set this as the selected exercise and open the modal for further editing.
-    setSelectedExercise(newExercise);
-    setOpenEditModal(true);
+    return newExercise;
   };
 
-  // When saving, call updateExercise so the parent can update the existing exercise.
-  const handleSaveEdit = async (updatedExercise: any) => {
+  const persistExercise = async (updatedExercise: any) => {
     if (isPersistent) {
       const parsedDate = new Date(updatedExercise.date);
       if (isNaN(parsedDate.getTime())) {
@@ -111,7 +105,25 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         exerciseId: normalizeExerciseId(updatedExercise),
       });
     }
+  };
 
+  // When an exercise is added, default it to one set and open the modal for editing.
+  const handleAddExercise = (exercise: any) => {
+    const newExercise = buildExerciseDraft(exercise);
+    setSelectedExercise(newExercise);
+    setOpenEditModal(true);
+  };
+
+  const handleQuickAddExercise = async (exercise: any) => {
+    const newExercise = buildExerciseDraft(exercise);
+    await persistExercise(newExercise);
+    setRefetchExercises(true);
+    setIsAddingExercise(false);
+  };
+
+  // When saving, call updateExercise so the parent can update the existing exercise.
+  const handleSaveEdit = async (updatedExercise: any) => {
+    await persistExercise(updatedExercise);
     setRefetchExercises(true);
     setOpenEditModal(false);
     setIsAddingExercise(false);
@@ -129,6 +141,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         isPersistent={isPersistent}
         currentWorkoutTitle={currentWorkoutTitle}
         addExerciseToWorkout={handleAddExercise} // delegate add handler
+        quickAddExerciseToWorkout={handleQuickAddExercise}
         setIsAddingExercise={setIsAddingExercise}
       />
 

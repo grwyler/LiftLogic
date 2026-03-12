@@ -79,7 +79,7 @@ const WorkoutDisplay = ({
             },
           }}
         >
-          Add Exercise to Today
+          Add Exercise
         </Button>
       </Box>
     </Box>
