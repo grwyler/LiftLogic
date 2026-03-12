@@ -1,10 +1,58 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
-.font-InterTight {
-  font-family: "Inter Tight", sans-serif;
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  --app-bg:
+    radial-gradient(circle at top, rgba(243, 156, 18, 0.2), transparent 30%),
+    linear-gradient(180deg, #f5efe3 0%, #ece7de 48%, #e3dfd8 100%);
+  --app-surface: rgba(255, 252, 247, 0.88);
+  --app-surface-strong: rgba(255, 255, 255, 0.94);
+  --app-border: rgba(73, 54, 36, 0.12);
+  --app-text: #241b14;
+  --app-muted: #69594a;
+  --app-shadow: 0 24px 80px rgba(45, 28, 12, 0.14);
+  --app-shadow-soft: 0 10px 30px rgba(45, 28, 12, 0.08);
 }
+
+html,
+body,
+#__next {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Instrument Sans", sans-serif;
+  background: var(--app-bg);
+  color: var(--app-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.font-InterTight,
 .font-Inter {
-  font-family: "Inter", sans-serif;
+  font-family: "Manrope", sans-serif;
 }
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(219, 142, 55, 0.22);
+}
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -19,19 +67,21 @@
 }
 
 .search-input {
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   margin-left: 8px;
   flex: 1;
-  font-size: 16px;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .flip-icon {
-  transition: transform 2s ease;
+  transition: transform 0.5s ease;
 }
 
-.flip-icon.rotate {
+.flip-icon.rotate,
+.rotate-180 {
   transform: rotate(180deg);
 }
 
@@ -40,48 +90,50 @@
 }
 
 .user-profile-button {
-  background-color: #fff;
-  color: #333;
-  border: 1px solid #ccc;
-  border-radius: 20px;
-  padding: 8px 16px;
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  padding: 10px 16px;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
+  transition: background-color 0.25s ease, color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.user-profile-button:hover {
+  transform: translateY(-1px);
 }
 
 .user-profile-button.dark-mode {
-  background-color: #333;
-  color: #fff;
+  background-color: rgba(38, 33, 28, 0.82);
+  color: #f8f3ec;
 }
 
 .user-profile-button.light-mode {
-  background-color: #fff;
-  color: #333;
+  background-color: rgba(255, 255, 255, 0.82);
+  color: var(--app-text);
 }
 
 .user-settings {
   position: absolute;
-  top: calc(100% + 5px); /* Position settings below the button */
+  top: calc(100% + 8px);
   left: 0;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 8px;
+  background-color: var(--app-surface-strong);
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  box-shadow: var(--app-shadow-soft);
+  padding: 10px;
   z-index: 100;
+  backdrop-filter: blur(14px);
 }
 
 .bg-custom-dark {
-  background-color: #333;
+  background-color: #26211c;
 }
 
 .form-control {
-  border: 2px solid #ccc; /* Light border */
-  border-radius: 8px; /* Softer edges */
-  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-}
-
-.rotate-180 {
-  transform: rotate(180deg);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  box-shadow: var(--app-shadow-soft);
 }

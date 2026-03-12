@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Button } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import ExerciseItem from "./ExerciseItem";
 import AddIcon from "@mui/icons-material/Add";
 
@@ -25,6 +25,25 @@ const WorkoutDisplay = ({
 
   return (
     <Box>
+      <Box
+        sx={{
+          px: 0.5,
+          pt: 0.5,
+          pb: 1.5,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 1,
+          flexWrap: "wrap",
+        }}
+      >
+        <Box>
+          <Typography variant="h6">{routineName}</Typography>
+          <Typography sx={{ color: "text.secondary" }}>
+            {exercises.length} exercise{exercises.length === 1 ? "" : "s"} scheduled
+          </Typography>
+        </Box>
+      </Box>
       {exercises.map((e, exerciseIndex) => (
         <ExerciseItem
           setRefetchExercises={setRefetchExercises}
@@ -43,8 +62,7 @@ const WorkoutDisplay = ({
       ))}
       <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
         <Button
-          variant="outlined"
-          size="small"
+          variant="contained"
           title="Adds an exercise only to the currently selected day"
           onClick={() => {
             setIsPersistent(false);
@@ -52,11 +70,12 @@ const WorkoutDisplay = ({
           }}
           startIcon={<AddIcon />}
           sx={{
-            color: darkMode ? "white" : "black",
-            borderColor: darkMode ? "grey.700" : "grey.300",
-            backgroundColor: darkMode ? "grey.800" : "white",
+            px: 2.5,
+            py: 1.1,
+            backgroundColor: darkMode ? "rgba(255,255,255,0.08)" : "#1f2937",
+            color: darkMode ? "white" : "#f9fafb",
             "&:hover": {
-              backgroundColor: darkMode ? "grey.700" : "grey.100",
+              backgroundColor: darkMode ? "rgba(255,255,255,0.14)" : "#111827",
             },
           }}
         >

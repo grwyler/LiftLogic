@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Paper, IconButton, Button, TextField } from "@mui/material";
+import { Box, Paper, IconButton, Button, TextField, Typography } from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
@@ -46,90 +46,129 @@ const DaySwitcher = ({
 
   return (
     <Paper
-      elevation={3}
+      elevation={0}
       sx={(theme) => ({
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
+        mb: 2,
+        borderRadius: 4,
+        border: "1px solid",
+        borderColor: "divider",
         bgcolor: darkMode
-          ? theme.palette.grey[900]
-          : theme.palette.background.paper,
-        color: darkMode ? theme.palette.grey[100] : theme.palette.text.primary,
+          ? "rgba(255,255,255,0.03)"
+          : "rgba(255,255,255,0.52)",
+        color: theme.palette.text.primary,
       })}
     >
-      <Box display="flex" alignItems="center" justifyContent="space-between">
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ gap: 1 }}
+      >
         {!isInline && (
-          <IconButton onClick={handlePreviousDay} size="large">
+          <IconButton
+            onClick={handlePreviousDay}
+            size="large"
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              backgroundColor: "background.paper",
+            }}
+          >
             <ChevronLeft fontSize="inherit" />
           </IconButton>
         )}
 
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          {isInline ? (
-            <StaticDatePicker
-              displayStaticWrapperAs="desktop"
-              value={currentDate}
-              onChange={(newDate) => {
-                if (newDate) {
-                  setCurrentDate(newDate);
-                  handleCurrentDayChange(newDate, true);
-                }
-              }}
-            />
-          ) : (
-            <DatePicker
-              value={currentDate}
-              onChange={(newDate) => {
-                if (newDate) {
-                  setCurrentDate(newDate);
-                  handleCurrentDayChange(newDate, true);
-                }
-              }}
-              format="EEEE, MMMM d"
-              slots={{
-                textField: (params) => (
-                  <TextField
-                    {...params}
-                    variant="standard"
-                    sx={{
-                      mx: 2,
-                      width: "100%",
-                      textAlign: "center",
-                      "& input": { fontWeight: 600, textAlign: "center" },
-                    }}
-                    InputProps={{
-                      ...params.InputProps,
-                      readOnly: true,
-                    }}
-                  />
-                ),
-              }}
-            />
-          )}
-        </LocalizationProvider>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="overline"
+            sx={{ display: "block", textAlign: "center", color: "text.secondary" }}
+          >
+            Workout Date
+          </Typography>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            {isInline ? (
+              <StaticDatePicker
+                displayStaticWrapperAs="desktop"
+                value={currentDate}
+                onChange={(newDate) => {
+                  if (newDate) {
+                    setCurrentDate(newDate);
+                    handleCurrentDayChange(newDate, true);
+                  }
+                }}
+              />
+            ) : (
+              <DatePicker
+                value={currentDate}
+                onChange={(newDate) => {
+                  if (newDate) {
+                    setCurrentDate(newDate);
+                    handleCurrentDayChange(newDate, true);
+                  }
+                }}
+                format="EEEE, MMMM d"
+                slots={{
+                  textField: (params) => (
+                    <TextField
+                      {...params}
+                      variant="standard"
+                      sx={{
+                        mx: 2,
+                        width: "100%",
+                        textAlign: "center",
+                        "& .MuiInputBase-root": {
+                          justifyContent: "center",
+                        },
+                        "& input": {
+                          fontFamily: '"Manrope", sans-serif',
+                          fontSize: { xs: "1rem", sm: "1.15rem" },
+                          fontWeight: 700,
+                          textAlign: "center",
+                        },
+                      }}
+                      InputProps={{
+                        ...params.InputProps,
+                        readOnly: true,
+                        disableUnderline: true,
+                      }}
+                    />
+                  ),
+                }}
+              />
+            )}
+          </LocalizationProvider>
+        </Box>
 
         {!isInline && (
-          <IconButton onClick={handleNextDay} size="large">
+          <IconButton
+            onClick={handleNextDay}
+            size="large"
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              backgroundColor: "background.paper",
+            }}
+          >
             <ChevronRight fontSize="inherit" />
           </IconButton>
         )}
       </Box>
 
-      <Box display="flex" justifyContent="center" mt={2}>
+      <Box display="flex" justifyContent="center" mt={2} gap={1} flexWrap="wrap">
         <Button
-          variant="text"
+          variant="outlined"
           startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
           onClick={() => setIsInline((prev) => !prev)}
         >
-          {isInline ? "Inline" : "Popper"}
+          {isInline ? "Compact Picker" : "Expanded Picker"}
         </Button>
-      </Box>
-
-      {!isToday && (
-        <Box display="flex" justifyContent="center" mt={1}>
+        {!isToday && (
           <Button variant="outlined" onClick={handleBackToToday}>
             Back to Today
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
     </Paper>
   );
 };

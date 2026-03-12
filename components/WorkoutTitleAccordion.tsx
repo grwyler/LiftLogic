@@ -6,7 +6,8 @@ import {
   Typography,
   Box,
   Button,
-  IconButton,
+  TextField,
+  Chip,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
@@ -69,35 +70,46 @@ const WorkoutTitleAccordion = ({
       expanded={forcedOpen || expanded}
       onChange={handleAccordionToggle}
       sx={{
-        backgroundColor: darkMode ? "grey.900" : "background.paper",
-        color: darkMode ? "grey.100" : "text.primary",
+        mb: 2,
+        borderRadius: "24px !important",
+        border: "1px solid",
+        borderColor: "divider",
+        overflow: "hidden",
+        backgroundColor: darkMode
+          ? "rgba(255,255,255,0.03)"
+          : "rgba(255,255,255,0.56)",
+        color: "text.primary",
+        boxShadow: "none",
+        "&:before": { display: "none" },
       }}
     >
       <AccordionSummary
         expandIcon={<ExpandMoreIcon />}
         sx={{
+          px: { xs: 2, sm: 2.5 },
+          py: 1,
           "& .MuiAccordionSummary-content": {
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 1.5,
           },
         }}
       >
         {isEditTitle || isCreateTitle ? (
           <Box flex={1} display="flex" justifyContent="center">
-            <input
-              type="text"
+            <TextField
               value={workoutTitle}
               autoFocus
               onChange={(e) => setWorkoutTitle(e.target.value)}
               placeholder="Workout name"
-              style={{
-                textAlign: "center",
-                backgroundColor: darkMode ? "#333" : "inherit",
-                color: darkMode ? "#fff" : "inherit",
-                border: "1px solid #ccc",
-                borderRadius: 4,
-                padding: "8px",
-                width: "100%",
+              fullWidth
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 999,
+                  backgroundColor: darkMode
+                    ? "rgba(255,255,255,0.04)"
+                    : "rgba(255,255,255,0.84)",
+                },
               }}
             />
           </Box>
@@ -115,21 +127,36 @@ const WorkoutTitleAccordion = ({
             <Typography
               variant="h6"
               component="div"
-              sx={{ flexGrow: 1, textAlign: "center", fontWeight: "bold" }}
+              sx={{
+                flexGrow: 1,
+                textAlign: "center",
+                fontWeight: "bold",
+                fontFamily: '"Manrope", sans-serif',
+              }}
             >
               {workoutTitle}
             </Typography>
+            <Chip
+              size="small"
+              label={`${workouts.length} routine${workouts.length === 1 ? "" : "s"}`}
+              sx={{
+                borderRadius: 999,
+                backgroundColor: darkMode
+                  ? "rgba(255,255,255,0.05)"
+                  : "rgba(184,106,31,0.08)",
+                color: "text.secondary",
+              }}
+            />
           </>
         )}
       </AccordionSummary>
 
       <AccordionDetails>
         {isEditTitle || isCreateTitle ? (
-          <Box display="flex" justifyContent="center" mt={2}>
+          <Box display="flex" justifyContent="center" mt={1} gap={1.25} flexWrap="wrap">
             <Button
               variant="contained"
               color="success"
-              sx={{ mx: 1 }}
               onClick={
                 isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
               }
@@ -145,7 +172,6 @@ const WorkoutTitleAccordion = ({
 
             <Button
               variant="outlined"
-              sx={{ mx: 1 }}
               onClick={handleCancelEditTitle}
               disabled={isLastWorkout && !workoutTitle}
               startIcon={<CloseIcon />}
@@ -154,7 +180,7 @@ const WorkoutTitleAccordion = ({
             </Button>
           </Box>
         ) : (
-          <Box>
+          <Box sx={{ px: { xs: 0.5, sm: 1 }, pb: 0.5 }}>
             {/* Show the WorkoutDropdown if there's more than one workout */}
             {workouts.length > 1 && (
               <Box sx={{ textAlign: "center", mb: 2 }}>
@@ -169,10 +195,19 @@ const WorkoutTitleAccordion = ({
             <Box sx={{ mb: 2 }}>
               <Button
                 onClick={handleAddWorkout}
-                variant={darkMode ? "contained" : "outlined"}
-                size="small"
+                variant="contained"
                 fullWidth
                 startIcon={<AddIcon />}
+                sx={{
+                  py: 1.15,
+                  background:
+                    "linear-gradient(135deg, rgba(184,106,31,1) 0%, rgba(224,155,62,1) 100%)",
+                  color: "#fffaf3",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(135deg, rgba(166,92,21,1) 0%, rgba(209,142,53,1) 100%)",
+                  },
+                }}
               >
                 Add New Workout Routine
               </Button>
@@ -181,7 +216,6 @@ const WorkoutTitleAccordion = ({
             <Box>
               <Button
                 variant="outlined"
-                size="small"
                 fullWidth
                 title={`Adds an Exercise that repeats every ${capitalizedDay}`}
                 startIcon={<AddIcon />}
@@ -189,6 +223,7 @@ const WorkoutTitleAccordion = ({
                   setIsPersistent(true);
                   setIsAddingExercise(true);
                 }}
+                sx={{ py: 1.1 }}
               >
                 Add Recurring Exercise
               </Button>

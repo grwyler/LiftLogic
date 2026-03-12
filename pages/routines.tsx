@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 
 interface Set {
   name: string;
@@ -149,36 +149,81 @@ const RoutinesPage = ({
 
   return (
     routine && (
-      <div className="container-fluid vh-100" style={{ maxWidth: 600 }}>
+      <Box
+        sx={{
+          minHeight: "100vh",
+          px: { xs: 1.5, sm: 2.5 },
+          py: { xs: 2, sm: 3 },
+        }}
+      >
         <Box
           sx={{
-            maxWidth: 600,
-            height: "100vh",
+            maxWidth: 760,
+            mx: "auto",
+            minHeight: "calc(100vh - 32px)",
             overflowY: "auto",
-            backgroundColor: darkMode ? "grey.900" : "background.paper",
-            color: darkMode ? "grey.100" : "text.primary",
+            backgroundColor: "background.paper",
+            color: "text.primary",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: { xs: 4, sm: 6 },
+            boxShadow: darkMode
+              ? "0 24px 70px rgba(0,0,0,0.32)"
+              : "0 28px 80px rgba(45,28,12,0.14)",
+            backdropFilter: "blur(20px)",
           }}
         >
           {loading ? (
             <LoadingIndicator />
           ) : user && routine ? (
             <>
-              <Header
-                user={user}
-                setUser={setUser}
-                setDarkMode={setDarkMode}
-                darkMode={darkMode}
-              />
-              <Box sx={{ borderBottom: 1, borderColor: "divider" }} />
-              <WorkoutsManager
-                routine={routine}
-                setRoutine={setRoutine}
-                darkMode={darkMode}
-              />
+              <Box
+                sx={{
+                  px: { xs: 2, sm: 3 },
+                  pt: { xs: 2.5, sm: 3.5 },
+                  pb: 2,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  background: darkMode
+                    ? "linear-gradient(180deg, rgba(240,179,95,0.08) 0%, rgba(255,255,255,0) 100%)"
+                    : "linear-gradient(180deg, rgba(184,106,31,0.08) 0%, rgba(255,255,255,0) 100%)",
+                }}
+              >
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: "text.secondary",
+                    letterSpacing: "0.14em",
+                    fontWeight: 700,
+                  }}
+                >
+                  Lift Logic
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 0.5 }}>
+                  Your training plan
+                </Typography>
+                <Typography sx={{ mt: 1, color: "text.secondary" }}>
+                  Track today&apos;s workout, build routines, and keep recurring
+                  lifts organized in one place.
+                </Typography>
+                <Header
+                  user={user}
+                  setUser={setUser}
+                  setDarkMode={setDarkMode}
+                  darkMode={darkMode}
+                />
+              </Box>
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+                <WorkoutsManager
+                  routine={routine}
+                  setRoutine={setRoutine}
+                  darkMode={darkMode}
+                />
+              </Box>
             </>
           ) : null}
         </Box>
-      </div>
+      </Box>
     )
   );
 };
