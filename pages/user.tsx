@@ -2,112 +2,67 @@
 
 import { Session } from "next-auth";
 import { useSession } from "next-auth/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { fetchUser, saveUser } from "../utils/helpers";
 import LoadingIndicator from "../components/LoadingIndicator";
-import Header from "../components/Header";
-import { Button, Form, FormCheck, FormGroup, FormLabel } from "react-bootstrap";
-import { set } from "date-fns";
+import { useRouter } from "next/router";
+import {
+  Alert,
+  Box,
+  Button,
+  FormControl,
+  FormControlLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SaveIcon from "@mui/icons-material/Save";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import TuneIcon from "@mui/icons-material/Tune";
 import { toast } from "react-toastify";
 
-import { useRouter } from "next/navigation";
-import { Box, Typography } from "@mui/material";
 interface UserPageProps {
   darkMode: boolean;
   setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+type UserProfile = {
+  _id: string;
+  username: string;
+  darkMode?: boolean;
+  preferredUnits?: "lb" | "kg";
+  height?: string;
+  weight?: string;
+  trainingGoal?: string;
+  workoutDaysPerWeek?: string;
+  notes?: string;
+};
+
+const defaultForm = {
+  darkMode: false,
+  preferredUnits: "lb",
+  height: "",
+  weight: "",
+  trainingGoal: "",
+  workoutDaysPerWeek: "",
+  notes: "",
+};
+
 const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
-  const { data: session, status } = useSession() as {
+  const { data: session } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
-    status: any;
   };
   const router = useRouter();
-  const [isDarkModeOn, setIsDarkModeOn] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  //   const [height, setHeight] = useState(null);
-  //   const [weight, setWeight] = useState("");
-  //   const [age, setAge] = useState("");
-  //   const [gender, setGender] = useState("");
-  //   const [activityLevel, setActivityLevel] = useState("");
-  //   const [fitnessGoal, setFitnessGoal] = useState("");
-  //   const [dietPreference, setDietPreference] = useState("");
-  //   const [stepGoal, setStepGoal] = useState("");
-  const [height, setHeight] = useState("");
-  const [weight, setWeight] = useState("");
-  const [age, setAge] = useState("");
-  const [gender, setGender] = useState("");
-  const [activityLevel, setActivityLevel] = useState("");
-  const [fitnessGoal, setFitnessGoal] = useState("");
-  const [dietPreference, setDietPreference] = useState("");
-  const [stepGoal, setStepGoal] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(defaultForm);
 
-  useEffect(() => {
-    if (user) {
-      setHeight(user.height);
-      setIsDarkModeOn(user.darkMode);
-      setWeight(user.weight);
-      setAge(user.age);
-      setGender(user.gender);
-      setActivityLevel(user.activityLevel);
-      setFitnessGoal(user.fitnessGoal);
-      setDietPreference(user.dietPreference);
-      setStepGoal(user.stepGoal);
-    }
-  }, [user]);
-
-  // Handlers
-  //   const handleHeightChange = (e) => setHeight(e.target.value);
-  //   const handleWeightChange = (e) => setWeight(e.target.value);
-  //   const handleAgeChange = (e) => setAge(e.target.value);
-  //   const handleGenderChange = (e) => setGender(e.target.value);
-  //   const handleActivityLevelChange = (e) => setActivityLevel(e.target.value);
-  //   const handleFitnessGoalChange = (e) => setFitnessGoal(e.target.value);
-  //   const handleDietPreferenceChange = (e) => setDietPreference(e.target.value);
-  //   const handleStepGoalChange = (e) => setStepGoal(e.target.value);
-  //
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const newUser = {
-      ...user,
-      darkMode: isDarkModeOn,
-      weight,
-      height,
-      age,
-      gender,
-      activityLevel,
-      fitnessGoal,
-      dietPreference,
-      stepGoal,
-    };
-
-    setUser(newUser);
-
-    try {
-      const response = await saveUser(newUser);
-      if (response.success) {
-        router.replace("/routines");
-      } else {
-        toast.error("Failed to update user data."); // ✅ Error toast
-      }
-    } catch (error) {
-      console.error("Error saving user:", error);
-      toast.error("An error occurred. Please try again.");
-    }
-  };
-
-  const handleHeightChange = (e) => setHeight(e.target.value);
-  const handleWeightChange = (e) => setWeight(e.target.value);
-  const handleAgeChange = (e) => setAge(e.target.value);
-  const handleGenderChange = (e) => setGender(e.target.value);
-  const handleActivityLevelChange = (e) => setActivityLevel(e.target.value);
-  const handleFitnessGoalChange = (e) => setFitnessGoal(e.target.value);
-  const handleDietPreferenceChange = (e) => setDietPreference(e.target.value);
-  const handleStepGoalChange = (e) => setStepGoal(e.target.value);
-  // Fetch user and routine data
   useEffect(() => {
     if (!session?.token?.user?._id) {
       setLoading(false);
@@ -116,9 +71,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
 
     const fetchData = async () => {
       try {
-        const [userData] = await Promise.all([
-          fetchUser(session.token.user._id),
-        ]);
+        const userData = await fetchUser(session.token.user._id);
         setUser(userData);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -130,171 +83,335 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     fetchData();
   }, [session]);
 
-  return loading ? (
-    <LoadingIndicator />
-  ) : (
-    user && (
-      <>
-        <div
-          className={`container p-2 vh-100 ${
-            user.darkMode ? "text-white bg-dark" : ""
-          }`}
-          style={{ maxWidth: 600, height: "100vh", overflowY: "auto" }}
+  useEffect(() => {
+    if (!user) return;
+
+    const nextForm = {
+      darkMode: Boolean(user.darkMode),
+      preferredUnits: user.preferredUnits || "lb",
+      height: user.height || "",
+      weight: user.weight || "",
+      trainingGoal: user.trainingGoal || "",
+      workoutDaysPerWeek: user.workoutDaysPerWeek || "",
+      notes: user.notes || "",
+    };
+
+    setForm(nextForm);
+    setDarkMode(nextForm.darkMode);
+  }, [user, setDarkMode]);
+
+  const hasChanges = useMemo(() => {
+    if (!user) return false;
+
+    return (
+      Boolean(user.darkMode) !== form.darkMode ||
+      (user.preferredUnits || "lb") !== form.preferredUnits ||
+      (user.height || "") !== form.height ||
+      (user.weight || "") !== form.weight ||
+      (user.trainingGoal || "") !== form.trainingGoal ||
+      (user.workoutDaysPerWeek || "") !== form.workoutDaysPerWeek ||
+      (user.notes || "") !== form.notes
+    );
+  }, [form, user]);
+
+  const handleFieldChange =
+    (field: keyof typeof form) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.target.value;
+      setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleSelectChange =
+    (field: keyof typeof form) => (event: any) => {
+      setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    };
+
+  const handleDarkModeChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const checked = event.target.checked;
+    setForm((prev) => ({ ...prev, darkMode: checked }));
+    setDarkMode(checked);
+  };
+
+  const handleReset = () => {
+    if (!user) return;
+
+    setForm({
+      darkMode: Boolean(user.darkMode),
+      preferredUnits: user.preferredUnits || "lb",
+      height: user.height || "",
+      weight: user.weight || "",
+      trainingGoal: user.trainingGoal || "",
+      workoutDaysPerWeek: user.workoutDaysPerWeek || "",
+      notes: user.notes || "",
+    });
+    setDarkMode(Boolean(user.darkMode));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setSaving(true);
+    const nextUser = {
+      ...user,
+      darkMode: form.darkMode,
+      preferredUnits: form.preferredUnits,
+      height: form.height,
+      weight: form.weight,
+      trainingGoal: form.trainingGoal,
+      workoutDaysPerWeek: form.workoutDaysPerWeek,
+      notes: form.notes,
+    };
+
+    try {
+      const response = await saveUser(nextUser);
+      if (response?.success) {
+        setUser(nextUser);
+        toast.success("Profile updated");
+      } else {
+        toast.error("Failed to update profile");
+      }
+    } catch (error) {
+      console.error("Error saving user:", error);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <LoadingIndicator />;
+  }
+
+  if (!user) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: "auto", px: 2, py: 4 }}>
+        <Alert severity="error">We couldn&apos;t load your profile.</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ minHeight: "100vh", px: { xs: 1.5, sm: 2.5 }, py: { xs: 2, sm: 3 } }}>
+      <Box
+        sx={{
+          maxWidth: 760,
+          mx: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 1.5,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
         >
-          <Form onSubmit={handleSubmit}>
-            <FormGroup>
-              <FormCheck
-                type="switch"
-                id="darkModeSwitch"
-                label="Dark Mode"
-                checked={isDarkModeOn}
-                onChange={() => {}}
-              />
-            </FormGroup>
-            <Box sx={{ p: 2 }}>
-              <Typography variant="h5" gutterBottom>
-                User Page
+          <Box>
+            <Typography
+              variant="overline"
+              sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
+            >
+              Profile
+            </Typography>
+            <Typography variant="h4">Account settings</Typography>
+            <Typography sx={{ mt: 1, color: "text.secondary" }}>
+              Keep this page focused on preferences that improve your workout
+              experience, not generic health trivia.
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => router.push("/routines")}
+          >
+            Back to Workouts
+          </Button>
+        </Box>
+
+        <Alert severity="info" sx={{ borderRadius: 3 }}>
+          Recommended fields for this app: appearance, units, a couple of body
+          metrics if you care about them, your primary training goal, and a few
+          notes. I removed age, gender, diet, and activity-level placeholders
+          because they don&apos;t currently power any useful feature here.
+        </Alert>
+
+        <Box component="form" onSubmit={handleSubmit}>
+          <Stack spacing={2}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <PersonOutlineIcon color="primary" />
+                  <Typography variant="h6">Account</Typography>
+                </Box>
+
+                <TextField
+                  label="Username"
+                  value={user.username || ""}
+                  fullWidth
+                  InputProps={{ readOnly: true }}
+                  helperText="Usernames are read-only for now."
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.darkMode}
+                      onChange={handleDarkModeChange}
+                    />
+                  }
+                  label="Use dark mode"
+                />
+
+                <FormControl fullWidth>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Preferred units
+                  </Typography>
+                  <Select
+                    value={form.preferredUnits}
+                    onChange={handleSelectChange("preferredUnits")}
+                  >
+                    <MenuItem value="lb">Pounds / inches</MenuItem>
+                    <MenuItem value="kg">Kilograms / centimeters</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <TuneIcon color="primary" />
+                  <Typography variant="h6">Training preferences</Typography>
+                </Box>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label={
+                      form.preferredUnits === "kg"
+                        ? "Height (cm)"
+                        : "Height (in)"
+                    }
+                    value={form.height}
+                    onChange={handleFieldChange("height")}
+                    fullWidth
+                    type="number"
+                  />
+
+                  <TextField
+                    label={
+                      form.preferredUnits === "kg"
+                        ? "Body weight (kg)"
+                        : "Body weight (lb)"
+                    }
+                    value={form.weight}
+                    onChange={handleFieldChange("weight")}
+                    fullWidth
+                    type="number"
+                  />
+                </Stack>
+
+                <FormControl fullWidth>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Primary goal
+                  </Typography>
+                  <Select
+                    value={form.trainingGoal}
+                    onChange={handleSelectChange("trainingGoal")}
+                    displayEmpty
+                  >
+                    <MenuItem value="">No specific goal</MenuItem>
+                    <MenuItem value="strength">Build strength</MenuItem>
+                    <MenuItem value="muscle">Build muscle</MenuItem>
+                    <MenuItem value="fat_loss">Lose fat</MenuItem>
+                    <MenuItem value="consistency">Stay consistent</MenuItem>
+                    <MenuItem value="conditioning">Improve conditioning</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  label="Target workouts per week"
+                  value={form.workoutDaysPerWeek}
+                  onChange={handleFieldChange("workoutDaysPerWeek")}
+                  type="number"
+                  inputProps={{ min: 0, max: 14 }}
+                  fullWidth
+                  helperText="Optional, but useful if you later want weekly goal reminders."
+                />
+
+                <TextField
+                  label="Notes"
+                  value={form.notes}
+                  onChange={handleFieldChange("notes")}
+                  fullWidth
+                  multiline
+                  minRows={4}
+                  placeholder="Examples: prioritize deadlift, keep sessions under 45 minutes, shoulder-friendly pressing only."
+                />
+              </Stack>
+            </Paper>
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: { xs: "stretch", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: 1.25,
+              }}
+            >
+              <Typography sx={{ color: "text.secondary" }}>
+                Save only the info you expect to actually use in your training
+                workflow.
               </Typography>
-              <Button
-                variant="contained"
-                onClick={() => setDarkMode((prev) => !prev)}
-              >
-                Toggle Dark Mode
-              </Button>
-              <Typography sx={{ mt: 2 }}>
-                Dark Mode is {darkMode ? "ON" : "OFF"}.
-              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                <Button variant="outlined" onClick={handleReset} disabled={!hasChanges}>
+                  Reset
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  disabled={!hasChanges || saving}
+                >
+                  {saving ? "Saving..." : "Save changes"}
+                </Button>
+              </Stack>
             </Box>
-
-            <div className="container">
-              <div className="row">
-                {/* Height */}
-                <div className="col">
-                  <FormLabel>Height (cm)</FormLabel>
-                  <input
-                    value={height}
-                    onChange={handleHeightChange}
-                    type="number"
-                    className="form-control"
-                  />
-                </div>
-
-                {/* Weight */}
-                <div className="col">
-                  <FormLabel>Weight (kg)</FormLabel>
-                  <input
-                    value={weight}
-                    onChange={handleWeightChange}
-                    type="number"
-                    className="form-control"
-                  />
-                </div>
-              </div>
-
-              <div className="row mt-3">
-                {/* Age */}
-                <div className="col">
-                  <FormLabel>Age</FormLabel>
-                  <input
-                    value={age}
-                    onChange={handleAgeChange}
-                    type="number"
-                    className="form-control"
-                  />
-                </div>
-
-                {/* Gender */}
-                <div className="col">
-                  <FormLabel>Gender</FormLabel>
-                  <select
-                    value={gender}
-                    onChange={handleGenderChange}
-                    className="form-control"
-                  >
-                    <option value="">Select</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="row mt-3">
-                {/* Activity Level */}
-                <div className="col">
-                  <FormLabel>Activity Level</FormLabel>
-                  <select
-                    value={activityLevel}
-                    onChange={handleActivityLevelChange}
-                    className="form-control"
-                  >
-                    <option value="">Select</option>
-                    <option value="sedentary">
-                      Sedentary (little or no exercise)
-                    </option>
-                    <option value="lightly_active">
-                      Lightly Active (1-3 days/week)
-                    </option>
-                    <option value="moderately_active">
-                      Moderately Active (3-5 days/week)
-                    </option>
-                    <option value="very_active">
-                      Very Active (6-7 days/week)
-                    </option>
-                  </select>
-                </div>
-
-                {/* Fitness Goal */}
-                <div className="col">
-                  <FormLabel>Fitness Goal</FormLabel>
-                  <select
-                    value={fitnessGoal}
-                    onChange={handleFitnessGoalChange}
-                    className="form-control"
-                  >
-                    <option value="">Select</option>
-                    <option value="weight_loss">Weight Loss</option>
-                    <option value="muscle_gain">Muscle Gain</option>
-                    <option value="endurance">Endurance</option>
-                    <option value="general_fitness">General Fitness</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="row mt-3">
-                {/* Dietary Preference */}
-                <div className="col">
-                  <FormLabel>Dietary Preference</FormLabel>
-                  <select
-                    value={dietPreference}
-                    onChange={handleDietPreferenceChange}
-                    className="form-control"
-                  >
-                    <option value="">Select</option>
-                    <option value="none">No Preference</option>
-                    <option value="vegetarian">Vegetarian</option>
-                    <option value="vegan">Vegan</option>
-                    <option value="keto">Keto</option>
-                    <option value="paleo">Paleo</option>
-                  </select>
-                </div>
-                <div className="col">
-                  <FormLabel>Daily Step Goal</FormLabel>
-                  <input
-                    value={stepGoal}
-                    onChange={handleStepGoalChange}
-                    type="number"
-                    className="form-control"
-                  />
-                </div>
-              </div>
-            </div>
-            <hr />
-            <Button type="submit">Update</Button>
-          </Form>
-        </div>
-      </>
-    )
+          </Stack>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 
