@@ -46,13 +46,13 @@ const Header = ({ user, setUser, setDarkMode, darkMode }) => {
           sx={{
             borderRadius: "999px",
             backgroundColor: darkMode
-              ? "rgba(240,179,95,0.14)"
-              : "rgba(184,106,31,0.1)",
+              ? "rgba(96,165,250,0.16)"
+              : "rgba(59,130,246,0.1)",
             color: "text.primary",
             border: "1px solid",
             borderColor: darkMode
-              ? "rgba(240,179,95,0.24)"
-              : "rgba(184,106,31,0.18)",
+              ? "rgba(125,211,252,0.24)"
+              : "rgba(59,130,246,0.18)",
           }}
         />
         <Button
@@ -92,11 +92,11 @@ const Header = ({ user, setUser, setDarkMode, darkMode }) => {
           startIcon={<LogoutIcon />}
           sx={{
             background:
-              "linear-gradient(135deg, rgba(184,106,31,1) 0%, rgba(224,155,62,1) 100%)",
-            color: "#fffaf3",
+              "linear-gradient(135deg, rgba(37,99,235,1) 0%, rgba(14,165,233,1) 100%)",
+            color: "#eff6ff",
             "&:hover": {
               background:
-                "linear-gradient(135deg, rgba(166,92,21,1) 0%, rgba(209,142,53,1) 100%)",
+                "linear-gradient(135deg, rgba(29,78,216,1) 0%, rgba(2,132,199,1) 100%)",
             },
           }}
         >

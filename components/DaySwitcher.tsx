@@ -60,10 +60,12 @@ const DaySwitcher = ({
       })}
     >
       <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ gap: 1 }}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: isInline ? "1fr" : "48px minmax(0, 1fr) 48px",
+          alignItems: "center",
+          gap: 1,
+        }}
       >
         {!isInline && (
           <IconButton
@@ -108,6 +110,14 @@ const DaySwitcher = ({
                   }
                 }}
                 format="EEEE, MMMM d"
+                slotProps={{
+                  openPickerButton: {
+                    sx: { display: "none" },
+                  },
+                  inputAdornment: {
+                    sx: { display: "none" },
+                  },
+                }}
                 slots={{
                   textField: (params) => (
                     <TextField
@@ -119,6 +129,9 @@ const DaySwitcher = ({
                         textAlign: "center",
                         "& .MuiInputBase-root": {
                           justifyContent: "center",
+                        },
+                        "& .MuiInputAdornment-root": {
+                          display: "none",
                         },
                         "& input": {
                           fontFamily: '"Manrope", sans-serif',

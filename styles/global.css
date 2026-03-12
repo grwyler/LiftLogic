@@ -2,15 +2,15 @@
 
 :root {
   --app-bg:
-    radial-gradient(circle at top, rgba(243, 156, 18, 0.2), transparent 30%),
-    linear-gradient(180deg, #f5efe3 0%, #ece7de 48%, #e3dfd8 100%);
-  --app-surface: rgba(255, 252, 247, 0.88);
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.24), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #edf3fb 52%, #e2ebf8 100%);
+  --app-surface: rgba(255, 255, 255, 0.82);
   --app-surface-strong: rgba(255, 255, 255, 0.94);
-  --app-border: rgba(73, 54, 36, 0.12);
-  --app-text: #241b14;
-  --app-muted: #69594a;
-  --app-shadow: 0 24px 80px rgba(45, 28, 12, 0.14);
-  --app-shadow-soft: 0 10px 30px rgba(45, 28, 12, 0.08);
+  --app-border: rgba(148, 163, 184, 0.22);
+  --app-text: #0f172a;
+  --app-muted: #475569;
+  --app-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+  --app-shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 html,
@@ -50,7 +50,7 @@ select {
 }
 
 ::selection {
-  background: rgba(219, 142, 55, 0.22);
+  background: rgba(96, 165, 250, 0.28);
 }
 
 @keyframes spin {
@@ -106,8 +106,8 @@ select {
 }
 
 .user-profile-button.dark-mode {
-  background-color: rgba(38, 33, 28, 0.82);
-  color: #f8f3ec;
+  background-color: rgba(15, 23, 42, 0.82);
+  color: #e5eefc;
 }
 
 .user-profile-button.light-mode {
@@ -129,7 +129,7 @@ select {
 }
 
 .bg-custom-dark {
-  background-color: #26211c;
+  background-color: #0f172a;
 }
 
 .form-control {

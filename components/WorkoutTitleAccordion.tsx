@@ -1,20 +1,12 @@
 import React from "react";
-import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography,
-  Box,
-  Button,
-  TextField,
-  Chip,
-} from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { Typography, Box, Button, TextField, Chip, Paper, Stack, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
+import RepeatIcon from "@mui/icons-material/Repeat";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import WorkoutDropdown from "./WorkoutsDropdown";
-import CRUDMenuButton from "./CRUDMenuButton";
 
 const WorkoutTitleAccordion = ({
   workoutTitle,
@@ -34,44 +26,21 @@ const WorkoutTitleAccordion = ({
   setWorkoutTitle,
   setIsPersistent,
 }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  const [showTitleMenu, setShowTitleMenu] = React.useState(false);
-
-  // Force the accordion open if editing or creating
-  const forcedOpen = isEditTitle || isCreateTitle;
-
-  // Helper to capitalize day or other text
   function capitalizeFirstLetter(str = "") {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  // For demonstration, assume currentDay is "tuesday"
   const currentDay = "tuesday";
   const capitalizedDay = capitalizeFirstLetter(currentDay);
-
-  const handleAccordionToggle = (event, newExpanded) => {
-    // Only allow toggling if we aren't forced open
-    if (!forcedOpen) {
-      setShowTitleMenu(false);
-      setExpanded(newExpanded);
-    }
-  };
-
-  const handleUpdateWorkout = () => {
-    handleEditClick();
-    setShowTitleMenu(false);
-  };
-
   const isLastWorkout = workouts.length === 1;
   const currentWorkout = workouts[selectedWorkoutIndex];
 
   return (
-    <Accordion
-      expanded={forcedOpen || expanded}
-      onChange={handleAccordionToggle}
+    <Paper
+      elevation={0}
       sx={{
         mb: 2,
-        borderRadius: "24px !important",
+        borderRadius: 4,
         border: "1px solid",
         borderColor: "divider",
         overflow: "hidden",
@@ -79,24 +48,18 @@ const WorkoutTitleAccordion = ({
           ? "rgba(255,255,255,0.03)"
           : "rgba(255,255,255,0.56)",
         color: "text.primary",
-        boxShadow: "none",
-        "&:before": { display: "none" },
       }}
     >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
+      <Box
         sx={{
-          px: { xs: 2, sm: 2.5 },
-          py: 1,
-          "& .MuiAccordionSummary-content": {
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1.5,
-          },
+          p: { xs: 2, sm: 2.5 },
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
         {isEditTitle || isCreateTitle ? (
-          <Box flex={1} display="flex" justifyContent="center">
+          <>
             <TextField
               value={workoutTitle}
               autoFocus
@@ -112,78 +75,104 @@ const WorkoutTitleAccordion = ({
                 },
               }}
             />
-          </Box>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={
+                  isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
+                }
+                disabled={
+                  !workoutTitle ||
+                  workoutTitle === currentWorkout.title ||
+                  workouts.some((w) => w.title === workoutTitle)
+                }
+                startIcon={<SaveIcon />}
+              >
+                {isCreateTitle ? "Create Workout" : "Save Name"}
+              </Button>
+
+              <Button
+                variant="outlined"
+                onClick={handleCancelEditTitle}
+                disabled={isLastWorkout && !workoutTitle}
+                startIcon={<CloseIcon />}
+              >
+                Cancel
+              </Button>
+            </Stack>
+          </>
         ) : (
           <>
-            <Box onClick={(e) => e.stopPropagation()}>
-              <CRUDMenuButton
-                darkMode={darkMode}
-                handleDelete={isLastWorkout ? undefined : handleDeleteWorkout}
-                handleUpdate={handleUpdateWorkout}
-                onClickMenuButton={() => setShowTitleMenu((prev) => !prev)}
-                show={showTitleMenu}
-              />
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: { xs: "flex-start", sm: "center" },
+                justifyContent: "space-between",
+                gap: 1.25,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+                <Box>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  >
+                    Current Workout
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: '"Manrope", sans-serif',
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    {workoutTitle}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Chip
+                  size="small"
+                  label={`${workouts.length} workout${workouts.length === 1 ? "" : "s"}`}
+                  sx={{
+                    borderRadius: 999,
+                    backgroundColor: darkMode
+                      ? "rgba(255,255,255,0.05)"
+                      : "rgba(59,130,246,0.08)",
+                    color: "text.secondary",
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={handleEditClick}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    backgroundColor: "background.paper",
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                {!isLastWorkout && (
+                  <IconButton
+                    size="small"
+                    onClick={handleDeleteWorkout}
+                    sx={{
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: "background.paper",
+                      color: "error.main",
+                    }}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
             </Box>
-            <Typography
-              variant="h6"
-              component="div"
-              sx={{
-                flexGrow: 1,
-                textAlign: "center",
-                fontWeight: "bold",
-                fontFamily: '"Manrope", sans-serif',
-              }}
-            >
-              {workoutTitle}
-            </Typography>
-            <Chip
-              size="small"
-              label={`${workouts.length} routine${workouts.length === 1 ? "" : "s"}`}
-              sx={{
-                borderRadius: 999,
-                backgroundColor: darkMode
-                  ? "rgba(255,255,255,0.05)"
-                  : "rgba(184,106,31,0.08)",
-                color: "text.secondary",
-              }}
-            />
-          </>
-        )}
-      </AccordionSummary>
 
-      <AccordionDetails>
-        {isEditTitle || isCreateTitle ? (
-          <Box display="flex" justifyContent="center" mt={1} gap={1.25} flexWrap="wrap">
-            <Button
-              variant="contained"
-              color="success"
-              onClick={
-                isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
-              }
-              disabled={
-                !workoutTitle ||
-                workoutTitle === currentWorkout.title ||
-                workouts.some((w) => w.title === workoutTitle)
-              }
-              startIcon={<SaveIcon />}
-            >
-              {isCreateTitle ? "Create" : "Save"}
-            </Button>
-
-            <Button
-              variant="outlined"
-              onClick={handleCancelEditTitle}
-              disabled={isLastWorkout && !workoutTitle}
-              startIcon={<CloseIcon />}
-            >
-              Cancel
-            </Button>
-          </Box>
-        ) : (
-          <Box sx={{ px: { xs: 0.5, sm: 1 }, pb: 0.5 }}>
-            {/* Show the WorkoutDropdown if there's more than one workout */}
             {workouts.length > 1 && (
-              <Box sx={{ textAlign: "center", mb: 2 }}>
+              <Box>
                 <WorkoutDropdown
                   workouts={workouts}
                   darkMode={darkMode}
@@ -192,7 +181,7 @@ const WorkoutTitleAccordion = ({
               </Box>
             )}
 
-            <Box sx={{ mb: 2 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
               <Button
                 onClick={handleAddWorkout}
                 variant="contained"
@@ -201,24 +190,22 @@ const WorkoutTitleAccordion = ({
                 sx={{
                   py: 1.15,
                   background:
-                    "linear-gradient(135deg, rgba(184,106,31,1) 0%, rgba(224,155,62,1) 100%)",
-                  color: "#fffaf3",
+                    "linear-gradient(135deg, rgba(37,99,235,1) 0%, rgba(14,165,233,1) 100%)",
+                  color: "#eff6ff",
                   "&:hover": {
                     background:
-                      "linear-gradient(135deg, rgba(166,92,21,1) 0%, rgba(209,142,53,1) 100%)",
+                      "linear-gradient(135deg, rgba(29,78,216,1) 0%, rgba(2,132,199,1) 100%)",
                   },
                 }}
               >
-                Add New Workout Routine
+                New Workout
               </Button>
-            </Box>
 
-            <Box>
               <Button
                 variant="outlined"
                 fullWidth
+                startIcon={<RepeatIcon />}
                 title={`Adds an Exercise that repeats every ${capitalizedDay}`}
-                startIcon={<AddIcon />}
                 onClick={() => {
                   setIsPersistent(true);
                   setIsAddingExercise(true);
@@ -227,11 +214,11 @@ const WorkoutTitleAccordion = ({
               >
                 Add Recurring Exercise
               </Button>
-            </Box>
-          </Box>
+            </Stack>
+          </>
         )}
-      </AccordionDetails>
-    </Accordion>
+      </Box>
+    </Paper>
   );
 };
 

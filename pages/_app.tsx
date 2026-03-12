@@ -19,20 +19,20 @@ function MyApp({ Component, pageProps }: AppProps) {
     palette: {
       mode: darkMode ? "dark" : "light",
       primary: {
-        main: darkMode ? "#f0b35f" : "#b86a1f",
+        main: darkMode ? "#7cc4ff" : "#2563eb",
       },
       secondary: {
-        main: darkMode ? "#8fb8ff" : "#315ea8",
+        main: darkMode ? "#9ccfd8" : "#0f766e",
       },
       background: {
-        default: darkMode ? "#1b1612" : "#ece7de",
-        paper: darkMode ? "rgba(38, 33, 28, 0.9)" : "rgba(255, 252, 247, 0.88)",
+        default: darkMode ? "#0b1220" : "#edf3fb",
+        paper: darkMode ? "rgba(15, 23, 42, 0.86)" : "rgba(255, 255, 255, 0.82)",
       },
       text: {
-        primary: darkMode ? "#f8f3ec" : "#241b14",
-        secondary: darkMode ? "#cbbcae" : "#69594a",
+        primary: darkMode ? "#e5eefc" : "#0f172a",
+        secondary: darkMode ? "#9fb0cc" : "#475569",
       },
-      divider: darkMode ? "rgba(255,255,255,0.1)" : "rgba(73,54,36,0.12)",
+      divider: darkMode ? "rgba(148,163,184,0.2)" : "rgba(148,163,184,0.22)",
     },
     shape: {
       borderRadius: 18,
@@ -64,8 +64,8 @@ function MyApp({ Component, pageProps }: AppProps) {
         styleOverrides: {
           body: {
             backgroundImage: darkMode
-              ? "radial-gradient(circle at top, rgba(240, 179, 95, 0.18), transparent 24%), linear-gradient(180deg, #1b1612 0%, #17120f 100%)"
-              : "radial-gradient(circle at top, rgba(243, 156, 18, 0.2), transparent 30%), linear-gradient(180deg, #f5efe3 0%, #ece7de 48%, #e3dfd8 100%)",
+              ? "radial-gradient(circle at top, rgba(59, 130, 246, 0.22), transparent 24%), linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
+              : "radial-gradient(circle at top, rgba(96, 165, 250, 0.26), transparent 28%), linear-gradient(180deg, #f8fbff 0%, #edf3fb 52%, #e2ebf8 100%)",
           },
         },
       },

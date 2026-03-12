@@ -185,8 +185,8 @@ const RoutinesPage = ({
                   borderBottom: "1px solid",
                   borderColor: "divider",
                   background: darkMode
-                    ? "linear-gradient(180deg, rgba(240,179,95,0.08) 0%, rgba(255,255,255,0) 100%)"
-                    : "linear-gradient(180deg, rgba(184,106,31,0.08) 0%, rgba(255,255,255,0) 100%)",
+                    ? "linear-gradient(180deg, rgba(96,165,250,0.12) 0%, rgba(255,255,255,0) 100%)"
+                    : "linear-gradient(180deg, rgba(59,130,246,0.1) 0%, rgba(255,255,255,0) 100%)",
                 }}
               >
                 <Typography
