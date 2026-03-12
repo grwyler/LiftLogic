@@ -1,63 +1,67 @@
 import React, { Fragment } from "react";
 import { roundToNearestFive } from "../utils/helpers";
-import { Card, CardContent, Box, Typography, IconButton } from "@mui/material";
+import { Paper, Box, Typography, IconButton, Chip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
   const { weight, reps, seconds, minutes, hours } = set;
 
   return (
-    <Card
+    <Paper
       key={`card-set-item-${set.name}`}
+      elevation={0}
       sx={{
-        m: 2,
-        backgroundColor: darkMode ? "grey.900" : "grey.100",
+        mx: 2,
+        my: 1,
+        px: 1.5,
+        py: 1.1,
+        borderRadius: 2.5,
+        backgroundColor: darkMode ? "rgba(15,23,42,0.54)" : "rgba(248,250,252,0.9)",
         color: darkMode ? "white" : "black",
-        border: darkMode ? "1px solid #6c757d" : "1px solid #dee2e6",
+        border: "1px solid",
+        borderColor: darkMode ? "rgba(148,163,184,0.16)" : "rgba(148,163,184,0.22)",
       }}
     >
-      <CardContent
+      <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          p: 2,
+          gap: 1,
         }}
       >
-        <Box
-          sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1 }}
-        >
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {set.name}
+          </Typography>
           {type === "weight" && (
-            <Fragment>
-              <Typography variant="body2">
-                {roundToNearestFive(weight)} lbs.
-              </Typography>
-              <Typography variant="body2">{set.name}</Typography>
-              <Typography variant="body2">{reps} reps</Typography>
-            </Fragment>
+            <Box sx={{ mt: 0.6, display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+              <Chip
+                size="small"
+                label={`${roundToNearestFive(weight)} lbs`}
+                color="primary"
+                variant="outlined"
+              />
+              <Chip size="small" label={`${reps} reps`} variant="outlined" />
+            </Box>
           )}
           {type === "timed" && (
-            <Fragment>
-              <Typography variant="body2">{set.name}</Typography>
+            <Box sx={{ mt: 0.6, display: "flex", gap: 1, flexWrap: "wrap" }}>
               {hours > 0 && <Typography variant="body2">{hours}h</Typography>}
-              {minutes > 0 && (
-                <Typography variant="body2">{minutes}m</Typography>
-              )}
-              {seconds > 0 && (
-                <Typography variant="body2">{seconds}s</Typography>
-              )}
-            </Fragment>
+              {minutes > 0 && <Typography variant="body2">{minutes}m</Typography>}
+              {seconds > 0 && <Typography variant="body2">{seconds}s</Typography>}
+            </Box>
           )}
         </Box>
         <IconButton
           size="small"
           onClick={() => handleDeleteSet(set.name)}
-          sx={{ ml: 2, p: 0 }}
+          sx={{ ml: 1, p: 0.25, color: "text.secondary" }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
-      </CardContent>
-    </Card>
+      </Box>
+    </Paper>
   );
 };
 

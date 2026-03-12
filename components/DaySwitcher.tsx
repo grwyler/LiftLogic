@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Paper, IconButton, Button, TextField, Typography } from "@mui/material";
+import { Box, Paper, IconButton, Button, TextField, Typography, Chip } from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
@@ -48,139 +48,170 @@ const DaySwitcher = ({
     <Paper
       elevation={0}
       sx={(theme) => ({
-        p: { xs: 1.5, sm: 2 },
-        mb: 2,
-        borderRadius: 4,
+        p: { xs: 1.25, sm: 1.5 },
+        mb: 2.5,
+        borderRadius: 5,
         border: "1px solid",
         borderColor: "divider",
         bgcolor: darkMode
-          ? "rgba(255,255,255,0.03)"
-          : "rgba(255,255,255,0.52)",
+          ? "rgba(15,23,42,0.72)"
+          : "rgba(255,255,255,0.86)",
         color: theme.palette.text.primary,
+        boxShadow: darkMode
+          ? "0 18px 44px rgba(2,6,23,0.22)"
+          : "0 18px 38px rgba(148,163,184,0.16)",
       })}
     >
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: isInline ? "1fr" : "48px minmax(0, 1fr) 48px",
-          alignItems: "center",
-          gap: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1.25,
         }}
       >
-        {!isInline && (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "44px minmax(0, 1fr) 44px",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <IconButton
             onClick={handlePreviousDay}
-            size="large"
+            size="small"
             sx={{
+              width: 44,
+              height: 44,
               border: "1px solid",
               borderColor: "divider",
-              backgroundColor: "background.paper",
+              backgroundColor: darkMode
+                ? "rgba(255,255,255,0.04)"
+                : "rgba(248,250,252,0.92)",
             }}
           >
-            <ChevronLeft fontSize="inherit" />
+            <ChevronLeft fontSize="small" />
           </IconButton>
-        )}
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="overline"
-            sx={{ display: "block", textAlign: "center", color: "text.secondary" }}
-          >
-            Workout Date
-          </Typography>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            {isInline ? (
-              <StaticDatePicker
-                displayStaticWrapperAs="desktop"
-                value={currentDate}
-                onChange={(newDate) => {
-                  if (newDate) {
-                    setCurrentDate(newDate);
-                    handleCurrentDayChange(newDate, true);
-                  }
-                }}
-              />
-            ) : (
-              <DatePicker
-                value={currentDate}
-                onChange={(newDate) => {
-                  if (newDate) {
-                    setCurrentDate(newDate);
-                    handleCurrentDayChange(newDate, true);
-                  }
-                }}
-                format="EEEE, MMMM d"
-                slotProps={{
-                  openPickerButton: {
-                    sx: { display: "none" },
-                  },
-                  inputAdornment: {
-                    sx: { display: "none" },
-                  },
-                }}
-                slots={{
-                  textField: (params) => (
-                    <TextField
-                      {...params}
-                      variant="standard"
-                      sx={{
-                        mx: 2,
-                        width: "100%",
-                        textAlign: "center",
-                        "& .MuiInputBase-root": {
-                          justifyContent: "center",
-                        },
-                        "& .MuiInputAdornment-root": {
-                          display: "none",
-                        },
-                        "& input": {
-                          fontFamily: '"Manrope", sans-serif',
-                          fontSize: { xs: "1rem", sm: "1.15rem" },
-                          fontWeight: 700,
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="overline"
+              sx={{
+                display: "block",
+                textAlign: "center",
+                color: "text.secondary",
+                letterSpacing: "0.12em",
+              }}
+            >
+              Workout Day
+            </Typography>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              {isInline ? (
+                <StaticDatePicker
+                  displayStaticWrapperAs="desktop"
+                  value={currentDate}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      setCurrentDate(newDate);
+                      handleCurrentDayChange(newDate, true);
+                    }
+                  }}
+                />
+              ) : (
+                <DatePicker
+                  value={currentDate}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      setCurrentDate(newDate);
+                      handleCurrentDayChange(newDate, true);
+                    }
+                  }}
+                  format="EEEE, MMMM d"
+                  slotProps={{
+                    openPickerButton: {
+                      sx: { display: "none" },
+                    },
+                    inputAdornment: {
+                      sx: { display: "none" },
+                    },
+                  }}
+                  slots={{
+                    textField: (params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        sx={{
+                          width: "100%",
                           textAlign: "center",
-                        },
-                      }}
-                      InputProps={{
-                        ...params.InputProps,
-                        readOnly: true,
-                        disableUnderline: true,
-                      }}
-                    />
-                  ),
-                }}
-              />
-            )}
-          </LocalizationProvider>
-        </Box>
+                          "& .MuiInputBase-root": {
+                            justifyContent: "center",
+                          },
+                          "& .MuiInputAdornment-root": {
+                            display: "none",
+                          },
+                          "& input": {
+                            fontFamily: '"Manrope", sans-serif',
+                            fontSize: { xs: "1.05rem", sm: "1.2rem" },
+                            fontWeight: 800,
+                            textAlign: "center",
+                            letterSpacing: "-0.02em",
+                          },
+                        }}
+                        InputProps={{
+                          ...params.InputProps,
+                          readOnly: true,
+                          disableUnderline: true,
+                        }}
+                      />
+                    ),
+                  }}
+                />
+              )}
+            </LocalizationProvider>
+          </Box>
 
-        {!isInline && (
           <IconButton
             onClick={handleNextDay}
-            size="large"
+            size="small"
             sx={{
+              width: 44,
+              height: 44,
               border: "1px solid",
               borderColor: "divider",
-              backgroundColor: "background.paper",
+              backgroundColor: darkMode
+                ? "rgba(255,255,255,0.04)"
+                : "rgba(248,250,252,0.92)",
             }}
           >
-            <ChevronRight fontSize="inherit" />
+            <ChevronRight fontSize="small" />
           </IconButton>
-        )}
-      </Box>
+        </Box>
 
-      <Box display="flex" justifyContent="center" mt={2} gap={1} flexWrap="wrap">
-        <Button
-          variant="outlined"
-          startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
-          onClick={() => setIsInline((prev) => !prev)}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
         >
-          {isInline ? "Compact Picker" : "Expanded Picker"}
-        </Button>
-        {!isToday && (
-          <Button variant="outlined" onClick={handleBackToToday}>
-            Back to Today
+          {isToday && <Chip size="small" label="Today" color="primary" variant="outlined" />}
+          <Button
+            variant="text"
+            size="small"
+            startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
+            onClick={() => setIsInline((prev) => !prev)}
+            sx={{ minWidth: "auto" }}
+          >
+            {isInline ? "Hide Calendar" : "Pick Date"}
           </Button>
-        )}
+          {!isToday && (
+            <Button variant="text" size="small" onClick={handleBackToToday}>
+              Jump to Today
+            </Button>
+          )}
+        </Box>
       </Box>
     </Paper>
   );

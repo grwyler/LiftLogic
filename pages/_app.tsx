@@ -19,23 +19,23 @@ function MyApp({ Component, pageProps }: AppProps) {
     palette: {
       mode: darkMode ? "dark" : "light",
       primary: {
-        main: darkMode ? "#7cc4ff" : "#2563eb",
+        main: darkMode ? "#dbe7f5" : "#1f2937",
       },
       secondary: {
-        main: darkMode ? "#9ccfd8" : "#0f766e",
+        main: darkMode ? "#94a3b8" : "#475569",
       },
       background: {
-        default: darkMode ? "#0b1220" : "#edf3fb",
-        paper: darkMode ? "rgba(15, 23, 42, 0.86)" : "rgba(255, 255, 255, 0.82)",
+        default: darkMode ? "#0f1720" : "#f3f5f7",
+        paper: darkMode ? "rgba(20, 27, 36, 0.92)" : "rgba(255, 255, 255, 0.94)",
       },
       text: {
-        primary: darkMode ? "#e5eefc" : "#0f172a",
-        secondary: darkMode ? "#9fb0cc" : "#475569",
+        primary: darkMode ? "#e7edf4" : "#111827",
+        secondary: darkMode ? "#95a3b8" : "#6b7280",
       },
-      divider: darkMode ? "rgba(148,163,184,0.2)" : "rgba(148,163,184,0.22)",
+      divider: darkMode ? "rgba(148,163,184,0.12)" : "rgba(17,24,39,0.08)",
     },
     shape: {
-      borderRadius: 18,
+      borderRadius: 12,
     },
     typography: {
       fontFamily: '"Instrument Sans", sans-serif',
@@ -64,8 +64,8 @@ function MyApp({ Component, pageProps }: AppProps) {
         styleOverrides: {
           body: {
             backgroundImage: darkMode
-              ? "radial-gradient(circle at top, rgba(59, 130, 246, 0.22), transparent 24%), linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
-              : "radial-gradient(circle at top, rgba(96, 165, 250, 0.26), transparent 28%), linear-gradient(180deg, #f8fbff 0%, #edf3fb 52%, #e2ebf8 100%)",
+              ? "radial-gradient(circle at top, rgba(148, 163, 184, 0.08), transparent 24%), linear-gradient(180deg, #0f1720 0%, #111827 100%)"
+              : "radial-gradient(circle at top, rgba(148, 163, 184, 0.08), transparent 26%), linear-gradient(180deg, #f7f7f6 0%, #eef1f4 100%)",
           },
         },
       },
@@ -83,11 +83,20 @@ function MyApp({ Component, pageProps }: AppProps) {
         },
         styleOverrides: {
           root: {
-            borderRadius: 999,
-            paddingInline: 16,
+            borderRadius: 10,
+            paddingInline: 14,
+            minHeight: 40,
           },
           contained: {
-            boxShadow: "0 12px 28px rgba(0,0,0,0.14)",
+            boxShadow: "none",
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            borderRadius: 10,
+            fontWeight: 600,
           },
         },
       },

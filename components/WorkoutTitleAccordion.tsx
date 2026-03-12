@@ -39,23 +39,26 @@ const WorkoutTitleAccordion = ({
     <Paper
       elevation={0}
       sx={{
-        mb: 2,
-        borderRadius: 4,
+        mb: 2.25,
+        borderRadius: 5,
         border: "1px solid",
         borderColor: "divider",
         overflow: "hidden",
         backgroundColor: darkMode
-          ? "rgba(255,255,255,0.03)"
-          : "rgba(255,255,255,0.56)",
+          ? "rgba(15,23,42,0.72)"
+          : "rgba(255,255,255,0.88)",
         color: "text.primary",
+        boxShadow: darkMode
+          ? "0 18px 44px rgba(2,6,23,0.2)"
+          : "0 18px 38px rgba(148,163,184,0.14)",
       }}
     >
       <Box
         sx={{
-          p: { xs: 2, sm: 2.5 },
+          p: { xs: 1.75, sm: 2 },
           display: "flex",
           flexDirection: "column",
-          gap: 2,
+          gap: 1.5,
         }}
       >
         {isEditTitle || isCreateTitle ? (
@@ -110,31 +113,32 @@ const WorkoutTitleAccordion = ({
                 alignItems: { xs: "flex-start", sm: "center" },
                 justifyContent: "space-between",
                 gap: 1.25,
+                flexWrap: "wrap",
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-                <Box>
-                  <Typography
-                    variant="overline"
-                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-                  >
-                    Current Workout
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontFamily: '"Manrope", sans-serif',
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    {workoutTitle}
-                  </Typography>
-                </Box>
+              <Box>
+                <Typography
+                  variant="overline"
+                  sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                >
+                  Workout
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontFamily: '"Manrope", sans-serif',
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  {workoutTitle}
+                </Typography>
               </Box>
+
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Chip
                   size="small"
-                  label={`${workouts.length} workout${workouts.length === 1 ? "" : "s"}`}
+                  label={`${workouts.length} saved`}
                   sx={{
                     borderRadius: 999,
                     backgroundColor: darkMode
@@ -172,7 +176,7 @@ const WorkoutTitleAccordion = ({
             </Box>
 
             {workouts.length > 1 && (
-              <Box>
+              <Box sx={{ pt: 0.25 }}>
                 <WorkoutDropdown
                   workouts={workouts}
                   darkMode={darkMode}
@@ -181,14 +185,15 @@ const WorkoutTitleAccordion = ({
               </Box>
             )}
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <Button
                 onClick={handleAddWorkout}
                 variant="contained"
                 fullWidth
                 startIcon={<AddIcon />}
                 sx={{
-                  py: 1.15,
+                  py: 1,
+                  borderRadius: 999,
                   background:
                     "linear-gradient(135deg, rgba(37,99,235,1) 0%, rgba(14,165,233,1) 100%)",
                   color: "#eff6ff",
@@ -210,7 +215,7 @@ const WorkoutTitleAccordion = ({
                   setIsPersistent(true);
                   setIsAddingExercise(true);
                 }}
-                sx={{ py: 1.1 }}
+                sx={{ py: 1, borderRadius: 999 }}
               >
                 Add Recurring Exercise
               </Button>

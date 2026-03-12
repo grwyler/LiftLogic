@@ -2,7 +2,11 @@ import React, { Dispatch, SetStateAction, useState } from "react";
 import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import ExerciseSelector from "./ExerciseSelector";
 import ExerciseEditItem from "./ExerciseEditItem";
-import { saveRecurringRule, saveWorkoutEntry } from "../utils/helpers";
+import {
+  fetchExerciseProgress,
+  saveRecurringRule,
+  saveWorkoutEntry,
+} from "../utils/helpers";
 
 interface ExerciseManagerProps {
   index: number;
@@ -16,6 +20,55 @@ interface ExerciseManagerProps {
 }
 
 const DEFAULT_MAX_WEIGHT = 35;
+const DEFAULT_TIMED_SECONDS = 60;
+
+const getExerciseProfile = (exercise: any) => {
+  const name = String(exercise?.name ?? "").toLowerCase();
+  const equipment = Array.isArray(exercise?.equipment)
+    ? exercise.equipment.join(" ").toLowerCase()
+    : String(exercise?.equipment ?? "").toLowerCase();
+
+  if (/deadlift/.test(name)) {
+    return { sets: 3, reps: 5, weight: 135 };
+  }
+
+  if (/squat|leg press/.test(name)) {
+    return { sets: 3, reps: 6, weight: 135 };
+  }
+
+  if (/bench/.test(name)) {
+    return { sets: 3, reps: 6, weight: 95 };
+  }
+
+  if (/overhead press|shoulder press/.test(name)) {
+    return { sets: 3, reps: 6, weight: 65 };
+  }
+
+  if (/row|pull down|pulldown/.test(name)) {
+    return { sets: 3, reps: 8, weight: 90 };
+  }
+
+  if (/curl|raise|tricep|fly|extension/.test(name)) {
+    return { sets: 3, reps: 10, weight: 25 };
+  }
+
+  if (/bodyweight/.test(equipment) || /pull-up|push-up|dip|plank/.test(name)) {
+    return { sets: 3, reps: 10, weight: 0 };
+  }
+
+  if (/dumbbell/.test(equipment)) {
+    return { sets: 3, reps: 8, weight: 35 };
+  }
+
+  return {
+    sets: 3,
+    reps: 8,
+    weight:
+      exercise?.max ??
+      exercise?.defaultMax ??
+      DEFAULT_MAX_WEIGHT,
+  };
+};
 
 const parseLocalDate = (value: string) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -55,33 +108,52 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   const resolveExerciseType = (exercise: any) =>
     exercise.type === "timed" ? "timed" : "weight";
 
-  const buildExerciseDraft = (exercise: any) => {
+  const buildExerciseDraft = async (exercise: any) => {
     const exerciseType = resolveExerciseType(exercise);
-    const defaultSet = {
+    const normalizedExerciseId = normalizeExerciseId(exercise);
+    const progress = await fetchExerciseProgress(userId, normalizedExerciseId).catch(
+      () => null
+    );
+    const recommendation = progress?.recommendation ?? null;
+    const profile = getExerciseProfile(exercise);
+    const recommendedSetCount =
+      recommendation?.recommendedSets ?? profile.sets ?? 3;
+    const recommendedReps =
+      recommendation?.recommendedReps ?? profile.reps ?? 8;
+    const recommendedWeight =
+      recommendation?.recommendedWeight ??
+      profile.weight ??
+      exercise.max ??
+      exercise.defaultMax ??
+      DEFAULT_MAX_WEIGHT;
+
+    const defaultSets = Array.from({ length: recommendedSetCount }, (_, index) => ({
       ...(exerciseType === "timed"
         ? {
-            name: "Timed Set 1",
-            seconds: 60,
+            name: `Timed Set ${index + 1}`,
+            seconds: DEFAULT_TIMED_SECONDS,
             actualSeconds: "",
           }
         : {
-            name: "Working Set 1",
-            reps: 10,
-            weight: exercise.max || DEFAULT_MAX_WEIGHT,
+            name: `Working Set ${index + 1}`,
+            reps: recommendedReps,
+            weight: recommendedWeight,
             actualWeight: "",
             actualReps: "",
           }),
       complete: false,
-    };
+    }));
+
     const newExercise = {
       ...exercise,
       type: exerciseType,
-      exerciseId: normalizeExerciseId(exercise),
+      exerciseId: normalizedExerciseId,
       routineName: currentWorkoutTitle,
       userId,
       date,
       isPersistent,
-      sets: [defaultSet], // default to 1 set
+      max: exercise.max ?? exercise.defaultMax ?? recommendedWeight,
+      sets: defaultSets,
     };
 
     return newExercise;
@@ -117,14 +189,14 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   };
 
   // When an exercise is added, default it to one set and open the modal for editing.
-  const handleAddExercise = (exercise: any) => {
-    const newExercise = buildExerciseDraft(exercise);
+  const handleAddExercise = async (exercise: any) => {
+    const newExercise = await buildExerciseDraft(exercise);
     setSelectedExercise(newExercise);
     setOpenEditModal(true);
   };
 
   const handleQuickAddExercise = async (exercise: any) => {
-    const newExercise = buildExerciseDraft(exercise);
+    const newExercise = await buildExerciseDraft(exercise);
     await persistExercise(newExercise);
     setRefetchExercises((prev) => !prev);
     setIsAddingExercise(false);

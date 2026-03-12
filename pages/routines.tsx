@@ -154,6 +154,9 @@ const RoutinesPage = ({
           minHeight: "100vh",
           px: { xs: 1.5, sm: 2.5 },
           py: { xs: 2, sm: 3 },
+          background: darkMode
+            ? "radial-gradient(circle at top, rgba(37,99,235,0.18), transparent 38%), linear-gradient(180deg, #020617 0%, #0f172a 100%)"
+            : "radial-gradient(circle at top, rgba(96,165,250,0.22), transparent 34%), linear-gradient(180deg, #eff6ff 0%, #e2e8f0 100%)",
         }}
       >
         <Box
@@ -168,9 +171,10 @@ const RoutinesPage = ({
             borderColor: "divider",
             borderRadius: { xs: 4, sm: 6 },
             boxShadow: darkMode
-              ? "0 24px 70px rgba(0,0,0,0.32)"
-              : "0 28px 80px rgba(45,28,12,0.14)",
+              ? "0 28px 90px rgba(2,6,23,0.5)"
+              : "0 28px 80px rgba(15,23,42,0.14)",
             backdropFilter: "blur(20px)",
+            overflow: "hidden",
           }}
         >
           {loading ? (
@@ -181,12 +185,12 @@ const RoutinesPage = ({
                 sx={{
                   px: { xs: 2, sm: 3 },
                   pt: { xs: 2.5, sm: 3.5 },
-                  pb: 2,
+                  pb: 2.5,
                   borderBottom: "1px solid",
                   borderColor: "divider",
                   background: darkMode
-                    ? "linear-gradient(180deg, rgba(96,165,250,0.12) 0%, rgba(255,255,255,0) 100%)"
-                    : "linear-gradient(180deg, rgba(59,130,246,0.1) 0%, rgba(255,255,255,0) 100%)",
+                    ? "linear-gradient(180deg, rgba(37,99,235,0.18) 0%, rgba(255,255,255,0) 100%)"
+                    : "linear-gradient(180deg, rgba(59,130,246,0.14) 0%, rgba(255,255,255,0) 100%)",
                 }}
               >
                 <Typography
@@ -199,12 +203,19 @@ const RoutinesPage = ({
                 >
                   Lift Logic
                 </Typography>
-                <Typography variant="h4" sx={{ mt: 0.5 }}>
-                  Your training plan
+                <Typography
+                  variant="h3"
+                  sx={{
+                    mt: 0.5,
+                    fontFamily: '"Manrope", sans-serif',
+                    letterSpacing: "-0.05em",
+                  }}
+                >
+                  Train with less friction
                 </Typography>
                 <Typography sx={{ mt: 1, color: "text.secondary" }}>
-                  Track today&apos;s workout, build routines, and keep recurring
-                  lifts organized in one place.
+                  Open a day, follow the next set, log what you actually did,
+                  and let the app adapt the rest.
                 </Typography>
                 <Header
                   user={user}
@@ -213,7 +224,7 @@ const RoutinesPage = ({
                   darkMode={darkMode}
                 />
               </Box>
-              <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.75, sm: 2.25 } }}>
                 <WorkoutsManager
                   routine={routine}
                   setRoutine={setRoutine}

@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
   Button,
+  Chip,
 } from "@mui/material";
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -281,102 +282,92 @@ const SelectedSetItem = ({
     <Paper
       key={setIndex}
       sx={{
-        p: 2,
+        p: { xs: 1.5, sm: 1.75 },
         m: 2,
-        borderRadius: 2,
-        boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+        borderRadius: 3,
+        border: "1px solid",
+        borderColor: darkMode ? "rgba(148,163,184,0.14)" : "rgba(17,24,39,0.08)",
+        boxShadow: darkMode
+          ? "0 12px 28px rgba(0,0,0,0.14)"
+          : "0 12px 28px rgba(17,24,39,0.06)",
         transition: "box-shadow 0.5s ease",
-        backgroundColor: darkMode ? "grey.900" : "white",
+        backgroundColor: darkMode ? "rgba(17,24,39,0.92)" : "rgba(255,255,255,0.98)",
       }}
     >
-      {/* Set Name and Timer Controls */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-        <TextField
-          value={setName}
-          onChange={(e) => setSetName(e.target.value)}
-          variant="outlined"
-          fullWidth
-          size="small"
-          label="Set Name"
-          sx={{
-            backgroundColor: darkMode ? "grey.800" : "inherit",
-            "& input": { color: darkMode ? "white" : "inherit" },
-          }}
-        />
-        {currentExercise.type === "timed" &&
-          (timerActive ? (
-            <Button
-              variant="text"
-              color="secondary"
-              onClick={handlePauseTimer}
-              sx={{ ml: 1 }}
-            >
-              <PauseIcon />
-            </Button>
-          ) : (
-            <Button
-              disabled={
-                currentExercise.type === "timed" &&
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 1,
+          flexWrap: "wrap",
+          mb: 1.5,
+        }}
+      >
+        <Box>
+          <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+            Active Set
+          </Typography>
+          <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
+            {setName}
+          </Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 0.75, alignItems: "center", flexWrap: "wrap" }}>
+          <Button
+            disabled={
+              (!timerActive && currentExercise.type === "timed") ||
+              (currentExercise.type === "timed" && initialTimerActive) ||
+              (currentExercise.type === "timed" &&
                 seconds === 0 &&
                 minutes === 0 &&
-                hours === 0
-              }
-              variant="text"
-              color="primary"
-              onClick={handleStartTimer}
-              sx={{ ml: 1 }}
-            >
-              <PlayArrowIcon />
-            </Button>
-          ))}
-        <Button
-          disabled={
-            (!timerActive && currentExercise.type === "timed") ||
-            (currentExercise.type === "timed" && initialTimerActive) ||
-            (currentExercise.type === "timed" &&
-              seconds === 0 &&
-              minutes === 0 &&
-              hours === 0) ||
-            (currentExercise.type === "weight" && !currentSetReps) ||
-            (currentExercise.type === "weight" && !currentSetWeight)
-          }
-          variant="contained"
-          color="success"
-          size="small"
-          onClick={handleLogSet}
-          sx={{ ml: 1 }}
-        >
-          {timerActive && currentExercise.type === "timed"
-            ? "Complete Set"
-            : currentExercise.type === "weight"
-            ? "Log Set"
-            : "Complete Set"}
-        </Button>
+                hours === 0) ||
+              (currentExercise.type === "weight" && !currentSetReps) ||
+              (currentExercise.type === "weight" && !currentSetWeight)
+            }
+            variant="contained"
+            color="success"
+            size="small"
+            onClick={handleLogSet}
+            sx={{
+              borderRadius: 10,
+              px: 1.75,
+              backgroundColor: darkMode ? "#e5e7eb" : "#111827",
+              color: darkMode ? "#111827" : "#f9fafb",
+              "&:hover": {
+                backgroundColor: darkMode ? "#f3f4f6" : "#000000",
+              },
+            }}
+          >
+            {timerActive && currentExercise.type === "timed"
+              ? "Complete Set"
+              : currentExercise.type === "weight"
+              ? "Log Set"
+              : "Complete Set"}
+          </Button>
+        </Box>
       </Box>
 
       {/* Weight-Based Exercises */}
       {currentExercise.type === "weight" && (
         <>
-          {/* Recommended Section for Barbell Exercises */}
           <Paper
             variant="outlined"
             sx={{
-              p: 1,
-              mb: 1,
-              backgroundColor: darkMode ? "grey.800" : "grey.100",
+              p: 1.25,
+              mb: 1.25,
+              borderRadius: 2,
+              backgroundColor: darkMode ? "rgba(30,41,59,0.72)" : "rgba(249,250,251,0.92)",
+              borderColor: darkMode ? "rgba(148,163,184,0.14)" : "rgba(17,24,39,0.08)",
             }}
           >
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: "bold", mb: 0.5, display: "block" }}
-            >
-              Recommended
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+              Planned Target
             </Typography>
-            <Typography variant="body2">
-              {roundToNearestFive(set.weight)} lbs | {reps} reps
-            </Typography>
-            <Typography>
+            <Box sx={{ display: "flex", gap: 0.75, mt: 0.75, flexWrap: "wrap" }}>
+              <Chip label={`${roundToNearestFive(set.weight)} lbs`} variant="outlined" />
+              <Chip label={`${reps} reps`} variant="outlined" />
+            </Box>
+            <Typography sx={{ mt: 1, color: "text.secondary" }}>
               {calculateWeights(roundToNearestFive(set.weight))}
             </Typography>
             {(set as any).adjustmentReason && (
@@ -393,12 +384,11 @@ const SelectedSetItem = ({
 
           <Divider sx={{ mb: 1 }} />
 
-          {/* User Input Section */}
           <Box sx={{ mb: 1 }}>
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontWeight: "bold", mb: 0.5, display: "block" }}
+              sx={{ fontWeight: 700, mb: 1, display: "block" }}
             >
               Your Input
             </Typography>
@@ -420,7 +410,10 @@ const SelectedSetItem = ({
                 label="Weight"
                 autoFocus
                 sx={{
-                  backgroundColor: darkMode ? "grey.800" : "inherit",
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2.5,
+                    backgroundColor: darkMode ? "rgba(31,41,55,0.9)" : "rgba(255,255,255,0.96)",
+                  },
                   "& input": { color: darkMode ? "white" : "inherit" },
                 }}
               />
@@ -428,12 +421,12 @@ const SelectedSetItem = ({
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  pl: 1,
+                  justifyContent: "center",
                   border: "1px solid",
                   borderColor: darkMode ? "grey.700" : "grey.400",
-                  borderRadius: 1,
+                  borderRadius: 2,
                   minWidth: 80,
-                  p: 0.5,
+                  px: 1.25,
                 }}
               >
                 <Typography variant="button">lbs</Typography>
@@ -451,7 +444,10 @@ const SelectedSetItem = ({
                 fullWidth
                 label="Reps"
                 sx={{
-                  backgroundColor: darkMode ? "grey.800" : "inherit",
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2.5,
+                    backgroundColor: darkMode ? "rgba(31,41,55,0.9)" : "rgba(255,255,255,0.96)",
+                  },
                   "& input": { color: darkMode ? "white" : "inherit" },
                 }}
               />
@@ -459,12 +455,12 @@ const SelectedSetItem = ({
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  pl: 1,
+                  justifyContent: "center",
                   border: "1px solid",
                   borderColor: darkMode ? "grey.700" : "grey.400",
-                  borderRadius: 1,
+                  borderRadius: 2,
                   minWidth: 80,
-                  p: 0.5,
+                  px: 1.25,
                 }}
               >
                 <Typography variant="button">reps</Typography>
@@ -477,26 +473,44 @@ const SelectedSetItem = ({
       {/* Timed Exercises */}
       {currentExercise.type === "timed" &&
         (!timerActive ? (
-          <TimerInput
-            hours={hours}
-            setHours={setHours}
-            minutes={minutes}
-            setMinutes={setMinutes}
-            seconds={seconds}
-            setSeconds={setSeconds}
-            handleBlur={handleBlur}
-            handleInputChange={handleInputChange}
-            darkMode={darkMode}
-          />
+          <>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Timer Input
+              </Typography>
+              <Button
+                disabled={seconds === 0 && minutes === 0 && hours === 0}
+                variant="text"
+                color="primary"
+                onClick={handleStartTimer}
+                startIcon={<PlayArrowIcon />}
+                sx={{ minWidth: "auto" }}
+              >
+                Start
+              </Button>
+            </Box>
+            <TimerInput
+              hours={hours}
+              setHours={setHours}
+              minutes={minutes}
+              setMinutes={setMinutes}
+              seconds={seconds}
+              setSeconds={setSeconds}
+              handleBlur={handleBlur}
+              handleInputChange={handleInputChange}
+              darkMode={darkMode}
+            />
+          </>
         ) : (
-          <Typography variant="h6" sx={{ fontWeight: "bold", m: 1 }}>
-            {formatTime(countdown)}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold", m: 1 }}>
+              {formatTime(countdown)}
+            </Typography>
+            <Button variant="text" color="secondary" onClick={handlePauseTimer} startIcon={<PauseIcon />}>
+              Pause
+            </Button>
+          </Box>
         ))}
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* Removed Action Buttons for Active Workout Tracking */}
     </Paper>
   );
 };

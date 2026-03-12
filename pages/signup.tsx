@@ -36,22 +36,29 @@ const SignUp: React.FC = () => {
 
     try {
       setIsSigningIn(true);
+      setError("");
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setIsSigningIn(false);
+        setError(data?.message ? `Error during registration: ${data.message}` : "Error during registration.");
+        return;
+      }
       const result = await signIn("credentials", {
         username,
         password,
         redirect: false,
       });
-      if (response.ok && result) {
+      if (!result?.error) {
         console.log("User registered successfully!");
         router.push("/user");
       } else {
         setIsSigningIn(false);
-        setError("Error during registration: " + response.statusText);
+        setError("Account created, but automatic sign-in failed.");
       }
     } catch (error) {
       setIsSigningIn(false);

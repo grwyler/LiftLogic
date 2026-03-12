@@ -4,6 +4,7 @@ import RepeatIcon from "@mui/icons-material/Repeat";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CheckIcon from "@mui/icons-material/Check";
 import AddIcon from "@mui/icons-material/Add";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
@@ -469,15 +470,15 @@ const ExerciseItem = ({
         key={`exercise-log-${currentExercise.name}-${exerciseIndex}`}
         elevation={0}
         sx={{
-          p: 2,
-          my: 2,
-          borderRadius: 4,
+          p: 1.75,
+          my: 1.25,
+          borderRadius: 3,
           border: "1px solid",
-          borderColor: darkMode ? "rgba(148,163,184,0.18)" : "rgba(148,163,184,0.32)",
-          backgroundColor: darkMode ? "rgba(15,23,42,0.72)" : "rgba(248,250,252,0.96)",
+          borderColor: darkMode ? "rgba(148,163,184,0.12)" : "rgba(17,24,39,0.08)",
+          backgroundColor: darkMode ? "rgba(17,24,39,0.88)" : "rgba(255,255,255,0.94)",
           boxShadow: darkMode
-            ? "0 10px 30px rgba(0,0,0,0.18)"
-            : "0 10px 24px rgba(148,163,184,0.14)",
+            ? "0 12px 28px rgba(0,0,0,0.16)"
+            : "0 10px 24px rgba(17,24,39,0.06)",
         }}
       >
         <Box
@@ -585,39 +586,64 @@ const ExerciseItem = ({
     );
   }
 
+  const isExpanded = exerciseIndex === currentExerciseIndex;
+  const completedCount =
+    currentExercise.sets?.filter((s) => s.complete).length ?? 0;
+  const totalCount = currentExercise.sets?.length ?? 0;
+  const nextOpenSet =
+    currentExercise.sets?.find((s) => !s.complete) ?? currentExercise.sets?.[0];
+  const upcomingWeight =
+    currentExercise.type === "weight" && nextOpenSet?.weight
+      ? Math.round((Number(nextOpenSet.weight) || 0) / 5) * 5
+      : null;
+  const upcomingReps =
+    currentExercise.type === "weight" ? nextOpenSet?.reps ?? null : null;
+
   return (
-    <Paper
-      key={`exercise-${exercise.name}-${exerciseIndex}`}
-      elevation={currentExerciseIndex === exerciseIndex ? 4 : 1}
+      <Paper
+        key={`exercise-${exercise.name}-${exerciseIndex}`}
+        elevation={0}
       sx={{
-        p: 2,
-        my: 2,
-        borderRadius: 2,
+        p: 1.5,
+        my: 1.5,
+        borderRadius: 3,
         backgroundColor:
-          currentExerciseIndex === exerciseIndex
+          isExpanded
             ? darkMode
-              ? "grey.800"
-              : "white"
+              ? "rgba(17,24,39,0.92)"
+              : "rgba(255,255,255,0.98)"
             : darkMode
-            ? "grey.900"
-            : "transparent",
-        border:
-          currentExerciseIndex === exerciseIndex
-            ? "2px solid #007bff"
-            : "1px solid rgba(0,123,255,0.2)",
+            ? "rgba(17,24,39,0.72)"
+            : "rgba(249,250,251,0.96)",
+        border: "1px solid",
+        borderColor: isExpanded
+          ? darkMode
+            ? "rgba(148,163,184,0.18)"
+            : "rgba(17,24,39,0.12)"
+          : darkMode
+          ? "rgba(148,163,184,0.1)"
+          : "rgba(17,24,39,0.08)",
         transition: "all 0.2s ease-in-out",
         "&:hover": {
-          boxShadow: "0px 4px 16px rgba(0,123,255,0.3)",
+          boxShadow: darkMode
+            ? "0 14px 28px rgba(0,0,0,0.16)"
+            : "0 14px 24px rgba(17,24,39,0.06)",
         },
       }}
     >
       <Box
-        className="d-flex justify-content-between align-items-center"
         onClick={() => handleWorkoutButtonClick(exerciseIndex)}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "auto minmax(0,1fr) auto",
+          alignItems: "center",
+          gap: 1.25,
+          cursor: "pointer",
+        }}
       >
         <Box
           onClick={(e) => e.stopPropagation()}
-          className="d-flex justify-content-center"
+          sx={{ display: "flex", alignItems: "center", gap: 0.25 }}
         >
           <CRUDMenuButton
             darkMode={darkMode}
@@ -639,32 +665,58 @@ const ExerciseItem = ({
           <IconButton
             onClick={toggleRepeat}
             title="Toggle on to make this exercise repeat next week"
+            size="small"
           >
             <RepeatIcon
               color={isRepeating ? "primary" : "disabled"}
+              fontSize="small"
             />
           </IconButton>
         </Box>
 
-        <Typography variant="h6">
-          {toTitleCase(currentExercise.name)}
-        </Typography>
-        {currentExercise.complete && (
-          <CheckIcon sx={{ color: "success.main", mr: 1 }} />
-        )}
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
+            {toTitleCase(currentExercise.name)}
+          </Typography>
+          <Box sx={{ mt: 0.65, display: "flex", gap: 0.75, flexWrap: "wrap", alignItems: "center" }}>
+            <Chip
+              size="small"
+              icon={
+                completedCount === totalCount && totalCount > 0 ? (
+                  <CheckIcon fontSize="small" />
+                ) : (
+                  <RadioButtonUncheckedIcon fontSize="small" />
+                )
+              }
+              label={`${completedCount}/${totalCount} sets`}
+              variant="outlined"
+              sx={{
+                backgroundColor: darkMode
+                  ? "rgba(255,255,255,0.03)"
+                  : "rgba(255,255,255,0.8)",
+                borderColor: darkMode
+                  ? "rgba(148,163,184,0.14)"
+                  : "rgba(17,24,39,0.08)",
+              }}
+            />
+            {currentExercise.type === "weight" && upcomingWeight && upcomingReps ? (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Next up: {upcomingWeight} x {upcomingReps}
+              </Typography>
+            ) : null}
+          </Box>
+        </Box>
 
         <ExpandMoreIcon
           sx={{
+            color: "text.secondary",
             transition: "transform 0.2s ease-in-out",
-            transform:
-              currentExerciseIndex === exerciseIndex
-                ? "rotate(180deg)"
-                : "rotate(0deg)",
+            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
           }}
         />
       </Box>
 
-      {exerciseIndex === currentExerciseIndex &&
+      {isExpanded &&
         currentExercise.sets &&
         currentExercise.sets.map((s, i) => {
           if (i === currentSetIndex) {
@@ -709,7 +761,7 @@ const ExerciseItem = ({
           }
         })}
 
-      {exerciseIndex === currentExerciseIndex && (
+      {isExpanded && (
         <>
           <Button
             variant="outlined"
@@ -721,9 +773,25 @@ const ExerciseItem = ({
               mt: 3,
               mb: 2,
               width: "100%",
+              borderRadius: 10,
+              borderColor: darkMode
+                ? "rgba(148,163,184,0.14)"
+                : "rgba(17,24,39,0.1)",
+              color: "text.primary",
+              backgroundColor: darkMode
+                ? "rgba(255,255,255,0.02)"
+                : "rgba(249,250,251,0.8)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              "&:hover": {
+                borderColor: darkMode
+                  ? "rgba(148,163,184,0.2)"
+                  : "rgba(17,24,39,0.14)",
+                backgroundColor: darkMode
+                  ? "rgba(255,255,255,0.05)"
+                  : "rgba(243,244,246,0.96)",
+              },
             }}
           >
             Add Set
