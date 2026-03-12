@@ -5,14 +5,17 @@ export interface ExerciseSet {
   reps?: number;
   percentage?: number;
   weight?: number;
-  actualReps?: string;
-  actualWeight?: string;
+  actualReps?: number | string;
+  actualWeight?: number | string;
   seconds?: number;
-  actualSeconds?: string;
+  actualSeconds?: number | string;
   minutes?: number;
-  actualMinutes?: string;
+  actualMinutes?: number | string;
   hours?: number;
-  actualHours?: string;
+  actualHours?: number | string;
+  totalSeconds?: number | string;
+  complete?: boolean;
+  completedDate?: Date | string;
 }
 
 export interface Exercise {
@@ -75,6 +78,9 @@ export interface WorkoutEntryDoc {
   _id?: ObjectId;
   userId: string;
   exerciseId: ObjectId | string;
+  name?: string;
+  type?: "timed" | "weight";
+  max?: number;
   routineName: string;
   date: Date;
   rest?: number;

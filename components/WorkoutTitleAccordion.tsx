@@ -1,5 +1,13 @@
 import React from "react";
-import { Typography, Box, Button, TextField, Chip, Paper, Stack, IconButton } from "@mui/material";
+import {
+  Typography,
+  Box,
+  Button,
+  TextField,
+  Paper,
+  Stack,
+  IconButton,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
@@ -26,12 +34,6 @@ const WorkoutTitleAccordion = ({
   setWorkoutTitle,
   setIsPersistent,
 }) => {
-  function capitalizeFirstLetter(str = "") {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
-
-  const currentDay = "tuesday";
-  const capitalizedDay = capitalizeFirstLetter(currentDay);
   const isLastWorkout = workouts.length === 1;
   const currentWorkout = workouts[selectedWorkoutIndex];
 
@@ -39,18 +41,14 @@ const WorkoutTitleAccordion = ({
     <Paper
       elevation={0}
       sx={{
-        mb: 2.25,
-        borderRadius: 5,
+        mb: 2,
+        borderRadius: 4,
         border: "1px solid",
         borderColor: "divider",
         overflow: "hidden",
         backgroundColor: darkMode
-          ? "rgba(15,23,42,0.72)"
+          ? "rgba(12,18,30,0.76)"
           : "rgba(255,255,255,0.88)",
-        color: "text.primary",
-        boxShadow: darkMode
-          ? "0 18px 44px rgba(2,6,23,0.2)"
-          : "0 18px 38px rgba(148,163,184,0.14)",
       }}
     >
       <Box
@@ -69,19 +67,10 @@ const WorkoutTitleAccordion = ({
               onChange={(e) => setWorkoutTitle(e.target.value)}
               placeholder="Workout name"
               fullWidth
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 999,
-                  backgroundColor: darkMode
-                    ? "rgba(255,255,255,0.04)"
-                    : "rgba(255,255,255,0.84)",
-                },
-              }}
             />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <Button
                 variant="contained"
-                color="success"
                 onClick={
                   isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
                 }
@@ -92,7 +81,7 @@ const WorkoutTitleAccordion = ({
                 }
                 startIcon={<SaveIcon />}
               >
-                {isCreateTitle ? "Create Workout" : "Save Name"}
+                {isCreateTitle ? "Create workout" : "Save name"}
               </Button>
 
               <Button
@@ -113,40 +102,19 @@ const WorkoutTitleAccordion = ({
                 alignItems: { xs: "flex-start", sm: "center" },
                 justifyContent: "space-between",
                 gap: 1.25,
-                flexWrap: "wrap",
               }}
             >
               <Box>
                 <Typography
                   variant="overline"
-                  sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
                 >
                   Workout
                 </Typography>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontFamily: '"Manrope", sans-serif',
-                    lineHeight: 1.05,
-                    letterSpacing: "-0.03em",
-                  }}
-                >
-                  {workoutTitle}
-                </Typography>
+                <Typography variant="h5">{workoutTitle}</Typography>
               </Box>
 
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Chip
-                  size="small"
-                  label={`${workouts.length} saved`}
-                  sx={{
-                    borderRadius: 999,
-                    backgroundColor: darkMode
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(59,130,246,0.08)",
-                    color: "text.secondary",
-                  }}
-                />
+              <Stack direction="row" spacing={0.75}>
                 <IconButton
                   size="small"
                   onClick={handleEditClick}
@@ -172,11 +140,11 @@ const WorkoutTitleAccordion = ({
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
                 )}
-              </Box>
+              </Stack>
             </Box>
 
             {workouts.length > 1 && (
-              <Box sx={{ pt: 0.25 }}>
+              <Box>
                 <WorkoutDropdown
                   workouts={workouts}
                   darkMode={darkMode}
@@ -191,33 +159,20 @@ const WorkoutTitleAccordion = ({
                 variant="contained"
                 fullWidth
                 startIcon={<AddIcon />}
-                sx={{
-                  py: 1,
-                  borderRadius: 999,
-                  background:
-                    "linear-gradient(135deg, rgba(37,99,235,1) 0%, rgba(14,165,233,1) 100%)",
-                  color: "#eff6ff",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(135deg, rgba(29,78,216,1) 0%, rgba(2,132,199,1) 100%)",
-                  },
-                }}
               >
-                New Workout
+                New workout
               </Button>
 
               <Button
                 variant="outlined"
                 fullWidth
                 startIcon={<RepeatIcon />}
-                title={`Adds an Exercise that repeats every ${capitalizedDay}`}
                 onClick={() => {
                   setIsPersistent(true);
                   setIsAddingExercise(true);
                 }}
-                sx={{ py: 1, borderRadius: 999 }}
               >
-                Add Recurring Exercise
+                Add recurring exercise
               </Button>
             </Stack>
           </>

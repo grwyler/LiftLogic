@@ -1,10 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Paper, Box, Button, Typography, IconButton, Chip } from "@mui/material";
+import {
+  Paper,
+  Box,
+  Button,
+  Typography,
+  IconButton,
+  Chip,
+  Dialog,
+  AppBar,
+  Toolbar,
+} from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CheckIcon from "@mui/icons-material/Check";
 import AddIcon from "@mui/icons-material/Add";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import CloseIcon from "@mui/icons-material/Close";
 import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
@@ -48,6 +58,7 @@ const ExerciseItem = ({
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
+
   const currentUserId =
     (session as any)?.token?.user?._id ??
     (session as any)?.user?._id ??
@@ -65,6 +76,7 @@ const ExerciseItem = ({
 
     if (!currentUserId || !exerciseId || currentExercise?.type !== "weight") {
       setRecommendation(null);
+      setProgressSummary(null);
       setLoadingRecommendation(false);
       return;
     }
@@ -194,8 +206,12 @@ const ExerciseItem = ({
           p: 1.5,
           borderRadius: 3,
           border: "1px solid",
-          borderColor: darkMode ? "rgba(96,165,250,0.3)" : "rgba(59,130,246,0.22)",
-          backgroundColor: darkMode ? "rgba(15,23,42,0.8)" : "rgba(239,246,255,0.92)",
+          borderColor: darkMode
+            ? "rgba(148,163,184,0.12)"
+            : "rgba(17,24,39,0.08)",
+          backgroundColor: darkMode
+            ? "rgba(17,24,39,0.72)"
+            : "rgba(249,250,251,0.92)",
         }}
       >
         <Box
@@ -210,14 +226,7 @@ const ExerciseItem = ({
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Performance
           </Typography>
-          {trendLabel ? (
-            <Chip
-              size="small"
-              label={trendLabel}
-              color={trendColor as any}
-              variant="outlined"
-            />
-          ) : null}
+          <Chip size="small" label={trendLabel} color={trendColor as any} variant="outlined" />
         </Box>
 
         {loadingRecommendation ? (
@@ -226,19 +235,8 @@ const ExerciseItem = ({
           </Typography>
         ) : latestEstimated1RM ? (
           <>
-            <Box
-              sx={{
-                mt: 1,
-                display: "flex",
-                gap: 1,
-                flexWrap: "wrap",
-              }}
-            >
-              <Chip
-                label={`Est. 1RM ${latestEstimated1RM}`}
-                color="primary"
-                sx={{ fontWeight: 700 }}
-              />
+            <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Chip label={`Est. 1RM ${latestEstimated1RM}`} variant="outlined" />
               {delta !== null ? (
                 <Chip
                   label={`${delta > 0 ? "+" : ""}${delta} vs last`}
@@ -246,10 +244,7 @@ const ExerciseItem = ({
                 />
               ) : null}
               {heaviestWeightEver ? (
-                <Chip
-                  label={`Best weight ${heaviestWeightEver}`}
-                  variant="outlined"
-                />
+                <Chip label={`Best weight ${heaviestWeightEver}`} variant="outlined" />
               ) : null}
             </Box>
 
@@ -460,9 +455,12 @@ const ExerciseItem = ({
   };
 
   if (currentExercise.complete) {
-    const completedSetCount = currentExercise.sets?.filter((s) => s.complete).length ?? 0;
+    const completedSetCount =
+      currentExercise.sets?.filter((s) => s.complete).length ?? 0;
     const completedExerciseName =
-      toTitleCase(currentExercise.name) || toTitleCase(exercise.name) || "Completed Exercise";
+      toTitleCase(currentExercise.name) ||
+      toTitleCase(exercise.name) ||
+      "Completed Exercise";
     const completedExerciseType = currentExercise.type ?? exercise.type;
 
     return (
@@ -474,8 +472,12 @@ const ExerciseItem = ({
           my: 1.25,
           borderRadius: 3,
           border: "1px solid",
-          borderColor: darkMode ? "rgba(148,163,184,0.12)" : "rgba(17,24,39,0.08)",
-          backgroundColor: darkMode ? "rgba(17,24,39,0.88)" : "rgba(255,255,255,0.94)",
+          borderColor: darkMode
+            ? "rgba(148,163,184,0.12)"
+            : "rgba(17,24,39,0.08)",
+          backgroundColor: darkMode
+            ? "rgba(17,24,39,0.88)"
+            : "rgba(255,255,255,0.94)",
           boxShadow: darkMode
             ? "0 12px 28px rgba(0,0,0,0.16)"
             : "0 10px 24px rgba(17,24,39,0.06)",
@@ -551,7 +553,9 @@ const ExerciseItem = ({
             {completedSetCount} completed set{completedSetCount === 1 ? "" : "s"}
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            {completedExerciseType === "weight" ? "Performance log" : "Completed timer log"}
+            {completedExerciseType === "weight"
+              ? "Performance log"
+              : "Completed timer log"}
           </Typography>
         </Box>
 
@@ -586,7 +590,7 @@ const ExerciseItem = ({
     );
   }
 
-  const isExpanded = exerciseIndex === currentExerciseIndex;
+  const isOpen = exerciseIndex === currentExerciseIndex;
   const completedCount =
     currentExercise.sets?.filter((s) => s.complete).length ?? 0;
   const totalCount = currentExercise.sets?.length ?? 0;
@@ -600,169 +604,238 @@ const ExerciseItem = ({
     currentExercise.type === "weight" ? nextOpenSet?.reps ?? null : null;
 
   return (
+    <>
       <Paper
         key={`exercise-${exercise.name}-${exerciseIndex}`}
         elevation={0}
-      sx={{
-        p: 1.5,
-        my: 1.5,
-        borderRadius: 3,
-        backgroundColor:
-          isExpanded
-            ? darkMode
-              ? "rgba(17,24,39,0.92)"
-              : "rgba(255,255,255,0.98)"
-            : darkMode
+        sx={{
+          p: 1.5,
+          my: 1.5,
+          borderRadius: 3,
+          backgroundColor: darkMode
             ? "rgba(17,24,39,0.72)"
             : "rgba(249,250,251,0.96)",
-        border: "1px solid",
-        borderColor: isExpanded
-          ? darkMode
-            ? "rgba(148,163,184,0.18)"
-            : "rgba(17,24,39,0.12)"
-          : darkMode
-          ? "rgba(148,163,184,0.1)"
-          : "rgba(17,24,39,0.08)",
-        transition: "all 0.2s ease-in-out",
-        "&:hover": {
-          boxShadow: darkMode
-            ? "0 14px 28px rgba(0,0,0,0.16)"
-            : "0 14px 24px rgba(17,24,39,0.06)",
-        },
-      }}
-    >
-      <Box
-        onClick={() => handleWorkoutButtonClick(exerciseIndex)}
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "auto minmax(0,1fr) auto",
-          alignItems: "center",
-          gap: 1.25,
-          cursor: "pointer",
+          border: "1px solid",
+          borderColor: darkMode
+            ? "rgba(148,163,184,0.1)"
+            : "rgba(17,24,39,0.08)",
+          transition: "all 0.2s ease-in-out",
+          "&:hover": {
+            boxShadow: darkMode
+              ? "0 14px 28px rgba(0,0,0,0.16)"
+              : "0 14px 24px rgba(17,24,39,0.06)",
+          },
         }}
       >
         <Box
-          onClick={(e) => e.stopPropagation()}
-          sx={{ display: "flex", alignItems: "center", gap: 0.25 }}
+          onClick={() => handleWorkoutButtonClick(exerciseIndex)}
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "auto minmax(0,1fr) auto",
+            alignItems: "center",
+            gap: 1.25,
+            cursor: "pointer",
+          }}
         >
-          <CRUDMenuButton
-            darkMode={darkMode}
-            handleDelete={() => {
-              if (isRepeating) {
-                setShowDeleteDialog(true);
-              } else {
-                handleDelete("today");
-              }
-            }}
-            handleUpdate={handleUpdate}
-            onClickMenuButton={() =>
-              setShownMenuIndex(
-                shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
-              )
-            }
-            show={shownMenuIndex === exerciseIndex}
-          />
-          <IconButton
-            onClick={toggleRepeat}
-            title="Toggle on to make this exercise repeat next week"
-            size="small"
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{ display: "flex", alignItems: "center", gap: 0.25 }}
           >
-            <RepeatIcon
-              color={isRepeating ? "primary" : "disabled"}
-              fontSize="small"
-            />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-            {toTitleCase(currentExercise.name)}
-          </Typography>
-          <Box sx={{ mt: 0.65, display: "flex", gap: 0.75, flexWrap: "wrap", alignItems: "center" }}>
-            <Chip
-              size="small"
-              icon={
-                completedCount === totalCount && totalCount > 0 ? (
-                  <CheckIcon fontSize="small" />
-                ) : (
-                  <RadioButtonUncheckedIcon fontSize="small" />
+            <CRUDMenuButton
+              darkMode={darkMode}
+              handleDelete={() => {
+                if (isRepeating) {
+                  setShowDeleteDialog(true);
+                } else {
+                  handleDelete("today");
+                }
+              }}
+              handleUpdate={handleUpdate}
+              onClickMenuButton={() =>
+                setShownMenuIndex(
+                  shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
                 )
               }
-              label={`${completedCount}/${totalCount} sets`}
-              variant="outlined"
-              sx={{
-                backgroundColor: darkMode
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(255,255,255,0.8)",
-                borderColor: darkMode
-                  ? "rgba(148,163,184,0.14)"
-                  : "rgba(17,24,39,0.08)",
-              }}
+              show={shownMenuIndex === exerciseIndex}
             />
-            {currentExercise.type === "weight" && upcomingWeight && upcomingReps ? (
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Next up: {upcomingWeight} x {upcomingReps}
-              </Typography>
-            ) : null}
+            <IconButton
+              onClick={toggleRepeat}
+              title="Toggle on to make this exercise repeat next week"
+              size="small"
+            >
+              <RepeatIcon
+                color={isRepeating ? "primary" : "disabled"}
+                fontSize="small"
+              />
+            </IconButton>
           </Box>
+
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
+              {toTitleCase(currentExercise.name)}
+            </Typography>
+            <Box
+              sx={{
+                mt: 0.65,
+                display: "flex",
+                gap: 0.75,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              <Chip
+                size="small"
+                icon={
+                  completedCount === totalCount && totalCount > 0 ? (
+                    <CheckIcon fontSize="small" />
+                  ) : (
+                    <RadioButtonUncheckedIcon fontSize="small" />
+                  )
+                }
+                label={`${completedCount}/${totalCount} sets`}
+                variant="outlined"
+                sx={{
+                  backgroundColor: darkMode
+                    ? "rgba(255,255,255,0.03)"
+                    : "rgba(255,255,255,0.8)",
+                  borderColor: darkMode
+                    ? "rgba(148,163,184,0.14)"
+                    : "rgba(17,24,39,0.08)",
+                }}
+              />
+              {currentExercise.type === "weight" && upcomingWeight && upcomingReps ? (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Next up: {upcomingWeight} x {upcomingReps}
+                </Typography>
+              ) : null}
+            </Box>
+          </Box>
+
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", fontWeight: 600 }}
+          >
+            Open
+          </Typography>
         </Box>
+      </Paper>
 
-        <ExpandMoreIcon
+      <Dialog
+        fullScreen
+        open={isOpen}
+        onClose={() => setCurrentExerciseIndex(-1)}
+        PaperProps={{
+          sx: {
+            backgroundColor: darkMode ? "#0f1720" : "#f8fafc",
+            backgroundImage: "none",
+          },
+        }}
+      >
+        <AppBar
+          position="sticky"
+          elevation={0}
+          color="transparent"
           sx={{
-            color: "text.secondary",
-            transition: "transform 0.2s ease-in-out",
-            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+            borderBottom: "1px solid",
+            borderColor: darkMode
+              ? "rgba(148,163,184,0.12)"
+              : "rgba(17,24,39,0.08)",
+            backdropFilter: "blur(18px)",
+            backgroundColor: darkMode
+              ? "rgba(15,23,32,0.82)"
+              : "rgba(248,250,252,0.88)",
           }}
-        />
-      </Box>
+        >
+          <Toolbar sx={{ gap: 1, minHeight: { xs: 72, sm: 80 } }}>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={() => setCurrentExerciseIndex(-1)}
+            >
+              <CloseIcon />
+            </IconButton>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+              >
+                Exercise
+              </Typography>
+              <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
+                {toTitleCase(currentExercise.name)}
+              </Typography>
+              <Typography sx={{ color: "text.secondary", mt: 0.25 }}>
+                {completedCount}/{totalCount} sets logged
+                {currentExercise.type === "weight" && upcomingWeight && upcomingReps
+                  ? ` | Next target ${upcomingWeight} x ${upcomingReps}`
+                  : ""}
+              </Typography>
+            </Box>
+            <IconButton
+              onClick={toggleRepeat}
+              title="Toggle on to make this exercise repeat next week"
+              color="inherit"
+            >
+              <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
 
-      {isExpanded &&
-        currentExercise.sets &&
-        currentExercise.sets.map((s, i) => {
-          if (i === currentSetIndex) {
-            return (
-              <SelectedSetItem
-                key={`selectedSetItem-${i}`}
-                routineName={routineName}
-                set={s}
-                currentExercise={currentExercise}
-                progressionStyle={recommendation?.progressionStyle}
-                setIndex={i}
-                currentExerciseIndex={currentExerciseIndex}
-                setCurrentSetIndex={setCurrentSetIndex}
-                setCurrentExercise={setCurrentExercise}
-                formattedDate={formattedDate}
-                setCurrentExerciseIndex={setCurrentExerciseIndex}
-                workout={workout}
-                darkMode={darkMode}
-              />
-            );
-          } else if (s.complete) {
-            return (
-              <CompletedSetItem
-                key={`completedSetItem-${i}`}
-                set={s}
-                setIndex={i}
-                setCurrentSetIndex={setCurrentSetIndex}
-                type={currentExercise.type}
-                darkMode={darkMode}
-              />
-            );
-          } else {
-            return (
-              <SetItem
-                key={`setItem-${i}`}
-                set={s}
-                handleDeleteSet={(setName) => handleDeleteSet(setName)}
-                type={currentExercise.type}
-                darkMode={darkMode}
-              />
-            );
-          }
-        })}
+        <Box
+          sx={{
+            px: { xs: 1, sm: 2 },
+            py: { xs: 1.5, sm: 2 },
+            maxWidth: 820,
+            width: "100%",
+            mx: "auto",
+          }}
+        >
+          {currentExercise.sets &&
+            currentExercise.sets.map((s, i) => {
+              if (i === currentSetIndex) {
+                return (
+                  <SelectedSetItem
+                    key={`selectedSetItem-${i}`}
+                    routineName={routineName}
+                    set={s}
+                    currentExercise={currentExercise}
+                    progressionStyle={recommendation?.progressionStyle}
+                    setIndex={i}
+                    currentExerciseIndex={currentExerciseIndex}
+                    setCurrentSetIndex={setCurrentSetIndex}
+                    setCurrentExercise={setCurrentExercise}
+                    formattedDate={formattedDate}
+                    setCurrentExerciseIndex={setCurrentExerciseIndex}
+                    workout={workout}
+                    darkMode={darkMode}
+                  />
+                );
+              }
 
-      {isExpanded && (
-        <>
+              if (s.complete) {
+                return (
+                  <CompletedSetItem
+                    key={`completedSetItem-${i}`}
+                    set={s}
+                    setIndex={i}
+                    setCurrentSetIndex={setCurrentSetIndex}
+                    type={currentExercise.type}
+                    darkMode={darkMode}
+                  />
+                );
+              }
+
+              return (
+                <SetItem
+                  key={`setItem-${i}`}
+                  set={s}
+                  handleDeleteSet={(setName) => handleDeleteSet(setName)}
+                  type={currentExercise.type}
+                  darkMode={darkMode}
+                />
+              );
+            })}
+
           <Button
             variant="outlined"
             size="small"
@@ -796,8 +869,8 @@ const ExerciseItem = ({
           >
             Add Set
           </Button>
-        </>
-      )}
+        </Box>
+      </Dialog>
 
       <DeleteDialog
         open={showDeleteDialog}
@@ -812,7 +885,7 @@ const ExerciseItem = ({
         }}
         targetDate={formattedDate}
       />
-    </Paper>
+    </>
   );
 };
 

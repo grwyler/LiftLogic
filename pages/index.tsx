@@ -6,24 +6,15 @@ const HomePage: React.FC = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if the session identifier is present in local storage
+    const storedSession = localStorage.getItem("session");
     const sessionId = localStorage.getItem("sessionId");
 
-    if (sessionId) {
-      // Redirect to the routines page if the session identifier is present
+    if (storedSession || sessionId) {
       router.push("/routines");
     }
-  }, []);
+  }, [router]);
 
-  return (
-    <div
-      className="container border p-2 rounded vh-100"
-      style={{ maxWidth: 600 }}
-    >
-      <h3 className="m-3 text-center">Home</h3>
-      <SignIn />
-    </div>
-  );
+  return <SignIn />;
 };
 
 export default HomePage;

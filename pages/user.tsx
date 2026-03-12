@@ -157,7 +157,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     const nextUser = {
       ...user,
       darkMode: form.darkMode,
-      preferredUnits: form.preferredUnits,
+      preferredUnits: form.preferredUnits as "lb" | "kg",
       height: form.height,
       weight: form.weight,
       trainingGoal: form.trainingGoal,
@@ -194,7 +194,13 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", px: { xs: 1.5, sm: 2.5 }, py: { xs: 2, sm: 3 } }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        px: { xs: 1.5, sm: 2.5 },
+        py: { xs: 2, sm: 3 },
+      }}
+    >
       <Box
         sx={{
           maxWidth: 760,
@@ -222,8 +228,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
             </Typography>
             <Typography variant="h4">Account settings</Typography>
             <Typography sx={{ mt: 1, color: "text.secondary" }}>
-              Keep this page focused on preferences that improve your workout
-              experience, not generic health trivia.
+              Keep this focused on the settings that genuinely improve your
+              training flow.
             </Typography>
           </Box>
           <Button
@@ -235,11 +241,9 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
           </Button>
         </Box>
 
-        <Alert severity="info" sx={{ borderRadius: 3 }}>
-          Recommended fields for this app: appearance, units, a couple of body
-          metrics if you care about them, your primary training goal, and a few
-          notes. I removed age, gender, diet, and activity-level placeholders
-          because they don&apos;t currently power any useful feature here.
+        <Alert severity="info" sx={{ borderRadius: 2.5 }}>
+          Keep this light: units, goal, weekly target, and any notes that
+          should influence your recommendations.
         </Alert>
 
         <Box component="form" onSubmit={handleSubmit}>
@@ -248,7 +252,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
               elevation={0}
               sx={{
                 p: { xs: 2, sm: 2.5 },
-                borderRadius: 4,
+                borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
                 backgroundColor: "background.paper",
@@ -300,7 +304,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
               elevation={0}
               sx={{
                 p: { xs: 2, sm: 2.5 },
-                borderRadius: 4,
+                borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
                 backgroundColor: "background.paper",
@@ -391,8 +395,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
               }}
             >
               <Typography sx={{ color: "text.secondary" }}>
-                Save only the info you expect to actually use in your training
-                workflow.
+                Save only the information you want the app to actually use.
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                 <Button variant="outlined" onClick={handleReset} disabled={!hasChanges}>

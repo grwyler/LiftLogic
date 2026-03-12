@@ -4,24 +4,19 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import NextLink from "next/link";
 import { signIn } from "next-auth/react";
-import Image from "next/image";
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
+  Link,
+  Paper,
+  Stack,
   TextField,
   Typography,
-  Link,
-  CircularProgress,
-  Card,
-  CardContent,
-  InputAdornment,
-  IconButton,
 } from "@mui/material";
-import LoginIcon from "@mui/icons-material/Login";
-import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -29,7 +24,6 @@ const SignUp: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,190 +37,171 @@ const SignUp: React.FC = () => {
         body: JSON.stringify({ username, password }),
       });
       const data = await response.json().catch(() => null);
+
       if (!response.ok) {
         setIsSigningIn(false);
-        setError(data?.message ? `Error during registration: ${data.message}` : "Error during registration.");
+        setError(
+          data?.message
+            ? `Error during registration: ${data.message}`
+            : "Error during registration."
+        );
         return;
       }
+
       const result = await signIn("credentials", {
         username,
         password,
         redirect: false,
       });
-      if (!result?.error) {
-        console.log("User registered successfully!");
-        router.push("/user");
-      } else {
+
+      if (result?.error) {
         setIsSigningIn(false);
         setError("Account created, but automatic sign-in failed.");
+        return;
       }
-    } catch (error) {
+
+      router.push("/user");
+    } catch (signupError) {
       setIsSigningIn(false);
       setError("Error during registration.");
-      console.error("Error during registration:", error);
+      console.error("Error during registration:", signupError);
     }
   };
 
   return (
     <Box
       sx={{
+        minHeight: "100vh",
+        px: { xs: 1.5, sm: 2.5 },
+        py: { xs: 2, sm: 3 },
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        textAlign: "center",
-        backgroundColor: "#f4f4f4",
-        padding: 3,
       }}
     >
-      {/* Hero Section */}
       <Box
         sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
+          maxWidth: 1040,
+          mx: "auto",
           width: "100%",
-          maxWidth: 500,
-          padding: 4,
-          borderRadius: 3,
-          boxShadow: "0px 8px 20px rgba(0,0,0,0.1)",
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(10px)",
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 0.95fr" },
+          gap: 2,
         }}
       >
-        {/* Logo with Glow Effect */}
-        <Box
+        <Paper
+          elevation={0}
           sx={{
-            width: 150,
-            height: 150,
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#fff",
-            boxShadow: "0px 4px 10px rgba(0, 255, 100, 0.5)", // Subtle Glow Effect
-            padding: 2,
-            mb: 2,
+            p: { xs: 2.5, sm: 3.5 },
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 4,
           }}
         >
-          <Image
-            src="/liftlogic-logo.png"
-            alt="LiftLogic Logo"
-            width={130}
-            height={130}
-            style={{ borderRadius: "50%" }} // Make logo circular
-          />
-        </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: 2,
+                display: "grid",
+                placeItems: "center",
+                backgroundColor: "text.primary",
+                color: "background.paper",
+              }}
+            >
+              <FitnessCenterIcon fontSize="small" />
+            </Box>
+            <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
+              Lift Logic
+            </Typography>
+          </Stack>
 
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
-          Welcome to LiftLogic
-        </Typography>
-        <Typography variant="body1" color="textSecondary" gutterBottom>
-          The smartest way to track and optimize your fitness progress
-        </Typography>
-      </Box>
-      {/* Sign-Up Form */}(
-      <Card
-        elevation={4}
-        sx={{
-          width: "100%",
-          maxWidth: 420,
-          mx: "auto",
-          mt: 6,
-          borderRadius: 3,
-        }}
-      >
-        <CardContent
+          <Typography variant="h3" sx={{ mt: 3, maxWidth: 460 }}>
+            Set up your training profile in a minute.
+          </Typography>
+          <Typography sx={{ mt: 1.5, color: "text.secondary", maxWidth: 480 }}>
+            Start simple. Create an account, pick your goal, and the app can
+            begin adapting weights from what you actually log.
+          </Typography>
+
+          <Stack spacing={1.25} sx={{ mt: 4 }}>
+            {[
+              "Quick-add starts with smarter default weights.",
+              "Completed workouts feed progress and recommendation signals.",
+              "You can tune units, goal, and notes after sign-up.",
+            ].map((item) => (
+              <Box
+                key={item}
+                sx={{
+                  px: 1.75,
+                  py: 1.4,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 3,
+                  backgroundColor: "rgba(255,255,255,0.36)",
+                }}
+              >
+                <Typography sx={{ color: "text.secondary" }}>{item}</Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Paper>
+
+        <Paper
+          elevation={0}
           component="form"
           onSubmit={handleSubmit}
           sx={{
-            p: { xs: 3, sm: 4 },
-            display: "flex",
-            flexDirection: "column",
-            gap: 3,
+            p: { xs: 2.5, sm: 3.5 },
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 4,
           }}
         >
-          {/* header */}
-          <Typography variant="h5" fontWeight={600} textAlign="center">
-            Create your account
+          <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
+            Create Account
+          </Typography>
+          <Typography variant="h4" sx={{ mt: 1 }}>
+            Join Lift Logic
+          </Typography>
+          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+            Use a simple username and password for now. You can customize the
+            rest after you’re in.
           </Typography>
 
-          {/* username */}
-          <TextField
-            id="username"
-            label="Username or Email"
-            variant="outlined"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailOutlinedIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Stack spacing={1.5} sx={{ mt: 3.5 }}>
+            <TextField
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+            />
 
-          {/* password w/ toggle */}
-          <TextField
-            id="password"
-            label="Password"
-            variant="outlined"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LockOutlinedIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    onClick={() => setShowPassword((p) => !p)}
-                    edge="end"
-                    size="small"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+            />
 
-          {/* CTA */}
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            disabled={!username || !password || isSigningIn}
-            sx={{
-              textTransform: "none",
-              height: 48,
-              fontSize: "1rem",
-              borderRadius: 2,
-            }}
-            startIcon={
-              isSigningIn ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                <LoginIcon />
-              )
-            }
-          >
-            {isSigningIn ? "Signing up…" : "Sign up"}
-          </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={!username || !password || isSigningIn}
+              endIcon={
+                isSigningIn ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <ArrowForwardIcon />
+                )
+              }
+            >
+              {isSigningIn ? "Creating account" : "Create account"}
+            </Button>
+          </Stack>
 
-          {/* footer */}
-          <Typography variant="body2" textAlign="center" color="text.secondary">
+          <Typography sx={{ mt: 2.5, color: "text.secondary" }}>
             Already have an account?{" "}
             <NextLink href="/" passHref legacyBehavior>
               <Link underline="hover">Sign in</Link>
@@ -234,12 +209,12 @@ const SignUp: React.FC = () => {
           </Typography>
 
           {error && (
-            <Typography variant="body2" color="error" textAlign="center">
+            <Alert severity="error" sx={{ mt: 2.5, borderRadius: 2.5 }}>
               {error}
-            </Typography>
+            </Alert>
           )}
-        </CardContent>
-      </Card>
+        </Paper>
+      </Box>
     </Box>
   );
 };

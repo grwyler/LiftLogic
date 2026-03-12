@@ -1,4 +1,5 @@
 import { MongoClient, Db } from "mongodb";
+import dns from "dns";
 
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
@@ -22,6 +23,28 @@ const globalCache =
     promise: null,
   });
 
+let dnsConfigured = false;
+
+const ensureMongoDnsResolvers = () => {
+  if (dnsConfigured) {
+    return;
+  }
+
+  try {
+    const currentServers = dns.getServers();
+    const preferredServers = ["1.1.1.1", "8.8.8.8"];
+    const nextServers = [
+      ...preferredServers,
+      ...currentServers.filter((server) => !preferredServers.includes(server)),
+    ];
+
+    dns.setServers(nextServers);
+    dnsConfigured = true;
+  } catch (error) {
+    console.warn("Unable to set preferred DNS servers for MongoDB:", error);
+  }
+};
+
 export async function connectToDatabase(): Promise<Db> {
   if (!uri || !dbName) {
     throw new Error("Missing MONGODB_URI or MONGODB_DB");
@@ -32,6 +55,8 @@ export async function connectToDatabase(): Promise<Db> {
   }
 
   if (!globalCache.promise) {
+    ensureMongoDnsResolvers();
+
     const client = new MongoClient(uri, {
       maxPoolSize: 5,
       minPoolSize: 0,

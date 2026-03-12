@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { Box, Paper, IconButton, Button, TextField, Typography, Chip } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Paper,
+  TextField,
+  Typography,
+} from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
@@ -47,28 +54,18 @@ const DaySwitcher = ({
   return (
     <Paper
       elevation={0}
-      sx={(theme) => ({
-        p: { xs: 1.25, sm: 1.5 },
-        mb: 2.5,
-        borderRadius: 5,
+      sx={{
+        p: { xs: 1.5, sm: 1.75 },
+        mb: 2,
+        borderRadius: 4,
         border: "1px solid",
         borderColor: "divider",
         bgcolor: darkMode
-          ? "rgba(15,23,42,0.72)"
-          : "rgba(255,255,255,0.86)",
-        color: theme.palette.text.primary,
-        boxShadow: darkMode
-          ? "0 18px 44px rgba(2,6,23,0.22)"
-          : "0 18px 38px rgba(148,163,184,0.16)",
-      })}
+          ? "rgba(12,18,30,0.76)"
+          : "rgba(255,255,255,0.84)",
+      }}
     >
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 1.25,
-        }}
-      >
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
         <Box
           sx={{
             display: "grid",
@@ -77,19 +74,7 @@ const DaySwitcher = ({
             gap: 1,
           }}
         >
-          <IconButton
-            onClick={handlePreviousDay}
-            size="small"
-            sx={{
-              width: 44,
-              height: 44,
-              border: "1px solid",
-              borderColor: "divider",
-              backgroundColor: darkMode
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(248,250,252,0.92)",
-            }}
-          >
+          <IconButton onClick={handlePreviousDay} size="small">
             <ChevronLeft fontSize="small" />
           </IconButton>
 
@@ -100,10 +85,10 @@ const DaySwitcher = ({
                 display: "block",
                 textAlign: "center",
                 color: "text.secondary",
-                letterSpacing: "0.12em",
+                letterSpacing: "0.14em",
               }}
             >
-              Workout Day
+              Workout Date
             </Typography>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               {isInline ? (
@@ -142,19 +127,15 @@ const DaySwitcher = ({
                         variant="standard"
                         sx={{
                           width: "100%",
-                          textAlign: "center",
                           "& .MuiInputBase-root": {
                             justifyContent: "center",
                           },
-                          "& .MuiInputAdornment-root": {
-                            display: "none",
-                          },
                           "& input": {
                             fontFamily: '"Manrope", sans-serif',
-                            fontSize: { xs: "1.05rem", sm: "1.2rem" },
+                            fontSize: { xs: "1rem", sm: "1.1rem" },
                             fontWeight: 800,
                             textAlign: "center",
-                            letterSpacing: "-0.02em",
+                            letterSpacing: "-0.03em",
                           },
                         }}
                         InputProps={{
@@ -170,19 +151,7 @@ const DaySwitcher = ({
             </LocalizationProvider>
           </Box>
 
-          <IconButton
-            onClick={handleNextDay}
-            size="small"
-            sx={{
-              width: 44,
-              height: 44,
-              border: "1px solid",
-              borderColor: "divider",
-              backgroundColor: darkMode
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(248,250,252,0.92)",
-            }}
-          >
+          <IconButton onClick={handleNextDay} size="small">
             <ChevronRight fontSize="small" />
           </IconButton>
         </Box>
@@ -191,24 +160,21 @@ const DaySwitcher = ({
           sx={{
             display: "flex",
             justifyContent: "center",
-            alignItems: "center",
             gap: 1,
             flexWrap: "wrap",
           }}
         >
-          {isToday && <Chip size="small" label="Today" color="primary" variant="outlined" />}
           <Button
             variant="text"
             size="small"
             startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
             onClick={() => setIsInline((prev) => !prev)}
-            sx={{ minWidth: "auto" }}
           >
-            {isInline ? "Hide Calendar" : "Pick Date"}
+            {isInline ? "Hide calendar" : "Pick date"}
           </Button>
           {!isToday && (
             <Button variant="text" size="small" onClick={handleBackToToday}>
-              Jump to Today
+              Today
             </Button>
           )}
         </Box>

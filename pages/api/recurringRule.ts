@@ -64,7 +64,7 @@ export default async function handler(
 
         const mode = result.upsertedCount ? "Inserted" : "Updated";
         const savedRule = result.upsertedCount
-          ? { _id: result.upsertedId?._id, ...doc }
+          ? { _id: result.upsertedId ?? undefined, ...doc }
           : await col.findOne(filter);
         const docId = savedRule?._id ?? "(existing)";
         console.info(`[POST] ${mode} - id: ${docId}`);

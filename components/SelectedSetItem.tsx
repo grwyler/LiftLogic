@@ -84,6 +84,26 @@ const SelectedSetItem = ({
     hours * 3600 + minutes * 60 + seconds
   );
   const [liveAdjustment, setLiveAdjustment] = useState<any>(null);
+  const [shouldAutoFocusInput, setShouldAutoFocusInput] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(min-width: 900px) and (pointer: fine)");
+    const syncAutoFocus = () => setShouldAutoFocusInput(mediaQuery.matches);
+
+    syncAutoFocus();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncAutoFocus);
+      return () => mediaQuery.removeEventListener("change", syncAutoFocus);
+    }
+
+    mediaQuery.addListener(syncAutoFocus);
+    return () => mediaQuery.removeListener(syncAutoFocus);
+  }, []);
 
   useEffect(() => {
     const nextWeightValue =
@@ -408,7 +428,7 @@ const SelectedSetItem = ({
                 size="small"
                 fullWidth
                 label="Weight"
-                autoFocus
+                autoFocus={shouldAutoFocusInput}
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 2.5,

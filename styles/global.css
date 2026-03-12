@@ -2,15 +2,15 @@
 
 :root {
   --app-bg:
-    radial-gradient(circle at top, rgba(96, 165, 250, 0.24), transparent 28%),
-    linear-gradient(180deg, #f8fbff 0%, #edf3fb 52%, #e2ebf8 100%);
-  --app-surface: rgba(255, 255, 255, 0.82);
+    radial-gradient(circle at top, rgba(148, 163, 184, 0.14), transparent 28%),
+    linear-gradient(180deg, #f9fbfd 0%, #eff4f9 48%, #e7edf5 100%);
+  --app-surface: rgba(255, 255, 255, 0.84);
   --app-surface-strong: rgba(255, 255, 255, 0.94);
-  --app-border: rgba(148, 163, 184, 0.22);
-  --app-text: #0f172a;
-  --app-muted: #475569;
-  --app-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
-  --app-shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --app-border: rgba(15, 23, 42, 0.09);
+  --app-text: #101828;
+  --app-muted: #667085;
+  --app-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --app-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 html,
@@ -67,13 +67,13 @@ select {
 }
 
 .search-input {
-  padding: 10px 14px;
+  padding: 11px 14px;
   border: 1px solid var(--app-border);
-  border-radius: 12px;
+  border-radius: 8px;
   margin-left: 8px;
   flex: 1;
   font-size: 15px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .flip-icon {
@@ -93,9 +93,10 @@ select {
   background-color: rgba(255, 255, 255, 0.82);
   color: var(--app-text);
   border: 1px solid var(--app-border);
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-size: 14px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.25s ease, color 0.25s ease,
     transform 0.25s ease;
@@ -121,7 +122,7 @@ select {
   left: 0;
   background-color: var(--app-surface-strong);
   border: 1px solid var(--app-border);
-  border-radius: 18px;
+  border-radius: 12px;
   box-shadow: var(--app-shadow-soft);
   padding: 10px;
   z-index: 100;
@@ -134,6 +135,6 @@ select {
 
 .form-control {
   border: 1px solid var(--app-border);
-  border-radius: 14px;
+  border-radius: 8px;
   box-shadow: var(--app-shadow-soft);
 }

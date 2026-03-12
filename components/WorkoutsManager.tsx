@@ -20,7 +20,7 @@ type Workout = {
 type Exercise = {
   name: string;
   type: "weight" | "timed";
-  max: number;
+  max?: number;
   rest: number;
   complete: boolean;
   sets: Set[];
@@ -28,11 +28,11 @@ type Exercise = {
 
 type Set = {
   name: string;
-  reps: number;
-  percentage: number;
-  actualReps: string;
-  actualWeight: string;
-  weight: number;
+  reps?: number;
+  percentage?: number;
+  actualReps?: number | string;
+  actualWeight?: number | string;
+  weight?: number;
 };
 
 const DEFAULT_MAX_WEIGHT = 35; // Default max weight

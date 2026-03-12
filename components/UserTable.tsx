@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Box, Button } from "@mui/material";
-import { FaSignInAlt, FaTrash } from "react-icons/fa";
-import LoadingIndicator from "./LoadingIndicator";
+import { Box, Button, CircularProgress, Typography } from "@mui/material";
+import LoginIcon from "@mui/icons-material/Login";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 const UserTable = ({
   user,
@@ -16,60 +16,75 @@ const UserTable = ({
   const handleDeleteUser = async (userId) => {
     try {
       setIsDeletingUser(true);
-      const response = await fetch(`/api/user?id=${userId}`, { method: "DELETE" });
+      const response = await fetch(`/api/user?id=${userId}`, {
+        method: "DELETE",
+      });
       if (!response.ok) {
         const message = await response.text();
         throw new Error(message || `Failed to delete user ${userId}`);
       }
       await fetchUsers();
       setIsDeletingUser(false);
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      setError(error);
+    } catch (deleteError) {
+      console.error("Error deleting user:", deleteError);
+      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
       setIsDeletingUser(false);
     }
   };
 
   return (
     <Box
-      key={user._id}
       sx={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        bgcolor: "grey.100",
+        gap: 1,
         border: "1px solid",
-        borderColor: "grey.300",
-        p: 2,
-        borderRadius: 1,
+        borderColor: "divider",
+        backgroundColor: "rgba(255,255,255,0.42)",
+        p: 1.25,
+        borderRadius: 2.5,
       }}
     >
-      <Button
-        variant="outlined"
-        size="small"
-        title="Sign in as this user"
-        onClick={() => {
-          setUsername(user.username);
-          setPassword(user.password);
-          handleSubmit(user.username, user.password);
-        }}
-        startIcon={<FaSignInAlt style={{ color: "blue" }} />}
-      >
-        {user.username}
-      </Button>
+      <Box>
+        <Typography sx={{ fontWeight: 700 }}>{user.username}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Local test account
+        </Typography>
+      </Box>
 
-      <Button
-        variant="outlined"
-        size="small"
-        title="Delete this user"
-        onClick={() => handleDeleteUser(user._id)}
-      >
-        {isDeletingUser ? (
-          <LoadingIndicator />
-        ) : (
-          <FaTrash style={{ color: "red" }} />
-        )}
-      </Button>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          variant="outlined"
+          size="small"
+          title="Sign in as this user"
+          onClick={() => {
+            setUsername(user.username);
+            setPassword(user.password);
+            handleSubmit(user.username, user.password);
+          }}
+          startIcon={<LoginIcon fontSize="small" />}
+        >
+          Use
+        </Button>
+
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          title="Delete this user"
+          onClick={() => handleDeleteUser(user._id)}
+          startIcon={
+            isDeletingUser ? (
+              <CircularProgress size={14} color="inherit" />
+            ) : (
+              <DeleteOutlineIcon fontSize="small" />
+            )
+          }
+        >
+          Delete
+        </Button>
+      </Box>
     </Box>
   );
 };

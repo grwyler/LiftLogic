@@ -155,8 +155,8 @@ const RoutinesPage = ({
           px: { xs: 1.5, sm: 2.5 },
           py: { xs: 2, sm: 3 },
           background: darkMode
-            ? "radial-gradient(circle at top, rgba(37,99,235,0.18), transparent 38%), linear-gradient(180deg, #020617 0%, #0f172a 100%)"
-            : "radial-gradient(circle at top, rgba(96,165,250,0.22), transparent 34%), linear-gradient(180deg, #eff6ff 0%, #e2e8f0 100%)",
+            ? "radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 36%), linear-gradient(180deg, #020617 0%, #0f172a 100%)"
+            : "radial-gradient(circle at top, rgba(148,163,184,0.14), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #e7edf5 100%)",
         }}
       >
         <Box
@@ -169,10 +169,10 @@ const RoutinesPage = ({
             color: "text.primary",
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: { xs: 4, sm: 6 },
+            borderRadius: { xs: 4, sm: 5 },
             boxShadow: darkMode
-              ? "0 28px 90px rgba(2,6,23,0.5)"
-              : "0 28px 80px rgba(15,23,42,0.14)",
+              ? "0 28px 90px rgba(2,6,23,0.42)"
+              : "0 26px 72px rgba(15,23,42,0.1)",
             backdropFilter: "blur(20px)",
             overflow: "hidden",
           }}
@@ -184,13 +184,13 @@ const RoutinesPage = ({
               <Box
                 sx={{
                   px: { xs: 2, sm: 3 },
-                  pt: { xs: 2.5, sm: 3.5 },
-                  pb: 2.5,
+                  pt: { xs: 2.5, sm: 3 },
+                  pb: 2.25,
                   borderBottom: "1px solid",
                   borderColor: "divider",
                   background: darkMode
-                    ? "linear-gradient(180deg, rgba(37,99,235,0.18) 0%, rgba(255,255,255,0) 100%)"
-                    : "linear-gradient(180deg, rgba(59,130,246,0.14) 0%, rgba(255,255,255,0) 100%)",
+                    ? "linear-gradient(180deg, rgba(59,130,246,0.12) 0%, rgba(255,255,255,0) 100%)"
+                    : "linear-gradient(180deg, rgba(148,163,184,0.08) 0%, rgba(255,255,255,0) 100%)",
                 }}
               >
                 <Typography
@@ -201,7 +201,7 @@ const RoutinesPage = ({
                     fontWeight: 700,
                   }}
                 >
-                  Lift Logic
+                  Workout Flow
                 </Typography>
                 <Typography
                   variant="h3"
@@ -211,11 +211,11 @@ const RoutinesPage = ({
                     letterSpacing: "-0.05em",
                   }}
                 >
-                  Train with less friction
+                  Today’s training
                 </Typography>
                 <Typography sx={{ mt: 1, color: "text.secondary" }}>
-                  Open a day, follow the next set, log what you actually did,
-                  and let the app adapt the rest.
+                  Pick the day, open the workout, and move through your sets
+                  without extra clutter.
                 </Typography>
                 <Header
                   user={user}

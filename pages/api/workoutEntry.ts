@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 import { ObjectId } from "mongodb";
-import { WorkoutEntryDoc } from "@/utils/types";
+import { ExerciseSet, WorkoutEntryDoc } from "@/utils/types";
 
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === "") {
@@ -46,27 +46,56 @@ const normalizeOptionalDate = (value: unknown) => {
   return value;
 };
 
-const normalizeWorkoutEntrySets = (sets: WorkoutEntryDoc["sets"]) => {
+const normalizeWorkoutEntrySets = (
+  sets: WorkoutEntryDoc["sets"]
+): ExerciseSet[] | undefined => {
   if (!Array.isArray(sets)) {
     return sets;
   }
 
-  return sets.map((set) => ({
-    ...set,
-    reps: normalizeOptionalNumber(set?.reps),
-    percentage: normalizeOptionalNumber(set?.percentage),
-    weight: normalizeOptionalNumber(set?.weight),
-    actualReps: normalizeOptionalNumber(set?.actualReps),
-    actualWeight: normalizeOptionalNumber(set?.actualWeight),
-    seconds: normalizeOptionalNumber(set?.seconds),
-    actualSeconds: normalizeOptionalNumber((set as any)?.actualSeconds),
-    minutes: normalizeOptionalNumber(set?.minutes),
-    actualMinutes: normalizeOptionalNumber((set as any)?.actualMinutes),
-    hours: normalizeOptionalNumber(set?.hours),
-    actualHours: normalizeOptionalNumber((set as any)?.actualHours),
-    totalSeconds: normalizeOptionalNumber((set as any)?.totalSeconds),
-    completedDate: normalizeOptionalDate((set as any)?.completedDate),
-  }));
+  return sets.map((set) => {
+    const normalizedSet: ExerciseSet = {
+      ...set,
+      reps: normalizeOptionalNumber(set?.reps) as number | undefined,
+      percentage: normalizeOptionalNumber(set?.percentage) as
+        | number
+        | undefined,
+      weight: normalizeOptionalNumber(set?.weight) as number | undefined,
+      actualReps: normalizeOptionalNumber(set?.actualReps) as
+        | number
+        | string
+        | undefined,
+      actualWeight: normalizeOptionalNumber(set?.actualWeight) as
+        | number
+        | string
+        | undefined,
+      seconds: normalizeOptionalNumber(set?.seconds) as number | undefined,
+      actualSeconds: normalizeOptionalNumber((set as any)?.actualSeconds) as
+        | number
+        | string
+        | undefined,
+      minutes: normalizeOptionalNumber(set?.minutes) as number | undefined,
+      actualMinutes: normalizeOptionalNumber((set as any)?.actualMinutes) as
+        | number
+        | string
+        | undefined,
+      hours: normalizeOptionalNumber(set?.hours) as number | undefined,
+      actualHours: normalizeOptionalNumber((set as any)?.actualHours) as
+        | number
+        | string
+        | undefined,
+      totalSeconds: normalizeOptionalNumber((set as any)?.totalSeconds) as
+        | number
+        | string
+        | undefined,
+      completedDate: normalizeOptionalDate((set as any)?.completedDate) as
+        | Date
+        | string
+        | undefined,
+    };
+
+    return normalizedSet;
+  });
 };
 
 const parseWorkoutEntryDate = (rawDate: unknown) => {
@@ -164,7 +193,7 @@ export default async function handler(
       );
 
       const mode = result.upsertedCount ? "Inserted" : "Updated";
-      const docId = result.upsertedId?._id ?? "(existing)";
+      const docId = result.upsertedId ?? "(existing)";
       console.info(`[POST] ${mode} - id: ${docId}`);
 
       return res
