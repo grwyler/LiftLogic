@@ -2,6 +2,7 @@ import React, { Fragment } from "react";
 import { formatTime } from "../utils/helpers";
 import { Box, Paper, Typography } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import { estimateOneRepMax } from "../utils/performance";
 
 const SetItem = ({
   set,
@@ -12,6 +13,30 @@ const SetItem = ({
   interactive = true,
 }) => {
   const { actualReps, actualWeight, totalSeconds } = set;
+  const plannedWeight =
+    typeof set.weight === "number" ? set.weight : Number(set.weight);
+  const plannedReps = typeof set.reps === "number" ? set.reps : Number(set.reps);
+  const numericActualWeight =
+    typeof actualWeight === "number" ? actualWeight : Number(actualWeight);
+  const numericActualReps =
+    typeof actualReps === "number" ? actualReps : Number(actualReps);
+  const hasNumericActualWeight =
+    Number.isFinite(numericActualWeight) && numericActualWeight > 0;
+  const hasNumericActualReps =
+    Number.isFinite(numericActualReps) && numericActualReps > 0;
+  const hasPlannedWeight = Number.isFinite(plannedWeight) && plannedWeight > 0;
+  const hasPlannedReps = Number.isFinite(plannedReps) && plannedReps > 0;
+  const weightDelta =
+    hasNumericActualWeight && hasPlannedWeight
+      ? Math.round((numericActualWeight - plannedWeight) * 10) / 10
+      : null;
+  const repDelta =
+    hasNumericActualReps && hasPlannedReps ? numericActualReps - plannedReps : null;
+  const estimated1RM =
+    hasNumericActualWeight && hasNumericActualReps
+      ? Math.round(estimateOneRepMax(numericActualWeight, numericActualReps) * 10) /
+        10
+      : null;
   const shouldRenderWeightMetrics =
     type === "weight" ||
     (actualWeight !== undefined &&
@@ -58,6 +83,20 @@ const SetItem = ({
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {actualReps} reps
             </Typography>
+            {estimated1RM ? (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Est. 1RM {estimated1RM}
+              </Typography>
+            ) : null}
+            {weightDelta !== null || repDelta !== null ? (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                vs plan{" "}
+                {weightDelta !== null
+                  ? `${weightDelta > 0 ? "+" : ""}${weightDelta} lbs`
+                  : "0 lbs"}
+                {repDelta !== null ? `, ${repDelta > 0 ? "+" : ""}${repDelta} reps` : ""}
+              </Typography>
+            ) : null}
           </Fragment>
         )}
         {type === "timed" && (

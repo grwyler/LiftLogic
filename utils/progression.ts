@@ -218,6 +218,48 @@ const getRepresentativeSet = (sets: NormalizedPerformanceSet[]) => {
   }, null);
 };
 
+const getGoalAdjustmentStrategy = (profile: GoalProfile) => {
+  if (profile.label === "strength") {
+    return {
+      smallMissWeightDrop: 0.025,
+      mediumMissWeightDrop: 0.05,
+      largeMissWeightDrop: 0.08,
+      smallMissRepDrop: 0,
+      mediumMissRepDrop: 1,
+      largeMissRepDrop: 2,
+      beatTargetWeightBump: 0.02,
+      beatTargetRepBump: 0,
+      preserve: "load",
+    } as const;
+  }
+
+  if (profile.label === "endurance") {
+    return {
+      smallMissWeightDrop: 0.03,
+      mediumMissWeightDrop: 0.06,
+      largeMissWeightDrop: 0.1,
+      smallMissRepDrop: 0,
+      mediumMissRepDrop: 0,
+      largeMissRepDrop: 1,
+      beatTargetWeightBump: 0.01,
+      beatTargetRepBump: 1,
+      preserve: "volume",
+    } as const;
+  }
+
+  return {
+    smallMissWeightDrop: 0.03,
+    mediumMissWeightDrop: 0.055,
+    largeMissWeightDrop: 0.09,
+    smallMissRepDrop: 0,
+    mediumMissRepDrop: 1,
+    largeMissRepDrop: 1,
+    beatTargetWeightBump: 0.015,
+    beatTargetRepBump: 0,
+    preserve: "stimulus",
+  } as const;
+};
+
 const getAverageActualWeight = (sets: NormalizedPerformanceSet[]) => {
   if (!sets.length) {
     return null;
@@ -460,6 +502,7 @@ export const adjustRemainingSetsAfterLoggedSet = (
   adjustment: InWorkoutAdjustment | null;
 } => {
   const profile = normalizeTrainingGoal(trainingGoal);
+  const strategy = getGoalAdjustmentStrategy(profile);
   const loggedSet = sets[setIndex];
   const actualWeight = coercePositiveNumber((loggedSet as any)?.actualWeight);
   const actualReps = coercePositiveNumber((loggedSet as any)?.actualReps);
@@ -479,45 +522,87 @@ export const adjustRemainingSetsAfterLoggedSet = (
     };
   }
 
+  const completedSets = sets
+    .slice(0, setIndex + 1)
+    .filter((set) => (set as any)?.complete)
+    .map((set) => ({
+      actualWeight: coercePositiveNumber((set as any)?.actualWeight),
+      actualReps: coercePositiveNumber((set as any)?.actualReps),
+      plannedWeight: coercePositiveNumber((set as any)?.weight),
+      plannedReps: coercePositiveNumber((set as any)?.reps),
+    }))
+    .filter(
+      (set): set is {
+        actualWeight: number;
+        actualReps: number;
+        plannedWeight: number | null;
+        plannedReps: number | null;
+      } => set.actualWeight !== null && set.actualReps !== null
+    );
+
   const repRatio = actualReps / plannedReps;
+  const averageRepRatio =
+    completedSets.reduce((sum, set) => {
+      const targetReps = set.plannedReps ?? plannedReps;
+      return sum + set.actualReps / Math.max(targetReps || 1, 1);
+    }, 0) / Math.max(completedSets.length, 1);
+  const fatiguePenalty = Math.max(0, 1 - averageRepRatio);
+  const lastTwoCompleted = completedSets.slice(-2);
+  const fatigueTrend =
+    lastTwoCompleted.length === 2
+      ? lastTwoCompleted[0].actualReps - lastTwoCompleted[1].actualReps
+      : 0;
+
   let nextWeight = plannedWeight;
   let nextReps = plannedReps;
   let reason = "holding the current target steady after your logged set";
 
   if (repRatio >= 1.3) {
     nextWeight = Math.max(
-      actualWeight + profile.lightIncrement,
-      actualWeight * (1 + profile.successIncreasePct)
+      actualWeight * (1 + strategy.beatTargetWeightBump),
+      actualWeight + profile.lightIncrement
     );
-    reason = "you overshot the target, so the remaining sets were bumped up";
+    nextReps = Math.min(
+      profile.maxReps,
+      plannedReps + strategy.beatTargetRepBump
+    );
+    reason =
+      "you clearly outperformed the target, so the remaining sets were pushed up";
   } else if (repRatio >= 1) {
     nextWeight = plannedWeight;
     nextReps = plannedReps;
     reason = "you hit the target, so the remaining sets stay on plan";
   } else if (repRatio >= 0.8) {
-    nextWeight = Math.min(
-      plannedWeight - profile.lightIncrement,
-      actualWeight
-    );
-    nextReps = plannedReps;
+    nextWeight = plannedWeight * (1 - strategy.smallMissWeightDrop);
+    nextReps = Math.max(profile.minReps, plannedReps - strategy.smallMissRepDrop);
     reason =
-      "you came in a little short, so the remaining sets were reduced slightly";
+      strategy.preserve === "load"
+        ? "you came in slightly short, so the plan keeps the intent but trims load a bit"
+        : "you came in slightly short, so the remaining sets were eased down a little";
   } else if (repRatio >= 0.5) {
-    nextWeight = Math.min(
-      plannedWeight * (1 - profile.underperformDecreasePct),
-      actualWeight - profile.lightIncrement
-    );
-    nextReps = Math.max(profile.minReps, plannedReps - 1);
+    nextWeight = plannedWeight * (1 - strategy.mediumMissWeightDrop);
+    nextReps = Math.max(profile.minReps, plannedReps - strategy.mediumMissRepDrop);
     reason =
-      "you were well under target, so the remaining sets were pulled back to a manageable load";
+      "you were well under target, so the remaining sets were adjusted to keep the workout productive";
   } else {
-    nextWeight = Math.min(
-      plannedWeight * (1 - profile.underperformDecreasePct * 2),
-      actualWeight - profile.heavyIncrement
-    );
-    nextReps = Math.max(profile.minReps, plannedReps - 2);
+    nextWeight = plannedWeight * (1 - strategy.largeMissWeightDrop);
+    nextReps = Math.max(profile.minReps, plannedReps - strategy.largeMissRepDrop);
     reason =
       "you missed the target by a lot, so the remaining sets were reduced more aggressively";
+  }
+
+  if (fatiguePenalty >= 0.2 || fatigueTrend >= 2) {
+    nextWeight = nextWeight * (1 - Math.min(0.06, fatiguePenalty));
+    nextReps = Math.max(
+      profile.minReps,
+      nextReps - (fatigueTrend >= 2 ? 1 : 0)
+    );
+    reason +=
+      strategy.preserve === "volume"
+        ? " Fatigue is building, so the app is protecting your remaining work capacity."
+        : strategy.preserve === "load"
+        ? " Fatigue is showing up, so the app is preserving quality on the heavier work."
+        : " Fatigue is building, so the app is protecting the quality of the remaining sets.";
   }
 
   const normalizedWeight = roundRecommendedWeight(nextWeight, profile);

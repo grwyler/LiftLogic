@@ -41,6 +41,7 @@ const ExerciseItem = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
   const [recommendation, setRecommendation] = useState<any>(null);
+  const [progressSummary, setProgressSummary] = useState<any>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const appliedRecommendationRef = useRef<string | null>(null);
   const { data: session } = useSession() as {
@@ -77,10 +78,12 @@ const ExerciseItem = ({
           return;
         }
 
+        setProgressSummary(result?.summary ?? null);
         setRecommendation(result?.recommendation ?? null);
       } catch (error) {
         console.error("Failed to load exercise recommendation", error);
         if (active) {
+          setProgressSummary(null);
           setRecommendation(null);
         }
       } finally {
@@ -153,10 +156,34 @@ const ExerciseItem = ({
     }));
   }, [currentExercise, formattedDate, recommendation]);
 
-  const renderRecommendationPanel = () => {
-    if (currentExercise.type !== "weight") {
+  const renderCompletedPerformancePanel = () => {
+    if (currentExercise.type !== "weight" || !currentExercise.complete) {
       return null;
     }
+
+    const latestEstimated1RM = progressSummary?.latestEstimated1RM ?? null;
+    const previousEstimated1RM = progressSummary?.previousEstimated1RM ?? null;
+    const heaviestWeightEver = progressSummary?.heaviestWeightEver ?? null;
+    const delta =
+      latestEstimated1RM !== null && previousEstimated1RM !== null
+        ? Math.round((latestEstimated1RM - previousEstimated1RM) * 10) / 10
+        : null;
+    const trendLabel =
+      progressSummary?.latestWorkoutBrokePR
+        ? "PR"
+        : delta === null
+        ? "Logged"
+        : delta > 0
+        ? "Trending Up"
+        : delta < 0
+        ? "Trending Down"
+        : "Steady";
+    const trendColor =
+      progressSummary?.latestWorkoutBrokePR || (delta !== null && delta > 0)
+        ? "success"
+        : delta !== null && delta < 0
+        ? "warning"
+        : "default";
 
     return (
       <Paper
@@ -180,13 +207,13 @@ const ExerciseItem = ({
           }}
         >
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Next Recommendation
+            Performance
           </Typography>
-          {recommendation?.progressionStyle ? (
+          {trendLabel ? (
             <Chip
               size="small"
-              label={toTitleCase(recommendation.progressionStyle)}
-              color="primary"
+              label={trendLabel}
+              color={trendColor as any}
               variant="outlined"
             />
           ) : null}
@@ -194,9 +221,9 @@ const ExerciseItem = ({
 
         {loadingRecommendation ? (
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
-            Calculating from your logged history...
+            Loading performance...
           </Typography>
-        ) : recommendation?.recommendedWeight ? (
+        ) : latestEstimated1RM ? (
           <>
             <Box
               sx={{
@@ -207,50 +234,34 @@ const ExerciseItem = ({
               }}
             >
               <Chip
-                label={`${recommendation.recommendedWeight} lbs`}
+                label={`Est. 1RM ${latestEstimated1RM}`}
                 color="primary"
                 sx={{ fontWeight: 700 }}
               />
-              <Chip
-                label={`${recommendation.recommendedReps} reps`}
-                variant="outlined"
-              />
-              <Chip
-                label={`${recommendation.recommendedSets} sets`}
-                variant="outlined"
-              />
+              {delta !== null ? (
+                <Chip
+                  label={`${delta > 0 ? "+" : ""}${delta} vs last`}
+                  variant="outlined"
+                />
+              ) : null}
+              {heaviestWeightEver ? (
+                <Chip
+                  label={`Best weight ${heaviestWeightEver}`}
+                  variant="outlined"
+                />
+              ) : null}
             </Box>
 
-            {recommendation?.basedOn ? (
+            {progressSummary?.bestRepPerformance ? (
               <Typography sx={{ mt: 1, color: "text.secondary" }}>
-                Top completed set last time: {recommendation.basedOn.topSetWeight} x{" "}
-                {recommendation.basedOn.topSetReps}. Average working set:{" "}
-                {recommendation.basedOn.averageWeight} x{" "}
-                {recommendation.basedOn.averageReps} across{" "}
-                {recommendation.basedOn.setsCompleted} completed set
-                {recommendation.basedOn.setsCompleted === 1 ? "" : "s"}
-                {recommendation.basedOn.date
-                  ? ` on ${recommendation.basedOn.date}`
-                  : ""}
-                .
+                Best logged set: {progressSummary.bestRepPerformance.weight} x{" "}
+                {progressSummary.bestRepPerformance.reps}.
               </Typography>
             ) : null}
-
-            {recommendation?.daysSinceLastWorkout !== null &&
-            recommendation?.daysSinceLastWorkout !== undefined ? (
-              <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-                Days since last workout: {recommendation.daysSinceLastWorkout}
-              </Typography>
-            ) : null}
-
-            <Typography sx={{ mt: 1, color: "text.secondary" }}>
-              {recommendation.reason}
-            </Typography>
           </>
         ) : (
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
-            {recommendation?.reason ??
-              "Complete one fully logged workout for this exercise to unlock recommendations."}
+            No weight-performance trend yet.
           </Typography>
         )}
       </Paper>
@@ -355,10 +366,23 @@ const ExerciseItem = ({
 
   const toggleRepeat = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const parseFormattedDate = (str: string): Date | null => {
-      const safe = `${str.trim()} ${new Date().getFullYear()}`;
-      const d = new Date(safe);
-      return isNaN(+d) ? null : d;
+    const parseFormattedDate = (value: string): Date | null => {
+      const trimmed = value.trim();
+      const direct = new Date(trimmed);
+      if (!Number.isNaN(+direct)) {
+        return direct;
+      }
+
+      const needsYear = !/\b\d{4}\b/.test(trimmed);
+      if (needsYear) {
+        const withYear = `${trimmed} ${new Date().getFullYear()}`;
+        const fallback = new Date(withYear);
+        if (!Number.isNaN(+fallback)) {
+          return fallback;
+        }
+      }
+
+      return null;
     };
 
     const parsedDate = parseFormattedDate(formattedDate);
@@ -542,7 +566,7 @@ const ExerciseItem = ({
           />
         ))}
 
-        {renderRecommendationPanel()}
+        {renderCompletedPerformancePanel()}
 
         <DeleteDialog
           open={showDeleteDialog}
@@ -687,8 +711,6 @@ const ExerciseItem = ({
 
       {exerciseIndex === currentExerciseIndex && (
         <>
-          {renderRecommendationPanel()}
-
           <Button
             variant="outlined"
             size="small"
