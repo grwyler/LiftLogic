@@ -174,6 +174,16 @@ export const fetchDay = async (
   );
 
   const visibleEntries = entries.filter((e: any) => !e.skipped);
+  const materializedRecurringKeys = new Set(
+    visibleEntries
+      .filter((e: any) => e.ruleId || e.exerciseId)
+      .map(
+        (e: any) =>
+          `${e.ruleId ?? e.exerciseId}::${e.routineName}::${
+            e.exerciseId ?? ""
+          }`
+      )
+  );
 
   console.debug("[fetchDay] recurringToday", recurringToday.length);
 
@@ -184,8 +194,10 @@ export const fetchDay = async (
     ...visibleEntries.map((e: any) => ({ ...e, kind: "entry" as const })),
     ...recurringToday
       .filter((r: any) => {
-        const key = `${r._id?.toString?.() ?? r._id ?? r.exerciseId}::${r.routineName}`;
-        return !skippedKeys.has(key);
+        const ruleId = r._id?.toString?.() ?? r._id ?? r.exerciseId;
+        const key = `${ruleId}::${r.routineName}`;
+        const materializedKey = `${ruleId}::${r.routineName}::${r.exerciseId ?? ""}`;
+        return !skippedKeys.has(key) && !materializedRecurringKeys.has(materializedKey);
       })
       .map((r: any) => ruleToExercise(r)),
   ];

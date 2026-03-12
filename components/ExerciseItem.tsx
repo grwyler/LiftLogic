@@ -42,6 +42,11 @@ const ExerciseItem = ({
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
+  const currentUserId =
+    (session as any)?.token?.user?._id ??
+    (session as any)?.user?._id ??
+    currentExercise?.userId ??
+    exercise?.userId;
 
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
@@ -78,7 +83,7 @@ const ExerciseItem = ({
     try {
       if (scope === "today" && currentExercise.ruleId) {
         await saveWorkoutEntry({
-          userId: session!.token.user._id,
+          userId: currentUserId,
           exerciseId: currentExercise.exerciseId,
           routineName,
           date: formattedDate,
@@ -113,7 +118,13 @@ const ExerciseItem = ({
 
   const handleExerciseSave = (updatedExercise) => {
     setIsEditing(false);
-    saveWorkoutEntry(updatedExercise);
+    saveWorkoutEntry({
+      ...updatedExercise,
+      userId: updatedExercise.userId ?? currentUserId,
+      exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
+      routineName: updatedExercise.routineName ?? routineName,
+      date: updatedExercise.date ?? formattedDate,
+    });
     setRefetchExercises(true);
   };
 
@@ -140,6 +151,10 @@ const ExerciseItem = ({
 
     const parsedDate = parseFormattedDate(formattedDate);
     if (!parsedDate) return console.error("Bad date:", formattedDate);
+    if (!currentUserId) {
+      console.error("Missing userId for repeat toggle");
+      return;
+    }
 
     setIsRepeating((p) => !p);
     const willRepeat = !isRepeating;
@@ -147,7 +162,7 @@ const ExerciseItem = ({
     try {
       if (willRepeat) {
         const savedRule = await saveRecurringRule({
-          userId: session!.token.user._id,
+          userId: currentUserId,
           exerciseId: currentExercise.exerciseId ?? currentExercise._id,
           exerciseName: currentExercise.name,
           exerciseType: currentExercise.type,
@@ -165,12 +180,15 @@ const ExerciseItem = ({
           ruleId: savedRule._id,
         }));
 
-        saveWorkoutEntry({
+        await saveWorkoutEntry({
           ...currentExercise,
+          userId: currentExercise.userId ?? currentUserId,
+          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+          routineName,
           isRepeating: true,
           ruleId: savedRule._id.toString(),
           date: parsedDate.toISOString().slice(0, 10),
-        });
+        } as any);
       } else {
         if (currentExercise.ruleId) {
           await deactivateRecurringRule(currentExercise.ruleId);
@@ -180,11 +198,17 @@ const ExerciseItem = ({
           isRepeating: false,
           ruleId: undefined,
         }));
-        saveWorkoutEntry({
-          ...currentExercise,
+        await saveWorkoutEntry({
+          userId: currentUserId,
+          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+          routineName,
+          date: parsedDate.toISOString().slice(0, 10),
+          rest: currentExercise.rest ?? 0,
+          complete: currentExercise.complete ?? false,
+          sets: currentExercise.sets,
           isRepeating: false,
           ruleId: undefined,
-        });
+        } as any);
       }
     } catch (err) {
       console.error(err);
