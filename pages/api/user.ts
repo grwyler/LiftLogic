@@ -29,27 +29,36 @@ export default async function handler(
     } else if (req.method === "DELETE") {
       const db = await connectToDatabase();
       const userCollection = await db.collection("users");
+      const routineCollection = await db.collection("routines");
+      const exerciseCollection = await db.collection("exercises");
+      const setCollection = await db.collection("sets");
+      const workoutEntryCollection = await db.collection("workoutEntries");
+      const recurringRuleCollection = await db.collection("recurringRules");
       const { id } = req.query;
-      if (!id) {
+      const normalizedId = Array.isArray(id) ? id[0] : id;
+
+      if (!normalizedId) {
         return res.status(400).json({ error: "User ID is required" });
       }
 
+      if (!ObjectId.isValid(normalizedId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+
       const result = await userCollection.deleteOne({
-        _id: new ObjectId(id as string),
+        _id: new ObjectId(normalizedId),
       });
 
       if (result.deletedCount === 1) {
-        const routineCollection = await db.collection("routines");
-        const exerciseCollection = await db.collection("exercises");
-        const setCollection = await db.collection("sets");
-        // Delete related documents in the 'routines' collection
-        await routineCollection.deleteMany({ userId: id });
-
-        // Delete related documents in the 'exercises' collection
-        await exerciseCollection.deleteMany({ userId: id });
-
-        // Delete related documents in the 'sets' collection
-        await setCollection.deleteMany({ userId: id });
+        await Promise.all([
+          routineCollection.deleteMany({ userId: normalizedId }),
+          exerciseCollection.deleteMany({
+            $or: [{ userId: normalizedId }, { createdBy: normalizedId }],
+          }),
+          setCollection.deleteMany({ userId: normalizedId }),
+          workoutEntryCollection.deleteMany({ userId: normalizedId }),
+          recurringRuleCollection.deleteMany({ userId: normalizedId }),
+        ]);
 
         return res.status(200).json({ message: "User deleted successfully" });
       } else {

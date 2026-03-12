@@ -17,6 +17,15 @@ interface ExerciseManagerProps {
 
 const DEFAULT_MAX_WEIGHT = 35;
 
+const parseLocalDate = (value: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  return new Date(value);
+};
+
 const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   index,
   darkMode,
@@ -80,7 +89,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 
   const persistExercise = async (updatedExercise: any) => {
     if (isPersistent) {
-      const parsedDate = new Date(updatedExercise.date);
+      const parsedDate = parseLocalDate(updatedExercise.date);
       if (isNaN(parsedDate.getTime())) {
         throw new Error(`Invalid recurring date: ${updatedExercise.date}`);
       }
@@ -117,14 +126,14 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   const handleQuickAddExercise = async (exercise: any) => {
     const newExercise = buildExerciseDraft(exercise);
     await persistExercise(newExercise);
-    setRefetchExercises(true);
+    setRefetchExercises((prev) => !prev);
     setIsAddingExercise(false);
   };
 
   // When saving, call updateExercise so the parent can update the existing exercise.
   const handleSaveEdit = async (updatedExercise: any) => {
     await persistExercise(updatedExercise);
-    setRefetchExercises(true);
+    setRefetchExercises((prev) => !prev);
     setOpenEditModal(false);
     setIsAddingExercise(false);
   };

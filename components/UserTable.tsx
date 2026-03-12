@@ -16,7 +16,11 @@ const UserTable = ({
   const handleDeleteUser = async (userId) => {
     try {
       setIsDeletingUser(true);
-      await fetch(`/api/user?id=${userId}`, { method: "DELETE" });
+      const response = await fetch(`/api/user?id=${userId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Failed to delete user ${userId}`);
+      }
       await fetchUsers();
       setIsDeletingUser(false);
     } catch (error) {

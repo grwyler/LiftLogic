@@ -101,6 +101,7 @@ const WorkoutsManager: React.FC<{
     setIsCreateTitle,
     isLoadingWorkout,
     formattedDate,
+    dateISO,
     exercises,
     setRefetchExercises,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
@@ -146,7 +147,7 @@ const WorkoutsManager: React.FC<{
           currentWorkoutTitle={currentWorkout.title}
           setIsAddingExercise={setIsAddingExercise}
           userId={routine.userId}
-          date={formattedDate}
+          date={dateISO}
           setRefetchExercises={setRefetchExercises}
         />
       ) : (
@@ -241,12 +242,13 @@ const useWorkoutsManagerState = (
     day: "numeric",
     year: "numeric",
   });
+  const dateISO = currentDate.toISOString().slice(0, 10);
 
   const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
   useEffect(() => {
     if (
       !userId ||
-      !formattedDate ||
+      !dateISO ||
       !currentDate ||
       !currentDay ||
       !currentWorkout?.title
@@ -254,7 +256,7 @@ const useWorkoutsManagerState = (
       return;
     setRefetchExercises(false);
     setIsLoadingWorkout(true);
-    fetchDay(userId, formattedDate, currentWorkout?.title).then((routines) => {
+    fetchDay(userId, dateISO, currentWorkout?.title).then((routines) => {
       const exercises =
         routines.find((r) => r.title === currentWorkout?.title)?.exercises ||
         [];
@@ -265,6 +267,7 @@ const useWorkoutsManagerState = (
     userId,
     currentDate,
     currentDay,
+    dateISO,
     selectedWorkoutIndex,
     currentWorkout?.title,
     refetchExercises, // refetch when this state changes
@@ -291,6 +294,7 @@ const useWorkoutsManagerState = (
     isLoadingWorkout,
     // updateExercisesInRoutine,
     formattedDate,
+    dateISO,
     exercises,
     refetchExercises,
     setRefetchExercises,

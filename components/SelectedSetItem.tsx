@@ -28,6 +28,7 @@ const SelectedSetItem = ({
   setIndex,
   currentExerciseIndex,
   setCurrentSetIndex,
+  setCurrentExercise,
   formattedDate,
   setCurrentExerciseIndex,
   workout,
@@ -181,6 +182,7 @@ const SelectedSetItem = ({
         completedDate: new Date(),
       }),
     };
+    setCurrentExercise(updatedExercise);
 
     /* ------------------------------------------------------------------ */
     /* 4. Splice the exercise back into the workout array                 */
@@ -214,12 +216,16 @@ const SelectedSetItem = ({
     saveWorkoutEntry({
       // WorkoutEntryDoc shape
       userId: session?.token.user._id,
-      exerciseId: updatedExercise._id, // make sure you have this id on the exercise
+      exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
+      name: updatedExercise.name,
+      type: updatedExercise.type,
+      max: updatedExercise.max,
       routineName,
       date: formattedDate,
       rest: updatedExercise.rest,
       complete: updatedExercise.complete,
       sets: updatedExercise.sets,
+      ruleId: updatedExercise.ruleId,
     });
   };
 

@@ -3,6 +3,72 @@ import { connectToDatabase } from "../../utils/mongodb";
 import { ObjectId } from "mongodb";
 import { WorkoutEntryDoc } from "@/utils/types";
 
+const normalizeOptionalNumber = (value: unknown) => {
+  if (value === "") {
+    return undefined;
+  }
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return Number.isNaN(value) ? undefined : value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isNaN(parsed) ? value : parsed;
+  }
+
+  return value;
+};
+
+const normalizeOptionalDate = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(+value) ? undefined : value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(+parsed) ? value : parsed;
+  }
+
+  return value;
+};
+
+const normalizeWorkoutEntrySets = (sets: WorkoutEntryDoc["sets"]) => {
+  if (!Array.isArray(sets)) {
+    return sets;
+  }
+
+  return sets.map((set) => ({
+    ...set,
+    reps: normalizeOptionalNumber(set?.reps),
+    percentage: normalizeOptionalNumber(set?.percentage),
+    weight: normalizeOptionalNumber(set?.weight),
+    actualReps: normalizeOptionalNumber(set?.actualReps),
+    actualWeight: normalizeOptionalNumber(set?.actualWeight),
+    seconds: normalizeOptionalNumber(set?.seconds),
+    actualSeconds: normalizeOptionalNumber((set as any)?.actualSeconds),
+    minutes: normalizeOptionalNumber(set?.minutes),
+    actualMinutes: normalizeOptionalNumber((set as any)?.actualMinutes),
+    hours: normalizeOptionalNumber(set?.hours),
+    actualHours: normalizeOptionalNumber((set as any)?.actualHours),
+    totalSeconds: normalizeOptionalNumber((set as any)?.totalSeconds),
+    completedDate: normalizeOptionalDate((set as any)?.completedDate),
+  }));
+};
+
 const parseWorkoutEntryDate = (rawDate: unknown) => {
   if (rawDate instanceof Date) {
     return rawDate;
@@ -12,8 +78,9 @@ const parseWorkoutEntryDate = (rawDate: unknown) => {
     return null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-    const isoDate = new Date(rawDate);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    const [year, month, day] = rawDate.split("-").map(Number);
+    const isoDate = new Date(year, month - 1, day);
     return isNaN(+isoDate) ? null : isoDate;
   }
 
@@ -72,6 +139,8 @@ export default async function handler(
         ...cleanEntry
       } = entry;
 
+      const normalizedSets = normalizeWorkoutEntrySets(cleanEntry.sets);
+
       const filter = {
         userId: entry.userId,
         exerciseId,
@@ -84,6 +153,7 @@ export default async function handler(
         {
           $set: {
             ...cleanEntry,
+            sets: normalizedSets,
             exerciseId,
             date: parsedDate,
             updatedAt: new Date(),
@@ -103,11 +173,42 @@ export default async function handler(
     }
 
     if (req.method === "GET") {
-      const { userId, date, routineName } = req.query;
+      const { userId, date, routineName, exerciseId, history, completedOnly } =
+        req.query;
       console.debug("[GET] Query params:", req.query);
 
-      if (!userId || !date) {
-        console.warn("[GET] Missing userId or date");
+      if (!userId) {
+        console.warn("[GET] Missing userId");
+        return res.status(400).json({ message: "userId required" });
+      }
+
+      if (history === "true") {
+        const trimmedExerciseId = String(exerciseId ?? "").trim();
+
+        if (!trimmedExerciseId) {
+          console.warn("[GET] Missing exerciseId for history query");
+          return res.status(400).json({ message: "exerciseId required" });
+        }
+
+        const historyQuery: Record<string, unknown> = {
+          userId,
+          exerciseId: trimmedExerciseId,
+          skipped: { $ne: true },
+        };
+
+        if (completedOnly === "true") {
+          historyQuery.complete = true;
+        }
+
+        console.debug("[GET] History Mongo query:", historyQuery);
+
+        const entries = await col.find(historyQuery).sort({ date: -1 }).toArray();
+        console.info(`[GET] Returned ${entries.length} history entries`);
+        return res.status(200).json({ entries });
+      }
+
+      if (!date) {
+        console.warn("[GET] Missing date");
         return res.status(400).json({ message: "userId & date required" });
       }
 

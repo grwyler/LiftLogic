@@ -29,9 +29,7 @@ const SignIn = () => {
     try {
       const response = await fetch("/api/user");
       const data = await response.json();
-      if (data.users && Object.keys(data.users).length > 0) {
-        setUsers(data.users);
-      }
+      setUsers(Array.isArray(data.users) ? data.users : []);
       setIsLoadingUsers(false);
     } catch (err) {
       console.error("Error fetching users:", err);

@@ -6,6 +6,7 @@ import {
   Exercise,
   ExerciseSet,
 } from "./types";
+import { ExerciseProgressSummary } from "./performance";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -91,6 +92,33 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
   return res.json();
 };
 
+export const fetchExerciseProgress = async (
+  userId: string,
+  exerciseId: string
+): Promise<{
+  summary: ExerciseProgressSummary;
+  entries: WorkoutEntryDoc[];
+} | null> => {
+  const trimmedExerciseId = String(exerciseId ?? "").trim();
+
+  if (!userId || !trimmedExerciseId) {
+    return null;
+  }
+
+  const qs = new URLSearchParams({
+    userId,
+    exerciseId: trimmedExerciseId,
+  });
+
+  const res = await fetch(`/api/exerciseProgress?${qs.toString()}`);
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(`fetchExerciseProgress ${res.status}: ${message}`);
+  }
+
+  return res.json();
+};
+
 // delete log
 export const deleteWorkoutEntry = async (entryId: string) => {
   const res = await fetch("/api/workoutEntry", {
@@ -110,6 +138,15 @@ export const fetchDay = async (
   dateISO: string,
   routineName?: string
 ) => {
+  const parseLocalISODate = (value: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    return new Date(value);
+  };
+
   /* ------------------------------------------------------------------ */
   /* 1. Build query strings                                              */
   /* ------------------------------------------------------------------ */
@@ -159,7 +196,7 @@ export const fetchDay = async (
   /* ------------------------------------------------------------------ */
   /* 3. Apply recurrence filter                                          */
   /* ------------------------------------------------------------------ */
-  const targetDate = new Date(dateISO);
+  const targetDate = parseLocalISODate(dateISO);
   const dow = targetDate.getDay();
   const recurringToday = rules.filter(
     (r: any) =>
@@ -184,6 +221,11 @@ export const fetchDay = async (
           }`
       )
   );
+  const materializedExerciseKeys = new Set(
+    visibleEntries
+      .filter((e: any) => e.exerciseId)
+      .map((e: any) => `${e.exerciseId}::${e.routineName}`)
+  );
 
   console.debug("[fetchDay] recurringToday", recurringToday.length);
 
@@ -191,13 +233,22 @@ export const fetchDay = async (
   /* 4. Merge & tag                                                      */
   /* ------------------------------------------------------------------ */
   const all = [
-    ...visibleEntries.map((e: any) => ({ ...e, kind: "entry" as const })),
+    ...visibleEntries.map((e: any) => ({
+      ...e,
+      isRepeating: Boolean(e.isRepeating || e.ruleId),
+      kind: "entry" as const,
+    })),
     ...recurringToday
       .filter((r: any) => {
         const ruleId = r._id?.toString?.() ?? r._id ?? r.exerciseId;
         const key = `${ruleId}::${r.routineName}`;
         const materializedKey = `${ruleId}::${r.routineName}::${r.exerciseId ?? ""}`;
-        return !skippedKeys.has(key) && !materializedRecurringKeys.has(materializedKey);
+        const exerciseKey = `${r.exerciseId ?? ""}::${r.routineName}`;
+        return (
+          !skippedKeys.has(key) &&
+          !materializedRecurringKeys.has(materializedKey) &&
+          !materializedExerciseKeys.has(exerciseKey)
+        );
       })
       .map((r: any) => ruleToExercise(r)),
   ];

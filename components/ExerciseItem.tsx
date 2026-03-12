@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Paper, Box, Button, Typography, IconButton } from "@mui/material";
+import React, { useEffect, useState } from "react";
+import { Paper, Box, Button, Typography, IconButton, Chip } from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CheckIcon from "@mui/icons-material/Check";
@@ -47,6 +47,11 @@ const ExerciseItem = ({
     (session as any)?.user?._id ??
     currentExercise?.userId ??
     exercise?.userId;
+
+  useEffect(() => {
+    setCurrentExercise(exercise);
+    setIsRepeating(exercise.isRepeating);
+  }, [exercise]);
 
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
@@ -103,7 +108,7 @@ const ExerciseItem = ({
         await deleteWorkoutEntry(currentExercise._id);
       }
 
-      setRefetchExercises(true);
+      setRefetchExercises((prev) => !prev);
       toast.success(scope === "all" ? "Deleted everywhere" : "Deleted today");
     } catch (err) {
       console.error(err);
@@ -120,12 +125,15 @@ const ExerciseItem = ({
     setIsEditing(false);
     saveWorkoutEntry({
       ...updatedExercise,
+      name: updatedExercise.name ?? currentExercise.name,
+      type: updatedExercise.type ?? currentExercise.type,
+      max: updatedExercise.max ?? currentExercise.max,
       userId: updatedExercise.userId ?? currentUserId,
       exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
       routineName: updatedExercise.routineName ?? routineName,
       date: updatedExercise.date ?? formattedDate,
     });
-    setRefetchExercises(true);
+    setRefetchExercises((prev) => !prev);
   };
 
   if (isEditing) {
@@ -182,6 +190,9 @@ const ExerciseItem = ({
 
         await saveWorkoutEntry({
           ...currentExercise,
+          name: currentExercise.name,
+          type: currentExercise.type,
+          max: currentExercise.max,
           userId: currentExercise.userId ?? currentUserId,
           exerciseId: currentExercise.exerciseId ?? currentExercise._id,
           routineName,
@@ -199,6 +210,9 @@ const ExerciseItem = ({
           ruleId: undefined,
         }));
         await saveWorkoutEntry({
+          name: currentExercise.name,
+          type: currentExercise.type,
+          max: currentExercise.max,
           userId: currentUserId,
           exerciseId: currentExercise.exerciseId ?? currentExercise._id,
           routineName,
@@ -215,6 +229,131 @@ const ExerciseItem = ({
       setIsRepeating((p) => !p);
     }
   };
+
+  if (currentExercise.complete) {
+    const completedSetCount = currentExercise.sets?.filter((s) => s.complete).length ?? 0;
+    const completedExerciseName =
+      toTitleCase(currentExercise.name) || toTitleCase(exercise.name) || "Completed Exercise";
+    const completedExerciseType = currentExercise.type ?? exercise.type;
+
+    return (
+      <Paper
+        key={`exercise-log-${currentExercise.name}-${exerciseIndex}`}
+        elevation={0}
+        sx={{
+          p: 2,
+          my: 2,
+          borderRadius: 4,
+          border: "1px solid",
+          borderColor: darkMode ? "rgba(148,163,184,0.18)" : "rgba(148,163,184,0.32)",
+          backgroundColor: darkMode ? "rgba(15,23,42,0.72)" : "rgba(248,250,252,0.96)",
+          boxShadow: darkMode
+            ? "0 10px 30px rgba(0,0,0,0.18)"
+            : "0 10px 24px rgba(148,163,184,0.14)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CRUDMenuButton
+              darkMode={darkMode}
+              handleDelete={() => {
+                if (isRepeating) {
+                  setShowDeleteDialog(true);
+                } else {
+                  handleDelete("today");
+                }
+              }}
+              handleUpdate={handleUpdate}
+              onClickMenuButton={() =>
+                setShownMenuIndex(
+                  shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
+                )
+              }
+              show={shownMenuIndex === exerciseIndex}
+            />
+            <IconButton
+              onClick={toggleRepeat}
+              title="Toggle on to make this exercise repeat next week"
+              size="small"
+            >
+              <RepeatIcon
+                color={isRepeating ? "primary" : "disabled"}
+                fontSize="small"
+              />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="h6">{completedExerciseName}</Typography>
+            <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
+              Logged on {formattedDate}
+            </Typography>
+          </Box>
+
+          <Chip
+            label="Logged"
+            color="success"
+            variant="outlined"
+            size="small"
+            sx={{ fontWeight: 700 }}
+          />
+        </Box>
+
+        <Box
+          sx={{
+            mt: 1.75,
+            mb: 0.25,
+            px: 0.25,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
+          <Typography sx={{ color: "text.secondary" }}>
+            {completedSetCount} completed set{completedSetCount === 1 ? "" : "s"}
+          </Typography>
+          <Typography sx={{ color: "text.secondary" }}>
+            {completedExerciseType === "weight" ? "Performance log" : "Completed timer log"}
+          </Typography>
+        </Box>
+
+        {currentExercise.sets?.filter((s) => s.complete).map((s, i) => (
+          <CompletedSetItem
+            key={`completed-log-set-${i}`}
+            set={s}
+            setIndex={i}
+            setCurrentSetIndex={setCurrentSetIndex}
+            type={completedExerciseType}
+            darkMode={darkMode}
+            interactive={false}
+          />
+        ))}
+
+        <DeleteDialog
+          open={showDeleteDialog}
+          onClose={() => setShowDeleteDialog(false)}
+          onDeleteToday={() => {
+            handleDelete("today");
+            setShowDeleteDialog(false);
+          }}
+          onDeleteAll={() => {
+            handleDelete("all");
+            setShowDeleteDialog(false);
+          }}
+          targetDate={formattedDate}
+        />
+      </Paper>
+    );
+  }
 
   return (
     <Paper
@@ -253,7 +392,7 @@ const ExerciseItem = ({
           <CRUDMenuButton
             darkMode={darkMode}
             handleDelete={() => {
-              if (currentExercise.isRepeating) {
+              if (isRepeating) {
                 setShowDeleteDialog(true);
               } else {
                 handleDelete("today");
@@ -272,7 +411,7 @@ const ExerciseItem = ({
             title="Toggle on to make this exercise repeat next week"
           >
             <RepeatIcon
-              color={currentExercise.isRepeating ? "primary" : "disabled"}
+              color={isRepeating ? "primary" : "disabled"}
             />
           </IconButton>
         </Box>
@@ -308,6 +447,7 @@ const ExerciseItem = ({
                 setIndex={i}
                 currentExerciseIndex={currentExerciseIndex}
                 setCurrentSetIndex={setCurrentSetIndex}
+                setCurrentExercise={setCurrentExercise}
                 formattedDate={formattedDate}
                 setCurrentExerciseIndex={setCurrentExerciseIndex}
                 workout={workout}
