@@ -1,7 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import { ObjectId } from "mongodb";
 import { connectToDatabase } from "../../utils/mongodb";
 import { WorkoutEntryDoc } from "@/utils/types";
 import { buildExerciseProgressSummary } from "@/utils/performance";
+import { buildNextExerciseRecommendation } from "@/utils/progression";
 
 export default async function handler(
   req: NextApiRequest,
@@ -26,6 +28,7 @@ export default async function handler(
   try {
     const db = await connectToDatabase();
     const col = db.collection<WorkoutEntryDoc>("workoutEntries");
+    const userCollection = db.collection("users");
 
     const entries = await col
       .find({
@@ -36,9 +39,21 @@ export default async function handler(
       .sort({ date: -1 })
       .toArray();
 
-    const summary = buildExerciseProgressSummary(entries);
+    const normalizedUserId = Array.isArray(userId) ? userId[0] : userId;
+    const user =
+      typeof normalizedUserId === "string" && ObjectId.isValid(normalizedUserId)
+        ? await userCollection.findOne({
+            _id: new ObjectId(normalizedUserId),
+          })
+        : null;
 
-    return res.status(200).json({ summary, entries });
+    const summary = buildExerciseProgressSummary(entries);
+    const recommendation = buildNextExerciseRecommendation(
+      entries,
+      user?.trainingGoal
+    );
+
+    return res.status(200).json({ summary, recommendation, entries });
   } catch (error) {
     console.error("exerciseProgress error:", error);
     return res.status(500).json({ message: "Internal Server Error" });

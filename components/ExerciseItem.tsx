@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Paper, Box, Button, Typography, IconButton, Chip } from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -12,6 +12,7 @@ import CRUDMenuButton from "./CRUDMenuButton";
 import {
   deactivateRecurringRule,
   deleteWorkoutEntry,
+  fetchExerciseProgress,
   saveRecurringRule,
   saveWorkoutEntry,
   toTitleCase,
@@ -39,6 +40,9 @@ const ExerciseItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
+  const [recommendation, setRecommendation] = useState<any>(null);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const appliedRecommendationRef = useRef<string | null>(null);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
@@ -51,7 +55,207 @@ const ExerciseItem = ({
   useEffect(() => {
     setCurrentExercise(exercise);
     setIsRepeating(exercise.isRepeating);
+    appliedRecommendationRef.current = null;
   }, [exercise]);
+
+  useEffect(() => {
+    const exerciseId = currentExercise?.exerciseId ?? currentExercise?._id;
+
+    if (!currentUserId || !exerciseId || currentExercise?.type !== "weight") {
+      setRecommendation(null);
+      setLoadingRecommendation(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingRecommendation(true);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await fetchExerciseProgress(currentUserId, exerciseId);
+        if (!active) {
+          return;
+        }
+
+        setRecommendation(result?.recommendation ?? null);
+      } catch (error) {
+        console.error("Failed to load exercise recommendation", error);
+        if (active) {
+          setRecommendation(null);
+        }
+      } finally {
+        if (active) {
+          setLoadingRecommendation(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [
+    currentUserId,
+    currentExercise?._id,
+    currentExercise?.exerciseId,
+    currentExercise?.type,
+    currentExercise?.complete,
+  ]);
+
+  useEffect(() => {
+    if (
+      currentExercise?.type !== "weight" ||
+      currentExercise?.complete ||
+      !recommendation?.recommendedWeight ||
+      !recommendation?.recommendedReps ||
+      !recommendation?.recommendedSets
+    ) {
+      return;
+    }
+
+    const recommendationKey = [
+      currentExercise?.exerciseId ?? currentExercise?._id,
+      formattedDate,
+      recommendation.recommendedWeight,
+      recommendation.recommendedReps,
+      recommendation.recommendedSets,
+    ].join("::");
+
+    if (appliedRecommendationRef.current === recommendationKey) {
+      return;
+    }
+
+    const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
+    const incompleteTemplate =
+      (currentExercise?.sets ?? []).find((set) => !set.complete) ??
+      (currentExercise?.sets ?? [])[0] ?? {
+        name: "Working Set 1",
+        percentage: undefined,
+      };
+
+    const recommendedIncompleteSets = Array.from(
+      { length: recommendation.recommendedSets },
+      (_, index) => ({
+        ...incompleteTemplate,
+        name: `Working Set ${index + 1}`,
+        reps: recommendation.recommendedReps,
+        weight: recommendation.recommendedWeight,
+        actualWeight: "",
+        actualReps: "",
+        complete: false,
+      })
+    );
+
+    appliedRecommendationRef.current = recommendationKey;
+    setCurrentExercise((prev) => ({
+      ...prev,
+      sets: [...completedSets, ...recommendedIncompleteSets],
+    }));
+  }, [currentExercise, formattedDate, recommendation]);
+
+  const renderRecommendationPanel = () => {
+    if (currentExercise.type !== "weight") {
+      return null;
+    }
+
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 1.5,
+          p: 1.5,
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: darkMode ? "rgba(96,165,250,0.3)" : "rgba(59,130,246,0.22)",
+          backgroundColor: darkMode ? "rgba(15,23,42,0.8)" : "rgba(239,246,255,0.92)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Next Recommendation
+          </Typography>
+          {recommendation?.progressionStyle ? (
+            <Chip
+              size="small"
+              label={toTitleCase(recommendation.progressionStyle)}
+              color="primary"
+              variant="outlined"
+            />
+          ) : null}
+        </Box>
+
+        {loadingRecommendation ? (
+          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+            Calculating from your logged history...
+          </Typography>
+        ) : recommendation?.recommendedWeight ? (
+          <>
+            <Box
+              sx={{
+                mt: 1,
+                display: "flex",
+                gap: 1,
+                flexWrap: "wrap",
+              }}
+            >
+              <Chip
+                label={`${recommendation.recommendedWeight} lbs`}
+                color="primary"
+                sx={{ fontWeight: 700 }}
+              />
+              <Chip
+                label={`${recommendation.recommendedReps} reps`}
+                variant="outlined"
+              />
+              <Chip
+                label={`${recommendation.recommendedSets} sets`}
+                variant="outlined"
+              />
+            </Box>
+
+            {recommendation?.basedOn ? (
+              <Typography sx={{ mt: 1, color: "text.secondary" }}>
+                Top completed set last time: {recommendation.basedOn.topSetWeight} x{" "}
+                {recommendation.basedOn.topSetReps}. Average working set:{" "}
+                {recommendation.basedOn.averageWeight} x{" "}
+                {recommendation.basedOn.averageReps} across{" "}
+                {recommendation.basedOn.setsCompleted} completed set
+                {recommendation.basedOn.setsCompleted === 1 ? "" : "s"}
+                {recommendation.basedOn.date
+                  ? ` on ${recommendation.basedOn.date}`
+                  : ""}
+                .
+              </Typography>
+            ) : null}
+
+            {recommendation?.daysSinceLastWorkout !== null &&
+            recommendation?.daysSinceLastWorkout !== undefined ? (
+              <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                Days since last workout: {recommendation.daysSinceLastWorkout}
+              </Typography>
+            ) : null}
+
+            <Typography sx={{ mt: 1, color: "text.secondary" }}>
+              {recommendation.reason}
+            </Typography>
+          </>
+        ) : (
+          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+            {recommendation?.reason ??
+              "Complete one fully logged workout for this exercise to unlock recommendations."}
+          </Typography>
+        )}
+      </Paper>
+    );
+  };
 
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
@@ -338,6 +542,8 @@ const ExerciseItem = ({
           />
         ))}
 
+        {renderRecommendationPanel()}
+
         <DeleteDialog
           open={showDeleteDialog}
           onClose={() => setShowDeleteDialog(false)}
@@ -444,6 +650,7 @@ const ExerciseItem = ({
                 routineName={routineName}
                 set={s}
                 currentExercise={currentExercise}
+                progressionStyle={recommendation?.progressionStyle}
                 setIndex={i}
                 currentExerciseIndex={currentExerciseIndex}
                 setCurrentSetIndex={setCurrentSetIndex}
@@ -479,23 +686,27 @@ const ExerciseItem = ({
         })}
 
       {exerciseIndex === currentExerciseIndex && (
-        <Button
-          variant="outlined"
-          size="small"
-          title="Adds an exercise only to the currently selected day"
-          onClick={handleAddSet}
-          startIcon={<AddIcon />}
-          sx={{
-            mt: 3,
-            mb: 2,
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          Add Set
-        </Button>
+        <>
+          {renderRecommendationPanel()}
+
+          <Button
+            variant="outlined"
+            size="small"
+            title="Adds an exercise only to the currently selected day"
+            onClick={handleAddSet}
+            startIcon={<AddIcon />}
+            sx={{
+              mt: 3,
+              mb: 2,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            Add Set
+          </Button>
+        </>
       )}
 
       <DeleteDialog

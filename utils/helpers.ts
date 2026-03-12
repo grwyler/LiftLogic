@@ -7,6 +7,7 @@ import {
   ExerciseSet,
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
+import { ExerciseRecommendation } from "./progression";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -97,6 +98,7 @@ export const fetchExerciseProgress = async (
   exerciseId: string
 ): Promise<{
   summary: ExerciseProgressSummary;
+  recommendation: ExerciseRecommendation;
   entries: WorkoutEntryDoc[];
 } | null> => {
   const trimmedExerciseId = String(exerciseId ?? "").trim();

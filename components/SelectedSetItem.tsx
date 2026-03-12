@@ -5,6 +5,7 @@ import {
   roundToNearestFive,
   saveWorkoutEntry,
 } from "../utils/helpers";
+import { adjustRemainingSetsAfterLoggedSet } from "../utils/progression";
 import {
   Box,
   Divider,
@@ -25,6 +26,7 @@ const SelectedSetItem = ({
   routineName,
   set,
   currentExercise,
+  progressionStyle,
   setIndex,
   currentExerciseIndex,
   setCurrentSetIndex,
@@ -80,6 +82,41 @@ const SelectedSetItem = ({
   const [totalSeconds, setTotalSeconds] = useState(
     hours * 3600 + minutes * 60 + seconds
   );
+  const [liveAdjustment, setLiveAdjustment] = useState<any>(null);
+
+  useEffect(() => {
+    const nextWeightValue =
+      actualWeight || roundToNearestFive(weight || DEFAULT_MAX_WEIGHT).toString();
+
+    setSetName(name);
+    setCurrentSetWeight(nextWeightValue);
+    setCurrentSetReps(actualReps || reps);
+    setHours(
+      actualHours === "" ? parseInt(set.hours) || 0 : parseInt(actualHours) || 0
+    );
+    setMinutes(
+      actualMinutes === ""
+        ? parseInt(set.minutes) || 0
+        : parseInt(actualMinutes) || 0
+    );
+    setSeconds(
+      actualSeconds === ""
+        ? parseInt(set.seconds) || 0
+        : parseInt(actualSeconds) || 0
+    );
+  }, [
+    actualHours,
+    actualMinutes,
+    actualReps,
+    actualSeconds,
+    actualWeight,
+    name,
+    reps,
+    set.hours,
+    set.minutes,
+    set.seconds,
+    weight,
+  ]);
 
   const handleInputChange = (value: any, setValue: (v: any) => void) => {
     const trimmedValue = value.toString().replace(/^0+/, "");
@@ -158,22 +195,33 @@ const SelectedSetItem = ({
         : s
     );
 
+    const adjustedResult =
+      currentExercise.type === "weight"
+        ? adjustRemainingSetsAfterLoggedSet(
+            updatedSets,
+            setIndex,
+            progressionStyle
+          )
+        : { sets: updatedSets, adjustment: null };
+    const adjustedSets = adjustedResult.sets;
+    setLiveAdjustment(adjustedResult.adjustment);
+
     /* ------------------------------------------------------------------ */
     /* 2. Advance to next incomplete set (or stay at end if none)         */
     /* ------------------------------------------------------------------ */
-    const nextSetIndex = updatedSets.findIndex(
+    const nextSetIndex = adjustedSets.findIndex(
       (s, i) => i > setIndex && !s.complete
     );
-    setCurrentSetIndex(nextSetIndex === -1 ? updatedSets.length : nextSetIndex);
+    setCurrentSetIndex(nextSetIndex === -1 ? adjustedSets.length : nextSetIndex);
 
     /* ------------------------------------------------------------------ */
     /* 3. Update the current exercise object                              */
     /* ------------------------------------------------------------------ */
-    const exerciseComplete = updatedSets.every((s) => s.complete);
+    const exerciseComplete = adjustedSets.every((s) => s.complete);
 
     const updatedExercise = {
       ...currentExercise,
-      sets: updatedSets,
+      sets: adjustedSets,
       complete: exerciseComplete,
       ...(exerciseComplete && {
         date: formattedDate,
@@ -331,6 +379,16 @@ const SelectedSetItem = ({
             <Typography>
               {calculateWeights(roundToNearestFive(set.weight))}
             </Typography>
+            {(set as any).adjustmentReason && (
+              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                Live adjustment: {(set as any).adjustmentReason}
+              </Typography>
+            )}
+            {liveAdjustment && (
+              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                Next sets updated to {liveAdjustment.weight} lbs x {liveAdjustment.reps}.
+              </Typography>
+            )}
           </Paper>
 
           <Divider sx={{ mb: 1 }} />
