@@ -18,6 +18,8 @@ import {
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
+import GoogleIcon from "@mui/icons-material/Google";
+import FacebookIcon from "@mui/icons-material/Facebook";
 import UserTable from "../components/UserTable";
 import LoadingIndicator from "../components/LoadingIndicator";
 
@@ -29,7 +31,12 @@ const SignIn = () => {
   const [password, setPassword] = useState("");
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const [error, setError] = useState("");
+  const [oauthLoading, setOauthLoading] = useState<"" | "google" | "facebook">(
+    ""
+  );
   const router = useRouter();
+  const hasGoogleAuth = Boolean(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED);
+  const hasFacebookAuth = Boolean(process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED);
 
   const fetchUsers = async () => {
     try {
@@ -67,6 +74,16 @@ const SignIn = () => {
     }
 
     router.push("/routines");
+  };
+
+  const handleOAuthSignIn = async (provider: "google" | "facebook") => {
+    setError("");
+    setOauthLoading(provider);
+    try {
+      await signIn(provider, { callbackUrl: "/routines?welcome=1" });
+    } finally {
+      setOauthLoading("");
+    }
   };
 
   return (
@@ -180,6 +197,38 @@ const SignIn = () => {
 
           <Box component="form" sx={{ mt: 3.5 }}>
             <Stack spacing={1.5}>
+              {(hasGoogleAuth || hasFacebookAuth) && (
+                <>
+                  {hasGoogleAuth && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<GoogleIcon />}
+                      onClick={() => handleOAuthSignIn("google")}
+                      disabled={Boolean(oauthLoading)}
+                    >
+                      {oauthLoading === "google"
+                        ? "Opening Google..."
+                        : "Continue with Google"}
+                    </Button>
+                  )}
+
+                  {hasFacebookAuth && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<FacebookIcon />}
+                      onClick={() => handleOAuthSignIn("facebook")}
+                      disabled={Boolean(oauthLoading)}
+                    >
+                      {oauthLoading === "facebook"
+                        ? "Opening Facebook..."
+                        : "Continue with Facebook"}
+                    </Button>
+                  )}
+
+                  <Divider flexItem>or use your username</Divider>
+                </>
+              )}
+
               <TextField
                 fullWidth
                 label="Username"

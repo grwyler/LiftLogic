@@ -16,7 +16,9 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import FacebookIcon from "@mui/icons-material/Facebook";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
+import GoogleIcon from "@mui/icons-material/Google";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -24,6 +26,11 @@ const SignUp: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [oauthLoading, setOauthLoading] = useState<"" | "google" | "facebook">(
+    ""
+  );
+  const hasGoogleAuth = Boolean(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED);
+  const hasFacebookAuth = Boolean(process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +67,21 @@ const SignUp: React.FC = () => {
         return;
       }
 
-      router.push("/user");
+      router.push("/routines?welcome=1");
     } catch (signupError) {
       setIsSigningIn(false);
       setError("Error during registration.");
       console.error("Error during registration:", signupError);
+    }
+  };
+
+  const handleOAuthSignUp = async (provider: "google" | "facebook") => {
+    setError("");
+    setOauthLoading(provider);
+    try {
+      await signIn(provider, { callbackUrl: "/routines?welcome=1" });
+    } finally {
+      setOauthLoading("");
     }
   };
 
@@ -165,11 +182,41 @@ const SignUp: React.FC = () => {
             Join Lift Logic
           </Typography>
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
-            Use a simple username and password for now. You can customize the
-            rest after you’re in.
+            Use a social login for the smoothest start, or create a username and
+            password if you prefer.
           </Typography>
 
           <Stack spacing={1.5} sx={{ mt: 3.5 }}>
+            {(hasGoogleAuth || hasFacebookAuth) && (
+              <>
+                {hasGoogleAuth && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<GoogleIcon />}
+                    onClick={() => handleOAuthSignUp("google")}
+                    disabled={Boolean(oauthLoading) || isSigningIn}
+                  >
+                    {oauthLoading === "google"
+                      ? "Opening Google..."
+                      : "Continue with Google"}
+                  </Button>
+                )}
+
+                {hasFacebookAuth && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<FacebookIcon />}
+                    onClick={() => handleOAuthSignUp("facebook")}
+                    disabled={Boolean(oauthLoading) || isSigningIn}
+                  >
+                    {oauthLoading === "facebook"
+                      ? "Opening Facebook..."
+                      : "Continue with Facebook"}
+                  </Button>
+                )}
+              </>
+            )}
+
             <TextField
               label="Username"
               value={username}
@@ -188,7 +235,9 @@ const SignUp: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={!username || !password || isSigningIn}
+              disabled={
+                !username || !password || isSigningIn || Boolean(oauthLoading)
+              }
               endIcon={
                 isSigningIn ? (
                   <CircularProgress size={16} color="inherit" />

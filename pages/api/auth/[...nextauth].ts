@@ -1,12 +1,131 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import FacebookProvider from "next-auth/providers/facebook";
+import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase } from "../../../utils/mongodb";
 
-export default NextAuth({
+const createUsernameSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24) || "athlete";
+
+const getUniqueUsername = async (baseValue: string) => {
+  const db = await connectToDatabase();
+  const users = db.collection("users");
+  const base = createUsernameSlug(baseValue);
+
+  let attempt = base;
+  let suffix = 1;
+
+  while (await users.findOne({ username: attempt })) {
+    attempt = `${base}-${suffix}`;
+    suffix += 1;
+  }
+
+  return attempt;
+};
+
+const getOrCreateOAuthUser = async ({
+  provider,
+  providerAccountId,
+  email,
+  name,
+}: {
+  provider: string;
+  providerAccountId: string;
+  email?: string | null;
+  name?: string | null;
+}) => {
+  const db = await connectToDatabase();
+  const users = db.collection("users");
+
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  const normalizedProviderAccountId = String(providerAccountId ?? "").trim();
+
+  let user = await users.findOne({
+    provider,
+    providerAccountId: normalizedProviderAccountId,
+  });
+
+  if (!user && normalizedEmail) {
+    user = await users.findOne({ email: normalizedEmail });
+  }
+
+  if (user) {
+    const update: Record<string, unknown> = {
+      provider,
+      providerAccountId: normalizedProviderAccountId,
+      email: normalizedEmail || user.email,
+      name: name || user.name,
+      updatedAt: new Date(),
+    };
+
+    await users.updateOne({ _id: user._id }, { $set: update });
+    return {
+      ...user,
+      ...update,
+      _id: user._id?.toString?.() ?? String(user._id),
+      id: user._id?.toString?.() ?? String(user._id),
+    } as any;
+  }
+
+  const username = await getUniqueUsername(
+    normalizedEmail.split("@")[0] || name || provider
+  );
+
+  const doc = {
+    username,
+    email: normalizedEmail || undefined,
+    name: name || username,
+    provider,
+    providerAccountId: normalizedProviderAccountId,
+    preferredUnits: "lb",
+    trainingGoal: "",
+    workoutDaysPerWeek: "",
+    darkMode: false,
+    notes: "",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const result = await users.insertOne(doc);
+
+  return {
+    ...doc,
+    _id: result.insertedId.toString(),
+    id: result.insertedId.toString(),
+  } as any;
+};
+
+const providers = [
+  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? [
+        GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        }),
+      ]
+    : []),
+  ...(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET
+    ? [
+        FacebookProvider({
+          clientId: process.env.FACEBOOK_CLIENT_ID,
+          clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+        }),
+      ]
+    : []),
+];
+
+const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
   providers: [
-    Credentials({
-      // The name to display on the sign-in form (e.g., 'Sign in with...')
+    ...providers,
+    CredentialsProvider({
       name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
@@ -14,21 +133,31 @@ export default NextAuth({
       },
       async authorize(credentials) {
         try {
-          const db = await connectToDatabase();
+          const username = String(credentials?.username ?? "").trim();
+          const password = String(credentials?.password ?? "");
 
+          if (!username || !password) {
+            return null;
+          }
+
+          const db = await connectToDatabase();
           const user = await db.collection("users").findOne({
-            username: credentials.username,
-            password: credentials.password, // TODO: Hash the password before storing and comparing
+            username,
+            password, // TODO: hash passwords before storing and comparing
           });
 
-          if (user) {
-            // Any object returned here will be saved in the JSON Web Token
-            return Promise.resolve(user);
-          } else {
-            return Promise.resolve(null);
+          if (!user) {
+            return null;
           }
+
+          return {
+            ...user,
+            _id: user._id?.toString?.() ?? String(user._id),
+            id: user._id?.toString?.() ?? String(user._id),
+          } as any;
         } catch (error) {
-          console.error(error);
+          console.error("NextAuth authorize error:", error);
+          return null;
         }
       },
     }),
@@ -36,24 +165,57 @@ export default NextAuth({
   pages: {
     signIn: "/signin",
     signOut: "/signout",
-    error: "/signin", // Redirect to the sign-in page in case of an error
+    error: "/signin",
   },
   callbacks: {
-    async jwt(token, user, account, profile, isNewUser) {
-      // If the user information is nested within the 'token' property
-      if (token && token.token && token.token.user) {
-        token.user = token.token.user;
+    async signIn({ user, account }) {
+      if (!account || account.provider === "credentials") {
+        return true;
+      }
+
+      try {
+        const appUser = await getOrCreateOAuthUser({
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+          email: user.email,
+          name: user.name,
+        });
+
+        (user as any).appUser = appUser;
+        return true;
+      } catch (error) {
+        console.error("NextAuth OAuth signIn error:", error);
+        return false;
+      }
+    },
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.user = ((user as any).appUser || user) as any;
+      } else if (account?.provider && account.provider !== "credentials") {
+        try {
+          const appUser = await getOrCreateOAuthUser({
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+            email: token.email,
+            name: token.name,
+          });
+          token.user = appUser;
+        } catch (error) {
+          console.error("NextAuth OAuth jwt error:", error);
+        }
       }
 
       return token;
     },
-    async session(session, token) {
-      // If the user information is nested within the 'token' property
-      if (token && token.token && token.token.user) {
-        session.user = token.token.user;
+    async session({ session, token }) {
+      if (token?.user) {
+        session.user = token.user as any;
+        (session as any).token = { user: token.user };
       }
 
       return session;
     },
-  } as any,
-});
+  },
+};
+
+export default NextAuth(authOptions);
