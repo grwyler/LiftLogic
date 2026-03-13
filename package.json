@@ -3,6 +3,9 @@
   "name": "lift-logic",
   "version": "1.0.0",
   "homepage": "https://vercel.com/grwyler/lift-logic/6dqx1URyU74n4gM9dLHkJgCaCRM2",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next",
     "build": "next build",

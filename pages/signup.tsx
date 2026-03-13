@@ -29,8 +29,9 @@ const SignUp: React.FC = () => {
   const [oauthLoading, setOauthLoading] = useState<"" | "google" | "facebook">(
     ""
   );
-  const hasGoogleAuth = Boolean(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED);
-  const hasFacebookAuth = Boolean(process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED);
+  const hasGoogleAuth = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+  const hasFacebookAuth =
+    process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === "true";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

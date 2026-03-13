@@ -35,8 +35,9 @@ const SignIn = () => {
     ""
   );
   const router = useRouter();
-  const hasGoogleAuth = Boolean(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED);
-  const hasFacebookAuth = Boolean(process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED);
+  const hasGoogleAuth = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+  const hasFacebookAuth =
+    process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === "true";
 
   const fetchUsers = async () => {
     try {
