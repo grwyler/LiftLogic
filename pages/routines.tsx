@@ -392,7 +392,6 @@ const RoutinesPage = ({
           maxWidth: 760,
           mx: "auto",
           minHeight: "calc(100vh - 32px)",
-          overflowY: "auto",
           backgroundColor: "background.paper",
           color: "text.primary",
           border: "1px solid",
