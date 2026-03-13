@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, Typography, Chip } from "@mui/material";
-import ExerciseItem from "./ExerciseItem";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import AddIcon from "@mui/icons-material/Add";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import ExerciseItem from "./ExerciseItem";
 
 const WorkoutDisplay = ({
   exercises,
@@ -15,10 +17,56 @@ const WorkoutDisplay = ({
   setRefetchExercises,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
-  const loggedSetCount = exercises.reduce(
-    (total, exercise) =>
-      total + (exercise.sets?.filter((set) => set.complete).length ?? 0),
-    0
+
+  const loggedSetCount = useMemo(
+    () =>
+      exercises.reduce(
+        (total, exercise) =>
+          total + (exercise.sets?.filter((set) => set.complete).length ?? 0),
+        0
+      ),
+    [exercises]
+  );
+
+  const completedExercises = useMemo(
+    () => exercises.filter((exercise) => exercise.complete),
+    [exercises]
+  );
+
+  const plannedExercises = useMemo(
+    () => exercises.filter((exercise) => !exercise.complete),
+    [exercises]
+  );
+
+  const nextExercise = useMemo(
+    () => exercises.find((exercise) => !exercise.complete) ?? null,
+    [exercises]
+  );
+
+  const nextExerciseIndex = useMemo(
+    () => exercises.findIndex((exercise) => !exercise.complete),
+    [exercises]
+  );
+
+  const hasExercises = exercises.length > 0;
+  const isWorkoutComplete = hasExercises && !nextExercise;
+
+  const workoutVolume = useMemo(
+    () =>
+      exercises.reduce((total, exercise) => {
+        const exerciseVolume =
+          exercise.sets?.reduce((setTotal, set) => {
+            const reps = Number(set.actualReps ?? set.reps ?? 0);
+            const weight = Number(set.actualWeight ?? set.weight ?? 0);
+            if (!set.complete || !reps || !weight) {
+              return setTotal;
+            }
+            return setTotal + reps * weight;
+          }, 0) ?? 0;
+
+        return total + exerciseVolume;
+      }, 0),
+    [exercises]
   );
 
   useEffect(() => {
@@ -27,64 +75,262 @@ const WorkoutDisplay = ({
     }
   }, [exercises, setCurrentExerciseIndex]);
 
+  const renderSection = (title: string, description: string, items: any[]) => {
+    if (items.length === 0) {
+      return null;
+    }
+
+    return (
+      <Box sx={{ mt: 2.25 }}>
+        <Box
+          sx={{
+            mb: 1,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
+          <Box>
+            <Typography
+              variant="overline"
+              sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+            >
+              {title}
+            </Typography>
+            <Typography sx={{ color: "text.secondary" }}>{description}</Typography>
+          </Box>
+          <Chip
+            size="small"
+            label={`${items.length} item${items.length === 1 ? "" : "s"}`}
+            variant="outlined"
+          />
+        </Box>
+
+        {items.map((exercise) => {
+          const exerciseIndex = exercises.findIndex((item) => item === exercise);
+          return (
+            <ExerciseItem
+              setRefetchExercises={setRefetchExercises}
+              key={`exercise-item-${exerciseIndex}`}
+              exercise={exercise}
+              exerciseIndex={exerciseIndex}
+              workout={currentWorkout}
+              currentExerciseIndex={currentExerciseIndex}
+              setCurrentExerciseIndex={setCurrentExerciseIndex}
+              formattedDate={formattedDate}
+              routineName={routineName}
+              shownMenuIndex={shownMenuIndex}
+              setShownMenuIndex={setShownMenuIndex}
+              darkMode={darkMode}
+            />
+          );
+        })}
+      </Box>
+    );
+  };
+
   return (
     <Box>
-      <Box
+      <Paper
+        elevation={0}
         sx={{
-          px: 0.5,
-          pt: 0.25,
-          pb: 1.25,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 1,
-          flexWrap: "wrap",
+          p: 1.75,
+          borderRadius: 4,
+          border: "1px solid",
+          borderColor: "divider",
+          backgroundColor: darkMode
+            ? "rgba(17,24,39,0.78)"
+            : "rgba(255,255,255,0.88)",
         }}
       >
-        <Box>
-          <Typography sx={{ color: "text.secondary" }}>
-            {exercises.length} exercise{exercises.length === 1 ? "" : "s"} on deck
-          </Typography>
-        </Box>
-        <Chip
-          size="small"
-          label={
-            loggedSetCount > 0
-              ? `${loggedSetCount} set${loggedSetCount === 1 ? "" : "s"} logged`
-              : "Ready to train"
-          }
-          variant="outlined"
+        <Stack spacing={1.5}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 1,
+            }}
+          >
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+              >
+                Today
+              </Typography>
+              <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                {formattedDate}
+              </Typography>
+            </Box>
+
+            <Chip
+              size="small"
+              label={
+                !hasExercises
+                  ? "No exercises scheduled"
+                  : loggedSetCount > 0
+                  ? `${loggedSetCount} set${loggedSetCount === 1 ? "" : "s"} logged`
+                  : "Ready to train"
+              }
+              variant="outlined"
+            />
+          </Box>
+
+          {nextExercise ? (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: darkMode
+                  ? "rgba(255,255,255,0.03)"
+                  : "rgba(248,250,252,0.92)",
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: { xs: "flex-start", sm: "center" },
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: 1.25,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  >
+                    Up Next
+                  </Typography>
+                  <Typography variant="h6">{nextExercise.name}</Typography>
+                  <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                    Focus on the next incomplete exercise. Completed work moves
+                    below automatically.
+                  </Typography>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  startIcon={<PlayArrowIcon />}
+                  onClick={() => setCurrentExerciseIndex(nextExerciseIndex)}
+                >
+                  Open Next Set
+                </Button>
+              </Box>
+            </Paper>
+          ) : isWorkoutComplete ? (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: darkMode
+                  ? "rgba(255,255,255,0.03)"
+                  : "rgba(248,250,252,0.92)",
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: { xs: "flex-start", sm: "center" },
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: 1.25,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  >
+                    Workout Complete
+                  </Typography>
+                  <Typography variant="h6">
+                    Everything for today is logged
+                  </Typography>
+                  <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                    Review your completed work below or add another exercise if
+                    you want to keep going.
+                  </Typography>
+                </Box>
+                <CheckCircleOutlineIcon color="success" />
+              </Box>
+            </Paper>
+          ) : null}
+
+          {(completedExercises.length > 0 || isWorkoutComplete) && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                flexWrap: "wrap",
+              }}
+            >
+              <Chip
+                label={`${completedExercises.length} exercise${
+                  completedExercises.length === 1 ? "" : "s"
+                } completed`}
+                variant="outlined"
+              />
+              <Chip
+                label={`Total volume ${workoutVolume.toLocaleString()}`}
+                variant="outlined"
+              />
+            </Box>
+          )}
+        </Stack>
+      </Paper>
+
+      {plannedExercises.length > 0
+        ? renderSection(
+            "Up Next",
+            "These are the exercises still scheduled for this workout.",
+            plannedExercises
+          )
+        : null}
+
+      {completedExercises.length > 0
+        ? renderSection(
+            "Completed Today",
+            "Finished exercises move here so the active workout stays cleaner.",
+            completedExercises
+          )
+        : null}
+
+      {!hasExercises ? (
+        <Paper
+          elevation={0}
           sx={{
+            mt: 2.25,
+            p: 2.5,
+            borderRadius: 4,
+            border: "1px solid",
+            borderColor: "divider",
+            textAlign: "center",
             backgroundColor: darkMode
-              ? "rgba(255,255,255,0.03)"
-              : "rgba(255,255,255,0.7)",
-            borderColor: darkMode
-              ? "rgba(148,163,184,0.14)"
-              : "rgba(17,24,39,0.08)",
-            color: "text.secondary",
+              ? "rgba(17,24,39,0.72)"
+              : "rgba(255,255,255,0.86)",
           }}
-        />
-      </Box>
-      {exercises.map((e, exerciseIndex) => (
-        <ExerciseItem
-          setRefetchExercises={setRefetchExercises}
-          key={`exercise-item-${exerciseIndex}`}
-          exercise={e}
-          exerciseIndex={exerciseIndex}
-          workout={currentWorkout}
-          currentExerciseIndex={currentExerciseIndex}
-          setCurrentExerciseIndex={setCurrentExerciseIndex}
-          formattedDate={formattedDate}
-          routineName={routineName}
-          shownMenuIndex={shownMenuIndex}
-          setShownMenuIndex={setShownMenuIndex}
-          darkMode={darkMode}
-        />
-      ))}
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+        >
+          <Typography variant="h6">No exercises yet</Typography>
+          <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+            Add your first exercise to start building today&apos;s workout.
+          </Typography>
+        </Paper>
+      ) : null}
+
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 2.5 }}>
         <Button
           variant="contained"
-          title="Adds an exercise only to the currently selected day"
           onClick={() => {
             setIsAddingExercise(true);
           }}
