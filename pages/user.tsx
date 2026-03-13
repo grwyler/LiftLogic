@@ -24,6 +24,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import TuneIcon from "@mui/icons-material/Tune";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import { toast } from "react-toastify";
 
 interface UserPageProps {
@@ -382,6 +383,38 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
                   minRows={4}
                   placeholder="Examples: prioritize deadlift, keep sessions under 45 minutes, shoulder-friendly pressing only."
                 />
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CampaignOutlinedIcon color="primary" />
+                    <Typography variant="h6">Product feedback</Typography>
+                  </Box>
+                  <Typography sx={{ mt: 1, color: "text.secondary" }}>
+                    Report bugs or request product improvements from a separate
+                    feedback page built for production use.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" onClick={() => router.push("/feedback")}>
+                  Open Feedback
+                </Button>
               </Stack>
             </Paper>
 

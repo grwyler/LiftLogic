@@ -5,6 +5,7 @@ import {
   ExerciseCatalogDoc,
   Exercise,
   ExerciseSet,
+  FeedbackItemDoc,
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
@@ -508,6 +509,41 @@ export const saveUser = async (user) => {
   } catch (error) {
     console.error("Error saving user inputs:", error);
   }
+};
+
+export const submitFeedback = async (
+  feedback: Omit<FeedbackItemDoc, "_id" | "createdAt" | "updatedAt" | "status">
+) => {
+  const response = await fetch("/api/feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ feedback }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`submitFeedback ${response.status}: ${message}`);
+  }
+
+  return response.json();
+};
+
+export const fetchFeedback = async (userId?: string) => {
+  const query = new URLSearchParams();
+  if (userId) {
+    query.set("userId", userId);
+  }
+
+  const response = await fetch(`/api/feedback?${query.toString()}`);
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`fetchFeedback ${response.status}: ${message}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data.feedback) ? data.feedback : [];
 };
 
 export const roundToNearestFive = (number) => {
