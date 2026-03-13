@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { fetchUser, fetchRoutine, saveUser } from "../utils/helpers";
 import { useRouter } from "next/router";
@@ -140,31 +140,27 @@ const RoutinesPage = ({
     notes: "",
   });
 
-  useEffect(() => {
-    if (status === "loading") return;
-
-    const storedSession = localStorage.getItem("session");
-    if (!session && storedSession) {
-      signIn();
-    }
-  }, [session, status]);
-
-  useEffect(() => {
-    if (session) {
-      localStorage.setItem("session", JSON.stringify(session));
-    } else {
-      localStorage.removeItem("session");
-    }
-  }, [session]);
+  const sessionUserId =
+    session?.token?.user?._id || (session as any)?.user?._id || "";
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/");
+      router.replace("/");
     }
   }, [status, router]);
 
   useEffect(() => {
-    const userId = session?.token?.user?._id;
+    if (status !== "authenticated") {
+      return;
+    }
+
+    if (!sessionUserId) {
+      signOut({ redirect: true, callbackUrl: "/signin" });
+    }
+  }, [sessionUserId, status]);
+
+  useEffect(() => {
+    const userId = sessionUserId;
     if (!userId) return;
 
     const fetchPageData = async () => {
@@ -174,8 +170,13 @@ const RoutinesPage = ({
           fetchUser(userId),
           fetchRoutine(userId),
         ]);
+        if (!fetchedUser) {
+          await signOut({ redirect: true, callbackUrl: "/signin" });
+          return;
+        }
+
         setUser(fetchedUser);
-        setRoutine(fetchedRoutine);
+        setRoutine(fetchedRoutine || null);
       } catch (error) {
         console.error("Error fetching routines page data:", error);
       } finally {
@@ -184,7 +185,7 @@ const RoutinesPage = ({
     };
 
     fetchPageData();
-  }, [session?.token?.user?._id]);
+  }, [sessionUserId]);
 
   useEffect(() => {
     if (user && typeof user.darkMode === "boolean") {

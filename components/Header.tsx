@@ -3,6 +3,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 
@@ -60,6 +61,16 @@ const Header = ({ user, setUser, setDarkMode, darkMode }) => {
         </Button>
       </Box>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+        <Button
+          onClick={() => router.push("/feedback")}
+          variant="outlined"
+          startIcon={<CampaignOutlinedIcon />}
+          sx={{
+            color: "text.primary",
+          }}
+        >
+          Feedback
+        </Button>
         <Button
           onClick={() => setDarkMode((prev) => !prev)}
           variant="outlined"

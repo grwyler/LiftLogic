@@ -91,3 +91,19 @@ export interface WorkoutEntryDoc {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export interface FeedbackItemDoc {
+  _id?: ObjectId;
+  userId: string;
+  username?: string;
+  email?: string;
+  type: "bug" | "feature";
+  title: string;
+  description: string;
+  status?: "new" | "reviewing" | "planned" | "resolved" | "closed";
+  severity?: "low" | "medium" | "high";
+  page?: string;
+  deviceType?: "mobile" | "desktop" | "unknown";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
