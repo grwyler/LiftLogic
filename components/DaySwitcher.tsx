@@ -88,17 +88,6 @@ const DaySwitcher = ({
           </IconButton>
 
           <Box sx={{ minWidth: 0 }}>
-            <Typography
-              variant="overline"
-              sx={{
-                display: "block",
-                textAlign: "center",
-                color: "text.secondary",
-                letterSpacing: "0.14em",
-              }}
-            >
-              Workout Date
-            </Typography>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               {isInline ? (
                 <StaticDatePicker

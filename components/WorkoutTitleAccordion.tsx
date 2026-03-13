@@ -8,32 +8,32 @@ import {
   Stack,
   IconButton,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import WorkoutDropdown from "./WorkoutsDropdown";
+
+const getDisplayWorkoutTitle = (workoutTitle?: string) => {
+  if (!workoutTitle) {
+    return "Workout";
+  }
+
+  if (/^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+workout$/i.test(workoutTitle)) {
+    return "Workout";
+  }
+
+  return workoutTitle;
+};
 
 const WorkoutTitleAccordion = ({
   workoutTitle,
-  workouts,
-  selectedWorkoutIndex,
+  currentWorkout,
   isEditTitle,
-  isCreateTitle,
   darkMode,
   handleEditClick,
-  handleDeleteWorkout,
-  handleCurrentWorkoutChange,
-  handleAddWorkout,
-  handleCreateWorkout,
   handleSaveTitleEdit,
   handleCancelEditTitle,
   setWorkoutTitle,
 }) => {
-  const isLastWorkout = workouts.length === 1;
-  const currentWorkout = workouts[selectedWorkoutIndex];
-
   return (
     <Paper
       elevation={0}
@@ -53,10 +53,10 @@ const WorkoutTitleAccordion = ({
           p: { xs: 1.75, sm: 2 },
           display: "flex",
           flexDirection: "column",
-          gap: 1.5,
+          gap: 1.25,
         }}
       >
-        {isEditTitle || isCreateTitle ? (
+        {isEditTitle ? (
           <>
             <TextField
               value={workoutTitle}
@@ -68,23 +68,16 @@ const WorkoutTitleAccordion = ({
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <Button
                 variant="contained"
-                onClick={
-                  isCreateTitle ? handleCreateWorkout : handleSaveTitleEdit
-                }
-                disabled={
-                  !workoutTitle ||
-                  workoutTitle === currentWorkout.title ||
-                  workouts.some((w) => w.title === workoutTitle)
-                }
+                onClick={handleSaveTitleEdit}
+                disabled={!workoutTitle?.trim()}
                 startIcon={<SaveIcon />}
               >
-                {isCreateTitle ? "Create workout" : "Save name"}
+                Save name
               </Button>
 
               <Button
                 variant="outlined"
                 onClick={handleCancelEditTitle}
-                disabled={isLastWorkout && !workoutTitle}
                 startIcon={<CloseIcon />}
               >
                 Cancel
@@ -92,76 +85,42 @@ const WorkoutTitleAccordion = ({
             </Stack>
           </>
         ) : (
-          <>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: { xs: "flex-start", sm: "center" },
-                justifyContent: "space-between",
-                gap: 1.25,
-              }}
-            >
-              <Box>
-                <Typography
-                  variant="overline"
-                  sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
-                >
-                  Workout
-                </Typography>
-                <Typography variant="h5">{workoutTitle}</Typography>
-              </Box>
-
-              <Stack direction="row" spacing={0.75}>
-                <IconButton
-                  size="small"
-                  onClick={handleAddWorkout}
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    backgroundColor: "background.paper",
-                  }}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={handleEditClick}
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    backgroundColor: "background.paper",
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                {!isLastWorkout && (
-                  <IconButton
-                    size="small"
-                    onClick={handleDeleteWorkout}
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      backgroundColor: "background.paper",
-                      color: "error.main",
-                    }}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Stack>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: { xs: "flex-start", sm: "center" },
+              justifyContent: "space-between",
+              gap: 1.25,
+            }}
+          >
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
+              >
+                Workout
+              </Typography>
+              <Typography variant="h5">
+                {getDisplayWorkoutTitle(currentWorkout?.title)}
+              </Typography>
+              <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                One workout flow for this day. Add exercises below and log them
+                in order.
+              </Typography>
             </Box>
 
-            {workouts.length > 1 && (
-              <Box>
-                <WorkoutDropdown
-                  workouts={workouts}
-                  darkMode={darkMode}
-                  handleCurrentWorkoutChange={handleCurrentWorkoutChange}
-                />
-              </Box>
-            )}
-
-          </>
+            <IconButton
+              size="small"
+              onClick={handleEditClick}
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Box>
         )}
       </Box>
     </Paper>

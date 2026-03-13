@@ -21,7 +21,6 @@ import SetItem from "./SetItem";
 import ExerciseEditItem from "./ExerciseEditItem";
 import CRUDMenuButton from "./CRUDMenuButton";
 import {
-  deactivateRecurringRule,
   deleteWorkoutEntry,
   fetchExerciseProgress,
   formatTime,
@@ -366,6 +365,10 @@ const ExerciseItem = ({
 
   const handleDelete = async (scope: "today" | "all") => {
     try {
+      const recurringRuleId = String(
+        currentExercise.ruleId ?? currentExercise._id ?? ""
+      ).trim();
+
       if (scope === "today" && currentExercise.ruleId) {
         await saveWorkoutEntry({
           userId: currentUserId,
@@ -380,11 +383,31 @@ const ExerciseItem = ({
         });
       }
 
-      if (scope === "all" && currentExercise.ruleId) {
-        await deactivateRecurringRule(currentExercise.ruleId);
+      if (scope === "all" && isRepeating) {
+        if (!recurringRuleId) {
+          throw new Error("Recurring rule id missing");
+        }
+
+        const response = await fetch("/api/recurringRule", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ruleId: recurringRuleId }),
+        });
+
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(
+            `deleteRecurringRule ${response.status}: ${message}`
+          );
+        }
+
+        const materializedEntryId = String(currentExercise._id ?? "").trim();
+        if (materializedEntryId && materializedEntryId !== recurringRuleId) {
+          await deleteWorkoutEntry(materializedEntryId);
+        }
       }
 
-      if (currentExercise._id && !currentExercise.ruleId) {
+      if (currentExercise._id && !isRepeating) {
         await deleteWorkoutEntry(currentExercise._id);
       }
 
@@ -495,7 +518,18 @@ const ExerciseItem = ({
         } as any);
       } else {
         if (currentExercise.ruleId) {
-          await deactivateRecurringRule(currentExercise.ruleId);
+          const response = await fetch("/api/recurringRule", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ruleId: String(currentExercise.ruleId) }),
+          });
+
+          if (!response.ok) {
+            const message = await response.text();
+            throw new Error(
+              `deleteRecurringRule ${response.status}: ${message}`
+            );
+          }
         }
         setCurrentExercise((prev) => ({
           ...prev,

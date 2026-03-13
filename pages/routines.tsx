@@ -413,7 +413,7 @@ const RoutinesPage = ({
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Finish your setup</DialogTitle>
+        <DialogTitle>Tune your recommendations</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Stack spacing={2.25}>
             <Paper
@@ -435,8 +435,8 @@ const RoutinesPage = ({
                 Let&apos;s tune this in.
               </Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                I&apos;ll ask a couple of quick questions so your workout suggestions
-                feel more like coaching and less like generic defaults.
+                These quick answers shape recommendations and defaults. They do
+                not create your workout routine for you.
               </Typography>
             </Paper>
 
@@ -469,7 +469,11 @@ const RoutinesPage = ({
 
             <Box>
               <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                How many days per week feels realistic?
+                How many days per week do you usually train?
+              </Typography>
+              <Typography sx={{ mb: 1, color: "text.secondary" }}>
+                This only helps pace suggestions. You&apos;ll add actual exercises
+                on the workout screen next.
               </Typography>
               <ToggleButtonGroup
                 exclusive
@@ -775,10 +779,11 @@ const RoutinesPage = ({
           }}
         >
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Finish your setup
+            Tune your recommendations
           </Typography>
           <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-            I can ask a couple of quick coaching questions and tune your recommendations.
+            A few coaching questions will improve defaults, but your workout is
+            still built on the main screen.
           </Typography>
           <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
             <Button variant="contained" onClick={() => setShowSetupDialog(true)}>

@@ -2,126 +2,46 @@ import React, { useEffect, useState } from "react";
 import WorkoutTitleAccordion from "./WorkoutTitleAccordion";
 
 interface WorkoutSelectorProps {
-  setRoutine: (routine: any) => void;
+  setRoutine: (workout: any) => void;
   currentWorkout: any;
-  workouts: any[];
-  selectedWorkoutIndex: number;
-  setSelectedWorkoutIndex: (index: number) => void;
-  // updateExercisesInRoutine: (workouts?: any) => void; // added property
   darkMode: boolean;
   isEditTitle: boolean;
   setIsEditTitle: (value: boolean) => void;
-  isCreateTitle: boolean;
-  setIsCreateTitle: (value: boolean) => void;
-  setIsAddingExercise: (value: boolean) => void;
-  currentDay: string;
 }
 
 const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
   setRoutine,
   currentWorkout,
-  workouts,
-  selectedWorkoutIndex,
-  setSelectedWorkoutIndex,
-  // updateExercisesInRoutine,
   darkMode,
   isEditTitle,
   setIsEditTitle,
-  isCreateTitle,
-  setIsCreateTitle,
-  setIsAddingExercise,
-  currentDay,
 }) => {
-  const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
+  const [workoutTitle, setWorkoutTitle] = useState(currentWorkout?.title || "");
 
   useEffect(() => {
     setWorkoutTitle(currentWorkout?.title || "");
   }, [currentWorkout?.title]);
 
   const handleSaveTitleEdit = () => {
-    const workoutsCopy = structuredClone(workouts);
-    workoutsCopy[selectedWorkoutIndex] = {
+    setRoutine({
       ...currentWorkout,
-      title: workoutTitle,
-    };
-    setRoutine(workoutsCopy);
-
+      title: workoutTitle.trim() || currentWorkout?.title || "Workout",
+    });
     setIsEditTitle(false);
-    setIsCreateTitle(false);
-  };
-
-  const handleAddWorkout = () => {
-    setIsCreateTitle(true);
-    setWorkoutTitle(`Workout ${workouts.length + 1}`);
-  };
-
-  const handleCurrentWorkoutChange = (index: number) => {
-    setSelectedWorkoutIndex(index);
-  };
-
-  const handleEditClick = () => {
-    setIsEditTitle(true);
-  };
-
-  const handleDeleteWorkout = () => {
-    const isConfirmed = window.confirm(
-      "Are you sure you want to delete this workout?"
-    );
-    if (isConfirmed) {
-      const workoutsCopy = structuredClone(workouts);
-      const updatedWorkouts = workoutsCopy.filter(
-        (w: any) => w.title !== workouts[selectedWorkoutIndex].title
-      );
-      setRoutine(updatedWorkouts);
-      setSelectedWorkoutIndex(
-        updatedWorkouts.length === 0
-          ? 0
-          : Math.min(selectedWorkoutIndex, updatedWorkouts.length - 1)
-      );
-      if (updatedWorkouts.length > 0) {
-        const nextIndex = Math.min(
-          selectedWorkoutIndex,
-          updatedWorkouts.length - 1
-        );
-        setWorkoutTitle(updatedWorkouts[nextIndex].title);
-      } else {
-        setWorkoutTitle("");
-      }
-    }
   };
 
   const handleCancelEditTitle = () => {
+    setWorkoutTitle(currentWorkout?.title || "");
     setIsEditTitle(false);
-    setIsCreateTitle(false);
-    setWorkoutTitle(workouts[selectedWorkoutIndex].title);
-  };
-
-  const handleCreateWorkout = () => {
-    const workoutsCopy = structuredClone(workouts);
-    const newWorkout = {
-      title: workoutTitle,
-      complete: false,
-      exercises: [],
-    };
-    workoutsCopy.push(newWorkout);
-    setRoutine(workoutsCopy);
-    setIsCreateTitle(false);
-    setSelectedWorkoutIndex(workoutsCopy.length - 1);
   };
 
   return (
     <WorkoutTitleAccordion
       workoutTitle={workoutTitle}
-      workouts={workouts}
-      selectedWorkoutIndex={selectedWorkoutIndex}
+      currentWorkout={currentWorkout}
       isEditTitle={isEditTitle}
-      isCreateTitle={isCreateTitle}
       darkMode={darkMode}
-      handleEditClick={handleEditClick}
-      handleDeleteWorkout={handleDeleteWorkout}
-      handleCurrentWorkoutChange={handleCurrentWorkoutChange}
-      handleAddWorkout={handleAddWorkout}
-      handleCreateWorkout={handleCreateWorkout}
+      handleEditClick={() => setIsEditTitle(true)}
       handleSaveTitleEdit={handleSaveTitleEdit}
       handleCancelEditTitle={handleCancelEditTitle}
       setWorkoutTitle={setWorkoutTitle}

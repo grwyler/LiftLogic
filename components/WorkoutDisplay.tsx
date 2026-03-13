@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import AddIcon from "@mui/icons-material/Add";
@@ -68,12 +68,6 @@ const WorkoutDisplay = ({
       }, 0),
     [exercises]
   );
-
-  useEffect(() => {
-    if (exercises.length === 1) {
-      setCurrentExerciseIndex(0);
-    }
-  }, [exercises, setCurrentExerciseIndex]);
 
   const renderSection = (title: string, description: string, items: any[]) => {
     if (items.length === 0) {
@@ -155,23 +149,11 @@ const WorkoutDisplay = ({
               gap: 1,
             }}
           >
-            <Box>
-              <Typography
-                variant="overline"
-                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-              >
-                Today
-              </Typography>
-              <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
-                {formattedDate}
-              </Typography>
-            </Box>
-
             <Chip
               size="small"
               label={
                 !hasExercises
-                  ? "No exercises scheduled"
+                  ? "Start by adding exercises"
                   : loggedSetCount > 0
                   ? `${loggedSetCount} set${loggedSetCount === 1 ? "" : "s"} logged`
                   : "Ready to train"
@@ -321,9 +303,15 @@ const WorkoutDisplay = ({
               : "rgba(255,255,255,0.86)",
           }}
         >
-          <Typography variant="h6">No exercises yet</Typography>
+          <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+            Get Started
+          </Typography>
+          <Typography variant="h6" sx={{ mt: 0.5 }}>
+            Add your first exercise
+          </Typography>
           <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-            Add your first exercise to start building today&apos;s workout.
+            Start with a lift, movement, or timed activity. You can always add
+            more after that.
           </Typography>
         </Paper>
       ) : null}
@@ -346,7 +334,7 @@ const WorkoutDisplay = ({
             },
           }}
         >
-          Add Exercise
+          {hasExercises ? "Add Exercise" : "Add First Exercise"}
         </Button>
       </Box>
     </Box>

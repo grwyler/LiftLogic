@@ -3,11 +3,9 @@ import {
   fetchDay,
   fetchRecurringRules,
   fetchWorkoutMonthEntries,
-  saveRoutine,
 } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
-import WorkoutSelector from "./WorkoutSelector";
 import DaySwitcher from "./DaySwitcher";
 import WorkoutDisplay from "./WorkoutDisplay";
 import LoadingIndicator from "./LoadingIndicator";
@@ -50,45 +48,34 @@ type CalendarStatusMap = Record<
   }
 >;
 
-const DEFAULT_MAX_WEIGHT = 35; // Default max weight
-const DEFAULT_TIME = 60; // Default time for timed exercises
-const DEFAULT_REST_TIME = 120; // Rest time in seconds
+const toDayWorkoutTitle = (dayName?: string) => {
+  if (!dayName) {
+    return "Workout";
+  }
 
-const generateWeightedSets = (maxWeight: number) => [
-  {
-    name: "Working set 1",
-    reps: 10,
-    percentage: 0.75,
-    actualReps: "",
-    actualWeight: "",
-    weight: maxWeight * 0.75,
-  },
-  {
-    name: "Working set 2",
-    reps: 10,
-    percentage: 0.78,
-    actualReps: "",
-    actualWeight: "",
-    weight: maxWeight * 0.78,
-  },
-  {
-    name: "Working set 3",
-    reps: 10,
-    percentage: 0.82,
-    actualReps: "",
-    actualWeight: "",
-    weight: maxWeight * 0.82,
-  },
-];
+  return `${dayName.charAt(0).toUpperCase()}${dayName.slice(1)} Workout`;
+};
 
-const generateTimedSet = (time: number) => [
-  {
-    name: "Timed Set",
-    duration: time,
-    actualDuration: "",
+const normalizeDayWorkout = (dayName: string | null, workouts: Workout[] = []) => {
+  const mergedExercises = workouts.flatMap((workout) =>
+    Array.isArray(workout?.exercises) ? workout.exercises : []
+  );
+
+  const baseWorkout = workouts[0] ?? {
+    title: toDayWorkoutTitle(dayName || undefined),
     complete: false,
-  },
-];
+    exercises: [],
+  };
+
+  return {
+    ...baseWorkout,
+    title: baseWorkout.title || toDayWorkoutTitle(dayName || undefined),
+    complete: mergedExercises.length > 0
+      ? mergedExercises.every((exercise) => Boolean(exercise.complete))
+      : false,
+    exercises: mergedExercises,
+  };
+};
 
 const WorkoutsManager: React.FC<{
   routine: any;
@@ -102,24 +89,18 @@ const WorkoutsManager: React.FC<{
     setCurrentDayIndex,
     currentDate,
     setCurrentDate,
-    workouts,
     currentWorkout,
-    selectedWorkoutIndex,
-    setSelectedWorkoutIndex,
     currentExerciseIndex,
     setCurrentExerciseIndex,
     isAddingExercise,
     setIsAddingExercise,
-    isEditTitle,
-    setIsEditTitle,
-    isCreateTitle,
-    setIsCreateTitle,
     isLoadingWorkout,
     formattedDate,
     dateISO,
     exercises,
     setRefetchExercises,
     calendarStatusMap,
+    sessionUserId,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
   const handleCurrentDayChange = (change: number, isDateSelection: boolean) => {
@@ -132,23 +113,11 @@ const WorkoutsManager: React.FC<{
     } else {
       newDate = new Date(currentDate);
       newDate.setDate(newDate.getDate() + change);
-      newDayIndex = (currentDayIndex + change + 7) % 7; // wrap-around logic
+      newDayIndex = (currentDayIndex + change + 7) % 7;
     }
 
     setCurrentDayIndex(newDayIndex);
     setCurrentExerciseIndex(-1);
-  };
-
-  const updateWorkoutsInRoutine = (myWorkouts = workouts) => {
-    setRoutine((prevRoutine) => {
-      if (!prevRoutine || !prevRoutine.days || !prevRoutine.days[currentDay]) {
-        return prevRoutine;
-      }
-      const updatedRoutine = structuredClone(prevRoutine);
-      updatedRoutine.days[currentDay] = myWorkouts;
-      saveRoutine(updatedRoutine);
-      return updatedRoutine;
-    });
   };
 
   return (
@@ -159,7 +128,7 @@ const WorkoutsManager: React.FC<{
           darkMode={darkMode}
           currentWorkoutTitle={currentWorkout.title}
           setIsAddingExercise={setIsAddingExercise}
-          userId={routine.userId}
+          userId={sessionUserId}
           date={dateISO}
           setRefetchExercises={setRefetchExercises}
         />
@@ -176,37 +145,17 @@ const WorkoutsManager: React.FC<{
           {isLoadingWorkout || !currentWorkout ? (
             <LoadingIndicator />
           ) : (
-            <Box>
-              <WorkoutSelector
-                setRoutine={updateWorkoutsInRoutine}
-                isEditTitle={isEditTitle}
-                setIsEditTitle={setIsEditTitle}
-                isCreateTitle={isCreateTitle}
-                setIsCreateTitle={setIsCreateTitle}
-                currentWorkout={currentWorkout}
-                workouts={workouts}
-                selectedWorkoutIndex={selectedWorkoutIndex}
-                setSelectedWorkoutIndex={setSelectedWorkoutIndex}
-                // updateExercisesInRoutine={updateExercisesInRoutine}
-                darkMode={darkMode}
-                setIsAddingExercise={setIsAddingExercise}
-                currentDay={currentDay}
-              />
-
-              {!isEditTitle && !isCreateTitle && (
-                <WorkoutDisplay
-                  exercises={exercises}
-                  currentWorkout={currentWorkout}
-                  currentExerciseIndex={currentExerciseIndex}
-                  setCurrentExerciseIndex={setCurrentExerciseIndex}
-                  formattedDate={formattedDate}
-                  routineName={currentWorkout.title}
-                  setIsAddingExercise={setIsAddingExercise}
-                  darkMode={darkMode}
-                  setRefetchExercises={setRefetchExercises}
-                />
-              )}
-            </Box>
+            <WorkoutDisplay
+              exercises={exercises}
+              currentWorkout={currentWorkout}
+              currentExerciseIndex={currentExerciseIndex}
+              setCurrentExerciseIndex={setCurrentExerciseIndex}
+              formattedDate={formattedDate}
+              routineName={currentWorkout.title}
+              setIsAddingExercise={setIsAddingExercise}
+              darkMode={darkMode}
+              setRefetchExercises={setRefetchExercises}
+            />
           )}
         </Box>
       )}
@@ -223,12 +172,8 @@ const useWorkoutsManagerState = (
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-
-  const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const [currentDate, setCurrentDate] = useState(startDate);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
-  const [isEditTitle, setIsEditTitle] = useState(false);
-  const [isCreateTitle, setIsCreateTitle] = useState(false);
 
   const { data: session } = useSession() as {
     data: (Session & { token: { user: any } }) | null;
@@ -238,13 +183,14 @@ const useWorkoutsManagerState = (
     return routine ? Object.keys(routine.days)[currentDayIndex] : null;
   }, [routine, currentDayIndex]);
 
-  const workouts = useMemo(() => {
-    return routine && currentDay ? routine.days[currentDay] : null;
-  }, [routine, currentDay]);
-
   const currentWorkout = useMemo(() => {
-    return workouts ? workouts[selectedWorkoutIndex] || null : null;
-  }, [workouts, selectedWorkoutIndex]);
+    const dayWorkouts =
+      routine && currentDay && Array.isArray(routine.days[currentDay])
+        ? routine.days[currentDay]
+        : [];
+
+    return normalizeDayWorkout(currentDay, dayWorkouts);
+  }, [routine, currentDay]);
 
   const userId = session?.token?.user?._id;
 
@@ -257,34 +203,31 @@ const useWorkoutsManagerState = (
   const dateISO = currentDate.toISOString().slice(0, 10);
 
   const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
-  const [calendarStatusMap, setCalendarStatusMap] = useState<CalendarStatusMap>({});
+  const [calendarStatusMap, setCalendarStatusMap] = useState<CalendarStatusMap>(
+    {}
+  );
+  const sessionUserId =
+    session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
+
   useEffect(() => {
-    if (
-      !userId ||
-      !dateISO ||
-      !currentDate ||
-      !currentDay ||
-      !currentWorkout?.title
-    )
+    if (!userId || !dateISO || !currentDate || !currentDay) {
       return;
+    }
+
     setRefetchExercises(false);
     setIsLoadingWorkout(true);
-    fetchDay(userId, dateISO, currentWorkout?.title).then((routines) => {
-      const exercises =
-        routines.find((r) => r.title === currentWorkout?.title)?.exercises ||
-        [];
-      setExercises(exercises);
-      setIsLoadingWorkout(false);
-    });
-  }, [
-    userId,
-    currentDate,
-    currentDay,
-    dateISO,
-    selectedWorkoutIndex,
-    currentWorkout?.title,
-    refetchExercises, // refetch when this state changes
-  ]);
+
+    fetchDay(userId, dateISO)
+      .then((routines) => {
+        const mergedExercises = routines.flatMap((dayWorkout) =>
+          Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
+        );
+        setExercises(mergedExercises);
+      })
+      .finally(() => {
+        setIsLoadingWorkout(false);
+      });
+  }, [userId, currentDate, currentDay, dateISO, refetchExercises]);
 
   useEffect(() => {
     if (!userId) {
@@ -297,8 +240,8 @@ const useWorkoutsManagerState = (
     const loadCalendarStatus = async () => {
       try {
         const [entries, rules] = await Promise.all([
-          fetchWorkoutMonthEntries(userId, currentDate, currentWorkout?.title),
-          fetchRecurringRules(userId, currentWorkout?.title),
+          fetchWorkoutMonthEntries(userId, currentDate),
+          fetchRecurringRules(userId),
         ]);
 
         if (!isMounted) {
@@ -327,8 +270,7 @@ const useWorkoutsManagerState = (
           nextMap[key] = {
             hasLogged: true,
             hasCompleted: Boolean(
-              entry.complete ||
-                entry.sets?.some((set) => Boolean(set.complete))
+              entry.complete || entry.sets?.some((set) => Boolean(set.complete))
             ),
             hasRecurring: nextMap[key]?.hasRecurring ?? false,
           };
@@ -384,7 +326,7 @@ const useWorkoutsManagerState = (
     return () => {
       isMounted = false;
     };
-  }, [userId, currentDate, currentWorkout?.title, refetchExercises]);
+  }, [userId, currentDate, refetchExercises]);
 
   return {
     currentDay,
@@ -392,26 +334,19 @@ const useWorkoutsManagerState = (
     setCurrentDayIndex,
     currentDate,
     setCurrentDate,
-    workouts,
     currentWorkout,
-    selectedWorkoutIndex,
-    setSelectedWorkoutIndex,
     currentExerciseIndex,
     setCurrentExerciseIndex,
     isAddingExercise,
     setIsAddingExercise,
-    isEditTitle,
-    setIsEditTitle,
-    isCreateTitle,
-    setIsCreateTitle,
     isLoadingWorkout,
-    // updateExercisesInRoutine,
     formattedDate,
     dateISO,
     exercises,
     refetchExercises,
     setRefetchExercises,
     calendarStatusMap,
+    sessionUserId,
   };
 };
 
