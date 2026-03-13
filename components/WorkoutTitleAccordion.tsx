@@ -11,7 +11,6 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
-import RepeatIcon from "@mui/icons-material/Repeat";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import WorkoutDropdown from "./WorkoutsDropdown";
@@ -27,12 +26,10 @@ const WorkoutTitleAccordion = ({
   handleDeleteWorkout,
   handleCurrentWorkoutChange,
   handleAddWorkout,
-  setIsAddingExercise,
   handleCreateWorkout,
   handleSaveTitleEdit,
   handleCancelEditTitle,
   setWorkoutTitle,
-  setIsPersistent,
 }) => {
   const isLastWorkout = workouts.length === 1;
   const currentWorkout = workouts[selectedWorkoutIndex];
@@ -117,6 +114,17 @@ const WorkoutTitleAccordion = ({
               <Stack direction="row" spacing={0.75}>
                 <IconButton
                   size="small"
+                  onClick={handleAddWorkout}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    backgroundColor: "background.paper",
+                  }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
                   onClick={handleEditClick}
                   sx={{
                     border: "1px solid",
@@ -153,28 +161,6 @@ const WorkoutTitleAccordion = ({
               </Box>
             )}
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-              <Button
-                onClick={handleAddWorkout}
-                variant="contained"
-                fullWidth
-                startIcon={<AddIcon />}
-              >
-                New workout
-              </Button>
-
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<RepeatIcon />}
-                onClick={() => {
-                  setIsPersistent(true);
-                  setIsAddingExercise(true);
-                }}
-              >
-                Add recurring exercise
-              </Button>
-            </Stack>
           </>
         )}
       </Box>

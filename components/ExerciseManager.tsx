@@ -11,7 +11,6 @@ import {
 interface ExerciseManagerProps {
   index: number;
   darkMode: boolean;
-  isPersistent: boolean;
   currentWorkoutTitle: string;
   setIsAddingExercise: (value: boolean) => void;
   userId: string;
@@ -70,6 +69,35 @@ const getExerciseProfile = (exercise: any) => {
   };
 };
 
+const getDefaultRestSeconds = (exercise: any) => {
+  const name = String(exercise?.name ?? "").toLowerCase();
+  const equipment = Array.isArray(exercise?.equipment)
+    ? exercise.equipment.join(" ").toLowerCase()
+    : String(exercise?.equipment ?? "").toLowerCase();
+
+  if (exercise?.type === "timed") {
+    return 0;
+  }
+
+  if (/deadlift|squat|leg press/.test(name)) {
+    return 150;
+  }
+
+  if (/bench|row|pull down|pulldown|overhead press|shoulder press|press|dip/.test(name)) {
+    return 120;
+  }
+
+  if (/curl|raise|tricep|fly|extension/.test(name)) {
+    return 60;
+  }
+
+  if (/bodyweight/.test(equipment) || /pull-up|push-up|dip|plank|lunge|bulgarian/.test(name)) {
+    return 90;
+  }
+
+  return 90;
+};
+
 const parseLocalDate = (value: string) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number);
@@ -82,7 +110,6 @@ const parseLocalDate = (value: string) => {
 const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   index,
   darkMode,
-  isPersistent,
   currentWorkoutTitle,
   setIsAddingExercise,
   userId,
@@ -91,6 +118,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 }) => {
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
 
   const normalizeExerciseId = (exercise: any) => {
     if (!exercise) {
@@ -151,8 +179,12 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       routineName: currentWorkoutTitle,
       userId,
       date,
-      isPersistent,
+      isRecurring,
       max: exercise.max ?? exercise.defaultMax ?? recommendedWeight,
+      rest:
+        exercise.rest ??
+        exercise.defaultRest ??
+        getDefaultRestSeconds(exercise),
       sets: defaultSets,
     };
 
@@ -160,7 +192,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   };
 
   const persistExercise = async (updatedExercise: any) => {
-    if (isPersistent) {
+    if (updatedExercise.isRecurring) {
       const parsedDate = parseLocalDate(updatedExercise.date);
       if (isNaN(parsedDate.getTime())) {
         throw new Error(`Invalid recurring date: ${updatedExercise.date}`);
@@ -219,7 +251,8 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     <>
       <ExerciseSelector
         darkMode={darkMode}
-        isPersistent={isPersistent}
+        isRecurring={isRecurring}
+        setIsRecurring={setIsRecurring}
         currentWorkoutTitle={currentWorkoutTitle}
         addExerciseToWorkout={handleAddExercise} // delegate add handler
         quickAddExerciseToWorkout={handleQuickAddExercise}
@@ -231,9 +264,22 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         onClose={handleCancelEdit}
         fullWidth
         maxWidth="md"
+        PaperProps={{
+          sx: {
+            maxHeight: "calc(100vh - 48px)",
+            display: "flex",
+          },
+        }}
       >
         <DialogTitle>Edit Exercise</DialogTitle>
-        <DialogContent>
+        <DialogContent
+          sx={{
+            p: 2,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {selectedExercise && (
             <ExerciseEditItem
               index={index}

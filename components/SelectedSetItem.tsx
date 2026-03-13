@@ -36,6 +36,8 @@ const SelectedSetItem = ({
   setCurrentExerciseIndex,
   workout,
   darkMode,
+  onStartRestTimer,
+  isRestTimerBlocking,
 }) => {
   const { sets } = currentExercise;
   const {
@@ -263,6 +265,7 @@ const SelectedSetItem = ({
     /* 5. If the exercise is done, jump to the next incomplete exercise   */
     /* ------------------------------------------------------------------ */
     if (exerciseComplete) {
+      onStartRestTimer?.(0);
       const nextExerciseIndex = updatedExercises.findIndex(
         (ex, i) => i > currentExerciseIndex && !ex.complete
       );
@@ -277,6 +280,8 @@ const SelectedSetItem = ({
       } else {
         workout.complete = true; // whole routine finished
       }
+    } else if (nextSetIndex !== -1) {
+      onStartRestTimer?.(currentExercise.rest ?? 0);
     }
 
     /* ------------------------------------------------------------------ */
@@ -341,6 +346,7 @@ const SelectedSetItem = ({
                 seconds === 0 &&
                 minutes === 0 &&
                 hours === 0) ||
+              (currentExercise.type === "weight" && isRestTimerBlocking) ||
               (currentExercise.type === "weight" && !currentSetReps) ||
               (currentExercise.type === "weight" && !currentSetWeight)
             }
@@ -366,6 +372,13 @@ const SelectedSetItem = ({
           </Button>
         </Box>
       </Box>
+
+      {currentExercise.type === "weight" && isRestTimerBlocking ? (
+        <Typography sx={{ mb: 1.25, color: "text.secondary" }}>
+          Rest timer is active. Let it finish, pause it, or skip it before
+          logging the next set.
+        </Typography>
+      ) : null}
 
       {/* Weight-Based Exercises */}
       {currentExercise.type === "weight" && (

@@ -24,6 +24,7 @@ import {
   deactivateRecurringRule,
   deleteWorkoutEntry,
   fetchExerciseProgress,
+  formatTime,
   saveRecurringRule,
   saveWorkoutEntry,
   toTitleCase,
@@ -32,6 +33,10 @@ import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import DeleteDialog from "./DeleteDialog";
 import { toast } from "react-toastify";
+import PauseIcon from "@mui/icons-material/Pause";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
+import RemoveIcon from "@mui/icons-material/Remove";
 
 const ExerciseItem = ({
   exercise,
@@ -54,6 +59,8 @@ const ExerciseItem = ({
   const [recommendation, setRecommendation] = useState<any>(null);
   const [progressSummary, setProgressSummary] = useState<any>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
+  const [isRestTimerActive, setIsRestTimerActive] = useState(false);
   const appliedRecommendationRef = useRef<string | null>(null);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
@@ -64,12 +71,44 @@ const ExerciseItem = ({
     (session as any)?.user?._id ??
     currentExercise?.userId ??
     exercise?.userId;
+  const isOpen = exerciseIndex === currentExerciseIndex;
 
   useEffect(() => {
     setCurrentExercise(exercise);
     setIsRepeating(exercise.isRepeating);
     appliedRecommendationRef.current = null;
+    setRestSecondsRemaining(0);
+    setIsRestTimerActive(false);
   }, [exercise]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setRestSecondsRemaining(0);
+      setIsRestTimerActive(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isRestTimerActive || restSecondsRemaining <= 0) {
+      if (restSecondsRemaining === 0) {
+        setIsRestTimerActive(false);
+      }
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setRestSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(interval);
+          setIsRestTimerActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isRestTimerActive, restSecondsRemaining]);
 
   useEffect(() => {
     const exerciseId = currentExercise?.exerciseId ?? currentExercise?._id;
@@ -262,6 +301,36 @@ const ExerciseItem = ({
         )}
       </Paper>
     );
+  };
+
+  const startRestTimer = (seconds: number) => {
+    if (!seconds || seconds <= 0) {
+      setRestSecondsRemaining(0);
+      setIsRestTimerActive(false);
+      return;
+    }
+
+    setRestSecondsRemaining(seconds);
+    setIsRestTimerActive(true);
+  };
+
+  const pauseRestTimer = () => {
+    setIsRestTimerActive(false);
+  };
+
+  const resumeRestTimer = () => {
+    if (restSecondsRemaining > 0) {
+      setIsRestTimerActive(true);
+    }
+  };
+
+  const skipRestTimer = () => {
+    setRestSecondsRemaining(0);
+    setIsRestTimerActive(false);
+  };
+
+  const adjustRestTimer = (delta: number) => {
+    setRestSecondsRemaining((prev) => Math.max(0, prev + delta));
   };
 
   const handleWorkoutButtonClick = (index) => {
@@ -590,7 +659,6 @@ const ExerciseItem = ({
     );
   }
 
-  const isOpen = exerciseIndex === currentExerciseIndex;
   const completedCount =
     currentExercise.sets?.filter((s) => s.complete).length ?? 0;
   const totalCount = currentExercise.sets?.length ?? 0;
@@ -790,6 +858,101 @@ const ExerciseItem = ({
             mx: "auto",
           }}
         >
+          {currentExercise.type === "weight" &&
+          currentExercise.rest &&
+          (restSecondsRemaining > 0 || isRestTimerActive) ? (
+            <Paper
+              elevation={0}
+              sx={{
+                mb: 1.5,
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: darkMode
+                  ? "rgba(148,163,184,0.12)"
+                  : "rgba(17,24,39,0.08)",
+                backgroundColor: darkMode
+                  ? "rgba(17,24,39,0.88)"
+                  : "rgba(255,255,255,0.94)",
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: { xs: "flex-start", sm: "center" },
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: 1,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  >
+                    Rest Timer
+                  </Typography>
+                  <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
+                    {formatTime(restSecondsRemaining)}
+                  </Typography>
+                  <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                    Finish rest before logging the next set, or skip it if you
+                    want to move on.
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RemoveIcon />}
+                    onClick={() => adjustRestTimer(-15)}
+                    disabled={restSecondsRemaining <= 15}
+                  >
+                    15s
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => adjustRestTimer(15)}
+                  >
+                    15s
+                  </Button>
+                  {isRestTimerActive ? (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<PauseIcon />}
+                      onClick={pauseRestTimer}
+                    >
+                      Pause
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<PlayArrowIcon />}
+                      onClick={resumeRestTimer}
+                      disabled={restSecondsRemaining <= 0}
+                    >
+                      Resume
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<SkipNextIcon />}
+                    onClick={skipRestTimer}
+                  >
+                    Skip
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+          ) : null}
+
           {currentExercise.sets &&
             currentExercise.sets.map((s, i) => {
               if (i === currentSetIndex) {
@@ -808,6 +971,11 @@ const ExerciseItem = ({
                     setCurrentExerciseIndex={setCurrentExerciseIndex}
                     workout={workout}
                     darkMode={darkMode}
+                    onStartRestTimer={startRestTimer}
+                    isRestTimerBlocking={
+                      currentExercise.type === "weight" &&
+                      restSecondsRemaining > 0
+                    }
                   />
                 );
               }

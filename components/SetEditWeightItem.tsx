@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Draggable } from "react-beautiful-dnd";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  TextField,
-  IconButton,
   Box,
+  IconButton,
+  Paper,
+  TextField,
   Typography,
 } from "@mui/material";
-import { FaTrash } from "react-icons/fa";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 const SetEditWeightItem = ({
   set,
@@ -27,126 +26,115 @@ const SetEditWeightItem = ({
 
   const updateSet = (nextSet) => {
     setMySet(nextSet);
-    if (onChangeSet) {
-      onChangeSet(nextSet);
-    }
+    onChangeSet?.(nextSet);
   };
 
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
       {(provided, snapshot) => (
-        <Card
+        <Paper
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
           sx={{
-            my: 2,
-            backgroundColor: darkMode ? "grey.900" : "white",
-            color: darkMode ? "grey.100" : "text.primary",
+            my: 1.25,
+            p: 1.5,
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: darkMode
+              ? "rgba(148,163,184,0.12)"
+              : "rgba(17,24,39,0.08)",
+            backgroundColor: darkMode
+              ? "rgba(17,24,39,0.84)"
+              : "rgba(255,255,255,0.92)",
             boxShadow: snapshot.isDragging
-              ? "0px 4px 8px rgba(0,0,0,0.2)"
+              ? "0 14px 32px rgba(15,23,42,0.16)"
               : "none",
-            transition: "box-shadow 0.3s ease",
+            transition: "box-shadow 0.2s ease",
           }}
         >
-          <CardHeader
+          <Box
             sx={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              // Typically CardHeader places title on the left, action on the right.
-              // We'll override that to match your layout
-              "& .MuiCardHeader-title": {
-                flexGrow: 1,
-                marginRight: 2,
-              },
+              gap: 1,
+              mb: 1.25,
             }}
-            title={
-              <TextField
-                fullWidth
-                variant="outlined"
-                size="small"
-                value={mySet.name}
-                onChange={(e) => updateSet({ ...mySet, name: e.target.value })}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box
+                {...provided.dragHandleProps}
                 sx={{
-                  backgroundColor: darkMode ? "grey.800" : "inherit",
-                  "& input": {
-                    color: darkMode ? "white" : "inherit",
-                  },
-                }}
-              />
-            }
-            action={
-              <IconButton
-                onClick={() => handleDeleteSet(mySet)}
-                disabled={index === 0}
-                sx={{
-                  color: darkMode ? "grey.300" : "inherit",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "text.secondary",
+                  cursor: "grab",
                 }}
               >
-                <FaTrash />
-              </IconButton>
-            }
-          />
-          <CardContent>
-            <Box sx={{ display: "flex", gap: 2 }}>
-              {/* Weight Field */}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Weight
-                </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    disabled={!isManualEdit}
-                    value={mySet.weight}
-                    onChange={(e) =>
-                      updateSet({ ...mySet, weight: e.target.value })
-                    }
-                    sx={{
-                      backgroundColor: darkMode ? "grey.800" : "inherit",
-                      "& input": {
-                        color: darkMode ? "white" : "inherit",
-                      },
-                    }}
-                  />
-                  <Typography variant="body2" sx={{ ml: 1 }}>
-                    lbs
-                  </Typography>
-                </Box>
+                <DragIndicatorIcon fontSize="small" />
               </Box>
-
-              {/* Reps Field */}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Reps
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Set {index + 1}
                 </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    disabled={!isManualEdit}
-                    value={mySet.reps}
-                    onChange={(e) =>
-                      updateSet({ ...mySet, reps: e.target.value })
-                    }
-                    sx={{
-                      backgroundColor: darkMode ? "grey.800" : "inherit",
-                      "& input": {
-                        color: darkMode ? "white" : "inherit",
-                      },
-                    }}
-                  />
-                  <Typography variant="body2" sx={{ ml: 1 }}>
-                    reps
-                  </Typography>
-                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  Edit the name, target weight, and reps.
+                </Typography>
               </Box>
             </Box>
-          </CardContent>
-        </Card>
+
+            <IconButton
+              onClick={() => handleDeleteSet(mySet)}
+              disabled={index === 0}
+              size="small"
+              sx={{ color: index === 0 ? "text.disabled" : "error.main" }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ display: "grid", gap: 1.25 }}>
+            <TextField
+              fullWidth
+              label="Set label"
+              size="small"
+              value={mySet.name}
+              onChange={(e) => updateSet({ ...mySet, name: e.target.value })}
+            />
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 1.25,
+              }}
+            >
+              <TextField
+                fullWidth
+                label="Target weight (lb)"
+                size="small"
+                type="number"
+                disabled={!isManualEdit}
+                value={mySet.weight ?? ""}
+                onChange={(e) =>
+                  updateSet({ ...mySet, weight: e.target.value })
+                }
+              />
+
+              <TextField
+                fullWidth
+                label="Target reps"
+                size="small"
+                type="number"
+                disabled={!isManualEdit}
+                value={mySet.reps ?? ""}
+                onChange={(e) =>
+                  updateSet({ ...mySet, reps: e.target.value })
+                }
+              />
+            </Box>
+          </Box>
+        </Paper>
       )}
     </Draggable>
   );

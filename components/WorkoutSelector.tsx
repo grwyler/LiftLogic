@@ -15,7 +15,6 @@ interface WorkoutSelectorProps {
   setIsCreateTitle: (value: boolean) => void;
   setIsAddingExercise: (value: boolean) => void;
   currentDay: string;
-  setIsPersistent: (value: boolean) => void;
 }
 
 const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
@@ -32,7 +31,6 @@ const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
   setIsCreateTitle,
   setIsAddingExercise,
   currentDay,
-  setIsPersistent,
 }) => {
   const [workoutTitle, setWorkoutTitle] = useState(currentWorkout.title || "");
 
@@ -123,12 +121,10 @@ const WorkoutSelector: React.FC<WorkoutSelectorProps> = ({
       handleDeleteWorkout={handleDeleteWorkout}
       handleCurrentWorkoutChange={handleCurrentWorkoutChange}
       handleAddWorkout={handleAddWorkout}
-      setIsAddingExercise={setIsAddingExercise}
       handleCreateWorkout={handleCreateWorkout}
       handleSaveTitleEdit={handleSaveTitleEdit}
       handleCancelEditTitle={handleCancelEditTitle}
       setWorkoutTitle={setWorkoutTitle}
-      setIsPersistent={setIsPersistent}
     />
   );
 };

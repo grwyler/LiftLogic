@@ -12,7 +12,6 @@ const WorkoutDisplay = ({
   routineName,
   setIsAddingExercise,
   darkMode,
-  setIsPersistent,
   setRefetchExercises,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
@@ -43,15 +42,6 @@ const WorkoutDisplay = ({
         }}
       >
         <Box>
-          <Typography
-            variant="h5"
-            sx={{
-              fontFamily: '"Manrope", sans-serif',
-              letterSpacing: "-0.03em",
-            }}
-          >
-            {routineName}
-          </Typography>
           <Typography sx={{ color: "text.secondary" }}>
             {exercises.length} exercise{exercises.length === 1 ? "" : "s"} on deck
           </Typography>
@@ -96,7 +86,6 @@ const WorkoutDisplay = ({
           variant="contained"
           title="Adds an exercise only to the currently selected day"
           onClick={() => {
-            setIsPersistent(false);
             setIsAddingExercise(true);
           }}
           startIcon={<AddIcon />}

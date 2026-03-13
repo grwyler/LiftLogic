@@ -106,8 +106,6 @@ const WorkoutsManager: React.FC<{
     setRefetchExercises,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
-  const [isPersistent, setIsPersistent] = useState(true);
-
   const handleCurrentDayChange = (change: number, isDateSelection: boolean) => {
     let newDate: Date;
     let newDayIndex: number;
@@ -143,7 +141,6 @@ const WorkoutsManager: React.FC<{
         <ExerciseManager
           index={currentExerciseIndex}
           darkMode={darkMode}
-          isPersistent={isPersistent}
           currentWorkoutTitle={currentWorkout.title}
           setIsAddingExercise={setIsAddingExercise}
           userId={routine.userId}
@@ -176,7 +173,6 @@ const WorkoutsManager: React.FC<{
                 // updateExercisesInRoutine={updateExercisesInRoutine}
                 darkMode={darkMode}
                 setIsAddingExercise={setIsAddingExercise}
-                setIsPersistent={setIsPersistent}
                 currentDay={currentDay}
               />
 
@@ -190,7 +186,6 @@ const WorkoutsManager: React.FC<{
                   routineName={currentWorkout.title}
                   setIsAddingExercise={setIsAddingExercise}
                   darkMode={darkMode}
-                  setIsPersistent={setIsPersistent}
                   setRefetchExercises={setRefetchExercises}
                 />
               )}

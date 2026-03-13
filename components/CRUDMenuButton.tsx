@@ -1,14 +1,21 @@
-import React from "react";
-import { Box, IconButton } from "@mui/material";
+import React, { useState } from "react";
+import {
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+} from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import CRUDMenu from "./CRUDMenu";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 type ExerciseMenuProps = {
   darkMode: boolean;
   handleDelete: () => void;
   handleUpdate: () => void;
-  onClickMenuButton: () => void;
-  show: boolean;
+  onClickMenuButton?: () => void;
+  show?: boolean;
 };
 
 const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
@@ -16,40 +23,102 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
   handleDelete,
   handleUpdate,
   onClickMenuButton,
-  show,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+    onClickMenuButton?.();
+  };
+
+  const handleClose = (event?: React.SyntheticEvent) => {
+    event?.stopPropagation?.();
+    setAnchorEl(null);
+  };
+
+  const handleEdit = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    handleClose();
+    handleUpdate();
+  };
+
+  const handleDeleteClick = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    handleClose();
+    handleDelete();
+  };
+
   return (
-    <Box position="relative">
+    <>
       <IconButton
         size="small"
-        onClick={(e) => {
-          e.stopPropagation(); // Prevents parent click handlers from triggering
-          onClickMenuButton();
-        }}
+        onClick={handleOpen}
         sx={{
           ml: 1,
-          // Subtle background highlight only if menu is open or on hover
-          backgroundColor: show
+          border: "1px solid",
+          borderColor: open ? "divider" : "transparent",
+          backgroundColor: open
             ? darkMode
-              ? "grey.700"
-              : "grey.200"
+              ? "rgba(255,255,255,0.06)"
+              : "rgba(15,23,42,0.05)"
             : "transparent",
           color: darkMode ? "#fff" : "inherit",
           "&:hover": {
-            backgroundColor: darkMode ? "grey.700" : "grey.200",
+            backgroundColor: darkMode
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(15,23,42,0.06)",
           },
-          transition: "background-color 0.2s",
+          transition: "background-color 0.2s ease, border-color 0.2s ease",
         }}
       >
-        <MoreHorizIcon />
+        <MoreHorizIcon fontSize="small" />
       </IconButton>
 
-      <CRUDMenu
-        canRead={show}
-        handleDelete={handleDelete}
-        handleUpdate={handleUpdate}
-      />
-    </Box>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            mt: 0.75,
+            minWidth: 180,
+            borderRadius: 2.5,
+            border: "1px solid",
+            borderColor: "divider",
+            boxShadow: darkMode
+              ? "0 16px 40px rgba(0,0,0,0.28)"
+              : "0 16px 36px rgba(15,23,42,0.12)",
+            overflow: "hidden",
+          },
+        }}
+        MenuListProps={{
+          dense: true,
+          onClick: (event) => event.stopPropagation(),
+        }}
+      >
+        <MenuItem onClick={handleEdit}>
+          <ListItemIcon>
+            <EditOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit exercise</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={handleDeleteClick}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon sx={{ color: "error.main" }}>
+            <DeleteOutlineIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Delete exercise</ListItemText>
+        </MenuItem>
+      </Menu>
+    </>
   );
 };
 

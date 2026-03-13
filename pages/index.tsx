@@ -1,18 +1,17 @@
 import React, { useEffect } from "react";
 import SignIn from "./signin";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 
 const HomePage: React.FC = () => {
   const router = useRouter();
+  const { status } = useSession();
 
   useEffect(() => {
-    const storedSession = localStorage.getItem("session");
-    const sessionId = localStorage.getItem("sessionId");
-
-    if (storedSession || sessionId) {
+    if (status === "authenticated") {
       router.push("/routines");
     }
-  }, [router]);
+  }, [router, status]);
 
   return <SignIn />;
 };

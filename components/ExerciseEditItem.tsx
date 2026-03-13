@@ -8,6 +8,7 @@ import {
   CardHeader,
   Chip,
   Divider,
+  Paper,
   Slider,
   Stack,
   TextField,
@@ -169,6 +170,8 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     setMyOneRepMax,
     mySets,
     setMySets,
+    myRest,
+    setMyRest,
     myHours,
     setMyHours,
     myMinutes,
@@ -294,7 +297,10 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     const updatedExercise = {
       ...exercise,
       sets: mySets,
-      rest: exercise.type === "weight" ? exercise.rest || profile.defaultRest : exercise.rest,
+      rest:
+        exercise.type === "weight"
+          ? Number(myRest) || profile.defaultRest
+          : exercise.rest,
     };
     if (exercise.type === "weight") {
       updatedExercise.oneRepMax = myOneRepMax;
@@ -311,9 +317,13 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     <Card
       sx={{
         border: isValid ? "1px solid rgba(59,130,246,0.34)" : "1px solid #6c757d",
-        m: 2,
+        m: 0,
         borderRadius: 4,
         boxShadow: "none",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        maxHeight: "calc(100vh - 120px)",
         ...(darkMode && {
           backgroundColor: "grey.900",
           color: "grey.100",
@@ -338,8 +348,25 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
           }),
         }}
       />
-      <CardContent>
-        <Stack spacing={2.5}>
+      <CardContent
+        sx={{
+          p: 0,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          flex: 1,
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            overflowY: "auto",
+            minHeight: 0,
+            flex: 1,
+            pb: 3,
+          }}
+        >
+          <Stack spacing={2.5}>
           {exercise.type === "timed" ? (
             <TimerInput
               hours={myHours}
@@ -403,6 +430,18 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                     />
                   </Stack>
 
+                  <TextField
+                    type="number"
+                    fullWidth
+                    label="Rest between sets (seconds)"
+                    value={myRest}
+                    onChange={(e) =>
+                      setMyRest(Math.max(0, Number(e.target.value) || 0))
+                    }
+                    inputProps={{ min: 0, step: 5 }}
+                    helperText="This controls the rest timer between sets."
+                  />
+
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: "bold", mb: 0.75 }}>
                       Target effort: {effort}%
@@ -440,6 +479,20 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
             </>
           )}
 
+          {exercise.type === "weight" && setupMode !== "guided" ? (
+            <TextField
+              type="number"
+              fullWidth
+              label="Rest between sets (seconds)"
+              value={myRest}
+              onChange={(e) =>
+                setMyRest(Math.max(0, Number(e.target.value) || 0))
+              }
+              inputProps={{ min: 0, step: 5 }}
+              helperText="This controls the rest timer between sets."
+            />
+          ) : null}
+
           <Divider />
 
           <Box
@@ -451,7 +504,13 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
               flexWrap: "wrap",
             }}
           >
-            <Typography variant="h5">Sets</Typography>
+            <Box>
+              <Typography variant="h5">Sets</Typography>
+              <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                Review each set below. Drag to reorder, rename if needed, and
+                edit the target values directly.
+              </Typography>
+            </Box>
             <Button variant="outlined" onClick={handleAddSet}>
               Add Set
             </Button>
@@ -490,24 +549,59 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
           </DragDropContext>
 
           <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<FaSave />}
-              onClick={handleSave}
-            >
-              Save Exercise
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={<FaTimes />}
-              onClick={onCancel}
-            >
-              Cancel
-            </Button>
           </Box>
-        </Stack>
+          </Stack>
+        </Box>
+        <Paper
+          elevation={0}
+          sx={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 2,
+            px: 2,
+            py: 1.5,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            backgroundColor: darkMode
+              ? "rgba(17,24,39,0.96)"
+              : "rgba(255,255,255,0.96)",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "stretch", sm: "center" },
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 1.25,
+            }}
+          >
+            <Typography sx={{ color: "text.secondary" }}>
+              {exercise.type === "weight"
+                ? `Rest timer: ${Number(myRest) || 0}s`
+                : "Review your sets, then save."}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<FaTimes />}
+                onClick={onCancel}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<FaSave />}
+                onClick={handleSave}
+              >
+                Save Exercise
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
       </CardContent>
     </Card>
   );
@@ -517,6 +611,10 @@ const useExerciseEditItemState = (exercise: any) => {
   const [mySets, setMySets] = useState<any[]>(exercise.sets);
   const [myOneRepMax, setMyOneRepMax] = useState(
     emptyOrNullToZero(exercise.oneRepMax || exercise.max)
+  );
+  const [myRest, setMyRest] = useState(
+    emptyOrNullToZero(exercise.rest) ||
+      detectStrengthProfile(exercise.name).defaultRest
   );
   const [myHours, setMyHours] = useState(emptyOrNullToZero(exercise.hours));
   const [myMinutes, setMyMinutes] = useState(
@@ -532,6 +630,8 @@ const useExerciseEditItemState = (exercise: any) => {
     setMyOneRepMax,
     mySets,
     setMySets,
+    myRest,
+    setMyRest,
     myHours,
     setMyHours,
     myMinutes,
