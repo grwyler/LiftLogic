@@ -1,17 +1,52 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Draggable } from "react-beautiful-dnd";
-import { Box, Paper, TextField, Typography } from "@mui/material";
+import { Box, IconButton, Paper, TextField, Typography } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import CloseIcon from "@mui/icons-material/Close";
 import TimerInput from "./TimerInput";
 import { emptyOrNullToZero } from "../utils/helpers";
 
-const SetEditTimerItem = ({ set, index, darkMode }) => {
+const SetEditTimerItem = ({
+  set,
+  index,
+  darkMode,
+  onChangeSet,
+  handleDeleteSet,
+}) => {
   const [hours, setHours] = useState(emptyOrNullToZero(set.hours));
   const [minutes, setMinutes] = useState(emptyOrNullToZero(set.minutes));
   const [seconds, setSeconds] = useState(emptyOrNullToZero(set.seconds));
+  const [setName, setSetName] = useState(set.name);
 
-  const handleBlur = () => {};
-  const handleInputChange = () => {};
+  useEffect(() => {
+    setHours(emptyOrNullToZero(set.hours));
+    setMinutes(emptyOrNullToZero(set.minutes));
+    setSeconds(emptyOrNullToZero(set.seconds));
+    setSetName(set.name);
+  }, [set.hours, set.minutes, set.name, set.seconds]);
+
+  const pushChange = (nextValues: Record<string, unknown>) => {
+    onChangeSet?.({
+      ...set,
+      name: setName,
+      hours,
+      minutes,
+      seconds,
+      ...nextValues,
+    });
+  };
+
+  const handleBlur = () => {
+    pushChange({});
+  };
+
+  const handleInputChange = (value: any, setValue: (v: any) => void, key: string) => {
+    const trimmedValue = value.toString().replace(/^0+/, "");
+    const intValue = parseInt(trimmedValue, 10);
+    const safeValue = isNaN(intValue) ? 0 : intValue;
+    setValue(safeValue);
+    pushChange({ [key]: safeValue });
+  };
 
   return (
     <Draggable draggableId={`set-${index}`} index={index}>
@@ -62,6 +97,13 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
                 Adjust the label and timer length.
               </Typography>
             </Box>
+            <IconButton
+              size="small"
+              onClick={() => handleDeleteSet?.(set)}
+              sx={{ ml: "auto", color: "text.secondary" }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </Box>
 
           <Box sx={{ display: "grid", gap: 1.25 }}>
@@ -69,9 +111,17 @@ const SetEditTimerItem = ({ set, index, darkMode }) => {
               fullWidth
               label="Set label"
               size="small"
-              value={set.name}
-              InputProps={{
-                readOnly: true,
+              value={setName}
+              onChange={(event) => {
+                const nextName = event.target.value;
+                setSetName(nextName);
+                onChangeSet?.({
+                  ...set,
+                  name: nextName,
+                  hours,
+                  minutes,
+                  seconds,
+                });
               }}
             />
 

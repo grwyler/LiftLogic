@@ -17,7 +17,7 @@ const TimerInput = ({
     variant: "outlined", // This is now typed as "outlined"
     size: "small", // Typed as "small"
     type: "number",
-    inputProps: { style: { textAlign: "center" } },
+    inputProps: { min: 0, style: { textAlign: "center" } },
     sx: {
       width: 80,
       backgroundColor: darkMode ? "grey.800" : "inherit",
@@ -31,7 +31,7 @@ const TimerInput = ({
         {...commonProps}
         value={hours}
         placeholder="Hours"
-        onChange={(e) => handleInputChange(e.target.value, setHours)}
+        onChange={(e) => handleInputChange(e.target.value, setHours, "hours")}
         onBlur={handleBlur}
       />
       <Typography variant="body1">h</Typography>
@@ -39,7 +39,7 @@ const TimerInput = ({
         {...commonProps}
         value={minutes}
         placeholder="Minutes"
-        onChange={(e) => handleInputChange(e.target.value, setMinutes)}
+        onChange={(e) => handleInputChange(e.target.value, setMinutes, "minutes")}
         onBlur={handleBlur}
       />
       <Typography variant="body1">m</Typography>
@@ -47,7 +47,7 @@ const TimerInput = ({
         {...commonProps}
         value={seconds}
         placeholder="Seconds"
-        onChange={(e) => handleInputChange(e.target.value, setSeconds)}
+        onChange={(e) => handleInputChange(e.target.value, setSeconds, "seconds")}
         onBlur={handleBlur}
         autoFocus
       />

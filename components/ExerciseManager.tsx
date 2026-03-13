@@ -21,6 +21,43 @@ interface ExerciseManagerProps {
 const DEFAULT_MAX_WEIGHT = 35;
 const DEFAULT_TIMED_SECONDS = 60;
 
+const getTimedExerciseProfile = (exercise: any) => {
+  const name = String(exercise?.name ?? "").toLowerCase();
+  const equipment = Array.isArray(exercise?.equipment)
+    ? exercise.equipment.join(" ").toLowerCase()
+    : String(exercise?.equipment ?? "").toLowerCase();
+
+  if (/cycling|bike|bicycle|spin/.test(name + " " + equipment)) {
+    return { sets: 1, hours: 0, minutes: 30, seconds: 0 };
+  }
+
+  if (/running|run|jog|treadmill/.test(name + " " + equipment)) {
+    return { sets: 1, hours: 0, minutes: 20, seconds: 0 };
+  }
+
+  if (/walk|walking/.test(name)) {
+    return { sets: 1, hours: 0, minutes: 20, seconds: 0 };
+  }
+
+  if (/jump rope/.test(name)) {
+    return { sets: 1, hours: 0, minutes: 10, seconds: 0 };
+  }
+
+  if (/plank/.test(name)) {
+    return { sets: 3, hours: 0, minutes: 1, seconds: 0 };
+  }
+
+  if (/stretch|mobility|warmup|warm-up/.test(name)) {
+    return { sets: 1, hours: 0, minutes: 10, seconds: 0 };
+  }
+
+  if (/yoga/.test(name)) {
+    return { sets: 1, hours: 0, minutes: 30, seconds: 0 };
+  }
+
+  return { sets: 1, hours: 0, minutes: 5, seconds: 0 };
+};
+
 const getExerciseProfile = (exercise: any) => {
   const name = String(exercise?.name ?? "").toLowerCase();
   const equipment = Array.isArray(exercise?.equipment)
@@ -154,12 +191,21 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       exercise.max ??
       exercise.defaultMax ??
       DEFAULT_MAX_WEIGHT;
+    const timedProfile = getTimedExerciseProfile(exercise);
 
     const defaultSets = Array.from({ length: recommendedSetCount }, (_, index) => ({
       ...(exerciseType === "timed"
         ? {
             name: `Timed Set ${index + 1}`,
-            seconds: DEFAULT_TIMED_SECONDS,
+            hours: timedProfile.hours,
+            minutes: timedProfile.minutes,
+            seconds: timedProfile.seconds,
+            totalSeconds:
+              timedProfile.hours * 3600 +
+              timedProfile.minutes * 60 +
+              timedProfile.seconds,
+            actualHours: "",
+            actualMinutes: "",
             actualSeconds: "",
           }
         : {
@@ -171,6 +217,26 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
           }),
       complete: false,
     }));
+
+    const resolvedSets =
+      exerciseType === "timed" ? timedProfile.sets : recommendedSetCount;
+    const timedSets =
+      exerciseType === "timed"
+        ? Array.from({ length: resolvedSets }, (_, index) => ({
+            name: `Timed Set ${index + 1}`,
+            hours: timedProfile.hours,
+            minutes: timedProfile.minutes,
+            seconds: timedProfile.seconds,
+            totalSeconds:
+              timedProfile.hours * 3600 +
+              timedProfile.minutes * 60 +
+              timedProfile.seconds,
+            actualHours: "",
+            actualMinutes: "",
+            actualSeconds: "",
+            complete: false,
+          }))
+        : defaultSets;
 
     const newExercise = {
       ...exercise,
@@ -185,7 +251,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         exercise.rest ??
         exercise.defaultRest ??
         getDefaultRestSeconds(exercise),
-      sets: defaultSets,
+      sets: timedSets,
     };
 
     return newExercise;
@@ -253,6 +319,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         darkMode={darkMode}
         isRecurring={isRecurring}
         setIsRecurring={setIsRecurring}
+        userId={userId}
         currentWorkoutTitle={currentWorkoutTitle}
         addExerciseToWorkout={handleAddExercise} // delegate add handler
         quickAddExerciseToWorkout={handleQuickAddExercise}

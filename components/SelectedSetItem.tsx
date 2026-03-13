@@ -141,10 +141,24 @@ const SelectedSetItem = ({
     weight,
   ]);
 
-  const handleInputChange = (value: any, setValue: (v: any) => void) => {
-    const trimmedValue = value.toString().replace(/^0+/, "");
-    const intValue = parseInt(trimmedValue, 10);
-    setValue(isNaN(intValue) ? 0 : trimmedValue);
+  const handleInputChange = (
+    value: any,
+    setValue: (v: any) => void,
+    key?: "hours" | "minutes" | "seconds"
+  ) => {
+    const normalizedValue = String(value ?? "").trim();
+    const parsedValue = Math.max(0, parseInt(normalizedValue, 10) || 0);
+    setValue(parsedValue);
+
+    if (key === "hours") {
+      setHours(parsedValue);
+    }
+    if (key === "minutes") {
+      setMinutes(parsedValue);
+    }
+    if (key === "seconds") {
+      setSeconds(parsedValue);
+    }
   };
 
   const handleBlur = () => {
@@ -173,7 +187,7 @@ const SelectedSetItem = ({
     if (!initialTimerActive) {
       setTotalSeconds(countdown);
       const remainingSeconds = countdown % 3600;
-      const newHours = Math.floor(totalSeconds / 3600);
+      const newHours = Math.floor(countdown / 3600);
       const newMinutes = Math.floor(remainingSeconds / 60);
       const newSeconds = remainingSeconds % 60;
       setSeconds(newSeconds);
@@ -202,21 +216,36 @@ const SelectedSetItem = ({
     /* ------------------------------------------------------------------ */
     /* 1. Build an immutable copy of the updated set array                */
     /* ------------------------------------------------------------------ */
-    const updatedSets = sets.map((s, i) =>
-      i === setIndex
-        ? {
-            ...s,
-            name: setName,
-            actualWeight: currentSetWeight,
-            actualReps: currentSetReps,
-            actualSeconds: seconds,
-            actualMinutes: minutes,
-            totalSeconds: totalSeconds - countdown,
-            complete: true,
-            completedDate: new Date(),
-          }
-        : s
-    );
+    const updatedSets = sets.map((s, i) => {
+      const loggedTotalSeconds =
+        currentExercise.type === "timed"
+          ? hours * 3600 + minutes * 60 + seconds
+          : totalSeconds - countdown;
+
+      if (i !== setIndex) {
+        return s;
+      }
+
+      return {
+        ...s,
+        name: setName,
+        ...(currentExercise.type === "weight"
+          ? {
+              actualWeight: currentSetWeight,
+              actualReps: currentSetReps,
+            }
+          : {
+              actualWeight: undefined,
+              actualReps: undefined,
+            }),
+        actualSeconds: seconds,
+        actualMinutes: minutes,
+        actualHours: hours,
+        totalSeconds: loggedTotalSeconds,
+        complete: true,
+        completedDate: new Date(),
+      };
+    });
 
     const adjustedResult =
       currentExercise.type === "weight"

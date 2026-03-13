@@ -1,27 +1,21 @@
-import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
   Card,
   CardContent,
-  Typography,
-  Alert,
   Chip,
-  Stack,
+  CircularProgress,
   InputAdornment,
+  MenuItem,
+  Stack,
+  TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Typography,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import AddIcon from "@mui/icons-material/Add";
-import TuneIcon from "@mui/icons-material/Tune";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import SearchIcon from "@mui/icons-material/Search";
 import RepeatIcon from "@mui/icons-material/Repeat";
@@ -36,15 +30,139 @@ interface ExerciseSelectorProps {
   isRecurring: boolean;
   setIsRecurring: (value: boolean) => void;
   currentWorkoutTitle: string;
+  userId: string;
 }
 
+type CatalogExercise = {
+  _id?: string;
+  id?: string;
+  name: string;
+  type?: "weight" | "timed" | string;
+  bodyPart?: string;
+  equipment?: string[] | string;
+  target?: string;
+  category?: string;
+  muscleGroup?: string;
+  videoUrl?: string;
+  description?: string;
+  createdBy?: string | null;
+};
+
 const quickGroups = [
-  { label: "Push", bodyPart: "chest" },
-  { label: "Pull", bodyPart: "back" },
-  { label: "Legs", bodyPart: "upper legs" },
-  { label: "Shoulders", bodyPart: "shoulders" },
-  { label: "Core", bodyPart: "waist" },
+  { label: "Push", value: "push" },
+  { label: "Pull", value: "pull" },
+  { label: "Legs", value: "legs" },
+  { label: "Shoulders", value: "shoulders" },
+  { label: "Core", value: "core" },
 ];
+
+const normalizeText = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const toTitle = (value: string) =>
+  value.replace(/\b\w/g, (char) => char.toUpperCase());
+
+const normalizeEquipment = (equipment: unknown) => {
+  if (Array.isArray(equipment)) {
+    return equipment.filter(Boolean).map(String);
+  }
+
+  if (typeof equipment === "string" && equipment.trim()) {
+    return [equipment.trim()];
+  }
+
+  return [];
+};
+
+const inferMetadata = (exercise: CatalogExercise) => {
+  const name = normalizeText(exercise.name);
+  const equipment = normalizeEquipment(exercise.equipment).join(" ").toLowerCase();
+
+  const bodyPart =
+    normalizeText(exercise.bodyPart) ||
+    normalizeText(exercise.muscleGroup) ||
+    normalizeText(exercise.category);
+
+  const target =
+    normalizeText(exercise.target) || normalizeText(exercise.muscleGroup);
+
+  if (bodyPart) {
+    return { bodyPart, target: target || bodyPart };
+  }
+
+  if (/bench|press|dip|tricep|fly|push-up/.test(name)) {
+    return { bodyPart: "push", target: /shoulder|overhead/.test(name) ? "shoulders" : "chest" };
+  }
+
+  if (/row|pull|pulldown|chin-up|lat|curl/.test(name)) {
+    return { bodyPart: "pull", target: /curl/.test(name) ? "biceps" : "back" };
+  }
+
+  if (/squat|deadlift|leg|lunge|calf|hamstring|quad|bulgarian/.test(name)) {
+    return { bodyPart: "legs", target: /calf/.test(name) ? "calves" : "legs" };
+  }
+
+  if (/shoulder|overhead press|lateral raise|rear delt/.test(name)) {
+    return { bodyPart: "shoulders", target: "shoulders" };
+  }
+
+  if (/plank|core|ab|crunch|twist/.test(name)) {
+    return { bodyPart: "core", target: "core" };
+  }
+
+  if (/run|cycle|bike|rope|cardio/.test(name)) {
+    return { bodyPart: "conditioning", target: "conditioning" };
+  }
+
+  if (/bodyweight/.test(equipment)) {
+    return { bodyPart: "bodyweight", target: "bodyweight" };
+  }
+
+  return { bodyPart: "general", target: "general" };
+};
+
+const normalizeCatalogExercise = (exercise: CatalogExercise): CatalogExercise => {
+  const metadata = inferMetadata(exercise);
+  return {
+    ...exercise,
+    type: exercise.type === "timed" ? "timed" : "weight",
+    bodyPart: metadata.bodyPart,
+    target: metadata.target,
+    equipment: normalizeEquipment(exercise.equipment),
+  };
+};
+
+const mergeCatalogExercises = (catalog: CatalogExercise[]) => {
+  const byName = new Map<string, CatalogExercise>();
+
+  [...catalog, ...initialExercises]
+    .map((exercise) => normalizeCatalogExercise(exercise))
+    .forEach((exercise) => {
+      const key = normalizeText(exercise.name);
+      if (!key) {
+        return;
+      }
+
+      const existing = byName.get(key);
+      byName.set(key, {
+        ...exercise,
+        ...(existing ?? {}),
+        ...exercise,
+        equipment: Array.from(
+          new Set([
+            ...normalizeEquipment(existing?.equipment),
+            ...normalizeEquipment(exercise.equipment),
+          ])
+        ),
+      });
+    });
+
+  return Array.from(byName.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+};
 
 const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   setIsAddingExercise,
@@ -54,88 +172,108 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   isRecurring,
   setIsRecurring,
   currentWorkoutTitle,
+  userId,
 }) => {
-  const [exercises, setExercises] = useState<any[]>([]);
+  const [catalogExercises, setCatalogExercises] = useState<CatalogExercise[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [bodyParts, setBodyParts] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState<string[]>([]);
-  const [targets, setTargets] = useState<string[]>([]);
   const [busyExerciseId, setBusyExerciseId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     bodyPart: "",
+    type: "",
     equipment: "",
-    target: "",
   });
 
   useEffect(() => {
-    const fetchLists = async () => {
+    let isMounted = true;
+
+    const fetchCatalog = async () => {
       try {
-        const [bodyPartsRes, equipmentRes, targetsRes] = await Promise.all([
-          axios.get("/api/exercises?type=bodyPartList"),
-          axios.get("/api/exercises?type=equipmentList"),
-          axios.get("/api/exercises?type=targetList"),
-        ]);
-        setBodyParts(bodyPartsRes.data);
-        setEquipment(equipmentRes.data);
-        setTargets(targetsRes.data);
-      } catch (err) {
-        console.warn("API rate limit reached. Using static fallback lists.", err);
-        setError("Live exercise lists are unavailable right now. Showing fallback options.");
-        setBodyParts(["chest", "back", "legs", "shoulders", "arms", "core"]);
-        setEquipment(["barbell", "dumbbell", "machine", "bodyweight"]);
-        setTargets(["upper chest", "lats", "hamstrings", "quads", "biceps"]);
-      }
-    };
-
-    fetchLists();
-  }, []);
-
-  useEffect(() => {
-    const fetchExercises = async () => {
-      setLoading(true);
-      if (!error?.includes("fallback")) {
+        setLoading(true);
         setError(null);
-      }
+        const qs = new URLSearchParams();
+        if (userId) {
+          qs.set("createdBy", userId);
+        }
 
-      let apiUrl = "/api/exercises?type=all";
+        const response = await fetch(`/api/exercise?${qs.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Exercise catalog request failed: ${response.status}`);
+        }
 
-      if (filters.bodyPart) {
-        apiUrl = `/api/exercises?type=bodyPart&param=${filters.bodyPart}`;
-      }
-      if (filters.equipment) {
-        apiUrl = `/api/exercises?type=equipment&param=${filters.equipment}`;
-      }
-      if (filters.target) {
-        apiUrl = `/api/exercises?type=target&param=${filters.target}`;
-      }
-      if (searchQuery) {
-        apiUrl = `/api/exercises?type=name&param=${searchQuery.toLowerCase()}`;
-      }
+        const data = await response.json();
+        if (!isMounted) {
+          return;
+        }
 
-      try {
-        const response = await axios.get(apiUrl);
-        setExercises(response.data);
-      } catch (err) {
-        setError("Exercise search is offline, so we're using a smaller local list.");
-        setExercises(initialExercises);
+        setCatalogExercises(
+          mergeCatalogExercises(Array.isArray(data.exercises) ? data.exercises : [])
+        );
+      } catch (fetchError) {
+        console.error("Failed to load local exercise catalog:", fetchError);
+        if (!isMounted) {
+          return;
+        }
+
+        setError("Using the built-in exercise catalog right now.");
+        setCatalogExercises(mergeCatalogExercises([]));
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchExercises();
-  }, [filters, searchQuery]);
+    fetchCatalog();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
+  const filterOptions = useMemo(() => {
+    const bodyParts = Array.from(
+      new Set(catalogExercises.map((exercise) => exercise.bodyPart).filter(Boolean))
+    ) as string[];
+    const equipment = Array.from(
+      new Set(
+        catalogExercises.flatMap((exercise) => normalizeEquipment(exercise.equipment))
+      )
+    );
+
+    return {
+      bodyParts: bodyParts.sort(),
+      equipment: equipment.sort(),
+    };
+  }, [catalogExercises]);
 
   const displayedExercises = useMemo(() => {
-    const source = error ? initialExercises : exercises;
-    return source.filter((exercise) =>
-      exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [error, exercises, searchQuery]);
+    const query = normalizeText(searchQuery);
 
-  const handleAddExercise = (exercise: any) => {
+    return catalogExercises.filter((exercise) => {
+      const matchesQuery =
+        !query ||
+        normalizeText(exercise.name).includes(query) ||
+        normalizeText(exercise.target).includes(query) ||
+        normalizeText(exercise.bodyPart).includes(query);
+
+      const matchesBodyPart =
+        !filters.bodyPart || normalizeText(exercise.bodyPart) === filters.bodyPart;
+
+      const matchesType = !filters.type || exercise.type === filters.type;
+
+      const matchesEquipment =
+        !filters.equipment ||
+        normalizeEquipment(exercise.equipment)
+          .map(normalizeText)
+          .includes(filters.equipment);
+
+      return matchesQuery && matchesBodyPart && matchesType && matchesEquipment;
+    });
+  }, [catalogExercises, filters, searchQuery]);
+
+  const handleAddExercise = (exercise: CatalogExercise) => {
     addExerciseToWorkout({
       ...exercise,
       routineName: currentWorkoutTitle,
@@ -143,7 +281,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
     });
   };
 
-  const handleQuickAdd = async (exercise: any) => {
+  const handleQuickAdd = async (exercise: CatalogExercise) => {
     const busyId = String(exercise.id ?? exercise._id ?? exercise.name);
     setBusyExerciseId(busyId);
     try {
@@ -158,7 +296,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   };
 
   const clearFilters = () => {
-    setFilters({ bodyPart: "", equipment: "", target: "" });
+    setFilters({ bodyPart: "", type: "", equipment: "" });
     setSearchQuery("");
   };
 
@@ -181,11 +319,10 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
             >
               Add Exercise
             </Typography>
-            <Typography variant="h5">Add an exercise</Typography>
+            <Typography variant="h5">Choose an exercise</Typography>
             <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-              Adding to <strong>{currentWorkoutTitle}</strong>. Quick add uses a
-              sensible default set. Customize lets you edit before saving,
-              including whether it should repeat weekly.
+              Search your built-in catalog and saved exercises. Quick add uses a
+              recommended starting point, or you can customize before saving.
             </Typography>
           </Box>
 
@@ -218,7 +355,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
               >
                 <TextField
                   fullWidth
-                  placeholder="Search exercises by name..."
+                  placeholder="Search by exercise name or muscle group..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   InputProps={{
@@ -240,12 +377,11 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                     key={group.label}
                     label={group.label}
                     clickable
-                    color={filters.bodyPart === group.bodyPart ? "primary" : "default"}
+                    color={filters.bodyPart === group.value ? "primary" : "default"}
                     onClick={() =>
                       setFilters((prev) => ({
                         ...prev,
-                        bodyPart:
-                          prev.bodyPart === group.bodyPart ? "" : group.bodyPart,
+                        bodyPart: prev.bodyPart === group.value ? "" : group.value,
                       }))
                     }
                   />
@@ -280,69 +416,61 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                 </ToggleButtonGroup>
               </Box>
 
-              {!error && (
-                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-                  <FormControl fullWidth>
-                    <InputLabel>Body Part</InputLabel>
-                    <Select
-                      label="Body Part"
-                      value={filters.bodyPart}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, bodyPart: e.target.value }))
-                      }
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {bodyParts.map((part) => (
-                        <MenuItem key={part} value={part}>
-                          {part}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Focus"
+                  value={filters.bodyPart}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, bodyPart: e.target.value }))
+                  }
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {filterOptions.bodyParts.map((part) => (
+                    <MenuItem key={part} value={part}>
+                      {toTitle(part)}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                  <FormControl fullWidth>
-                    <InputLabel>Equipment</InputLabel>
-                    <Select
-                      label="Equipment"
-                      value={filters.equipment}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, equipment: e.target.value }))
-                      }
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {equipment.map((eq) => (
-                        <MenuItem key={eq} value={eq}>
-                          {eq}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <TextField
+                  select
+                  fullWidth
+                  label="Type"
+                  value={filters.type}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, type: e.target.value }))
+                  }
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="weight">Weight</MenuItem>
+                  <MenuItem value="timed">Timed</MenuItem>
+                </TextField>
 
-                  <FormControl fullWidth>
-                    <InputLabel>Target</InputLabel>
-                    <Select
-                      label="Target"
-                      value={filters.target}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, target: e.target.value }))
-                      }
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {targets.map((target) => (
-                        <MenuItem key={target} value={target}>
-                          {target}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-              )}
+                <TextField
+                  select
+                  fullWidth
+                  label="Equipment"
+                  value={filters.equipment}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, equipment: e.target.value }))
+                  }
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {filterOptions.equipment.map((item) => (
+                    <MenuItem key={item} value={normalizeText(item)}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
             </Stack>
           </CardContent>
         </Card>
 
         {error && (
-          <Alert severity="warning" sx={{ borderRadius: 3 }}>
+          <Alert severity="info" sx={{ borderRadius: 3 }}>
             {error}
           </Alert>
         )}
@@ -363,6 +491,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
             {displayedExercises.map((exercise) => {
               const busyId = String(exercise.id ?? exercise._id ?? exercise.name);
               const isBusy = busyExerciseId === busyId;
+              const equipmentLabel = normalizeEquipment(exercise.equipment).join(" · ");
 
               return (
                 <Card
@@ -388,12 +517,11 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                         }}
                       >
                         <Box>
-                          <Typography variant="h6">
-                            {exercise.name}
-                          </Typography>
+                          <Typography variant="h6">{exercise.name}</Typography>
                           <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-                            {[exercise.bodyPart, exercise.target, exercise.equipment]
+                            {[exercise.target, exercise.bodyPart, equipmentLabel]
                               .filter(Boolean)
+                              .map((item) => toTitle(String(item)))
                               .join(" · ")}
                           </Typography>
                         </Box>
@@ -404,15 +532,16 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                         />
                       </Box>
 
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                      >
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                         <Button
                           fullWidth
                           variant="contained"
                           startIcon={
-                            isBusy ? <CircularProgress size={16} color="inherit" /> : <FlashOnIcon />
+                            isBusy ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              <FlashOnIcon />
+                            )
                           }
                           onClick={() => handleQuickAdd(exercise)}
                           disabled={isBusy}

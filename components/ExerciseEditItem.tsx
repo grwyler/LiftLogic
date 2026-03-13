@@ -206,10 +206,24 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     setMySets(newSets);
   };
 
-  const handleInputChange = (value: any, setValue: (v: any) => void) => {
-    const trimmedValue = value.toString().replace(/^0+/, "");
-    const intValue = parseInt(trimmedValue, 10);
-    setValue(isNaN(intValue) ? 0 : trimmedValue);
+  const handleInputChange = (
+    value: any,
+    setValue: (v: any) => void,
+    key?: "hours" | "minutes" | "seconds"
+  ) => {
+    const normalizedValue = String(value ?? "").trim();
+    const parsedValue = Math.max(0, parseInt(normalizedValue, 10) || 0);
+    setValue(parsedValue);
+
+    if (key === "hours") {
+      setMyHours(parsedValue);
+    }
+    if (key === "minutes") {
+      setMyMinutes(parsedValue);
+    }
+    if (key === "seconds") {
+      setMySeconds(parsedValue);
+    }
   };
 
   const handleAddSet = () => {
@@ -527,6 +541,10 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                         set={set}
                         index={setIndex}
                         darkMode={darkMode}
+                        onChangeSet={(nextSet) => handleSetChange(setIndex, nextSet)}
+                        handleDeleteSet={(setToRemove) =>
+                          setMySets(mySets.filter((s) => s.name !== setToRemove.name))
+                        }
                       />
                     ) : (
                       <SetEditWeightItem

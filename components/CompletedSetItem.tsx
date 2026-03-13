@@ -12,7 +12,7 @@ const SetItem = ({
   darkMode,
   interactive = true,
 }) => {
-  const { actualReps, actualWeight, totalSeconds } = set;
+  const { actualReps, actualWeight, totalSeconds, actualHours, actualMinutes, actualSeconds } = set;
   const plannedWeight =
     typeof set.weight === "number" ? set.weight : Number(set.weight);
   const plannedReps = typeof set.reps === "number" ? set.reps : Number(set.reps);
@@ -45,6 +45,13 @@ const SetItem = ({
       actualReps !== undefined &&
       actualReps !== null &&
       actualReps !== "");
+  const loggedTimedSeconds =
+    typeof totalSeconds === "number"
+      ? totalSeconds
+      : Number(totalSeconds) ||
+        Number(actualHours || 0) * 3600 +
+          Number(actualMinutes || 0) * 60 +
+          Number(actualSeconds || 0);
 
   const handleClickCompletedSet = () => {
     if (interactive) {
@@ -101,7 +108,7 @@ const SetItem = ({
         )}
         {type === "timed" && (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {formatTime(totalSeconds)}
+            {formatTime(loggedTimedSeconds)}
           </Typography>
         )}
       </Box>
