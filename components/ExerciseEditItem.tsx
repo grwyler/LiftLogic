@@ -102,6 +102,8 @@ const PROFILE_MATCHERS: Array<[RegExp, StrengthProfile]> = [
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const normalizeDesiredSetCount = (value: string) => value.replace(/[^\d]/g, "");
+
 const detectStrengthProfile = (exerciseName?: string): StrengthProfile => {
   const match = PROFILE_MATCHERS.find(([regex]) => regex.test(exerciseName || ""));
   return match?.[1] || DEFAULT_PROFILE;
@@ -187,7 +189,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
 
   const profile = detectStrengthProfile(exercise.name);
   const [desiredSetCount, setDesiredSetCount] = useState(
-    Math.max(exercise.sets?.length || 3, 1)
+    String(Math.max(exercise.sets?.length || 3, 1))
   );
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
 
@@ -285,7 +287,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
       return;
     }
 
-    const safeSetCount = clamp(Number(desiredSetCount) || 3, 1, 8);
+    const safeSetCount = clamp(Number(desiredSetCount) || 3, 1, 20);
     const generatedSets = buildGeneratedSets({
       oneRepMax: myOneRepMax,
       effort,
@@ -433,14 +435,20 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                       onChange={(e) => handleUpdateOneRepMax(e.target.value)}
                     />
                     <TextField
-                      type="number"
+                      type="text"
                       fullWidth
                       label="Number of sets"
                       value={desiredSetCount}
                       onChange={(e) =>
-                        setDesiredSetCount(clamp(Number(e.target.value) || 1, 1, 8))
+                        setDesiredSetCount(
+                          normalizeDesiredSetCount(e.target.value)
+                        )
                       }
-                      inputProps={{ min: 1, max: 8 }}
+                      inputProps={{
+                        inputMode: "numeric",
+                        pattern: "[0-9]*",
+                      }}
+                      helperText="Pick any reasonable number of sets. We'll validate it when generating."
                     />
                   </Stack>
 
