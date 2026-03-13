@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Box,
+  Badge,
   Button,
   IconButton,
   Paper,
@@ -13,7 +14,7 @@ import {
   CalendarToday,
   CalendarViewDay,
 } from "@mui/icons-material";
-import { DatePicker, StaticDatePicker } from "@mui/x-date-pickers";
+import { DatePicker, PickersDay, StaticDatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
@@ -22,8 +23,16 @@ const DaySwitcher = ({
   handleCurrentDayChange,
   setCurrentDate,
   darkMode,
+  calendarStatusMap = {},
 }) => {
   const [isInline, setIsInline] = useState(false);
+
+  const getDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   const handlePreviousDay = () => {
     setCurrentDate((prevDate) => {
@@ -101,6 +110,38 @@ const DaySwitcher = ({
                       handleCurrentDayChange(newDate, true);
                     }
                   }}
+                  slots={{
+                    day: (dayProps: any) => {
+                      const status = calendarStatusMap[getDateKey(dayProps.day)] ?? null;
+                      const hasActivity =
+                        status?.hasCompleted || status?.hasLogged || status?.hasRecurring;
+                      const badgeColor = status?.hasCompleted
+                        ? "success.main"
+                        : status?.hasLogged
+                        ? "info.main"
+                        : "warning.main";
+
+                      return (
+                        <Badge
+                          overlap="circular"
+                          variant="dot"
+                          invisible={!hasActivity}
+                          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                          sx={{
+                            "& .MuiBadge-badge": {
+                              backgroundColor: badgeColor,
+                              boxShadow: "0 0 0 2px var(--mui-palette-background-paper)",
+                            },
+                          }}
+                        >
+                          <PickersDay {...dayProps} />
+                        </Badge>
+                      );
+                    },
+                  }}
+                  slotProps={{
+                    actionBar: { actions: [] },
+                  }}
                 />
               ) : (
                 <DatePicker
@@ -170,7 +211,7 @@ const DaySwitcher = ({
             startIcon={!isInline ? <CalendarToday /> : <CalendarViewDay />}
             onClick={() => setIsInline((prev) => !prev)}
           >
-            {isInline ? "Hide calendar" : "Pick date"}
+            {isInline ? "Hide calendar" : "Calendar view"}
           </Button>
           {!isToday && (
             <Button variant="text" size="small" onClick={handleBackToToday}>
@@ -178,6 +219,57 @@ const DaySwitcher = ({
             </Button>
           )}
         </Box>
+
+        {isInline && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 1.25,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: "success.main",
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Completed
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: "info.main",
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Logged
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: "warning.main",
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Recurring scheduled
+              </Typography>
+            </Box>
+          </Box>
+        )}
       </Box>
     </Paper>
   );

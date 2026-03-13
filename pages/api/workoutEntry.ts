@@ -202,7 +202,16 @@ export default async function handler(
     }
 
     if (req.method === "GET") {
-      const { userId, date, routineName, exerciseId, history, completedOnly } =
+      const {
+        userId,
+        date,
+        routineName,
+        exerciseId,
+        history,
+        completedOnly,
+        monthStart,
+        monthEnd,
+      } =
         req.query;
       console.debug("[GET] Query params:", req.query);
 
@@ -233,6 +242,37 @@ export default async function handler(
 
         const entries = await col.find(historyQuery).sort({ date: -1 }).toArray();
         console.info(`[GET] Returned ${entries.length} history entries`);
+        return res.status(200).json({ entries });
+      }
+
+      if (monthStart || monthEnd) {
+        const parsedStart = parseWorkoutEntryDate(monthStart);
+        const parsedEnd = parseWorkoutEntryDate(monthEnd);
+
+        if (!parsedStart || !parsedEnd) {
+          console.warn("[GET] Bad month range", { monthStart, monthEnd });
+          return res.status(400).json({ message: "Bad month range" });
+        }
+
+        const start = new Date(parsedStart);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(parsedEnd);
+        end.setHours(23, 59, 59, 999);
+
+        const rangeQuery: Record<string, unknown> = {
+          userId,
+          date: { $gte: start, $lte: end },
+          skipped: { $ne: true },
+        };
+
+        if (routineName) {
+          rangeQuery.routineName = routineName;
+        }
+
+        console.debug("[GET] Month Mongo query:", rangeQuery);
+
+        const entries = await col.find(rangeQuery).sort({ date: -1 }).toArray();
+        console.info(`[GET] Returned ${entries.length} month entries`);
         return res.status(200).json({ entries });
       }
 

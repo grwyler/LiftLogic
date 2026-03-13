@@ -121,6 +121,34 @@ export const fetchExerciseProgress = async (
   return res.json();
 };
 
+export const fetchWorkoutMonthEntries = async (
+  userId: string,
+  monthDate: Date,
+  routineName?: string
+): Promise<WorkoutEntryDoc[]> => {
+  const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+
+  const qs = new URLSearchParams({
+    userId,
+    monthStart: start.toISOString().slice(0, 10),
+    monthEnd: end.toISOString().slice(0, 10),
+  });
+
+  if (routineName) {
+    qs.append("routineName", routineName);
+  }
+
+  const res = await fetch(`/api/workoutEntry?${qs.toString()}`);
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(`fetchWorkoutMonthEntries ${res.status}: ${message}`);
+  }
+
+  const data = (await res.json()) as { entries?: WorkoutEntryDoc[] };
+  return Array.isArray(data.entries) ? data.entries : [];
+};
+
 // delete log
 export const deleteWorkoutEntry = async (entryId: string) => {
   const res = await fetch("/api/workoutEntry", {

@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { fetchDay, fetchExercises, saveRoutine } from "../utils/helpers";
+import {
+  fetchDay,
+  fetchRecurringRules,
+  fetchWorkoutMonthEntries,
+  saveRoutine,
+} from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import WorkoutSelector from "./WorkoutSelector";
@@ -8,6 +13,7 @@ import WorkoutDisplay from "./WorkoutDisplay";
 import LoadingIndicator from "./LoadingIndicator";
 import { Box } from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
+import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 
 type Workout = {
   title: string;
@@ -34,6 +40,15 @@ type Set = {
   actualWeight?: number | string;
   weight?: number;
 };
+
+type CalendarStatusMap = Record<
+  string,
+  {
+    hasLogged: boolean;
+    hasCompleted: boolean;
+    hasRecurring: boolean;
+  }
+>;
 
 const DEFAULT_MAX_WEIGHT = 35; // Default max weight
 const DEFAULT_TIME = 60; // Default time for timed exercises
@@ -104,6 +119,7 @@ const WorkoutsManager: React.FC<{
     dateISO,
     exercises,
     setRefetchExercises,
+    calendarStatusMap,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
 
   const handleCurrentDayChange = (change: number, isDateSelection: boolean) => {
@@ -154,6 +170,7 @@ const WorkoutsManager: React.FC<{
             setCurrentDate={setCurrentDate}
             handleCurrentDayChange={handleCurrentDayChange}
             darkMode={darkMode}
+            calendarStatusMap={calendarStatusMap}
           />
 
           {isLoadingWorkout || !currentWorkout ? (
@@ -240,6 +257,7 @@ const useWorkoutsManagerState = (
   const dateISO = currentDate.toISOString().slice(0, 10);
 
   const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
+  const [calendarStatusMap, setCalendarStatusMap] = useState<CalendarStatusMap>({});
   useEffect(() => {
     if (
       !userId ||
@@ -268,6 +286,106 @@ const useWorkoutsManagerState = (
     refetchExercises, // refetch when this state changes
   ]);
 
+  useEffect(() => {
+    if (!userId) {
+      setCalendarStatusMap({});
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadCalendarStatus = async () => {
+      try {
+        const [entries, rules] = await Promise.all([
+          fetchWorkoutMonthEntries(userId, currentDate, currentWorkout?.title),
+          fetchRecurringRules(userId, currentWorkout?.title),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextMap: CalendarStatusMap = {};
+        const monthStart = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          1
+        );
+        const monthEnd = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth() + 1,
+          0
+        );
+
+        entries.forEach((entry: WorkoutEntryDoc) => {
+          const entryDate = new Date(entry.date);
+          if (isNaN(entryDate.getTime())) {
+            return;
+          }
+
+          const key = entryDate.toISOString().slice(0, 10);
+          nextMap[key] = {
+            hasLogged: true,
+            hasCompleted: Boolean(
+              entry.complete ||
+                entry.sets?.some((set) => Boolean(set.complete))
+            ),
+            hasRecurring: nextMap[key]?.hasRecurring ?? false,
+          };
+        });
+
+        rules.forEach((rule: RecurringRuleDoc) => {
+          if (rule.active === false) {
+            return;
+          }
+
+          const startDate = new Date(rule.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          const intervalWeeks = Math.max(1, Number(rule.intervalWeeks) || 1);
+
+          for (
+            let cursor = new Date(monthStart);
+            cursor <= monthEnd;
+            cursor.setDate(cursor.getDate() + 1)
+          ) {
+            const sameWeekday = cursor.getDay() === rule.dayOfWeek;
+            const afterStart = !rule.startDate || cursor >= startDate;
+
+            if (!sameWeekday || !afterStart) {
+              continue;
+            }
+
+            const diffDays = Math.floor(
+              (cursor.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const diffWeeks = Math.floor(diffDays / 7);
+
+            if (diffWeeks < 0 || diffWeeks % intervalWeeks !== 0) {
+              continue;
+            }
+
+            const key = cursor.toISOString().slice(0, 10);
+            nextMap[key] = {
+              hasLogged: nextMap[key]?.hasLogged ?? false,
+              hasCompleted: nextMap[key]?.hasCompleted ?? false,
+              hasRecurring: true,
+            };
+          }
+        });
+
+        setCalendarStatusMap(nextMap);
+      } catch (error) {
+        console.error("Error loading workout calendar data:", error);
+      }
+    };
+
+    loadCalendarStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, currentDate, currentWorkout?.title, refetchExercises]);
+
   return {
     currentDay,
     currentDayIndex,
@@ -293,6 +411,7 @@ const useWorkoutsManagerState = (
     exercises,
     refetchExercises,
     setRefetchExercises,
+    calendarStatusMap,
   };
 };
 
