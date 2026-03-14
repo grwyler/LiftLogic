@@ -36,6 +36,10 @@ import {
 } from "@mui/material";
 import { toast } from "react-toastify";
 import {
+  AIResponseSourceDetail,
+  getAIFallbackNotice,
+} from "../utils/aiFallback";
+import {
   buildWhatIHeardSummary,
   currentFitnessOptions,
   defaultSetupForm,
@@ -55,6 +59,12 @@ import {
 } from "../utils/workoutGeneration";
 
 type Routine = any;
+type GeneratedPlanPayload = {
+  routine: Routine | null;
+  coachResponse?: any;
+  source?: "ai" | "fallback";
+  sourceDetail?: AIResponseSourceDetail;
+};
 
 const RoutinesPage = ({
   darkMode,
@@ -76,6 +86,12 @@ const RoutinesPage = ({
   const [generatingWorkout, setGeneratingWorkout] = useState(false);
   const [routineViewKey, setRoutineViewKey] = useState(0);
   const [generatedCoachResponse, setGeneratedCoachResponse] = useState<any>(null);
+  const [generatedCoachSource, setGeneratedCoachSource] = useState<
+    "ai" | "fallback" | undefined
+  >(undefined);
+  const [generatedCoachSourceDetail, setGeneratedCoachSourceDetail] = useState<
+    AIResponseSourceDetail | undefined
+  >(undefined);
   const [setupForm, setSetupForm] = useState(defaultSetupForm);
   const [assistantName, setAssistantName] = useState("");
   const [assistantIntent, setAssistantIntent] = useState<"tracker" | "planner" | null>(
@@ -148,6 +164,8 @@ const RoutinesPage = ({
 
     if (restored) {
       setGeneratedCoachResponse(restored);
+      setGeneratedCoachSource(undefined);
+      setGeneratedCoachSourceDetail(undefined);
     }
   }, [routine, showSetupDialog, user]);
 
@@ -413,6 +431,8 @@ const RoutinesPage = ({
             routine
           ) ?? buildSetupCoachResponse(normalizeSetupForm(nextUser))
         );
+        setGeneratedCoachSource(undefined);
+        setGeneratedCoachSourceDetail(undefined);
         setShowSetupDialog(false);
         toast.success("Profile setup saved");
       } else {
@@ -445,6 +465,8 @@ const RoutinesPage = ({
       if (response?.success) {
         setUser(nextUser);
         setGeneratedCoachResponse(buildSetupCoachResponse(normalizeSetupForm(nextUser)));
+        setGeneratedCoachSource(undefined);
+        setGeneratedCoachSourceDetail(undefined);
         setShowSetupDialog(false);
         toast.success("Tracker mode is ready");
       } else {
@@ -472,13 +494,29 @@ const RoutinesPage = ({
     try {
       setGeneratingWorkout(true);
       await saveUser(nextUser);
-      const generated = await generateWorkoutPlan(sessionUserId, normalizeSetupForm(nextUser));
+      const generated = (await generateWorkoutPlan(
+        sessionUserId,
+        normalizeSetupForm(nextUser)
+      )) as GeneratedPlanPayload;
       setUser(nextUser);
       setRoutine(generated.routine);
       setGeneratedCoachResponse(generated.coachResponse ?? null);
+      setGeneratedCoachSource(generated.source);
+      setGeneratedCoachSourceDetail(generated.sourceDetail);
       setShowSetupDialog(false);
       setRoutineViewKey((prev) => prev + 1);
-      toast.success("Workout plan generated");
+      const fallbackNotice =
+        generated.source === "fallback"
+          ? getAIFallbackNotice({
+              experience: "plan",
+              sourceDetail: generated.sourceDetail,
+            })
+          : "";
+      if (fallbackNotice) {
+        toast.info(fallbackNotice);
+      } else {
+        toast.success("Workout plan generated");
+      }
     } catch (error) {
       console.error("Error generating workout plan:", error);
       toast.error("Couldn't generate a workout plan");
@@ -504,10 +542,25 @@ const RoutinesPage = ({
 
     setSetupForm(nextSetupForm);
     await saveUser(nextUser);
-    const generated = await generateWorkoutPlan(sessionUserId, nextSetupForm);
+    const generated = (await generateWorkoutPlan(
+      sessionUserId,
+      nextSetupForm
+    )) as GeneratedPlanPayload;
     setUser(nextUser);
     setRoutine(generated.routine);
     setGeneratedCoachResponse(generated.coachResponse ?? null);
+    setGeneratedCoachSource(generated.source);
+    setGeneratedCoachSourceDetail(generated.sourceDetail);
+    const fallbackNotice =
+      generated.source === "fallback"
+        ? getAIFallbackNotice({
+            experience: "plan",
+            sourceDetail: generated.sourceDetail,
+          })
+        : "";
+    if (fallbackNotice) {
+      toast.info(fallbackNotice);
+    }
     setRoutineViewKey((prev) => prev + 1);
   };
 
@@ -754,8 +807,14 @@ const RoutinesPage = ({
               <Box sx={{ mb: 2 }}>
                 <CoachChatPanel
                   coachResponse={generatedCoachResponse}
+                  coachSource={generatedCoachSource}
+                  coachSourceDetail={generatedCoachSourceDetail}
                   profile={setupForm}
-                  onDismiss={() => setGeneratedCoachResponse(null)}
+                  onDismiss={() => {
+                    setGeneratedCoachResponse(null);
+                    setGeneratedCoachSource(undefined);
+                    setGeneratedCoachSourceDetail(undefined);
+                  }}
                   onApplyProfilePatch={applyCoachProfilePatch}
                   onCoachAction={handleCoachAction}
                 />

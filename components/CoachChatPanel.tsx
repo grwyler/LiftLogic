@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  AIResponseSourceDetail,
+  getAIFallbackNotice,
+} from "../utils/aiFallback";
 import { askWorkoutCoach, submitFeedback } from "../utils/helpers";
 import { SetupFormValues } from "../utils/profileSetup";
 import {
@@ -58,6 +62,16 @@ type CoachResponse = {
   }>;
 };
 
+type CoachReplyPayload = {
+  reply: string;
+  suggestedReplies?: string[];
+  profilePatch?: Partial<SetupFormValues>;
+  shouldRegeneratePlan?: boolean;
+  action?: any;
+  source?: "ai" | "fallback";
+  sourceDetail?: AIResponseSourceDetail;
+};
+
 const buildInitialMessages = (coachResponse: CoachResponse): ChatMessage[] => {
   const messages: ChatMessage[] = [];
 
@@ -85,6 +99,8 @@ const truncateText = (value: string, maxLength = 120) =>
 
 export default function CoachChatPanel({
   coachResponse,
+  coachSource,
+  coachSourceDetail,
   profile,
   onDismiss,
   primaryActionLabel,
@@ -93,6 +109,8 @@ export default function CoachChatPanel({
   onCoachAction,
 }: {
   coachResponse: CoachResponse;
+  coachSource?: "ai" | "fallback";
+  coachSourceDetail?: AIResponseSourceDetail;
   profile: SetupFormValues;
   onDismiss?: () => void;
   primaryActionLabel?: string;
@@ -118,6 +136,12 @@ export default function CoachChatPanel({
   const [dislikeTarget, setDislikeTarget] = useState<ChatMessage | null>(null);
   const [dislikeExplanation, setDislikeExplanation] = useState("");
   const [submittingDislike, setSubmittingDislike] = useState(false);
+  const [assistantSource, setAssistantSource] = useState<
+    "ai" | "fallback" | undefined
+  >(coachSource);
+  const [assistantSourceDetail, setAssistantSourceDetail] = useState<
+    AIResponseSourceDetail | undefined
+  >(coachSourceDetail);
   const { data: session } = useSession() as {
     data: { user?: { _id?: string; username?: string; email?: string } } | null;
   };
@@ -132,7 +156,24 @@ export default function CoachChatPanel({
     setLoading(false);
     setQuickReplies(coachResponse.suggestedReplies ?? []);
     setResponseFeedback({});
-  }, [coachResponse]);
+    setAssistantSource(coachSource);
+    setAssistantSourceDetail(coachSourceDetail);
+  }, [coachResponse, coachSource, coachSourceDetail]);
+
+  const fallbackNotice = useMemo(() => {
+    if (
+      assistantSource !== "fallback" ||
+      !assistantSourceDetail ||
+      assistantSourceDetail === "rule_based"
+    ) {
+      return "";
+    }
+
+    return getAIFallbackNotice({
+      experience: "coach",
+      sourceDetail: assistantSourceDetail,
+    });
+  }, [assistantSource, assistantSourceDetail]);
 
   const sessionUserId =
     session?.user?._id || (session as any)?.token?.user?._id || "";
@@ -160,7 +201,7 @@ export default function CoachChatPanel({
     setLoading(true);
 
     try {
-      const response = await askWorkoutCoach({
+      const response = (await askWorkoutCoach({
         message: trimmed,
         history: nextHistory.map(({ role, text: messageText }) => ({
           role,
@@ -168,7 +209,24 @@ export default function CoachChatPanel({
         })),
         profile,
         coachResponse,
-      });
+      })) as CoachReplyPayload;
+
+      setAssistantSource(response.source);
+      setAssistantSourceDetail(response.sourceDetail);
+
+      if (
+        response.source === "fallback" &&
+        response.sourceDetail &&
+        response.sourceDetail !== "rule_based"
+      ) {
+        const notice = getAIFallbackNotice({
+          experience: "coach",
+          sourceDetail: response.sourceDetail,
+        });
+        if (notice) {
+          toast.info(notice);
+        }
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -370,6 +428,12 @@ export default function CoachChatPanel({
           incomplete, or behave unexpectedly while we keep improving it.
         </Alert>
 
+        {fallbackNotice ? (
+          <Alert severity="info" sx={{ borderRadius: 2.5 }}>
+            {fallbackNotice}
+          </Alert>
+        ) : null}
+
         <Box
           sx={{
             display: "flex",
@@ -444,6 +508,21 @@ export default function CoachChatPanel({
                             : "default"
                         }
                         disabled={Boolean(responseFeedback[message.id])}
+                        sx={
+                          responseFeedback[message.id] === "like"
+                            ? {
+                                backgroundColor: "action.selected",
+                                "&:hover": {
+                                  backgroundColor: "action.selected",
+                                },
+                                "&.Mui-disabled": {
+                                  color: "primary.main",
+                                  opacity: 1,
+                                  backgroundColor: "action.selected",
+                                },
+                              }
+                            : undefined
+                        }
                       >
                         <ThumbUpAltOutlinedIcon fontSize="inherit" />
                       </IconButton>
@@ -463,11 +542,38 @@ export default function CoachChatPanel({
                             : "default"
                         }
                         disabled={Boolean(responseFeedback[message.id])}
+                        sx={
+                          responseFeedback[message.id] === "dislike"
+                            ? {
+                                backgroundColor: "action.selected",
+                                "&:hover": {
+                                  backgroundColor: "action.selected",
+                                },
+                                "&.Mui-disabled": {
+                                  color: "primary.main",
+                                  opacity: 1,
+                                  backgroundColor: "action.selected",
+                                },
+                              }
+                            : undefined
+                        }
                       >
                         <ThumbDownAltOutlinedIcon fontSize="inherit" />
                       </IconButton>
                     </span>
                   </Tooltip>
+                  {responseFeedback[message.id] ? (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        alignSelf: "center",
+                        color: "text.secondary",
+                        ml: 0.25,
+                      }}
+                    >
+                      Feedback saved
+                    </Typography>
+                  ) : null}
                 </Stack>
               ) : null}
             </Box>

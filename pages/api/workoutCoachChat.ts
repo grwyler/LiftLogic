@@ -4,6 +4,10 @@ import {
   buildFallbackCoachReply,
   WorkoutCoachResponse,
 } from "../../utils/workoutGeneration";
+import {
+  AIResponseSourceDetail,
+  inferAIFallbackReason,
+} from "../../utils/aiFallback";
 import { SetupFormValues } from "../../utils/profileSetup";
 
 type ChatTurn = {
@@ -664,6 +668,10 @@ export default async function handler(
         .json({ message: "message, profile, and coachResponse are required" });
     }
 
+    const hasAIConfig = Boolean(
+      process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY
+    );
+
     if (assistantAskedToUpdateWorkout(history) && isAffirmative(message)) {
       return res.status(200).json({
         reply:
@@ -677,6 +685,7 @@ export default async function handler(
         shouldRegeneratePlan: false,
         action: null,
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -695,6 +704,7 @@ export default async function handler(
         shouldRegeneratePlan: true,
         action: null,
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -710,6 +720,7 @@ export default async function handler(
         shouldRegeneratePlan: true,
         action: null,
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -726,6 +737,7 @@ export default async function handler(
         shouldRegeneratePlan: true,
         action: null,
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -742,6 +754,7 @@ export default async function handler(
         shouldRegeneratePlan: true,
         action: null,
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -759,6 +772,7 @@ export default async function handler(
         shouldRegeneratePlan: false,
         action: normalizeCoachAction(directAction),
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -776,6 +790,7 @@ export default async function handler(
         shouldRegeneratePlan: false,
         action: normalizeCoachAction(directAction),
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -795,6 +810,7 @@ export default async function handler(
         shouldRegeneratePlan: false,
         action: normalizeCoachAction(directAction),
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
 
@@ -810,8 +826,13 @@ export default async function handler(
         shouldRegeneratePlan: false,
         action: normalizeCoachAction(directAction),
         source: "fallback",
+        sourceDetail: "rule_based",
       });
     }
+
+    let fallbackSourceDetail: AIResponseSourceDetail = hasAIConfig
+      ? "unknown"
+      : "not_configured";
 
     try {
       const aiReply = await askCoachWithAI({
@@ -822,20 +843,21 @@ export default async function handler(
       });
 
       if (aiReply?.reply) {
-        return res.status(200).json({
-          reply: aiReply.reply,
-          suggestedReplies:
-            Array.isArray(aiReply.suggestedReplies) && aiReply.suggestedReplies.length > 0
-              ? aiReply.suggestedReplies
+          return res.status(200).json({
+            reply: aiReply.reply,
+            suggestedReplies:
+              Array.isArray(aiReply.suggestedReplies) && aiReply.suggestedReplies.length > 0
+                ? aiReply.suggestedReplies
               : coachResponse.suggestedReplies,
-          profilePatch: aiReply.profilePatch ?? {},
-          shouldRegeneratePlan: Boolean(aiReply.shouldRegeneratePlan),
-          action: normalizeCoachAction(aiReply.action ?? null),
-          source: "ai",
-        });
+            profilePatch: aiReply.profilePatch ?? {},
+            shouldRegeneratePlan: Boolean(aiReply.shouldRegeneratePlan),
+            action: normalizeCoachAction(aiReply.action ?? null),
+            source: "ai",
+          });
       }
     } catch (error) {
       console.error("workoutCoachChat AI fallback triggered:", error);
+      fallbackSourceDetail = inferAIFallbackReason(error, hasAIConfig);
     }
 
     const fallback = buildFallbackCoachReply({
@@ -860,6 +882,7 @@ export default async function handler(
       shouldRegeneratePlan: extracted.shouldRegeneratePlan,
       action: null,
       source: "fallback",
+      sourceDetail: fallbackSourceDetail,
     });
   } catch (error) {
     console.error("workoutCoachChat error:", error);

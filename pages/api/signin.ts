@@ -1,16 +1,24 @@
 import { connectToDatabase } from "../../utils/mongodb";
+import { verifyAndUpgradePassword } from "../../utils/passwords";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
-    const { username, password } = req.body;
+    const username = String(req.body?.username ?? "").trim();
+    const password = String(req.body?.password ?? "");
 
     try {
       const db = await connectToDatabase();
       const collection = db.collection("users");
+      const user = await collection.findOne({ username });
 
-      const user = await collection.findOne({ username, password });
-
-      if (!user) {
+      if (
+        !user ||
+        !(await verifyAndUpgradePassword({
+          usersCollection: collection,
+          user,
+          candidatePassword: password,
+        }))
+      ) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
@@ -18,7 +26,10 @@ export default async function handler(req, res) {
       const sessionId = "session_" + Math.random().toString(36).substring(7);
 
       // Store the session identifier in the user document in the database
-      await collection.updateOne({ _id: user._id }, { $set: { sessionId } });
+      await collection.updateOne(
+        { _id: user._id },
+        { $set: { sessionId, updatedAt: new Date() } }
+      );
       res.status(200).json({ sessionId });
     } catch (error) {
       console.error("MongoDB connection or sign-in error:", error);

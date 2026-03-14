@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/router";
 import NextLink from "next/link";
 import { signIn } from "next-auth/react";
@@ -20,14 +20,10 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import GoogleIcon from "@mui/icons-material/Google";
 import FacebookIcon from "@mui/icons-material/Facebook";
-import UserTable from "../components/UserTable";
-import LoadingIndicator from "../components/LoadingIndicator";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 const SignIn = () => {
-  const [users, setUsers] = useState([]);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -39,23 +35,6 @@ const SignIn = () => {
   const hasGoogleAuth = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const hasFacebookAuth =
     process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === "true";
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch("/api/user");
-      const data = await response.json();
-      setUsers(Array.isArray(data.users) ? data.users : []);
-      setIsLoadingUsers(false);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      setError("Error fetching users");
-      setIsLoadingUsers(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const handleSubmit = async (theUsername?: string, thePassword?: string) => {
     setIsSigningIn(true);
@@ -335,45 +314,6 @@ const SignIn = () => {
               </Alert>
             )}
           </Box>
-
-          {process.env.NEXT_PUBLIC_ENV === "local" && (
-            <>
-              <Divider sx={{ my: 3 }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Local users
-              </Typography>
-              <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-                Quick access for local testing.
-              </Typography>
-              <Box sx={{ mt: 2, display: "grid", gap: 1 }}>
-                {isLoadingUsers ? (
-                  <Box
-                    sx={{
-                      py: 4,
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <LoadingIndicator />
-                  </Box>
-                ) : users.length === 0 ? (
-                  <Typography color="text.secondary">No users yet.</Typography>
-                ) : (
-                  users.map((user) => (
-                    <UserTable
-                      key={`user-table-column-${user.username}`}
-                      user={user}
-                      setUsername={setUsername}
-                      setPassword={setPassword}
-                      handleSubmit={handleSubmit}
-                      fetchUsers={fetchUsers}
-                      setError={setError}
-                    />
-                  ))
-                )}
-              </Box>
-            </>
-          )}
         </Paper>
       </Box>
     </Box>

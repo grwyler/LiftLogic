@@ -29,6 +29,10 @@ import TuneIcon from "@mui/icons-material/Tune";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { toast } from "react-toastify";
+import {
+  AIResponseSourceDetail,
+  getAIFallbackNotice,
+} from "../utils/aiFallback";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import {
   buildWhatIHeardSummary,
@@ -48,6 +52,12 @@ interface UserPageProps {
   darkMode: boolean;
   setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+type GeneratedPlanPayload = {
+  coachResponse?: any;
+  source?: "ai" | "fallback";
+  sourceDetail?: AIResponseSourceDetail;
+};
 
 type UserProfile = {
   _id: string;
@@ -101,6 +111,12 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
   const [saving, setSaving] = useState(false);
   const [generatingWorkout, setGeneratingWorkout] = useState(false);
   const [generatedCoachResponse, setGeneratedCoachResponse] = useState<any>(null);
+  const [generatedCoachSource, setGeneratedCoachSource] = useState<
+    "ai" | "fallback" | undefined
+  >(undefined);
+  const [generatedCoachSourceDetail, setGeneratedCoachSourceDetail] = useState<
+    AIResponseSourceDetail | undefined
+  >(undefined);
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
@@ -338,14 +354,26 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     try {
       setGeneratingWorkout(true);
       await saveUser(nextUser);
-      await generateWorkoutPlan(
+      const generated = (await generateWorkoutPlan(
         session.token.user._id,
         normalizeSetupForm(nextUser)
-      ).then((generated) => {
-        setGeneratedCoachResponse(generated.coachResponse ?? null);
-      });
+      )) as GeneratedPlanPayload;
+      setGeneratedCoachResponse(generated.coachResponse ?? null);
+      setGeneratedCoachSource(generated.source);
+      setGeneratedCoachSourceDetail(generated.sourceDetail);
       setUser(nextUser);
-      toast.success("Workout plan generated");
+      const fallbackNotice =
+        generated.source === "fallback"
+          ? getAIFallbackNotice({
+              experience: "plan",
+              sourceDetail: generated.sourceDetail,
+            })
+          : "";
+      if (fallbackNotice) {
+        toast.info(fallbackNotice);
+      } else {
+        toast.success("Workout plan generated");
+      }
     } catch (error) {
       console.error("Error generating workout plan:", error);
       toast.error("Couldn't generate a workout plan");
@@ -375,9 +403,21 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     const generated = await generateWorkoutPlan(
       session.token.user._id,
       normalizeSetupForm(nextUser)
-    );
+    ) as GeneratedPlanPayload;
     setUser(nextUser);
     setGeneratedCoachResponse(generated.coachResponse ?? null);
+    setGeneratedCoachSource(generated.source);
+    setGeneratedCoachSourceDetail(generated.sourceDetail);
+    const fallbackNotice =
+      generated.source === "fallback"
+        ? getAIFallbackNotice({
+            experience: "plan",
+            sourceDetail: generated.sourceDetail,
+          })
+        : "";
+    if (fallbackNotice) {
+      toast.info(fallbackNotice);
+    }
   };
 
   const handleCoachAction = async (action: any) => {
@@ -816,8 +856,14 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
             {generatedCoachResponse ? (
               <CoachChatPanel
                 coachResponse={generatedCoachResponse}
+                coachSource={generatedCoachSource}
+                coachSourceDetail={generatedCoachSourceDetail}
                 profile={normalizeSetupForm(form)}
-                onDismiss={() => setGeneratedCoachResponse(null)}
+                onDismiss={() => {
+                  setGeneratedCoachResponse(null);
+                  setGeneratedCoachSource(undefined);
+                  setGeneratedCoachSourceDetail(undefined);
+                }}
                 primaryActionLabel="View workouts"
                 onPrimaryAction={() => router.push("/routines")}
                 onApplyProfilePatch={applyCoachProfilePatch}

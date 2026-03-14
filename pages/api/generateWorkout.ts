@@ -8,6 +8,10 @@ import {
   buildWorkoutGenerationPrompt,
   normalizeGeneratedPlan,
 } from "../../utils/workoutGeneration";
+import {
+  AIFallbackReason,
+  inferAIFallbackReason,
+} from "../../utils/aiFallback";
 import { SetupFormValues } from "../../utils/profileSetup";
 
 const dayToIndex: Record<string, number> = {
@@ -176,14 +180,22 @@ export default async function handler(
 
     let rawPlan: any = null;
     let source: "ai" | "fallback" = "fallback";
+    const hasAIConfig = Boolean(
+      process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY
+    );
+    let sourceDetail: AIFallbackReason | undefined = hasAIConfig
+      ? "unknown"
+      : "not_configured";
 
     try {
       rawPlan = await generatePlanWithAI(profile);
       if (rawPlan) {
         source = "ai";
+        sourceDetail = undefined;
       }
     } catch (error) {
       console.error("AI workout generation failed, falling back", error);
+      sourceDetail = inferAIFallbackReason(error, hasAIConfig);
     }
 
     const plan = rawPlan
@@ -212,6 +224,7 @@ export default async function handler(
       summary: plan.summary,
       coachResponse,
       source,
+      sourceDetail,
       generatedDays: plan.days.length,
     });
   } catch (error) {

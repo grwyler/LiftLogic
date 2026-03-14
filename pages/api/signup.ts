@@ -1,5 +1,6 @@
 // pages/api/signup.ts
 import { connectToDatabase } from "../../utils/mongodb";
+import { hashPassword } from "../../utils/passwords";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
@@ -19,9 +20,11 @@ export default async function handler(req, res) {
         return res.status(409).json({ message: "Username already exists" });
       }
 
+      const passwordHash = await hashPassword(password);
+
       const result = await collection.insertOne({
         username,
-        password: password, // TODO: hash passwords before storing them in production
+        password: passwordHash,
         sex: "",
         age: "",
         preferredUnits: "lb",

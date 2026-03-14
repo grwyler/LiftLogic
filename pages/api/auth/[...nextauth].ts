@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase } from "../../../utils/mongodb";
+import { verifyAndUpgradePassword } from "../../../utils/passwords";
 
 const createUsernameSlug = (value: string) =>
   value
@@ -25,6 +26,17 @@ const getUniqueUsername = async (baseValue: string) => {
   }
 
   return attempt;
+};
+
+const toSessionUser = (user: any) => {
+  const { password, sessionId, providerAccountId, ...safeUser } = user || {};
+  const normalizedId = user?._id?.toString?.() ?? String(user?._id ?? "");
+
+  return {
+    ...safeUser,
+    _id: normalizedId,
+    id: normalizedId,
+  } as any;
 };
 
 const getOrCreateOAuthUser = async ({
@@ -63,12 +75,10 @@ const getOrCreateOAuthUser = async ({
     };
 
     await users.updateOne({ _id: user._id }, { $set: update });
-    return {
+    return toSessionUser({
       ...user,
       ...update,
-      _id: user._id?.toString?.() ?? String(user._id),
-      id: user._id?.toString?.() ?? String(user._id),
-    } as any;
+    });
   }
 
   const username = await getUniqueUsername(
@@ -103,11 +113,10 @@ const getOrCreateOAuthUser = async ({
 
   const result = await users.insertOne(doc);
 
-  return {
+  return toSessionUser({
     ...doc,
-    _id: result.insertedId.toString(),
-    id: result.insertedId.toString(),
-  } as any;
+    _id: result.insertedId,
+  });
 };
 
 const providers = [
@@ -152,20 +161,21 @@ export const authOptions: NextAuthOptions = {
           }
 
           const db = await connectToDatabase();
-          const user = await db.collection("users").findOne({
-            username,
-            password, // TODO: hash passwords before storing and comparing
-          });
+          const users = db.collection("users");
+          const user = await users.findOne({ username });
 
-          if (!user) {
+          if (
+            !user ||
+            !(await verifyAndUpgradePassword({
+              usersCollection: users,
+              user,
+              candidatePassword: password,
+            }))
+          ) {
             return null;
           }
 
-          return {
-            ...user,
-            _id: user._id?.toString?.() ?? String(user._id),
-            id: user._id?.toString?.() ?? String(user._id),
-          } as any;
+          return toSessionUser(user);
         } catch (error) {
           console.error("NextAuth authorize error:", error);
           return null;
