@@ -15,6 +15,36 @@ type SessionPayload = {
   };
 };
 
+type RecurringRulePayload = {
+  rules?: Array<{
+    _id?: string;
+    userId?: string;
+    exerciseName?: string;
+    dayOfWeek?: number;
+    daysOfWeek?: number[];
+    recurrenceType?: string;
+    active?: boolean;
+  }>;
+};
+
+type FeedbackPayload = {
+  feedback?: Array<{
+    _id?: string;
+    title?: string;
+    description?: string;
+    coachFeedback?: {
+      sentiment?: "like" | "dislike";
+      explanation?: string;
+      selectedResponse?: string;
+      conversation?: Array<{
+        role?: "coach" | "user";
+        text?: string;
+      }>;
+    };
+    createdAt?: string;
+  }>;
+};
+
 const buildUsername = (suffix: string) =>
   `e2e-${suffix}-${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
 
@@ -151,6 +181,29 @@ const generatePlanForProfile = async (
   return response.json();
 };
 
+const fetchRecurringRulesForUser = async (page: Page, userId: string) => {
+  const response = await page.request.get(
+    `/api/recurringRule?userId=${encodeURIComponent(userId)}`
+  );
+
+  expect(response.ok()).toBeTruthy();
+  const data = (await response.json()) as RecurringRulePayload;
+  return Array.isArray(data.rules) ? data.rules : [];
+};
+
+const fetchFeedbackForUser = async (page: Page, userId: string) => {
+  const response = await page.request.get(
+    `/api/feedback?userId=${encodeURIComponent(userId)}`
+  );
+
+  expect(response.ok()).toBeTruthy();
+  const data = (await response.json()) as FeedbackPayload;
+  return Array.isArray(data.feedback) ? data.feedback : [];
+};
+
+const openingCoachBubble = (page: Page) =>
+  page.locator("xpath=(//p[contains(., 'I saved your setup')])[1]/ancestor::div[1]");
+
 test.describe("Lift Logic e2e", () => {
   let currentUserId = "";
 
@@ -243,6 +296,52 @@ test.describe("Lift Logic e2e", () => {
     await expect(page.getByText("1/3 sets logged")).toBeVisible();
   });
 
+  test("generated plans schedule recurring rules onto the routines calendar", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-plan");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const generated = await generatePlanForProfile(page, currentUserId, {
+      sex: "",
+      age: "",
+      preferredUnits: "lb",
+      trainingGoal: "strength",
+      currentFitnessLevel: "starting_out",
+      workoutDaysPerWeek: "4",
+      experienceLevel: "beginner",
+      workoutLength: "45",
+      equipmentAccess: ["Bodyweight only"],
+      maxDumbbellWeight: "",
+      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
+      limitations: "",
+      notes: "Focus on progressive overload with practical compound lifts.",
+    });
+
+    expect(generated?.coachResponse?.planSnapshot?.length).toBe(4);
+
+    await expect
+      .poll(async () => {
+        const rules = await fetchRecurringRulesForUser(page, currentUserId);
+        const distinctDays = new Set(
+          rules.flatMap((rule) =>
+            Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.length > 0
+              ? rule.daysOfWeek
+              : typeof rule.dayOfWeek === "number"
+              ? [rule.dayOfWeek]
+              : []
+          )
+        );
+
+        return JSON.stringify({
+          ruleCount: rules.length,
+          distinctDayCount: distinctDays.size,
+        });
+      })
+      .toContain('"distinctDayCount":4');
+  });
+
   test("repeat schedule end date can be saved and edited after reopening", async ({
     page,
   }) => {
@@ -296,7 +395,99 @@ test.describe("Lift Logic e2e", () => {
     await expect(page.getByText(title)).toBeVisible();
   });
 
-  test("coach can move a scheduled day from Friday to Wednesday", async ({
+  test("coach thumbs up feedback stores the selected response and conversation history", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-like");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await page.getByLabel("Name").fill("Helpful Coach");
+    await page
+      .getByRole("button", { name: "Yes, help me plan workouts" })
+      .click();
+    await page.getByRole("button", { name: "Build muscle" }).click();
+    await page.getByRole("button", { name: "3 days" }).click();
+    await page.getByRole("button", { name: "Save assistant setup" }).click();
+
+    await expect(openingCoachBubble(page)).toBeVisible();
+    await openingCoachBubble(page).locator("button").nth(0).click();
+
+    await expect(page.getByText(/marked helpful/i)).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const feedback = await fetchFeedbackForUser(page, currentUserId);
+        return (
+          feedback.find((item) => item.coachFeedback?.sentiment === "like")
+            ?.coachFeedback?.selectedResponse || ""
+        );
+      })
+      .toContain("I saved your setup");
+
+    await expect
+      .poll(async () => {
+        const feedback = await fetchFeedbackForUser(page, currentUserId);
+        return (
+          feedback.find((item) => item.coachFeedback?.sentiment === "like")
+            ?.coachFeedback?.conversation?.length || 0
+        );
+      })
+      .toBeGreaterThan(0);
+  });
+
+  test("coach thumbs down feedback requires an explanation and stores the conversation history", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-dislike");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await page.getByLabel("Name").fill("Needs Work Coach");
+    await page
+      .getByRole("button", { name: "Yes, help me plan workouts" })
+      .click();
+    await page.getByRole("button", { name: "Improve conditioning" }).click();
+    await page.getByRole("button", { name: "3 days" }).click();
+    await page.getByRole("button", { name: "Save assistant setup" }).click();
+
+    await expect(openingCoachBubble(page)).toBeVisible();
+    await openingCoachBubble(page).locator("button").nth(1).click();
+
+    await expect(
+      page.getByRole("heading", { name: "What went wrong with this response?" })
+    ).toBeVisible();
+    await page
+      .getByPlaceholder(/Examples: it ignored my equipment/i)
+      .fill(
+        "It repeated the schedule instead of actually moving the workout off Friday."
+      );
+    await page.getByRole("button", { name: "Submit feedback" }).click();
+
+    await expect(page.getByText(/saved that for assistant debugging/i)).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const feedback = await fetchFeedbackForUser(page, currentUserId);
+        return (
+          feedback.find((item) => item.coachFeedback?.sentiment === "dislike")
+            ?.coachFeedback?.explanation || ""
+        );
+      })
+      .toBe("It repeated the schedule instead of actually moving the workout off Friday.");
+
+    await expect
+      .poll(async () => {
+        const feedback = await fetchFeedbackForUser(page, currentUserId);
+        return (
+          feedback.find((item) => item.coachFeedback?.sentiment === "dislike")
+            ?.coachFeedback?.conversation?.length || 0
+        );
+      })
+      .toBeGreaterThan(0);
+  });
+
+  test("coach can move a scheduled day from Saturday to Wednesday", async ({
     page,
   }) => {
     const username = buildUsername("coach-swap");
@@ -324,11 +515,11 @@ test.describe("Lift Logic e2e", () => {
       (day: any) => day.dayLabel
     );
 
-    expect(initialDays).toContain("Friday");
+    expect(initialDays).toContain("Saturday");
 
     const chatResponse = await page.request.post("/api/workoutCoachChat", {
       data: {
-        message: "Friday workouts don't work for me. Can we swap that to wed instead?",
+        message: "Saturday workouts don't work for me. Can we swap that to wed instead?",
         history: [
           {
             role: "coach",
@@ -344,7 +535,7 @@ test.describe("Lift Logic e2e", () => {
     const chatData = await chatResponse.json();
     expect(chatData.shouldRegeneratePlan).toBeTruthy();
     expect(chatData.profilePatch?.preferredTrainingDays).toContain("Wed");
-    expect(chatData.profilePatch?.preferredTrainingDays).not.toContain("Fri");
+    expect(chatData.profilePatch?.preferredTrainingDays).not.toContain("Sat");
 
     const regenerated = await generatePlanForProfile(page, currentUserId, {
       ...profile,
@@ -355,7 +546,7 @@ test.describe("Lift Logic e2e", () => {
     );
 
     expect(updatedDays).toContain("Wednesday");
-    expect(updatedDays).not.toContain("Friday");
+    expect(updatedDays).not.toContain("Saturday");
   });
 
   test("coach can clear all scheduled workouts from the current plan", async ({
@@ -420,7 +611,7 @@ test.describe("Lift Logic e2e", () => {
       workoutLength: "45",
       equipmentAccess: ["Bodyweight only"],
       maxDumbbellWeight: "",
-      preferredTrainingDays: [],
+      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
       limitations: "",
       notes: "",
     };

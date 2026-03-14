@@ -27,10 +27,10 @@ export default defineConfig({
   },
   webServer: useLocalWebServer
     ? {
-        command: "cmd.exe /c npm run start -- -p 3001",
+        command: "cmd.exe /c npm run dev -- -p 3001",
         url: "http://127.0.0.1:3001",
         reuseExistingServer: true,
-        timeout: 120_000,
+        timeout: 180_000,
         cwd: ".",
       }
     : undefined,
