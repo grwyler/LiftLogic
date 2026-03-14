@@ -13,10 +13,19 @@ const WorkoutDisplay = ({
   formattedDate,
   routineName,
   setIsAddingExercise,
+  setExercises,
   darkMode,
   setRefetchExercises,
+  refreshCalendarStatuses,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
+
+  const isExerciseComplete = (exercise: any) => {
+    const sets = Array.isArray(exercise?.sets) ? exercise.sets : [];
+    return Boolean(
+      exercise?.complete || (sets.length > 0 && sets.every((set) => set.complete))
+    );
+  };
 
   const loggedSetCount = useMemo(
     () =>
@@ -29,27 +38,46 @@ const WorkoutDisplay = ({
   );
 
   const completedExercises = useMemo(
-    () => exercises.filter((exercise) => exercise.complete),
+    () => exercises.filter((exercise) => isExerciseComplete(exercise)),
     [exercises]
   );
 
   const plannedExercises = useMemo(
-    () => exercises.filter((exercise) => !exercise.complete),
+    () => exercises.filter((exercise) => !isExerciseComplete(exercise)),
     [exercises]
   );
 
   const nextExercise = useMemo(
-    () => exercises.find((exercise) => !exercise.complete) ?? null,
+    () => exercises.find((exercise) => !isExerciseComplete(exercise)) ?? null,
     [exercises]
   );
 
   const nextExerciseIndex = useMemo(
-    () => exercises.findIndex((exercise) => !exercise.complete),
+    () => exercises.findIndex((exercise) => !isExerciseComplete(exercise)),
     [exercises]
   );
 
   const hasExercises = exercises.length > 0;
   const isWorkoutComplete = hasExercises && !nextExercise;
+  const shouldShowNextSummary = plannedExercises.length > 1;
+  const remainingExerciseCount = plannedExercises.length;
+  const statusChip = !hasExercises
+    ? { label: "No exercises scheduled", color: "default" as const }
+    : isWorkoutComplete
+    ? { label: "Workout complete", color: "success" as const }
+    : loggedSetCount > 0
+    ? {
+        label: `In progress · ${loggedSetCount} set${
+          loggedSetCount === 1 ? "" : "s"
+        } logged`,
+        color: "primary" as const,
+      }
+    : {
+        label: `${remainingExerciseCount} exercise${
+          remainingExerciseCount === 1 ? "" : "s"
+        } scheduled`,
+        color: "default" as const,
+      };
 
   const workoutVolume = useMemo(
     () =>
@@ -74,6 +102,9 @@ const WorkoutDisplay = ({
       return null;
     }
 
+    const itemCountLabel = `${items.length} item${items.length === 1 ? "" : "s"}`;
+    const showSectionDescription = items.length > 1;
+
     return (
       <Box sx={{ mt: 2.25 }}>
         <Box
@@ -93,11 +124,13 @@ const WorkoutDisplay = ({
             >
               {title}
             </Typography>
-            <Typography sx={{ color: "text.secondary" }}>{description}</Typography>
+            {showSectionDescription ? (
+              <Typography sx={{ color: "text.secondary" }}>{description}</Typography>
+            ) : null}
           </Box>
           <Chip
             size="small"
-            label={`${items.length} item${items.length === 1 ? "" : "s"}`}
+            label={itemCountLabel}
             variant="outlined"
           />
         </Box>
@@ -107,14 +140,17 @@ const WorkoutDisplay = ({
           return (
             <ExerciseItem
               setRefetchExercises={setRefetchExercises}
+              refreshCalendarStatuses={refreshCalendarStatuses}
               key={`exercise-item-${exerciseIndex}`}
               exercise={exercise}
               exerciseIndex={exerciseIndex}
+              exercises={exercises}
               workout={currentWorkout}
               currentExerciseIndex={currentExerciseIndex}
               setCurrentExerciseIndex={setCurrentExerciseIndex}
               formattedDate={formattedDate}
               routineName={routineName}
+              setExercises={setExercises}
               shownMenuIndex={shownMenuIndex}
               setShownMenuIndex={setShownMenuIndex}
               darkMode={darkMode}
@@ -151,18 +187,13 @@ const WorkoutDisplay = ({
           >
             <Chip
               size="small"
-              label={
-                !hasExercises
-                  ? "Start by adding exercises"
-                  : loggedSetCount > 0
-                  ? `${loggedSetCount} set${loggedSetCount === 1 ? "" : "s"} logged`
-                  : "Ready to train"
-              }
+              label={statusChip.label}
+              color={statusChip.color}
               variant="outlined"
             />
           </Box>
 
-          {nextExercise ? (
+          {nextExercise && shouldShowNextSummary ? (
             <Paper
               elevation={0}
               sx={{
@@ -193,8 +224,7 @@ const WorkoutDisplay = ({
                   </Typography>
                   <Typography variant="h6">{nextExercise.name}</Typography>
                   <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
-                    Focus on the next incomplete exercise. Completed work moves
-                    below automatically.
+                    Open this exercise to keep moving through today's plan.
                   </Typography>
                 </Box>
 
@@ -274,8 +304,8 @@ const WorkoutDisplay = ({
 
       {plannedExercises.length > 0
         ? renderSection(
-            "Up Next",
-            "These are the exercises still scheduled for this workout.",
+            "Scheduled",
+            "Exercises you still have left to complete today.",
             plannedExercises
           )
         : null}

@@ -25,7 +25,7 @@ const DaySwitcher = ({
   darkMode,
   calendarStatusMap = {},
 }) => {
-  const [isInline, setIsInline] = useState(false);
+  const [isInline, setIsInline] = useState(true);
 
   const getDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -104,6 +104,7 @@ const DaySwitcher = ({
                       const status = calendarStatusMap[getDateKey(dayProps.day)] ?? null;
                       const hasActivity =
                         status?.hasCompleted || status?.hasLogged || status?.hasRecurring;
+                      const exerciseCount = status?.exerciseCount ?? 0;
                       const badgeColor = status?.hasCompleted
                         ? "success.main"
                         : status?.hasLogged
@@ -113,12 +114,17 @@ const DaySwitcher = ({
                       return (
                         <Badge
                           overlap="circular"
-                          variant="dot"
-                          invisible={!hasActivity}
+                          badgeContent={exerciseCount > 0 ? exerciseCount : undefined}
+                          invisible={!hasActivity || exerciseCount <= 0}
                           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                           sx={{
                             "& .MuiBadge-badge": {
                               backgroundColor: badgeColor,
+                              color: "#fff",
+                              minWidth: 18,
+                              height: 18,
+                              fontSize: "0.65rem",
+                              fontWeight: 700,
                               boxShadow: "0 0 0 2px var(--mui-palette-background-paper)",
                             },
                           }}
@@ -254,7 +260,7 @@ const DaySwitcher = ({
                 }}
               />
               <Typography variant="caption" color="text.secondary">
-                Recurring scheduled
+                Scheduled
               </Typography>
             </Box>
           </Box>

@@ -7,6 +7,7 @@ import {
   saveRecurringRule,
   saveWorkoutEntry,
 } from "../utils/helpers";
+import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 interface ExerciseManagerProps {
   index: number;
@@ -288,12 +289,28 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 
   // When an exercise is added, default it to one set and open the modal for editing.
   const handleAddExercise = async (exercise: any) => {
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Start adding exercise "${exercise?.name || "exercise"}"`,
+      expected: "Exercise draft opens in the editor.",
+      actual: `Preparing draft for ${exercise?.name || "exercise"}.`,
+      status: "info",
+    });
     const newExercise = await buildExerciseDraft(exercise);
     setSelectedExercise(newExercise);
     setOpenEditModal(true);
   };
 
   const handleQuickAddExercise = async (exercise: any) => {
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Quick add exercise "${exercise?.name || "exercise"}"`,
+      expected: "Exercise is added to today's workout.",
+      actual: `Building and saving ${exercise?.name || "exercise"}.`,
+      status: "info",
+    });
     const newExercise = await buildExerciseDraft(exercise);
     await persistExercise(newExercise);
     setRefetchExercises((prev) => !prev);
@@ -302,6 +319,14 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 
   // When saving, call updateExercise so the parent can update the existing exercise.
   const handleSaveEdit = async (updatedExercise: any) => {
+    emitDevBugInteraction({
+      type: "submit",
+      kind: "semantic",
+      label: `Save exercise "${updatedExercise?.name || "exercise"}"`,
+      expected: "Edited exercise persists and appears in the workout.",
+      actual: `Saving ${updatedExercise?.name || "exercise"}.`,
+      status: "info",
+    });
     await persistExercise(updatedExercise);
     setRefetchExercises((prev) => !prev);
     setOpenEditModal(false);
@@ -309,6 +334,14 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   };
 
   const handleCancelEdit = () => {
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: "Cancel exercise edit",
+      expected: "Exercise editor closes without saving.",
+      actual: "Exercise editor was closed.",
+      status: "info",
+    });
     setOpenEditModal(false);
     setIsAddingExercise(false);
   };

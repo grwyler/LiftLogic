@@ -9,6 +9,7 @@ import {
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
+import { emitDevBugRequest } from "./devBugRecorder";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -82,6 +83,12 @@ export const fetchExercises = async (
 
 // save exercise **log**  (was saveExercise)
 export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
+  emitDevBugRequest({
+    label: `Save workout entry for ${entry.name || entry.exerciseId || "exercise"}`,
+    expected: "Workout entry persists and refetch returns the latest state.",
+    actual: "Sending workout entry request.",
+    status: "info",
+  });
   const res = await fetch("/api/workoutEntry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,8 +96,20 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
   });
   if (!res.ok) {
     const message = await res.text();
+    emitDevBugRequest({
+      label: `Workout entry save failed for ${entry.name || entry.exerciseId || "exercise"}`,
+      expected: "Workout entry saves successfully.",
+      actual: `Request failed with ${res.status}: ${message}`,
+      status: "failure",
+    });
     throw new Error(`saveWorkoutEntry ${res.status}: ${message}`);
   }
+  emitDevBugRequest({
+    label: `Workout entry save returned ${res.status}`,
+    expected: "Server confirms the workout entry save.",
+    actual: `Workout entry request completed with ${res.status}.`,
+    status: "success",
+  });
   return res.json();
 };
 
@@ -127,13 +146,20 @@ export const fetchWorkoutMonthEntries = async (
   monthDate: Date,
   routineName?: string
 ): Promise<WorkoutEntryDoc[]> => {
+  const toLocalDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
   const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
 
   const qs = new URLSearchParams({
     userId,
-    monthStart: start.toISOString().slice(0, 10),
-    monthEnd: end.toISOString().slice(0, 10),
+    monthStart: toLocalDateKey(start),
+    monthEnd: toLocalDateKey(end),
   });
 
   if (routineName) {
@@ -209,6 +235,12 @@ export const fetchDay = async (
   });
 
   if (!entriesRes.ok || !rulesRes.ok) {
+    emitDevBugRequest({
+      label: "Load scheduled workout data",
+      expected: "Workout entries and recurring rules load for the selected day.",
+      actual: `entries=${entriesRes.status}, rules=${rulesRes.status}`,
+      status: "failure",
+    });
     console.warn("[fetchDay] ❌ Non‑200 response", {
       entries: entriesRes.status,
       rules: rulesRes.status,
@@ -491,6 +523,12 @@ export const saveRoutine = async (routine) => {
 };
 export const saveUser = async (user) => {
   try {
+    emitDevBugRequest({
+      label: "Save user profile",
+      expected: "Profile changes persist successfully.",
+      actual: "Sending user profile update.",
+      status: "info",
+    });
     const response = await fetch("/api/user", {
       method: "POST",
       headers: {
@@ -502,8 +540,20 @@ export const saveUser = async (user) => {
     if (response.ok) {
       const data = await response.json(); // ✅ Parse response JSON
       data.success = true;
+      emitDevBugRequest({
+        label: "User profile saved",
+        expected: "Profile changes persist successfully.",
+        actual: `User update request completed with ${response.status}.`,
+        status: "success",
+      });
       return data; // ✅ Return the response data
     } else {
+      emitDevBugRequest({
+        label: "User profile save failed",
+        expected: "Profile changes persist successfully.",
+        actual: `User update request returned ${response.status}.`,
+        status: "failure",
+      });
       return { success: false };
     }
   } catch (error) {
@@ -514,6 +564,12 @@ export const saveUser = async (user) => {
 export const submitFeedback = async (
   feedback: Omit<FeedbackItemDoc, "_id" | "createdAt" | "updatedAt" | "status">
 ) => {
+  emitDevBugRequest({
+    label: `Submit ${feedback.type} feedback`,
+    expected: "Feedback is stored successfully.",
+    actual: "Sending feedback request.",
+    status: "info",
+  });
   const response = await fetch("/api/feedback", {
     method: "POST",
     headers: {
@@ -524,9 +580,21 @@ export const submitFeedback = async (
 
   if (!response.ok) {
     const message = await response.text();
+    emitDevBugRequest({
+      label: `Submit ${feedback.type} feedback failed`,
+      expected: "Feedback is stored successfully.",
+      actual: `Feedback request failed with ${response.status}: ${message}`,
+      status: "failure",
+    });
     throw new Error(`submitFeedback ${response.status}: ${message}`);
   }
 
+  emitDevBugRequest({
+    label: `Submitted ${feedback.type} feedback`,
+    expected: "Feedback is stored successfully.",
+    actual: `Feedback request completed with ${response.status}.`,
+    status: "success",
+  });
   return response.json();
 };
 
@@ -544,6 +612,41 @@ export const fetchFeedback = async (userId?: string) => {
 
   const data = await response.json();
   return Array.isArray(data.feedback) ? data.feedback : [];
+};
+
+export const deleteFeedback = async (feedbackId: string) => {
+  emitDevBugRequest({
+    label: "Delete bug report",
+    expected: "The selected bug report is removed.",
+    actual: "Sending delete request for bug report.",
+    status: "info",
+  });
+  const response = await fetch("/api/feedback", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ feedbackId }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    emitDevBugRequest({
+      label: "Delete bug report failed",
+      expected: "The selected bug report is removed.",
+      actual: `Delete request failed with ${response.status}: ${message}`,
+      status: "failure",
+    });
+    throw new Error(`deleteFeedback ${response.status}: ${message}`);
+  }
+
+  emitDevBugRequest({
+    label: "Deleted bug report",
+    expected: "The selected bug report is removed.",
+    actual: `Delete request completed with ${response.status}.`,
+    status: "success",
+  });
+  return response.json();
 };
 
 export const roundToNearestFive = (number) => {

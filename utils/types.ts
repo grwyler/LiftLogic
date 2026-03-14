@@ -104,6 +104,37 @@ export interface FeedbackItemDoc {
   severity?: "low" | "medium" | "high";
   page?: string;
   deviceType?: "mobile" | "desktop" | "unknown";
+  bugReport?: {
+    mode: "recorded";
+    startedAt?: Date | string;
+    completedAt?: Date | string;
+    currentPath?: string;
+    userAgent?: string;
+    viewport?: {
+      width: number;
+      height: number;
+    };
+    interactions?: Array<{
+      timestamp: string;
+      type: "click" | "change" | "submit" | "navigation" | "lifecycle";
+      page: string;
+      kind?: "raw" | "semantic";
+      target?: string;
+      value?: string;
+      detail?: string;
+      label?: string;
+      expected?: string;
+      actual?: string;
+      status?: "info" | "success" | "failure";
+    }>;
+    errors?: Array<{
+      timestamp: string;
+      source: "window-error" | "unhandled-rejection" | "console-error";
+      page: string;
+      message: string;
+      detail?: string;
+    }>;
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }

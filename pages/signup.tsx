@@ -19,6 +19,7 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import GoogleIcon from "@mui/icons-material/Google";
+import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -39,6 +40,14 @@ const SignUp: React.FC = () => {
     try {
       setIsSigningIn(true);
       setError("");
+      emitDevBugInteraction({
+        type: "submit",
+        kind: "semantic",
+        label: `Create account for ${username || "user"}`,
+        expected: "Account is created and the user is signed in.",
+        actual: "Registration form was submitted.",
+        status: "info",
+      });
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,6 +56,14 @@ const SignUp: React.FC = () => {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
+        emitDevBugInteraction({
+          type: "lifecycle",
+          kind: "semantic",
+          label: `Create account failed for ${username || "user"}`,
+          expected: "Account is created and the user is signed in.",
+          actual: data?.message || `Signup failed with ${response.status}.`,
+          status: "failure",
+        });
         setIsSigningIn(false);
         setError(
           data?.message
@@ -63,11 +80,27 @@ const SignUp: React.FC = () => {
       });
 
       if (result?.error) {
+        emitDevBugInteraction({
+          type: "lifecycle",
+          kind: "semantic",
+          label: `Auto sign-in failed after sign-up for ${username || "user"}`,
+          expected: "Account is created and the user is signed in.",
+          actual: "Registration succeeded but credentials sign-in failed.",
+          status: "failure",
+        });
         setIsSigningIn(false);
         setError("Account created, but automatic sign-in failed.");
         return;
       }
 
+      emitDevBugInteraction({
+        type: "navigation",
+        kind: "semantic",
+        label: `Created account for ${username || "user"}`,
+        expected: "Account is created and the user is signed in.",
+        actual: "Registration and automatic sign-in succeeded.",
+        status: "success",
+      });
       router.push("/routines?welcome=1");
     } catch (signupError) {
       setIsSigningIn(false);
@@ -79,6 +112,14 @@ const SignUp: React.FC = () => {
   const handleOAuthSignUp = async (provider: "google" | "facebook") => {
     setError("");
     setOauthLoading(provider);
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Create account with ${provider}`,
+      expected: "OAuth sign-up opens and returns to workouts.",
+      actual: `Started ${provider} OAuth sign-up.`,
+      status: "info",
+    });
     try {
       await signIn(provider, { callbackUrl: "/routines?welcome=1" });
     } finally {

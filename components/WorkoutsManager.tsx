@@ -12,6 +12,7 @@ import LoadingIndicator from "./LoadingIndicator";
 import { Box } from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
+import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
 
 type Workout = {
   title: string;
@@ -45,8 +46,16 @@ type CalendarStatusMap = Record<
     hasLogged: boolean;
     hasCompleted: boolean;
     hasRecurring: boolean;
+    exerciseCount: number;
   }
 >;
+
+const toLocalDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const toDayWorkoutTitle = (dayName?: string) => {
   if (!dayName) {
@@ -98,7 +107,9 @@ const WorkoutsManager: React.FC<{
     formattedDate,
     dateISO,
     exercises,
+    setExercises,
     setRefetchExercises,
+    refreshCalendarStatuses,
     calendarStatusMap,
     sessionUserId,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
@@ -153,8 +164,10 @@ const WorkoutsManager: React.FC<{
               formattedDate={formattedDate}
               routineName={currentWorkout.title}
               setIsAddingExercise={setIsAddingExercise}
+              setExercises={setExercises}
               darkMode={darkMode}
               setRefetchExercises={setRefetchExercises}
+              refreshCalendarStatuses={refreshCalendarStatuses}
             />
           )}
         </Box>
@@ -200,9 +213,10 @@ const useWorkoutsManagerState = (
     day: "numeric",
     year: "numeric",
   });
-  const dateISO = currentDate.toISOString().slice(0, 10);
+  const dateISO = toLocalDateKey(currentDate);
 
   const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
+  const [calendarRefreshTick, setCalendarRefreshTick] = useState(0);
   const [calendarStatusMap, setCalendarStatusMap] = useState<CalendarStatusMap>(
     {}
   );
@@ -223,6 +237,7 @@ const useWorkoutsManagerState = (
           Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
         );
         setExercises(mergedExercises);
+        reconcilePendingLogAttempt(mergedExercises);
       })
       .finally(() => {
         setIsLoadingWorkout(false);
@@ -249,6 +264,7 @@ const useWorkoutsManagerState = (
         }
 
         const nextMap: CalendarStatusMap = {};
+        const dayExerciseKeys = new Map<string, globalThis.Set<string>>();
         const monthStart = new Date(
           currentDate.getFullYear(),
           currentDate.getMonth(),
@@ -260,19 +276,77 @@ const useWorkoutsManagerState = (
           0
         );
 
+        const entriesByDate = new Map<string, WorkoutEntryDoc[]>();
+
         entries.forEach((entry: WorkoutEntryDoc) => {
           const entryDate = new Date(entry.date);
           if (isNaN(entryDate.getTime())) {
             return;
           }
 
-          const key = entryDate.toISOString().slice(0, 10);
+          const key = toLocalDateKey(entryDate);
+          const groupedEntries = entriesByDate.get(key) ?? [];
+          groupedEntries.push(entry);
+          entriesByDate.set(key, groupedEntries);
+        });
+
+        entriesByDate.forEach((dayEntries, key) => {
+          const latestEntriesByExercise = new Map<string, WorkoutEntryDoc>();
+
+          dayEntries.forEach((entry) => {
+            const dedupeKey = `${String(entry.exerciseId ?? "")}::${String(
+              entry.routineName ?? ""
+            )}`;
+            const existing = latestEntriesByExercise.get(dedupeKey);
+
+            if (!existing) {
+              latestEntriesByExercise.set(dedupeKey, entry);
+              return;
+            }
+
+            const existingUpdatedAt = new Date(
+              (existing.updatedAt ?? existing.createdAt ?? existing.date) as any
+            ).getTime();
+            const nextUpdatedAt = new Date(
+              (entry.updatedAt ?? entry.createdAt ?? entry.date) as any
+            ).getTime();
+
+            if (nextUpdatedAt >= existingUpdatedAt) {
+              latestEntriesByExercise.set(dedupeKey, entry);
+            }
+          });
+
+          const normalizedDayEntries = Array.from(latestEntriesByExercise.values());
+          const exerciseKeys = new globalThis.Set(
+            normalizedDayEntries.map(
+              (entry) =>
+                `${String(entry.exerciseId ?? "")}::${String(entry.routineName ?? "")}`
+            )
+          );
+          dayExerciseKeys.set(key, exerciseKeys);
+          const hasPlannedEntries = normalizedDayEntries.some((entry) => {
+            const sets = Array.isArray(entry.sets) ? entry.sets : [];
+            const hasCompletedSet = sets.some((set) => Boolean(set.complete));
+
+            return Boolean(!entry.complete && !hasCompletedSet);
+          });
+          const hasLogged = normalizedDayEntries.some(
+            (entry) => entry.sets?.some((set) => Boolean(set.complete)) || entry.complete
+          );
+          const hasCompleted =
+            normalizedDayEntries.length > 0 &&
+            normalizedDayEntries.every((entry) => {
+              const sets = Array.isArray(entry.sets) ? entry.sets : [];
+              return Boolean(
+                entry.complete || (sets.length > 0 && sets.every((set) => Boolean(set.complete)))
+              );
+            });
+
           nextMap[key] = {
-            hasLogged: true,
-            hasCompleted: Boolean(
-              entry.complete || entry.sets?.some((set) => Boolean(set.complete))
-            ),
-            hasRecurring: nextMap[key]?.hasRecurring ?? false,
+            hasLogged,
+            hasCompleted,
+            hasRecurring: hasPlannedEntries || nextMap[key]?.hasRecurring || false,
+            exerciseCount: normalizedDayEntries.length,
           };
         });
 
@@ -306,11 +380,25 @@ const useWorkoutsManagerState = (
               continue;
             }
 
-            const key = cursor.toISOString().slice(0, 10);
+            const key = toLocalDateKey(cursor);
+            const ruleExerciseKey = `${String(rule.exerciseId ?? "")}::${String(
+              rule.routineName ?? ""
+            )}`;
+            const existingExerciseKeys =
+              dayExerciseKeys.get(key) ?? new globalThis.Set<string>();
+            const alreadyCounted = existingExerciseKeys.has(ruleExerciseKey);
+
+            if (!alreadyCounted) {
+              existingExerciseKeys.add(ruleExerciseKey);
+              dayExerciseKeys.set(key, existingExerciseKeys);
+            }
+
             nextMap[key] = {
               hasLogged: nextMap[key]?.hasLogged ?? false,
               hasCompleted: nextMap[key]?.hasCompleted ?? false,
               hasRecurring: true,
+              exerciseCount:
+                (nextMap[key]?.exerciseCount ?? 0) + (alreadyCounted ? 0 : 1),
             };
           }
         });
@@ -326,7 +414,7 @@ const useWorkoutsManagerState = (
     return () => {
       isMounted = false;
     };
-  }, [userId, currentDate, refetchExercises]);
+  }, [userId, currentDate, refetchExercises, calendarRefreshTick]);
 
   return {
     currentDay,
@@ -343,8 +431,10 @@ const useWorkoutsManagerState = (
     formattedDate,
     dateISO,
     exercises,
+    setExercises,
     refetchExercises,
     setRefetchExercises,
+    refreshCalendarStatuses: () => setCalendarRefreshTick((prev) => prev + 1),
     calendarStatusMap,
     sessionUserId,
   };

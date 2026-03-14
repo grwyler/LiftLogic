@@ -9,6 +9,7 @@ import {
   Dialog,
   AppBar,
   Toolbar,
+  TextField,
 } from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import CheckIcon from "@mui/icons-material/Check";
@@ -36,19 +37,28 @@ import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import RemoveIcon from "@mui/icons-material/Remove";
+import {
+  clearPendingLogAttempt,
+  emitDevBugInteraction,
+  markPendingLogAttemptPersisted,
+  setPendingLogAttempt,
+} from "../utils/devBugRecorder";
 
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
+  exercises,
   workout,
   currentExerciseIndex,
   setCurrentExerciseIndex,
   formattedDate,
   routineName,
+  setExercises,
   shownMenuIndex,
   setShownMenuIndex,
   darkMode,
   setRefetchExercises,
+  refreshCalendarStatuses,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
@@ -60,7 +70,11 @@ const ExerciseItem = ({
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const [isRestTimerActive, setIsRestTimerActive] = useState(false);
+  const [restEditorValue, setRestEditorValue] = useState(
+    String(exercise.rest ?? 0)
+  );
   const appliedRecommendationRef = useRef<string | null>(null);
+  const exerciseIdentityRef = useRef<string | null>(null);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
@@ -71,14 +85,22 @@ const ExerciseItem = ({
     currentExercise?.userId ??
     exercise?.userId;
   const isOpen = exerciseIndex === currentExerciseIndex;
+  const exerciseIdentity = String(
+    exercise?.ruleId ?? exercise?.exerciseId ?? exercise?._id ?? exercise?.name ?? exerciseIndex
+  );
 
   useEffect(() => {
     setCurrentExercise(exercise);
     setIsRepeating(exercise.isRepeating);
-    appliedRecommendationRef.current = null;
-    setRestSecondsRemaining(0);
-    setIsRestTimerActive(false);
-  }, [exercise]);
+    setRestEditorValue(String(exercise.rest ?? 0));
+
+    if (exerciseIdentityRef.current !== exerciseIdentity) {
+      exerciseIdentityRef.current = exerciseIdentity;
+      appliedRecommendationRef.current = null;
+      setRestSecondsRemaining(0);
+      setIsRestTimerActive(false);
+    }
+  }, [exercise, exerciseIdentity]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -157,9 +179,12 @@ const ExerciseItem = ({
   ]);
 
   useEffect(() => {
+    const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
+
     if (
       currentExercise?.type !== "weight" ||
       currentExercise?.complete ||
+      completedSets.length > 0 ||
       !recommendation?.recommendedWeight ||
       !recommendation?.recommendedReps ||
       !recommendation?.recommendedSets
@@ -179,7 +204,6 @@ const ExerciseItem = ({
       return;
     }
 
-    const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
     const incompleteTemplate =
       (currentExercise?.sets ?? []).find((set) => !set.complete) ??
       (currentExercise?.sets ?? [])[0] ?? {
@@ -313,6 +337,37 @@ const ExerciseItem = ({
     setIsRestTimerActive(true);
   };
 
+  const persistRestUpdate = async (nextRest: number) => {
+    const normalizedRest = Math.max(0, nextRest || 0);
+
+    setCurrentExercise((prev) => ({
+      ...prev,
+      rest: normalizedRest,
+    }));
+    setRestEditorValue(String(normalizedRest));
+    setRestSecondsRemaining((prev) => {
+      if (prev <= 0) {
+        return normalizedRest;
+      }
+
+      return Math.min(prev, normalizedRest) || normalizedRest;
+    });
+
+    await saveWorkoutEntry({
+      userId: currentUserId,
+      exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+      name: currentExercise.name,
+      type: currentExercise.type,
+      max: currentExercise.max,
+      routineName,
+      date: formattedDate,
+      rest: normalizedRest,
+      complete: currentExercise.complete ?? false,
+      sets: currentExercise.sets,
+      ruleId: currentExercise.ruleId,
+    } as any);
+  };
+
   const pauseRestTimer = () => {
     setIsRestTimerActive(false);
   };
@@ -332,11 +387,92 @@ const ExerciseItem = ({
     setRestSecondsRemaining((prev) => Math.max(0, prev + delta));
   };
 
+  const handleApplyRestEdit = async () => {
+    const nextRest = Math.max(0, Number(restEditorValue) || 0);
+
+    try {
+      await persistRestUpdate(nextRest);
+      if (nextRest > 0) {
+        setRestSecondsRemaining(nextRest);
+        setIsRestTimerActive(true);
+      } else {
+        setRestSecondsRemaining(0);
+        setIsRestTimerActive(false);
+      }
+      toast.success("Rest updated");
+    } catch (error) {
+      console.error(error);
+      toast.error("Couldn't update rest");
+    }
+  };
+
   const handleWorkoutButtonClick = (index) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
     setShownMenuIndex(-1);
     const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);
     setCurrentSetIndex(nextSetIndex !== -1 ? nextSetIndex : 0);
+
+    if (index !== currentExerciseIndex) {
+      emitDevBugInteraction({
+        type: "click",
+        kind: "semantic",
+        label: `Open scheduled exercise "${toTitleCase(exercise.name)}"`,
+        expected: "Exercise details open and the next set is ready to log.",
+        actual: `${toTitleCase(exercise.name)} opened from ${routineName}.`,
+        status: "info",
+      });
+    }
+  };
+
+  const handleLogSetAttempt = ({
+    setName,
+    expectedCompletedCount,
+  }: {
+    setName: string;
+    expectedCompletedCount: number;
+  }) => {
+    setPendingLogAttempt({
+      exerciseId: String(currentExercise.exerciseId ?? currentExercise._id ?? "").trim(),
+      ruleId: String(currentExercise.ruleId ?? "").trim() || undefined,
+      routineName,
+      exerciseName: toTitleCase(currentExercise.name) || "exercise",
+      setName,
+      expectedCompletedCount,
+      expectedTotalCount: totalCount,
+    });
+
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Click Log Set for ${toTitleCase(currentExercise.name)} (${setName})`,
+      expected: `Completed set count changes to ${expectedCompletedCount}/${totalCount}.`,
+      actual: "Log set was requested.",
+      status: "info",
+    });
+  };
+
+  const handleLogSetPersisted = () => {
+    emitDevBugInteraction({
+      type: "lifecycle",
+      kind: "semantic",
+      label: `Saved set for ${toTitleCase(currentExercise.name) || "exercise"}`,
+      expected: "Synced completed set count reaches the next expected value.",
+      actual: "Workout entry save succeeded and the local workout state was updated.",
+      status: "info",
+    });
+    markPendingLogAttemptPersisted();
+  };
+
+  const handleLogSetFailed = (message: string) => {
+    emitDevBugInteraction({
+      type: "lifecycle",
+      kind: "semantic",
+      label: `Log set failed for ${toTitleCase(currentExercise.name)}`,
+      expected: "The set logs successfully.",
+      actual: message,
+      status: "failure",
+    });
+    clearPendingLogAttempt();
   };
 
   const handleAddSet = () => {
@@ -412,7 +548,11 @@ const ExerciseItem = ({
       }
 
       setRefetchExercises((prev) => !prev);
-      toast.success(scope === "all" ? "Deleted everywhere" : "Deleted today");
+      toast.success(
+        scope === "all"
+          ? "Removed from all recurring days"
+          : "Removed from this day"
+      );
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong");
@@ -554,7 +694,11 @@ const ExerciseItem = ({
     } catch (err) {
       console.error(err);
       setIsRepeating((p) => !p);
+      return;
     }
+
+    setRefetchExercises((prev) => !prev);
+    refreshCalendarStatuses?.();
   };
 
   if (currentExercise.complete) {
@@ -833,6 +977,172 @@ const ExerciseItem = ({
           },
         }}
       >
+        <Dialog
+          fullScreen
+          open={
+            isOpen &&
+            currentExercise.type === "weight" &&
+            (restSecondsRemaining > 0 || isRestTimerActive)
+          }
+          onClose={() => {}}
+          PaperProps={{
+            sx: {
+              backgroundColor: darkMode ? "#020617" : "#f8fafc",
+              color: darkMode ? "#f8fafc" : "#111827",
+              backgroundImage: darkMode
+                ? "radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 38%)"
+                : "radial-gradient(circle at top, rgba(37,99,235,0.1), transparent 34%)",
+            },
+          }}
+        >
+          <Box
+            sx={{
+              minHeight: "100vh",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              px: 2.5,
+              py: 4,
+              textAlign: "center",
+            }}
+          >
+            <Typography
+              variant="overline"
+              sx={{ color: "text.secondary", letterSpacing: "0.16em" }}
+            >
+              Rest Between Sets
+            </Typography>
+            <Typography
+              variant="h2"
+              sx={{
+                mt: 1,
+                fontWeight: 800,
+                letterSpacing: "-0.06em",
+                fontSize: { xs: "4rem", sm: "5.5rem" },
+              }}
+            >
+              {formatTime(restSecondsRemaining)}
+            </Typography>
+            <Typography
+              sx={{
+                mt: 1.25,
+                maxWidth: 420,
+                color: "text.secondary",
+                fontSize: { xs: "1rem", sm: "1.05rem" },
+              }}
+            >
+              Catch your breath before the next set. You can adjust the rest
+              target for this exercise right here.
+            </Typography>
+
+            <Box
+              sx={{
+                mt: 3.5,
+                width: "100%",
+                maxWidth: 420,
+                display: "flex",
+                flexDirection: "column",
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RemoveIcon />}
+                  onClick={() => adjustRestTimer(-15)}
+                  disabled={restSecondsRemaining <= 15}
+                >
+                  15s
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => adjustRestTimer(15)}
+                >
+                  15s
+                </Button>
+                {isRestTimerActive ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PauseIcon />}
+                    onClick={pauseRestTimer}
+                  >
+                    Pause
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={resumeRestTimer}
+                    disabled={restSecondsRemaining <= 0}
+                  >
+                    Resume
+                  </Button>
+                )}
+              </Box>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 4,
+                  border: "1px solid",
+                  borderColor: darkMode
+                    ? "rgba(148,163,184,0.14)"
+                    : "rgba(17,24,39,0.08)",
+                  backgroundColor: darkMode
+                    ? "rgba(15,23,42,0.78)"
+                    : "rgba(255,255,255,0.88)",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ mb: 1, color: "text.secondary", fontWeight: 700 }}
+                >
+                  Rest setting for this exercise
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
+                    gap: 1,
+                    alignItems: "center",
+                  }}
+                >
+                  <TextField
+                    type="number"
+                    label="Rest seconds"
+                    value={restEditorValue}
+                    onChange={(event) =>
+                      setRestEditorValue(
+                        String(Math.max(0, Number(event.target.value) || 0))
+                      )
+                    }
+                    inputProps={{ min: 0, step: 5 }}
+                  />
+                  <Button variant="contained" onClick={handleApplyRestEdit}>
+                    Apply
+                  </Button>
+                </Box>
+              </Paper>
+
+              <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
+                <Button variant="text" startIcon={<SkipNextIcon />} onClick={skipRestTimer}>
+                  Skip Rest
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={skipRestTimer}
+                >
+                  Continue to Next Set
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </Dialog>
+
         <AppBar
           position="sticky"
           elevation={0}
@@ -892,101 +1202,6 @@ const ExerciseItem = ({
             mx: "auto",
           }}
         >
-          {currentExercise.type === "weight" &&
-          currentExercise.rest &&
-          (restSecondsRemaining > 0 || isRestTimerActive) ? (
-            <Paper
-              elevation={0}
-              sx={{
-                mb: 1.5,
-                p: 1.5,
-                borderRadius: 3,
-                border: "1px solid",
-                borderColor: darkMode
-                  ? "rgba(148,163,184,0.12)"
-                  : "rgba(17,24,39,0.08)",
-                backgroundColor: darkMode
-                  ? "rgba(17,24,39,0.88)"
-                  : "rgba(255,255,255,0.94)",
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: { xs: "flex-start", sm: "center" },
-                  flexDirection: { xs: "column", sm: "row" },
-                  gap: 1,
-                }}
-              >
-                <Box>
-                  <Typography
-                    variant="overline"
-                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-                  >
-                    Rest Timer
-                  </Typography>
-                  <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
-                    {formatTime(restSecondsRemaining)}
-                  </Typography>
-                  <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
-                    Finish rest before logging the next set, or skip it if you
-                    want to move on.
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<RemoveIcon />}
-                    onClick={() => adjustRestTimer(-15)}
-                    disabled={restSecondsRemaining <= 15}
-                  >
-                    15s
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={() => adjustRestTimer(15)}
-                  >
-                    15s
-                  </Button>
-                  {isRestTimerActive ? (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<PauseIcon />}
-                      onClick={pauseRestTimer}
-                    >
-                      Pause
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<PlayArrowIcon />}
-                      onClick={resumeRestTimer}
-                      disabled={restSecondsRemaining <= 0}
-                    >
-                      Resume
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="text"
-                    size="small"
-                    startIcon={<SkipNextIcon />}
-                    onClick={skipRestTimer}
-                  >
-                    Skip
-                  </Button>
-                </Box>
-              </Box>
-            </Paper>
-          ) : null}
-
           {currentExercise.sets &&
             currentExercise.sets.map((s, i) => {
               if (i === currentSetIndex) {
@@ -1004,14 +1219,21 @@ const ExerciseItem = ({
                     formattedDate={formattedDate}
                     setCurrentExerciseIndex={setCurrentExerciseIndex}
                     workout={workout}
-                    darkMode={darkMode}
-                    onStartRestTimer={startRestTimer}
-                    isRestTimerBlocking={
-                      currentExercise.type === "weight" &&
-                      restSecondsRemaining > 0
-                    }
-                  />
-                );
+                  exercises={exercises}
+                  setExercises={setExercises}
+                  darkMode={darkMode}
+                  onStartRestTimer={startRestTimer}
+                  setRefetchExercises={setRefetchExercises}
+                  refreshCalendarStatuses={refreshCalendarStatuses}
+                  isRestTimerBlocking={
+                    currentExercise.type === "weight" &&
+                    restSecondsRemaining > 0
+                  }
+                  onLogSetAttempt={handleLogSetAttempt}
+                  onLogSetPersisted={handleLogSetPersisted}
+                  onLogSetFailed={handleLogSetFailed}
+                />
+              );
               }
 
               if (s.complete) {

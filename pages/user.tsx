@@ -26,6 +26,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import TuneIcon from "@mui/icons-material/Tune";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import { toast } from "react-toastify";
+import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 interface UserPageProps {
   darkMode: boolean;
@@ -138,6 +139,15 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
   const handleReset = () => {
     if (!user) return;
 
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: "Reset profile changes",
+      expected: "Unsaved profile fields return to stored values.",
+      actual: "Profile form was reset.",
+      status: "info",
+    });
+
     setForm({
       darkMode: Boolean(user.darkMode),
       preferredUnits: user.preferredUnits || "lb",
@@ -167,11 +177,35 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     };
 
     try {
+      emitDevBugInteraction({
+        type: "submit",
+        kind: "semantic",
+        label: "Save profile changes",
+        expected: "Profile changes persist and the screen reflects the saved values.",
+        actual: "Profile save was requested.",
+        status: "info",
+      });
       const response = await saveUser(nextUser);
       if (response?.success) {
         setUser(nextUser);
+        emitDevBugInteraction({
+          type: "lifecycle",
+          kind: "semantic",
+          label: "Profile changes saved",
+          expected: "Profile changes persist and the screen reflects the saved values.",
+          actual: "Profile save succeeded.",
+          status: "success",
+        });
         toast.success("Profile updated");
       } else {
+        emitDevBugInteraction({
+          type: "lifecycle",
+          kind: "semantic",
+          label: "Profile changes did not save",
+          expected: "Profile changes persist and the screen reflects the saved values.",
+          actual: "Profile save request returned without success.",
+          status: "failure",
+        });
         toast.error("Failed to update profile");
       }
     } catch (error) {

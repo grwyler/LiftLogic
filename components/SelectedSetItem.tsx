@@ -20,6 +20,8 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TimerInput from "./TimerInput";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
+import { toast } from "react-toastify";
+import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 const DEFAULT_MAX_WEIGHT = 35; // fallback value if weight is missing
 
@@ -35,9 +37,16 @@ const SelectedSetItem = ({
   formattedDate,
   setCurrentExerciseIndex,
   workout,
+  exercises,
+  setExercises,
   darkMode,
   onStartRestTimer,
+  setRefetchExercises,
+  refreshCalendarStatuses,
   isRestTimerBlocking,
+  onLogSetAttempt,
+  onLogSetPersisted,
+  onLogSetFailed,
 }) => {
   const { sets } = currentExercise;
   const {
@@ -79,6 +88,8 @@ const SelectedSetItem = ({
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
   };
+  const currentUserId =
+    (session as any)?.token?.user?._id ?? (session as any)?.user?._id;
   const [timerActive, setTimerActive] = useState(false);
   const [initialTimerActive, setInitialTimerActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -212,7 +223,32 @@ const SelectedSetItem = ({
     }
   }, [countdown, totalSeconds, timerActive, initialTimerActive]);
 
-  const handleLogSet = () => {
+  const handleLogSet = async () => {
+    const completedBefore =
+      sets.filter((existingSet) => existingSet.complete).length ?? 0;
+    const expectedCompletedCount = Math.min(completedBefore + 1, sets.length);
+
+    onLogSetAttempt?.({
+      setName,
+      expectedCompletedCount,
+    });
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Log set "${setName}" for ${currentExercise.name}`,
+      expected:
+        currentExercise.type === "weight"
+          ? `Set count increases to ${expectedCompletedCount}/${sets.length}.`
+          : "Timed set completes and moves to the next step.",
+      actual:
+        currentExercise.type === "weight"
+          ? `Submitting ${currentSetWeight || "?"} lbs for ${
+              currentSetReps || "?"
+            } reps.`
+          : `Submitting ${hours}h ${minutes}m ${seconds}s.`,
+      status: "info",
+    });
+
     /* ------------------------------------------------------------------ */
     /* 1. Build an immutable copy of the updated set array                */
     /* ------------------------------------------------------------------ */
@@ -277,7 +313,7 @@ const SelectedSetItem = ({
       complete: exerciseComplete,
       ...(exerciseComplete && {
         date: formattedDate,
-        userId: session?.token.user._id,
+        userId: currentUserId,
         routineName,
         completedDate: new Date(),
       }),
@@ -287,7 +323,7 @@ const SelectedSetItem = ({
     /* ------------------------------------------------------------------ */
     /* 4. Splice the exercise back into the workout array                 */
     /* ------------------------------------------------------------------ */
-    const updatedExercises = [...workout.exercises];
+    const updatedExercises = [...(Array.isArray(exercises) ? exercises : [])];
     updatedExercises[currentExerciseIndex] = updatedExercise;
 
     /* ------------------------------------------------------------------ */
@@ -316,20 +352,35 @@ const SelectedSetItem = ({
     /* ------------------------------------------------------------------ */
     /* 6. Persist to the DB                                               */
     /* ------------------------------------------------------------------ */
-    saveWorkoutEntry({
-      // WorkoutEntryDoc shape
-      userId: session?.token.user._id,
-      exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
-      name: updatedExercise.name,
-      type: updatedExercise.type,
-      max: updatedExercise.max,
-      routineName,
-      date: formattedDate,
-      rest: updatedExercise.rest,
-      complete: updatedExercise.complete,
-      sets: updatedExercise.sets,
-      ruleId: updatedExercise.ruleId,
-    });
+    try {
+      if (!currentUserId) {
+        throw new Error("Missing userId while logging set");
+      }
+
+      await saveWorkoutEntry({
+        // WorkoutEntryDoc shape
+        userId: currentUserId,
+        exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
+        name: updatedExercise.name,
+        type: updatedExercise.type,
+        max: updatedExercise.max,
+        routineName,
+        date: formattedDate,
+        rest: updatedExercise.rest,
+        complete: updatedExercise.complete,
+        sets: updatedExercise.sets,
+        ruleId: updatedExercise.ruleId,
+      });
+      setExercises?.(updatedExercises);
+      refreshCalendarStatuses?.();
+      onLogSetPersisted?.();
+    } catch (error) {
+      console.error("Failed to log set", error);
+      onLogSetFailed?.(
+        error instanceof Error ? error.message : "The set did not save."
+      );
+      toast.error("Couldn't log that set");
+    }
   };
 
   return (

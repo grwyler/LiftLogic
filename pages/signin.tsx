@@ -22,6 +22,7 @@ import GoogleIcon from "@mui/icons-material/Google";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import UserTable from "../components/UserTable";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { emitDevBugInteraction } from "../utils/devBugRecorder";
 
 const SignIn = () => {
   const [users, setUsers] = useState([]);
@@ -61,6 +62,14 @@ const SignIn = () => {
     setError("");
     const myUsername = theUsername || username;
     const myPassword = thePassword || password;
+    emitDevBugInteraction({
+      type: "submit",
+      kind: "semantic",
+      label: `Sign in as ${myUsername || "user"}`,
+      expected: "User is authenticated and routed to workouts.",
+      actual: "Credentials sign-in was submitted.",
+      status: "info",
+    });
     const result = await signIn("credentials", {
       username: myUsername,
       password: myPassword,
@@ -68,18 +77,42 @@ const SignIn = () => {
     });
 
     if (result?.error) {
+      emitDevBugInteraction({
+        type: "lifecycle",
+        kind: "semantic",
+        label: `Sign in failed for ${myUsername || "user"}`,
+        expected: "User is authenticated and routed to workouts.",
+        actual: "Credentials were rejected.",
+        status: "failure",
+      });
       setError("We couldn't sign you in with those credentials.");
       setIsSigningIn(false);
       submitButtonRef.current?.focus();
       return;
     }
 
+    emitDevBugInteraction({
+      type: "navigation",
+      kind: "semantic",
+      label: `Signed in as ${myUsername || "user"}`,
+      expected: "User is authenticated and routed to workouts.",
+      actual: "Credentials sign-in succeeded.",
+      status: "success",
+    });
     router.push("/routines");
   };
 
   const handleOAuthSignIn = async (provider: "google" | "facebook") => {
     setError("");
     setOauthLoading(provider);
+    emitDevBugInteraction({
+      type: "click",
+      kind: "semantic",
+      label: `Continue with ${provider}`,
+      expected: "OAuth sign-in opens and returns to workouts.",
+      actual: `Started ${provider} OAuth sign-in.`,
+      status: "info",
+    });
     try {
       await signIn(provider, { callbackUrl: "/routines?welcome=1" });
     } finally {
