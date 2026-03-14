@@ -152,6 +152,19 @@ const signUp = async (
   await page.waitForURL(/\/routines/);
 };
 
+const saveUserProfile = async (
+  page: Page,
+  user: Record<string, unknown>
+) => {
+  const response = await page.request.post("/api/user", {
+    data: {
+      user,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+};
+
 const continueAsTracker = async (page: Page) => {
   await expect(
     page.getByRole("heading", { name: "Set up your workout assistant" })
@@ -203,6 +216,9 @@ const fetchFeedbackForUser = async (page: Page, userId: string) => {
 
 const openingCoachBubble = (page: Page) =>
   page.locator("xpath=(//p[contains(., 'I saved your setup')])[1]/ancestor::div[1]");
+
+const planCoachBubble = (page: Page) =>
+  page.locator("xpath=(//p[contains(., 'I mapped out a ')])[1]/ancestor::div[1]");
 
 test.describe("Lift Logic e2e", () => {
   let currentUserId = "";
@@ -514,6 +530,50 @@ test.describe("Lift Logic e2e", () => {
         );
       })
       .toBeGreaterThan(0);
+  });
+
+  test("coach reaction state persists after reload for restored plans", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-persist");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await saveUserProfile(page, {
+      _id: currentUserId,
+      trainingGoal: "strength",
+      workoutDaysPerWeek: "3",
+      setupPromptSeen: true,
+      setupCompleted: true,
+    });
+
+    await generatePlanForProfile(page, currentUserId, {
+      sex: "",
+      age: "",
+      preferredUnits: "lb",
+      trainingGoal: "strength",
+      currentFitnessLevel: "starting_out",
+      workoutDaysPerWeek: "3",
+      experienceLevel: "beginner",
+      workoutLength: "45",
+      equipmentAccess: ["Bodyweight only"],
+      maxDumbbellWeight: "",
+      preferredTrainingDays: ["Mon", "Wed", "Fri"],
+      limitations: "",
+      notes: "",
+    });
+
+    await page.goto("/routines");
+    await expect(planCoachBubble(page)).toBeVisible();
+
+    await planCoachBubble(page).locator("button").nth(0).click();
+    await expect(page.getByText(/marked helpful/i)).toBeVisible();
+    await expect(planCoachBubble(page).getByText("Feedback saved")).toBeVisible();
+
+    await page.reload();
+    await expect(planCoachBubble(page)).toBeVisible();
+    await expect(planCoachBubble(page).getByText("Feedback saved")).toBeVisible();
+    await expect(planCoachBubble(page).locator("button").nth(0)).toBeDisabled();
   });
 
   test("coach can move a scheduled day from Saturday to Wednesday", async ({

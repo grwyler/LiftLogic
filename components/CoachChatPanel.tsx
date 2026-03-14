@@ -72,6 +72,83 @@ type CoachReplyPayload = {
   sourceDetail?: AIResponseSourceDetail;
 };
 
+const MAX_REACTION_STORAGE_ENTRIES = 24;
+
+const normalizeReactionText = (value: string) =>
+  value.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 280);
+
+const getReactionMessageKey = (message: Pick<ChatMessage, "role" | "text">) =>
+  `${message.role}:${normalizeReactionText(message.text)}`;
+
+const getReactionStorageKey = ({
+  userId,
+  pathname,
+  coachResponse,
+}: {
+  userId: string;
+  pathname: string;
+  coachResponse: CoachResponse;
+}) =>
+  [
+    "lift-logic",
+    "coach-feedback",
+    userId || "anonymous",
+    pathname || "/routines",
+    normalizeReactionText(coachResponse.headline || "coach"),
+    normalizeReactionText(coachResponse.openingMessage || "opening"),
+  ].join(":");
+
+const readStoredReactions = (storageKey: string) => {
+  if (typeof window === "undefined") {
+    return {} as Record<string, "like" | "dislike">;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return {} as Record<string, "like" | "dislike">;
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, value]) => value === "like" || value === "dislike"
+      )
+    ) as Record<string, "like" | "dislike">;
+  } catch {
+    return {} as Record<string, "like" | "dislike">;
+  }
+};
+
+const writeStoredReactions = (
+  storageKey: string,
+  reactions: Record<string, "like" | "dislike">
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const entries = Object.entries(reactions).slice(-MAX_REACTION_STORAGE_ENTRIES);
+    window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // Ignore storage failures so feedback saving still works.
+  }
+};
+
+const buildReactionStateForMessages = (
+  messages: ChatMessage[],
+  storedReactions: Record<string, "like" | "dislike">
+) =>
+  Object.fromEntries(
+    messages
+      .map((message) => {
+        const reaction = storedReactions[getReactionMessageKey(message)];
+        return reaction ? [message.id, reaction] : null;
+      })
+      .filter(Boolean) as Array<[string, "like" | "dislike"]>
+  );
+
 const buildInitialMessages = (coachResponse: CoachResponse): ChatMessage[] => {
   const messages: ChatMessage[] = [];
 
@@ -152,13 +229,42 @@ export default function CoachChatPanel({
     [coachResponse.planSnapshot]
   );
 
+  const sessionUserId =
+    session?.user?._id || (session as any)?.token?.user?._id || "";
+  const feedbackUsername =
+    session?.user?.username || (session as any)?.token?.user?.username || "";
+  const feedbackEmail =
+    session?.user?.email || (session as any)?.token?.user?.email || "";
+  const reactionStorageKey = useMemo(
+    () =>
+      getReactionStorageKey({
+        userId: sessionUserId,
+        pathname: router.pathname || "/routines",
+        coachResponse,
+      }),
+    [coachResponse, router.pathname, sessionUserId]
+  );
+
   useEffect(() => {
     setLoading(false);
     setQuickReplies(coachResponse.suggestedReplies ?? []);
-    setResponseFeedback({});
     setAssistantSource(coachSource);
     setAssistantSourceDetail(coachSourceDetail);
   }, [coachResponse, coachSource, coachSourceDetail]);
+
+  useEffect(() => {
+    const storedReactions = readStoredReactions(reactionStorageKey);
+    const nextResponseFeedback = buildReactionStateForMessages(
+      messages,
+      storedReactions
+    );
+
+    setResponseFeedback((previous) =>
+      JSON.stringify(previous) === JSON.stringify(nextResponseFeedback)
+        ? previous
+        : nextResponseFeedback
+    );
+  }, [messages, reactionStorageKey]);
 
   const fallbackNotice = useMemo(() => {
     if (
@@ -174,13 +280,6 @@ export default function CoachChatPanel({
       sourceDetail: assistantSourceDetail,
     });
   }, [assistantSource, assistantSourceDetail]);
-
-  const sessionUserId =
-    session?.user?._id || (session as any)?.token?.user?._id || "";
-  const feedbackUsername =
-    session?.user?.username || (session as any)?.token?.user?.username || "";
-  const feedbackEmail =
-    session?.user?.email || (session as any)?.token?.user?.email || "";
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
@@ -337,6 +436,11 @@ export default function CoachChatPanel({
         },
       });
 
+      const nextStoredReactions = {
+        ...readStoredReactions(reactionStorageKey),
+        [getReactionMessageKey(message)]: sentiment,
+      };
+      writeStoredReactions(reactionStorageKey, nextStoredReactions);
       setResponseFeedback((prev) => ({ ...prev, [message.id]: sentiment }));
       toast.success(
         sentiment === "like"
