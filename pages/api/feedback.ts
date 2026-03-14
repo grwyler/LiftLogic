@@ -2,9 +2,26 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 import { FeedbackItemDoc } from "../../utils/types";
 import { ObjectId } from "mongodb";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
+import nodemailer from "nodemailer";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
+
+const ADMIN_USERNAME = "grwyler";
+const ADMIN_EMAIL = "grwyler@gmail.com";
+
+const isAdminSession = (session: any) => {
+  const username = sanitizeText(
+    session?.user?.username || session?.token?.user?.username
+  ).toLowerCase();
+  const email = sanitizeText(
+    session?.user?.email || session?.token?.user?.email
+  ).toLowerCase();
+
+  return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
+};
 
 const sanitizeBugInteractions = (value: unknown) => {
   if (!Array.isArray(value)) {
@@ -184,17 +201,103 @@ const sanitizeCoachFeedback = (value: unknown) => {
   };
 };
 
+const sendFeedbackEmail = async (feedback: FeedbackItemDoc) => {
+  const host = sanitizeText(process.env.SMTP_HOST);
+  const user = sanitizeText(process.env.SMTP_USER);
+  const pass = sanitizeText(process.env.SMTP_PASS);
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = String(process.env.SMTP_SECURE || "").toLowerCase() === "true";
+  const from =
+    sanitizeText(process.env.SMTP_FROM) || user || "no-reply@lift-logic.local";
+  const to = sanitizeText(process.env.BUG_ALERT_EMAIL_TO) || ADMIN_EMAIL;
+  const appUrl =
+    sanitizeText(process.env.NEXTAUTH_URL) || "http://localhost:3000";
+
+  if (!host || !user || !pass) {
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass,
+    },
+  });
+
+  const lines = [
+    `Title: ${feedback.title}`,
+    `Type: ${feedback.type}`,
+    `Reporter: ${feedback.username || feedback.email || feedback.userId}`,
+    `Severity: ${feedback.severity || "unknown"}`,
+    `Page: ${feedback.page || "unknown"}`,
+    `Created: ${feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : "Unknown"}`,
+    "",
+    feedback.description,
+  ];
+
+  if (feedback.coachFeedback?.selectedResponse) {
+    lines.push("", "Selected response", feedback.coachFeedback.selectedResponse);
+  }
+
+  if (feedback.coachFeedback?.explanation) {
+    lines.push("", "User note", feedback.coachFeedback.explanation);
+  }
+
+  if (feedback.coachFeedback?.conversation?.length) {
+    lines.push(
+      "",
+      "Conversation history",
+      ...feedback.coachFeedback.conversation.map(
+        (entry) => `${entry.role === "coach" ? "Coach" : "User"}: ${entry.text}`
+      )
+    );
+  }
+
+  const bugsUrl = `${appUrl.replace(/\/$/, "")}/bugs`;
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `[Lift Logic] New ${feedback.type} report: ${feedback.title}`,
+    text: `${lines.join("\n")}\n\nReview inbox: ${bugsUrl}`,
+  });
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
+    const session = await getServerSession(req, res, authOptions);
     const db = await connectToDatabase();
     const feedbackCollection = db.collection<FeedbackItemDoc>("feedback");
 
     if (req.method === "GET") {
       const { userId } = req.query;
       const normalizedUserId = Array.isArray(userId) ? userId[0] : userId;
+      const requesterId = sanitizeText(
+        (session as any)?.user?._id || (session as any)?.token?.user?._id
+      );
+      const admin = isAdminSession(session);
+
+      if (!session) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      if (!normalizedUserId && !admin) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      if (
+        normalizedUserId &&
+        !admin &&
+        normalizedUserId !== requesterId
+      ) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
 
       const query = normalizedUserId ? { userId: normalizedUserId } : {};
 
@@ -257,6 +360,15 @@ export default async function handler(
 
       const result = await feedbackCollection.insertOne(doc);
 
+      try {
+        await sendFeedbackEmail({
+          ...doc,
+          _id: result.insertedId,
+        });
+      } catch (emailError) {
+        console.error("Feedback email notification error:", emailError);
+      }
+
       return res.status(200).json({
         success: true,
         feedback: {
@@ -267,6 +379,10 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
+      if (!session || !isAdminSession(session)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
       const { feedbackId } = req.body as { feedbackId?: string };
       const normalizedFeedbackId = sanitizeText(feedbackId);
 

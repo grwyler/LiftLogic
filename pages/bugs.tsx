@@ -89,15 +89,26 @@ const formatFeedbackForClipboard = (item: FeedbackItemDoc) => {
 
 const BugsPage = () => {
   const { data: session } = useSession() as {
-    data: (Session & { token?: { user?: { _id?: string } } }) | null;
+    data: (Session & { token?: { user?: { _id?: string; username?: string; email?: string } } }) | null;
   };
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [items, setItems] = useState<FeedbackItemDoc[]>([]);
 
+  const isAdmin =
+    String(session?.token?.user?.username || "").toLowerCase() === "grwyler" ||
+    String((session as any)?.user?.username || "").toLowerCase() === "grwyler" ||
+    String(session?.token?.user?.email || "").toLowerCase() === "grwyler@gmail.com" ||
+    String((session as any)?.user?.email || "").toLowerCase() === "grwyler@gmail.com";
+
   useEffect(() => {
     if (!session?.token?.user?._id) {
+      setLoading(false);
+      return;
+    }
+
+    if (!isAdmin) {
       setLoading(false);
       return;
     }
@@ -183,7 +194,7 @@ const BugsPage = () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [session]);
+  }, [isAdmin, session]);
 
   const bugItems = useMemo(
     () => items.filter((item) => item.type === "bug"),
@@ -273,6 +284,16 @@ const BugsPage = () => {
     return (
       <Box sx={{ maxWidth: 760, mx: "auto", px: 2, py: 4 }}>
         <Alert severity="warning">Sign in to view bug reports.</Alert>
+      </Box>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <Box sx={{ maxWidth: 760, mx: "auto", px: 2, py: 4 }}>
+        <Alert severity="error">
+          This page is restricted to the Lift Logic admin account.
+        </Alert>
       </Box>
     );
   }

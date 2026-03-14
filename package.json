@@ -26,6 +26,7 @@
     "mongodb": "^6.3.0",
     "next": "15.2.8",
     "next-auth": "^4.24.5",
+    "nodemailer": "^6.10.1",
     "openai": "^4.28.0",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
