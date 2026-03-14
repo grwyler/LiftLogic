@@ -25,6 +25,7 @@ const assistantAskedToUpdateWorkout = (history: ChatTurn[]) =>
 
 type CoachAction =
   | { type: "remove_day_schedule"; dayKey: string }
+  | { type: "clear_all_schedules" }
   | {
       type: "create_catalog_exercise";
       exercise: {
@@ -246,6 +247,14 @@ const extractExplicitDaySwapTargets = (message: string) => {
     },
     {
       regex: new RegExp(
+        `${weekdayMentionPattern}.*?(?:can't|cannot|doesn't work|does not work|not available|won't work|do not work|don't work|prefer not|rather not).*?(?:move|switch|swap|shift).+?(?:to|for|with)\\s+${weekdayMentionPattern}`,
+        "i"
+      ),
+      fromIndex: 1,
+      toIndex: 2,
+    },
+    {
+      regex: new RegExp(
         `${weekdayMentionPattern}\\s+instead of\\s+${weekdayMentionPattern}`,
         "i"
       ),
@@ -317,7 +326,7 @@ const extractUnavailableDays = (
 
   const normalized = message.toLowerCase();
   if (
-    !/(can't|cannot|unable|not available|won't work|do not work|don't work|don't like|do not like|hate|prefer not|rather not|avoid)/.test(
+    !/(can't|cannot|unable|not available|won't work|doesn't work|does not work|do not work|don't work|don't like|do not like|hate|prefer not|rather not|avoid)/.test(
       normalized
     )
   ) {
@@ -417,7 +426,7 @@ const askCoachWithAI = async ({
       {
         role: "system",
         content:
-          "You are the Lift Logic workout assistant. Explain plans like a calm, practical assistant. Return only JSON with keys reply, suggestedReplies, profilePatch, shouldRegeneratePlan, and action. reply should be 2-5 short sentences. suggestedReplies should be 2-4 short follow-up prompts. If the user changes training constraints like equipment, preferred training days, available dumbbell weight, goal, workout days, or workout length, include a profilePatch and set shouldRegeneratePlan true. If the user asks to move a workout from one weekday to another, update preferredTrainingDays to reflect that change and clearly say you handled it. If the user asks what plan or split would fit them best, and profile context is already enough to draft one, set shouldRegeneratePlan true even if profilePatch is empty. If the user wants a scheduled day removed, return action {\"type\":\"remove_day_schedule\",\"dayKey\":\"monday\"}. If the user wants a recurring exercise added to the calendar, return action {\"type\":\"create_recurring_exercise\",\"exerciseName\":\"Squat\",\"dayKey\":\"monday\",\"recurrenceType\":\"weekly\",\"endDate\":\"2026-03-31\"}. If the user wants a new trackable exercise added to the app, return action {\"type\":\"create_catalog_exercise\",\"exercise\":{...}} with a simple useful exercise shape. Static holds, hangs, carries, planks, and similar duration-based movements should be typed as \"timed\", not \"weight\".",
+          "You are the Lift Logic workout assistant. Explain plans like a calm, practical assistant. Return only JSON with keys reply, suggestedReplies, profilePatch, shouldRegeneratePlan, and action. reply should be 2-5 short sentences. suggestedReplies should be 2-4 short follow-up prompts. If the user changes training constraints like equipment, preferred training days, available dumbbell weight, goal, workout days, or workout length, include a profilePatch and set shouldRegeneratePlan true. If the user asks to move a workout from one weekday to another, update preferredTrainingDays to reflect that change and clearly say you handled it. If the user asks what plan or split would fit them best, and profile context is already enough to draft one, set shouldRegeneratePlan true even if profilePatch is empty. If the user wants a scheduled day removed, return action {\"type\":\"remove_day_schedule\",\"dayKey\":\"monday\"}. If the user wants the whole schedule cleared, return action {\"type\":\"clear_all_schedules\"}. If the user wants a recurring exercise added to the calendar, return action {\"type\":\"create_recurring_exercise\",\"exerciseName\":\"Squat\",\"dayKey\":\"monday\",\"recurrenceType\":\"weekly\",\"endDate\":\"2026-03-31\"}. If the user wants a new trackable exercise added to the app, return action {\"type\":\"create_catalog_exercise\",\"exercise\":{...}} with a simple useful exercise shape. Static holds, hangs, carries, planks, and similar duration-based movements should be typed as \"timed\", not \"weight\".",
       },
       {
         role: "user",
@@ -526,6 +535,14 @@ const extractFallbackPatch = (
 
 const extractFallbackAction = (message: string): CoachAction | null => {
   const normalized = message.toLowerCase().trim();
+
+  if (
+    /(?:remove|delete|unschedule|clear|cancel)\s+(?:all|everything|all exercises|the schedule|my schedule|all workouts|all scheduled exercises)/.test(
+      normalized
+    )
+  ) {
+    return { type: "clear_all_schedules" };
+  }
 
   const removeMatch =
     normalized.match(/(?:remove|delete|unschedule|clear)\s+(?:the\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/) ||
@@ -688,6 +705,22 @@ export default async function handler(
       });
     }
 
+    if (extracted.shouldRegeneratePlan && Object.keys(extracted.patch).length === 0) {
+      return res.status(200).json({
+        reply:
+          "I’m building that plan now and I’ll map it onto your current schedule so you have something concrete to start with.",
+        suggestedReplies: [
+          "Can you walk me through the week?",
+          "Can you keep the workouts shorter?",
+          "Can you make it more beginner friendly?",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: true,
+        action: null,
+        source: "fallback",
+      });
+    }
+
     if (extracted.shouldRegeneratePlan && Object.keys(extracted.patch).length > 0) {
       return res.status(200).json({
         reply:
@@ -700,6 +733,74 @@ export default async function handler(
         profilePatch: extracted.patch,
         shouldRegeneratePlan: true,
         action: null,
+        source: "fallback",
+      });
+    }
+
+    const directAction = extractFallbackAction(message);
+    if (directAction?.type === "clear_all_schedules") {
+      return res.status(200).json({
+        reply:
+          "I cleared the current scheduled workouts, so your calendar should be blank again.",
+        suggestedReplies: [
+          "Build me a new split instead",
+          "Actually just remove Friday",
+          "Can you show me an easier week?",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: false,
+        action: normalizeCoachAction(directAction),
+        source: "fallback",
+      });
+    }
+
+    if (directAction?.type === "remove_day_schedule") {
+      const dayLabel =
+        directAction.dayKey.charAt(0).toUpperCase() + directAction.dayKey.slice(1);
+      return res.status(200).json({
+        reply: `I cleared the scheduled workout on ${dayLabel}.`,
+        suggestedReplies: [
+          "Can you move it to Wednesday instead?",
+          "Show me the updated week",
+          "Build me a new split instead",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: false,
+        action: normalizeCoachAction(directAction),
+        source: "fallback",
+      });
+    }
+
+    if (directAction?.type === "create_recurring_exercise") {
+      return res.status(200).json({
+        reply: `I added ${directAction.exerciseName} to ${
+          directAction.dayKey
+        } and put it on the calendar${
+          directAction.endDate ? " for the rest of this month" : ""
+        }.`,
+        suggestedReplies: [
+          "Can you add another day too?",
+          "Can you make that bodyweight instead?",
+          "Show me what is on the calendar now",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: false,
+        action: normalizeCoachAction(directAction),
+        source: "fallback",
+      });
+    }
+
+    if (directAction?.type === "create_catalog_exercise") {
+      return res.status(200).json({
+        reply: `I added ${directAction.exercise.name} to your exercise library so it is available in the app.`,
+        suggestedReplies: [
+          "Can you schedule it too?",
+          "Make it a timed exercise instead",
+          "Show me what it should replace",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: false,
+        action: normalizeCoachAction(directAction),
         source: "fallback",
       });
     }
@@ -734,7 +835,6 @@ export default async function handler(
       profile,
       coachResponse,
     });
-    const fallbackAction = extractFallbackAction(message);
     const fallbackReply = extracted.preferredDaySwap
       ? {
           reply: `Yeah, I switched that from ${extracted.preferredDaySwap.fromDay} to ${extracted.preferredDaySwap.toDay} and rebuilt the schedule around it.`,
@@ -744,26 +844,13 @@ export default async function handler(
             "Can I swap an exercise too?",
           ],
         }
-      : fallbackAction?.type === "create_recurring_exercise"
-      ? {
-          reply: `Yeah, I can add ${fallbackAction.exerciseName} to ${
-            fallbackAction.dayKey
-          } and put it on the calendar${
-            fallbackAction.endDate ? " for the rest of this month" : ""
-          }.`,
-          suggestedReplies: [
-            "Can you add another day too?",
-            "Can you make that bodyweight instead?",
-            "Show me what is on the calendar now",
-          ],
-        }
       : fallback;
 
     return res.status(200).json({
       ...fallbackReply,
       profilePatch: extracted.patch,
       shouldRegeneratePlan: extracted.shouldRegeneratePlan,
-      action: normalizeCoachAction(fallbackAction),
+      action: null,
       source: "fallback",
     });
   } catch (error) {

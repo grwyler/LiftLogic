@@ -516,6 +516,41 @@ const RoutinesPage = ({
       return;
     }
 
+    if (action.type === "clear_all_schedules") {
+      const rules = await fetchRecurringRules(sessionUserId);
+
+      await Promise.all(
+        rules
+          .map((rule: any) => String(rule._id ?? ""))
+          .filter(Boolean)
+          .map((ruleId: string) => deactivateRecurringRule(ruleId))
+      );
+
+      setRoutine((prev: any) => {
+        if (!prev?.days) return prev;
+        const next = structuredClone(prev);
+        Object.keys(next.days).forEach((dayKey) => {
+          if (next.days?.[dayKey]?.[0]) {
+            next.days[dayKey][0].exercises = [];
+          }
+        });
+        return next;
+      });
+
+      setGeneratedCoachResponse((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              plannedDays: [],
+              planSnapshot: [],
+            }
+          : prev
+      );
+      setRoutineViewKey((prev) => prev + 1);
+
+      return "I cleared the current scheduled workouts from your calendar.";
+    }
+
     if (action.type === "remove_day_schedule" && action.dayKey) {
       const dayIndexLookup: Record<string, number> = {
         sunday: 0,

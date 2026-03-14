@@ -135,6 +135,22 @@ const continueAsTracker = async (page: Page) => {
   ).toBeVisible();
 };
 
+const generatePlanForProfile = async (
+  page: Page,
+  userId: string,
+  profile: Record<string, any>
+) => {
+  const response = await page.request.post("/api/generateWorkout", {
+    data: {
+      userId,
+      profile,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+};
+
 test.describe("Lift Logic e2e", () => {
   let currentUserId = "";
 
@@ -158,6 +174,23 @@ test.describe("Lift Logic e2e", () => {
       description: `Automated e2e test failure.\n\nTest: ${testInfo.title}\n\nError:\n${errorText}`,
       severity: "high",
     });
+  });
+
+  test("landing page exposes signup and signin entry points", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(
+      page.getByRole("heading", {
+        name: "Plan smarter lifts. Keep the workout moving.",
+      })
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Create account" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "I already have an account" })
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Create account" }).click();
+    await page.waitForURL(/\/signup/);
   });
 
   test("new user can save assistant setup and immediately access the workout assistant", async ({
@@ -244,6 +277,114 @@ test.describe("Lift Logic e2e", () => {
 
     await page.locator('[title="Edit repeating schedule"]').first().click();
     await expect(page.getByLabel("Ends on (optional)")).toHaveValue(updatedEndDate);
+  });
+
+  test("coach can move a scheduled day from Friday to Wednesday", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-swap");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const profile = {
+      sex: "",
+      age: "",
+      preferredUnits: "lb",
+      trainingGoal: "strength",
+      currentFitnessLevel: "starting_out",
+      workoutDaysPerWeek: "4",
+      experienceLevel: "beginner",
+      workoutLength: "45",
+      equipmentAccess: ["Bodyweight only"],
+      maxDumbbellWeight: "",
+      preferredTrainingDays: [],
+      limitations: "",
+      notes: "",
+    };
+
+    const generated = await generatePlanForProfile(page, currentUserId, profile);
+    const initialDays = generated.coachResponse.planSnapshot.map(
+      (day: any) => day.dayLabel
+    );
+
+    expect(initialDays).toContain("Friday");
+
+    const chatResponse = await page.request.post("/api/workoutCoachChat", {
+      data: {
+        message: "Friday workouts don't work for me. Can we swap that to wed instead?",
+        history: [
+          {
+            role: "coach",
+            text: generated.coachResponse.openingMessage,
+          },
+        ],
+        profile,
+        coachResponse: generated.coachResponse,
+      },
+    });
+
+    expect(chatResponse.ok()).toBeTruthy();
+    const chatData = await chatResponse.json();
+    expect(chatData.shouldRegeneratePlan).toBeTruthy();
+    expect(chatData.profilePatch?.preferredTrainingDays).toContain("Wed");
+    expect(chatData.profilePatch?.preferredTrainingDays).not.toContain("Fri");
+
+    const regenerated = await generatePlanForProfile(page, currentUserId, {
+      ...profile,
+      ...chatData.profilePatch,
+    });
+    const updatedDays = regenerated.coachResponse.planSnapshot.map(
+      (day: any) => day.dayLabel
+    );
+
+    expect(updatedDays).toContain("Wednesday");
+    expect(updatedDays).not.toContain("Friday");
+  });
+
+  test("coach can clear all scheduled workouts from the current plan", async ({
+    page,
+  }) => {
+    const username = buildUsername("coach-clear");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const profile = {
+      sex: "",
+      age: "",
+      preferredUnits: "lb",
+      trainingGoal: "strength",
+      currentFitnessLevel: "starting_out",
+      workoutDaysPerWeek: "4",
+      experienceLevel: "beginner",
+      workoutLength: "45",
+      equipmentAccess: ["Bodyweight only"],
+      maxDumbbellWeight: "",
+      preferredTrainingDays: [],
+      limitations: "",
+      notes: "",
+    };
+
+    const generated = await generatePlanForProfile(page, currentUserId, profile);
+    expect(generated.coachResponse.planSnapshot.length).toBeGreaterThan(0);
+
+    const chatResponse = await page.request.post("/api/workoutCoachChat", {
+      data: {
+        message: "unschedule all exercises please",
+        history: [
+          {
+            role: "coach",
+            text: generated.coachResponse.openingMessage,
+          },
+        ],
+        profile,
+        coachResponse: generated.coachResponse,
+      },
+    });
+
+    expect(chatResponse.ok()).toBeTruthy();
+    const chatData = await chatResponse.json();
+    expect(chatData.action?.type).toBe("clear_all_schedules");
+    expect(String(chatData.reply)).toMatch(/cleared the current scheduled workouts/i);
   });
 
   test("logs a QA feedback note for this e2e pass", async ({ page }) => {
