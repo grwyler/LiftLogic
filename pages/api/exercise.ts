@@ -6,6 +6,11 @@ interface ExerciseDoc {
   _id?: ObjectId;
   createdBy?: string | null;
   name: string;
+  type?: "weight" | "timed";
+  equipment?: string[];
+  target?: string;
+  bodyPart?: string;
+  aliases?: string[];
   category?: string;
   muscleGroup?: string;
   videoUrl?: string;

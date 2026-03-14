@@ -1,13 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
-import { fetchUser, fetchRoutine, saveUser } from "../utils/helpers";
+import {
+  deactivateRecurringRule,
+  fetchRecurringRules,
+  fetchUser,
+  fetchRoutine,
+  generateWorkoutPlan,
+  saveExercise,
+  saveUser,
+} from "../utils/helpers";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
+import CoachChatPanel from "../components/CoachChatPanel";
 import {
   Box,
   Button,
@@ -25,91 +34,22 @@ import {
   Typography,
 } from "@mui/material";
 import { toast } from "react-toastify";
+import {
+  buildWhatIHeardSummary,
+  currentFitnessOptions,
+  defaultSetupForm,
+  equipmentOptions,
+  experienceOptions,
+  goalOptions,
+  normalizeSetupForm,
+  sexOptions,
+  unitOptions,
+  weekdayOptions,
+  workoutFrequencyOptions,
+  workoutLengthOptions,
+} from "../utils/profileSetup";
 
-interface Set {
-  name: string;
-  reps?: number;
-  percentage?: number;
-  actualReps?: string | number;
-  actualWeight?: string | number;
-  weight?: number;
-}
-
-interface Exercise {
-  name: string;
-  type: string;
-  sets: Set[];
-  equipment?: string[];
-}
-
-interface DayRoutine {
-  title: string;
-  exercises: Exercise[];
-}
-
-interface Routine {
-  _id?: string;
-  userId?: string;
-  days: {
-    sunday: DayRoutine[];
-    monday: DayRoutine[];
-    tuesday: DayRoutine[];
-    wednesday: DayRoutine[];
-    thursday: DayRoutine[];
-    friday: DayRoutine[];
-    saturday: DayRoutine[];
-  };
-}
-
-const isProfileIncomplete = (user: any) =>
-  !user?.trainingGoal || !user?.workoutDaysPerWeek;
-
-const goalOptions = [
-  { value: "strength", label: "Get stronger" },
-  { value: "muscle", label: "Build muscle" },
-  { value: "fat_loss", label: "Lose fat" },
-  { value: "consistency", label: "Stay consistent" },
-  { value: "conditioning", label: "Improve conditioning" },
-];
-
-const workoutFrequencyOptions = ["2", "3", "4", "5", "6"];
-const unitOptions = [
-  { value: "lb", label: "Pounds / inches" },
-  { value: "kg", label: "Kilograms / centimeters" },
-];
-const experienceOptions = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-];
-const workoutLengthOptions = [
-  { value: "30", label: "30 min" },
-  { value: "45", label: "45 min" },
-  { value: "60", label: "60 min" },
-  { value: "75", label: "75+ min" },
-];
-const equipmentOptions = [
-  "Full gym",
-  "Barbell",
-  "Dumbbells",
-  "Machines",
-  "Bodyweight only",
-  "Cardio equipment",
-];
-const weekdayOptions = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const goalLabels: Record<string, string> = {
-  strength: "getting stronger",
-  muscle: "building muscle",
-  fat_loss: "losing fat",
-  consistency: "staying consistent",
-  conditioning: "improving conditioning",
-};
-const experienceLabels: Record<string, string> = {
-  beginner: "a beginner",
-  intermediate: "an intermediate lifter",
-  advanced: "an advanced lifter",
-};
+type Routine = any;
 
 const RoutinesPage = ({
   darkMode,
@@ -128,17 +68,14 @@ const RoutinesPage = ({
   const [loading, setLoading] = useState(true);
   const [showSetupDialog, setShowSetupDialog] = useState(false);
   const [savingSetup, setSavingSetup] = useState(false);
-  const [setupForm, setSetupForm] = useState({
-    preferredUnits: "lb",
-    trainingGoal: "",
-    workoutDaysPerWeek: "",
-    experienceLevel: "",
-    workoutLength: "",
-    equipmentAccess: [] as string[],
-    preferredTrainingDays: [] as string[],
-    limitations: "",
-    notes: "",
-  });
+  const [generatingWorkout, setGeneratingWorkout] = useState(false);
+  const [routineViewKey, setRoutineViewKey] = useState(0);
+  const [generatedCoachResponse, setGeneratedCoachResponse] = useState<any>(null);
+  const [setupForm, setSetupForm] = useState(defaultSetupForm);
+  const [assistantIntent, setAssistantIntent] = useState<"tracker" | "planner" | null>(
+    null
+  );
+  const [showPlanningDetails, setShowPlanningDetails] = useState(false);
 
   const sessionUserId =
     session?.token?.user?._id || (session as any)?.user?._id || "";
@@ -196,30 +133,75 @@ const RoutinesPage = ({
   useEffect(() => {
     if (!user) return;
 
-    setSetupForm({
-      preferredUnits: user.preferredUnits || "lb",
-      trainingGoal: user.trainingGoal || "",
-      workoutDaysPerWeek: user.workoutDaysPerWeek || "",
-      experienceLevel: user.experienceLevel || "",
-      workoutLength: user.workoutLength || "",
-      equipmentAccess: Array.isArray(user.equipmentAccess)
-        ? user.equipmentAccess
-        : [],
-      preferredTrainingDays: Array.isArray(user.preferredTrainingDays)
-        ? user.preferredTrainingDays
-        : [],
-      limitations: user.limitations || "",
-      notes: user.notes || "",
-    });
+    setSetupForm(normalizeSetupForm(user));
 
     const welcomeRequested = router.query.welcome === "1";
-    if (welcomeRequested || isProfileIncomplete(user)) {
+    if (welcomeRequested || !user?.setupPromptSeen) {
       setShowSetupDialog(true);
+      if (!user?.setupPromptSeen) {
+        const nextUser = { ...user, setupPromptSeen: true };
+        setUser(nextUser);
+        saveUser(nextUser).catch((error) => {
+          console.error("Error marking setup prompt as seen:", error);
+        });
+      }
       if (welcomeRequested) {
         router.replace("/routines", undefined, { shallow: true });
       }
     }
   }, [router, router.query.welcome, user]);
+
+  useEffect(() => {
+    if (!showSetupDialog) {
+      return;
+    }
+
+    if (
+      setupForm.trainingGoal ||
+      setupForm.workoutDaysPerWeek ||
+      setupForm.sex ||
+      setupForm.age ||
+      setupForm.currentFitnessLevel ||
+      setupForm.experienceLevel ||
+      setupForm.workoutLength ||
+      setupForm.equipmentAccess.length > 0 ||
+      setupForm.preferredTrainingDays.length > 0 ||
+      setupForm.limitations ||
+      setupForm.notes
+    ) {
+      setAssistantIntent("planner");
+      setShowPlanningDetails(
+        Boolean(
+          setupForm.sex ||
+            setupForm.age ||
+            setupForm.currentFitnessLevel ||
+            setupForm.experienceLevel ||
+            setupForm.workoutLength ||
+            setupForm.equipmentAccess.length > 0 ||
+            setupForm.preferredTrainingDays.length > 0 ||
+            setupForm.limitations ||
+            setupForm.notes
+        )
+      );
+      return;
+    }
+
+    setAssistantIntent(null);
+    setShowPlanningDetails(false);
+  }, [
+    setupForm.trainingGoal,
+    setupForm.workoutDaysPerWeek,
+    setupForm.sex,
+    setupForm.age,
+    setupForm.currentFitnessLevel,
+    setupForm.experienceLevel,
+    setupForm.workoutLength,
+    setupForm.equipmentAccess,
+    setupForm.preferredTrainingDays,
+    setupForm.limitations,
+    setupForm.notes,
+    showSetupDialog,
+  ]);
 
   useEffect(() => {
     let wakeLock: any = null;
@@ -242,6 +224,82 @@ const RoutinesPage = ({
       }
     };
   }, []);
+
+  const setupReadyToGenerate = Boolean(
+    setupForm.trainingGoal && setupForm.workoutDaysPerWeek
+  );
+  const hasOptionalPlanningContext = Boolean(
+    setupForm.sex ||
+      setupForm.age ||
+      setupForm.currentFitnessLevel ||
+      setupForm.experienceLevel ||
+      setupForm.workoutLength ||
+      setupForm.equipmentAccess.length > 0 ||
+      setupForm.preferredTrainingDays.length > 0 ||
+      setupForm.limitations ||
+      setupForm.notes
+  );
+  const coachContextCount = [
+    setupForm.sex,
+    setupForm.age,
+    setupForm.currentFitnessLevel,
+    setupForm.experienceLevel,
+    setupForm.workoutLength,
+    setupForm.equipmentAccess.length > 0 ? "equipment" : "",
+    setupForm.preferredTrainingDays.length > 0 ? "days" : "",
+    setupForm.limitations,
+    setupForm.notes,
+  ].filter(Boolean).length;
+  const missingSetupFields = useMemo(() => {
+    const missing: string[] = [];
+
+    if (!setupForm.trainingGoal) {
+      missing.push("goal");
+    }
+    if (!setupForm.workoutDaysPerWeek) {
+      missing.push("weekly frequency");
+    }
+
+    return missing;
+  }, [setupForm.trainingGoal, setupForm.workoutDaysPerWeek]);
+  const assistantNextQuestion = useMemo(() => {
+    if (!setupForm.trainingGoal) {
+      return "What are you training for right now?";
+    }
+    if (!setupForm.workoutDaysPerWeek) {
+      return "How many days per week do you want to train?";
+    }
+    if (showPlanningDetails && !setupForm.currentFitnessLevel) {
+      return "What is your current fitness level?";
+    }
+    if (showPlanningDetails && !setupForm.experienceLevel) {
+      return "How experienced are you with lifting?";
+    }
+    if (showPlanningDetails && !setupForm.workoutLength) {
+      return "How long are your workouts usually?";
+    }
+    if (showPlanningDetails && setupForm.equipmentAccess.length === 0) {
+      return "What equipment do you usually have access to?";
+    }
+    if (showPlanningDetails && !setupForm.sex) {
+      return "What is your biological sex?";
+    }
+    if (showPlanningDetails && !setupForm.age) {
+      return "How old are you?";
+    }
+
+    return "I have enough to draft a plan. Add more detail if you want tighter recommendations.";
+  }, [
+    setupForm.trainingGoal,
+    setupForm.workoutDaysPerWeek,
+    setupForm.currentFitnessLevel,
+    setupForm.experienceLevel,
+    setupForm.workoutLength,
+    setupForm.equipmentAccess,
+    setupForm.sex,
+    setupForm.age,
+    showPlanningDetails,
+  ]);
 
   const handleSetupFieldChange =
     (field: keyof typeof setupForm) =>
@@ -277,15 +335,9 @@ const RoutinesPage = ({
 
     const nextUser = {
       ...user,
-      preferredUnits: setupForm.preferredUnits,
-      trainingGoal: setupForm.trainingGoal,
-      workoutDaysPerWeek: setupForm.workoutDaysPerWeek,
-      experienceLevel: setupForm.experienceLevel,
-      workoutLength: setupForm.workoutLength,
-      equipmentAccess: setupForm.equipmentAccess,
-      preferredTrainingDays: setupForm.preferredTrainingDays,
-      limitations: setupForm.limitations,
-      notes: setupForm.notes,
+      ...setupForm,
+      setupPromptSeen: true,
+      setupCompleted: true,
     };
 
     try {
@@ -302,6 +354,162 @@ const RoutinesPage = ({
       toast.error("An error occurred while saving setup");
     } finally {
       setSavingSetup(false);
+    }
+  };
+
+  const handleTrackerOnlySetup = async () => {
+    if (!user) return;
+
+    setSavingSetup(true);
+
+    const nextUser = {
+      ...user,
+      setupPromptSeen: true,
+      setupCompleted: true,
+    };
+
+    try {
+      const response = await saveUser(nextUser);
+      if (response?.success) {
+        setUser(nextUser);
+        setShowSetupDialog(false);
+        toast.success("Tracker mode is ready");
+      } else {
+        toast.error("Failed to save your preference");
+      }
+    } catch (error) {
+      console.error("Error saving tracker preference:", error);
+      toast.error("An error occurred while saving your preference");
+    } finally {
+      setSavingSetup(false);
+    }
+  };
+
+  const handleGenerateWorkoutFromSetup = async () => {
+    if (!user) return;
+
+    const nextUser = {
+      ...user,
+      ...setupForm,
+      setupPromptSeen: true,
+      setupCompleted: true,
+    };
+
+    try {
+      setGeneratingWorkout(true);
+      await saveUser(nextUser);
+      const generated = await generateWorkoutPlan(sessionUserId, normalizeSetupForm(nextUser));
+      setUser(nextUser);
+      setRoutine(generated.routine);
+      setGeneratedCoachResponse(generated.coachResponse ?? null);
+      setShowSetupDialog(false);
+      setRoutineViewKey((prev) => prev + 1);
+      toast.success("Workout plan generated");
+    } catch (error) {
+      console.error("Error generating workout plan:", error);
+      toast.error("Couldn't generate a workout plan");
+    } finally {
+      setGeneratingWorkout(false);
+    }
+  };
+
+  const applyCoachProfilePatch = async (patch: Record<string, any>) => {
+    if (!user) return;
+
+    const nextSetupForm = normalizeSetupForm({
+      ...user,
+      ...setupForm,
+      ...patch,
+    });
+    const nextUser = {
+      ...user,
+      ...nextSetupForm,
+      setupPromptSeen: true,
+      setupCompleted: true,
+    };
+
+    setSetupForm(nextSetupForm);
+    await saveUser(nextUser);
+    const generated = await generateWorkoutPlan(sessionUserId, nextSetupForm);
+    setUser(nextUser);
+    setRoutine(generated.routine);
+    setGeneratedCoachResponse(generated.coachResponse ?? null);
+    setRoutineViewKey((prev) => prev + 1);
+  };
+
+  const handleCoachAction = async (action: any) => {
+    if (!user || !sessionUserId || !action?.type) {
+      return;
+    }
+
+    if (action.type === "remove_day_schedule" && action.dayKey) {
+      const dayIndexLookup: Record<string, number> = {
+        sunday: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+      };
+
+      const dayKey = String(action.dayKey).toLowerCase();
+      const targetDayIndex = dayIndexLookup[dayKey];
+      if (targetDayIndex === undefined) {
+        return "I couldn't tell which day you wanted to clear.";
+      }
+
+      const rules = await fetchRecurringRules(sessionUserId);
+      const matchingRules = rules.filter((rule: any) => {
+        const recurrenceType = rule.recurrenceType ?? "weekly";
+        const days = Array.isArray(rule.daysOfWeek) ? rule.daysOfWeek : [rule.dayOfWeek];
+        return (
+          recurrenceType === "daily" ||
+          days.includes(targetDayIndex)
+        );
+      });
+
+      await Promise.all(
+        matchingRules
+          .map((rule: any) => String(rule._id ?? ""))
+          .filter(Boolean)
+          .map((ruleId: string) => deactivateRecurringRule(ruleId))
+      );
+
+      setRoutine((prev: any) => {
+        if (!prev?.days?.[dayKey]?.[0]) return prev;
+        const next = structuredClone(prev);
+        next.days[dayKey][0].exercises = [];
+        return next;
+      });
+
+      setGeneratedCoachResponse((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              plannedDays: (prev.plannedDays ?? []).filter(
+                (line: string) => !line.toLowerCase().includes(dayKey)
+              ),
+              planSnapshot: (prev.planSnapshot ?? []).filter(
+                (day: any) => String(day.dayKey).toLowerCase() !== dayKey
+              ),
+            }
+          : prev
+      );
+      setRoutineViewKey((prev) => prev + 1);
+
+      return `I cleared the scheduled workout for ${dayKey.charAt(0).toUpperCase()}${dayKey.slice(
+        1
+      )}.`;
+    }
+
+    if (action.type === "create_catalog_exercise" && action.exercise?.name) {
+      await saveExercise({
+        ...action.exercise,
+        createdBy: sessionUserId,
+      });
+
+      return `${action.exercise.name} is in your exercise library now, so you can add it like any other movement.`;
     }
   };
 
@@ -357,7 +565,19 @@ const RoutinesPage = ({
             />
           </Box>
           <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.75, sm: 2.25 } }}>
+            {generatedCoachResponse ? (
+              <Box sx={{ mb: 2 }}>
+                <CoachChatPanel
+                  coachResponse={generatedCoachResponse}
+                  profile={setupForm}
+                  onDismiss={() => setGeneratedCoachResponse(null)}
+                  onApplyProfilePatch={applyCoachProfilePatch}
+                  onCoachAction={handleCoachAction}
+                />
+              </Box>
+            ) : null}
             <WorkoutsManager
+              key={`${routine?._id ?? "routine"}-${routineViewKey}`}
               routine={routine}
               setRoutine={setRoutine}
               darkMode={darkMode}
@@ -414,36 +634,203 @@ const RoutinesPage = ({
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Tune your recommendations</DialogTitle>
+        <DialogTitle>Set up your workout assistant</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Stack spacing={2.25}>
             <Paper
               elevation={0}
               sx={{
-                p: 1.75,
+                p: { xs: 2, sm: 2.25 },
                 borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
-                backgroundColor: darkMode
-                  ? "rgba(30,41,59,0.72)"
-                  : "rgba(248,250,252,0.92)",
+                background: darkMode
+                  ? "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(15,23,42,0.72))"
+                  : "linear-gradient(135deg, rgba(219,234,254,0.96), rgba(248,250,252,0.92))",
               }}
             >
-              <Typography variant="overline" sx={{ color: "text.secondary" }}>
-                Lift Logic Coach
-              </Typography>
-              <Typography variant="h6" sx={{ mt: 0.25 }}>
-                Let&apos;s tune this in.
-              </Typography>
-              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                These quick answers shape recommendations and defaults. They do
-                not create your workout routine for you.
-              </Typography>
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                    Workout Assistant
+                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 0.25 }}>
+                    Give your workout assistant a strong starting point.
+                  </Typography>
+                  <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                    Pick the basics your workout assistant should optimize around, generate
+                    your first weekly plan, then refine it with follow-up chat
+                    instead of trying to get everything perfect up front.
+                  </Typography>
+                </Box>
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip label="1. Build your assistant brief" color="primary" variant="filled" />
+                  <Chip label="2. Generate your plan" variant="outlined" />
+                  <Chip label="3. Refine it with assistant chat" variant="outlined" />
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography sx={{ fontWeight: 700 }}>
+                  What do you want help with?
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <Button
+                    variant={assistantIntent === "tracker" ? "contained" : "outlined"}
+                    onClick={() => setAssistantIntent("tracker")}
+                    fullWidth
+                  >
+                    I just want to track workouts
+                  </Button>
+                  <Button
+                    variant={assistantIntent === "planner" ? "contained" : "outlined"}
+                    onClick={() => setAssistantIntent("planner")}
+                    fullWidth
+                  >
+                    Help me plan workouts
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            {assistantIntent === "tracker" ? (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 3,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  backgroundColor: "background.paper",
+                }}
+              >
+                <Stack spacing={1.5}>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Tracker mode
+                  </Typography>
+                  <Typography sx={{ color: "text.secondary" }}>
+                    You can use Lift Logic as a tracker without filling out a planning intake.
+                  </Typography>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <Button
+                      variant="contained"
+                      onClick={handleTrackerOnlySetup}
+                      disabled={savingSetup}
+                    >
+                      {savingSetup ? "Saving..." : "Continue to workouts"}
+                    </Button>
+                    <Button variant="text" onClick={() => setAssistantIntent("planner")}>
+                      I want planning help instead
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ) : null}
+
+            {assistantIntent === "planner" ? (
+              <>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Ready to generate
+                  </Typography>
+                  <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                    {setupReadyToGenerate
+                      ? `Goal and weekly frequency are set. You also gave the workout assistant ${coachContextCount} extra detail${
+                          coachContextCount === 1 ? "" : "s"
+                        } to personalize the first draft.`
+                      : `To generate a first plan, I still need ${missingSetupFields.join(
+                          " and "
+                        )}. Everything else can be refined after the assistant shows you a draft.`}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label={setupForm.trainingGoal ? "Goal set" : "Goal needed"}
+                    color={setupForm.trainingGoal ? "success" : "default"}
+                    variant={setupForm.trainingGoal ? "filled" : "outlined"}
+                  />
+                  <Chip
+                    label={
+                      setupForm.workoutDaysPerWeek
+                        ? "Frequency set"
+                        : "Frequency needed"
+                    }
+                    color={setupForm.workoutDaysPerWeek ? "success" : "default"}
+                    variant={setupForm.workoutDaysPerWeek ? "filled" : "outlined"}
+                  />
+                </Stack>
+              </Stack>
             </Paper>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                What are you training for right now?
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Biological sex
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {sexOptions.map((option) => (
+                  <Chip
+                    key={option.value}
+                    label={option.label}
+                    clickable
+                    color={setupForm.sex === option.value ? "primary" : "default"}
+                    variant={setupForm.sex === option.value ? "filled" : "outlined"}
+                    onClick={() =>
+                      setSetupForm((prev) => ({
+                        ...prev,
+                        sex: option.value,
+                      }))
+                    }
+                  />
+                ))}
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Age
+              </Typography>
+              <TextField
+                value={setupForm.age}
+                onChange={handleSetupFieldChange("age")}
+                fullWidth
+                type="number"
+                inputProps={{ min: 0, max: 120 }}
+                placeholder="35"
+              />
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Goal
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {goalOptions.map((goal) => (
@@ -469,12 +856,8 @@ const RoutinesPage = ({
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                How many days per week do you usually train?
-              </Typography>
-              <Typography sx={{ mb: 1, color: "text.secondary" }}>
-                This only helps pace suggestions. You&apos;ll add actual exercises
-                on the workout screen next.
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Days per week
               </Typography>
               <ToggleButtonGroup
                 exclusive
@@ -498,8 +881,39 @@ const RoutinesPage = ({
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                How experienced are you with lifting?
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Current fitness level
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {currentFitnessOptions.map((option) => (
+                  <Chip
+                    key={option.value}
+                    label={option.label}
+                    clickable
+                    color={
+                      setupForm.currentFitnessLevel === option.value
+                        ? "primary"
+                        : "default"
+                    }
+                    variant={
+                      setupForm.currentFitnessLevel === option.value
+                        ? "filled"
+                        : "outlined"
+                    }
+                    onClick={() =>
+                      setSetupForm((prev) => ({
+                        ...prev,
+                        currentFitnessLevel: option.value,
+                      }))
+                    }
+                  />
+                ))}
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Lifting experience
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {experienceOptions.map((option) => (
@@ -529,8 +943,8 @@ const RoutinesPage = ({
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                How long are your usual workouts?
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Workout length
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {workoutLengthOptions.map((option) => (
@@ -560,8 +974,8 @@ const RoutinesPage = ({
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                What equipment do you usually have?
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Equipment access
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {equipmentOptions.map((option) => (
@@ -586,8 +1000,8 @@ const RoutinesPage = ({
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>
-                Which days do you usually like to train?
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                Preferred training days
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {weekdayOptions.map((day) => (
@@ -617,9 +1031,9 @@ const RoutinesPage = ({
               <Box sx={{ flex: 1 }}>
                 <Typography
                   variant="body2"
-                  sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  sx={{ mb: 0.5, color: "text.primary", fontWeight: 700 }}
                 >
-                  Which units should I use?
+                  Units
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {unitOptions.map((option) => (
@@ -651,9 +1065,9 @@ const RoutinesPage = ({
               <Box sx={{ flex: 1 }}>
                 <Typography
                   variant="body2"
-                  sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  sx={{ mb: 0.5, color: "text.primary", fontWeight: 700 }}
                 >
-                  Any injuries or limitations I should respect?
+                  Limitations
                 </Typography>
                 <TextField
                   value={setupForm.limitations}
@@ -669,9 +1083,9 @@ const RoutinesPage = ({
             <Box>
               <Typography
                 variant="body2"
-                sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                sx={{ mb: 0.5, color: "text.primary", fontWeight: 700 }}
               >
-                Anything else I should keep in mind?
+                Notes
               </Typography>
               <TextField
                 value={setupForm.notes}
@@ -696,35 +1110,10 @@ const RoutinesPage = ({
               }}
             >
               <Typography variant="overline" sx={{ color: "text.secondary" }}>
-                What I Heard
+                Assistant Brief
               </Typography>
               <Typography sx={{ mt: 0.75 }}>
-                {setupForm.trainingGoal
-                  ? `You want help with ${goalLabels[setupForm.trainingGoal] || "training"}.`
-                  : "You have not picked a main goal yet."}{" "}
-                {setupForm.workoutDaysPerWeek
-                  ? `I should expect about ${setupForm.workoutDaysPerWeek} workout${
-                      setupForm.workoutDaysPerWeek === "1" ? "" : "s"
-                    } per week.`
-                  : "I still need your weekly training target."}{" "}
-                {setupForm.experienceLevel
-                  ? `You train like ${experienceLabels[setupForm.experienceLevel] || "a lifter with some experience"}. `
-                  : ""}{" "}
-                {setupForm.workoutLength
-                  ? `Your sessions are usually around ${setupForm.workoutLength} minutes. `
-                  : ""}{" "}
-                {setupForm.equipmentAccess.length > 0
-                  ? `You usually have access to ${setupForm.equipmentAccess.join(", ")}. `
-                  : ""}{" "}
-                {setupForm.preferredTrainingDays.length > 0
-                  ? `You like training on ${setupForm.preferredTrainingDays.join(", ")}. `
-                  : ""}{" "}
-                {setupForm.limitations
-                  ? `I should respect these limitations: ${setupForm.limitations}. `
-                  : ""}{" "}
-                {setupForm.notes
-                  ? `You also want me to remember: ${setupForm.notes}`
-                  : "You can add notes later if you want more tailored suggestions."}
+                {buildWhatIHeardSummary(setupForm)}
               </Typography>
             </Paper>
 
@@ -739,30 +1128,43 @@ const RoutinesPage = ({
               }}
             >
               <Typography sx={{ color: "text.secondary" }}>
-                We can always refine this later from your full profile.
+                The first draft does not need to be perfect. The workout assistant can revise the split, exercises, and assumptions after generation.
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                 <Button variant="outlined" onClick={() => setShowSetupDialog(false)}>
-                  Maybe later
+                  Skip for now
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleGenerateWorkoutFromSetup}
+                  disabled={
+                    generatingWorkout ||
+                    savingSetup ||
+                    !setupReadyToGenerate
+                  }
+                >
+                  {generatingWorkout ? "Generating..." : "Generate with assistant"}
                 </Button>
                 <Button
                   variant="contained"
                   onClick={handleSaveSetup}
                   disabled={
                     savingSetup ||
-                    !setupForm.trainingGoal ||
-                    !setupForm.workoutDaysPerWeek
+                    generatingWorkout ||
+                    !setupReadyToGenerate
                   }
                 >
-                  {savingSetup ? "Saving..." : "Sounds good"}
+                  {savingSetup ? "Saving..." : "Save assistant setup"}
                 </Button>
               </Stack>
             </Box>
+          </>
+        ) : null}
           </Stack>
         </DialogContent>
       </Dialog>
 
-      {user && isProfileIncomplete(user) && !showSetupDialog ? (
+      {user && !user?.setupCompleted && !showSetupDialog ? (
         <Paper
           elevation={0}
           sx={{
@@ -778,17 +1180,16 @@ const RoutinesPage = ({
             boxShadow: "0 14px 34px rgba(15,23,42,0.14)",
             zIndex: 1300,
           }}
-        >
+          >
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Tune your recommendations
+            Finish assistant setup
           </Typography>
           <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-            A few coaching questions will improve defaults, but your workout is
-            still built on the main screen.
+            Set your goal and training frequency, then let the workout assistant build a first draft you can refine in chat.
           </Typography>
           <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
             <Button variant="contained" onClick={() => setShowSetupDialog(true)}>
-              Start setup
+              Open assistant setup
             </Button>
             <Button variant="text" onClick={() => router.push("/user")}>
               Full profile

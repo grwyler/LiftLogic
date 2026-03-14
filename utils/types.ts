@@ -52,9 +52,14 @@ export interface ExerciseCatalogDoc {
   name: string;
   type: "weight" | "timed";
   defaultMax?: number;
+  equipment?: string[];
+  target?: string;
+  bodyPart?: string;
+  aliases?: string[];
   videoUrl?: string;
   muscleGroup?: string;
   createdBy?: string | null;
+  description?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

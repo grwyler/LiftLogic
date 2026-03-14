@@ -10,6 +10,7 @@ import {
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
 import { emitDevBugRequest } from "./devBugRecorder";
+import { SetupFormValues } from "./profileSetup";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -875,6 +876,49 @@ export const fetchUser = async (id) => {
   } catch (error) {
     console.error("Error fetching users:", error);
   }
+};
+
+export const generateWorkoutPlan = async (
+  userId: string,
+  profile: SetupFormValues
+) => {
+  const response = await fetch("/api/generateWorkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, profile }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`generateWorkoutPlan ${response.status}: ${message}`);
+  }
+
+  return response.json();
+};
+
+export const askWorkoutCoach = async ({
+  message,
+  history,
+  profile,
+  coachResponse,
+}: {
+  message: string;
+  history: Array<{ role: "coach" | "user"; text: string }>;
+  profile: SetupFormValues;
+  coachResponse: any;
+}) => {
+  const response = await fetch("/api/workoutCoachChat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history, profile, coachResponse }),
+  });
+
+  if (!response.ok) {
+    const messageText = await response.text();
+    throw new Error(`askWorkoutCoach ${response.status}: ${messageText}`);
+  }
+
+  return response.json();
 };
 
 export const emptyOrNullToZero = (value) => {
