@@ -35,7 +35,15 @@ type CoachResponse = {
     dayLabel: string;
     title: string;
     exerciseCount: number;
-    exercises: string[];
+    exercises: Array<{
+      name: string;
+      type: "weight" | "timed";
+      sets: number;
+      reps?: number | null;
+      weight?: number | null;
+      minutes?: number | null;
+      rest: number;
+    }>;
   }>;
 };
 
@@ -389,7 +397,7 @@ export default function CoachChatPanel({
                         {day.dayLabel}: {day.title}
                       </Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
-                        {day.exercises.join(", ")}
+                        {day.exercises.map((exercise) => exercise.name).join(", ")}
                       </Typography>
                     </Box>
                     <Chip

@@ -32,7 +32,15 @@ export type WorkoutCoachResponse = {
     dayLabel: string;
     title: string;
     exerciseCount: number;
-    exercises: string[];
+    exercises: Array<{
+      name: string;
+      type: "weight" | "timed";
+      sets: number;
+      reps?: number | null;
+      weight?: number | null;
+      minutes?: number | null;
+      rest: number;
+    }>;
   }>;
   why: string[];
   tips: string[];
@@ -628,7 +636,24 @@ export const buildWorkoutCoachResponse = (
     dayLabel: day.dayKey.charAt(0).toUpperCase() + day.dayKey.slice(1),
     title: day.title,
     exerciseCount: day.exercises.length,
-    exercises: day.exercises.map((exercise) => exercise.name),
+    exercises: day.exercises.map((exercise) => ({
+      name: exercise.name,
+      type: exercise.type,
+      sets: exercise.sets.length,
+      reps:
+        exercise.type === "weight"
+          ? Number(exercise.sets[0]?.reps ?? 0) || null
+          : null,
+      weight:
+        exercise.type === "weight"
+          ? Number(exercise.sets[0]?.weight ?? exercise.max ?? 0) || 0
+          : null,
+      minutes:
+        exercise.type === "timed"
+          ? Number(exercise.sets[0]?.minutes ?? 0) || null
+          : null,
+      rest: Number(exercise.rest ?? 0) || 0,
+    })),
   }));
 
   const why = [
@@ -704,6 +729,23 @@ const buildPlanOverview = (coachResponse: WorkoutCoachResponse) =>
     )
     .join("; ");
 
+const findExerciseInPlan = (coachResponse: WorkoutCoachResponse, message: string) => {
+  const normalized = message.toLowerCase();
+
+  for (const day of coachResponse.planSnapshot) {
+    for (const exercise of day.exercises) {
+      if (normalized.includes(exercise.name.toLowerCase())) {
+        return {
+          day,
+          exercise,
+        };
+      }
+    }
+  }
+
+  return null;
+};
+
 export const buildFallbackCoachReply = ({
   message,
   profile,
@@ -750,6 +792,44 @@ export const buildFallbackCoachReply = ({
       suggestedReplies: [
         "Can you walk me through the week?",
         "Can you shorten the workouts?",
+      ],
+    };
+  }
+
+  const referencedExercise = findExerciseInPlan(coachResponse, message);
+  if (
+    referencedExercise &&
+    /(what do i use|what should i use|how much|what weight|what reps|what sets|how do i do)/.test(
+      normalized
+    )
+  ) {
+    const { day, exercise } = referencedExercise;
+    if (exercise.type === "weight") {
+      const weightLine =
+        exercise.weight && exercise.weight > 0
+          ? `${exercise.weight} ${profile.preferredUnits}`
+          : "a manageable starting load";
+      const repLine = exercise.reps ? `${exercise.reps} reps` : "controlled reps";
+      const restLine = exercise.rest ? `${exercise.rest} seconds of rest` : "normal rest";
+
+      return {
+        reply: `${exercise.name} is set up on ${day.dayLabel} for ${exercise.sets} sets of ${repLine} with about ${weightLine}. Start there, keep a rep or two in reserve on week one, and adjust based on how it actually feels. Rest about ${restLine} between sets.`,
+        suggestedReplies: [
+          "Can you show me the updated week?",
+          "Can I swap that exercise?",
+          "How hard should week one feel?",
+        ],
+      };
+    }
+
+    return {
+      reply: `${exercise.name} is set up on ${day.dayLabel} for ${exercise.sets} timed set${
+        exercise.sets === 1 ? "" : "s"
+      } of about ${exercise.minutes || 0} minutes. Keep the effort sustainable on the first week so we can adjust from real performance.`,
+      suggestedReplies: [
+        "Can you show me the updated week?",
+        "Can I swap that exercise?",
+        "What should I start with?",
       ],
     };
   }
