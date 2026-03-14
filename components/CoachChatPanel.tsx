@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { askWorkoutCoach } from "../utils/helpers";
+import { askWorkoutCoach, submitFeedback } from "../utils/helpers";
 import { SetupFormValues } from "../utils/profileSetup";
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -17,7 +18,12 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/router";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import ThumbUpAltOutlinedIcon from "@mui/icons-material/ThumbUpAltOutlined";
+import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
+import { toast } from "react-toastify";
 
 type ChatMessage = {
   id: string;
@@ -96,6 +102,13 @@ export default function CoachChatPanel({
   const [quickReplies, setQuickReplies] = useState<string[]>(
     coachResponse.suggestedReplies ?? []
   );
+  const [responseFeedback, setResponseFeedback] = useState<
+    Record<string, "like" | "dislike">
+  >({});
+  const { data: session } = useSession() as {
+    data: { user?: { _id?: string; username?: string; email?: string } } | null;
+  };
+  const router = useRouter();
 
   const planDays = useMemo(
     () => coachResponse.planSnapshot ?? [],
@@ -105,7 +118,15 @@ export default function CoachChatPanel({
   useEffect(() => {
     setLoading(false);
     setQuickReplies(coachResponse.suggestedReplies ?? []);
+    setResponseFeedback({});
   }, [coachResponse]);
+
+  const sessionUserId =
+    session?.user?._id || (session as any)?.token?.user?._id || "";
+  const feedbackUsername =
+    session?.user?.username || (session as any)?.token?.user?.username || "";
+  const feedbackEmail =
+    session?.user?.email || (session as any)?.token?.user?.email || "";
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
@@ -192,6 +213,55 @@ export default function CoachChatPanel({
     }
   };
 
+  const handleResponseFeedback = async (
+    message: ChatMessage,
+    sentiment: "like" | "dislike"
+  ) => {
+    if (!sessionUserId) {
+      toast.error("You need to be signed in to send assistant feedback.");
+      return;
+    }
+
+    try {
+      await submitFeedback({
+        userId: sessionUserId,
+        username: feedbackUsername || undefined,
+        email: feedbackEmail || undefined,
+        type: "bug",
+        title:
+          sentiment === "like"
+            ? "Workout assistant response liked"
+            : "Workout assistant response disliked",
+        description:
+          sentiment === "like"
+            ? "A user marked this workout assistant response as helpful."
+            : "A user marked this workout assistant response as unhelpful or incorrect.",
+        severity: sentiment === "dislike" ? "medium" : "low",
+        page: router.pathname || "/routines",
+        deviceType:
+          typeof window !== "undefined" && window.innerWidth < 768
+            ? "mobile"
+            : "desktop",
+        coachFeedback: {
+          sentiment,
+          messageId: message.id,
+          selectedResponse: message.text,
+          conversation: messages.map(({ role, text }) => ({ role, text })),
+        },
+      });
+
+      setResponseFeedback((prev) => ({ ...prev, [message.id]: sentiment }));
+      toast.success(
+        sentiment === "like"
+          ? "Thanks, that response was marked helpful."
+          : "Thanks, I saved that for assistant debugging."
+      );
+    } catch (error) {
+      console.error("Error submitting assistant feedback:", error);
+      toast.error("Couldn't save that assistant feedback.");
+    }
+  };
+
   if (minimized) {
     return (
       <Portal>
@@ -247,6 +317,11 @@ export default function CoachChatPanel({
       }}
     >
       <Stack spacing={1.5}>
+        <Alert severity="warning" sx={{ borderRadius: 2.5 }}>
+          The workout assistant is still in beta testing. It may be wrong,
+          incomplete, or behave unexpectedly while we keep improving it.
+        </Alert>
+
         <Box
           sx={{
             display: "flex",
@@ -304,6 +379,48 @@ export default function CoachChatPanel({
               }}
             >
               <Typography sx={{ lineHeight: 1.5 }}>{message.text}</Typography>
+              {message.role === "coach" ? (
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{ mt: 1, justifyContent: "flex-end" }}
+                >
+                  <Tooltip title="Helpful response">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleResponseFeedback(message, "like")}
+                        color={
+                          responseFeedback[message.id] === "like"
+                            ? "primary"
+                            : "default"
+                        }
+                        disabled={Boolean(responseFeedback[message.id])}
+                      >
+                        <ThumbUpAltOutlinedIcon fontSize="inherit" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Needs work">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          handleResponseFeedback(message, "dislike")
+                        }
+                        color={
+                          responseFeedback[message.id] === "dislike"
+                            ? "primary"
+                            : "default"
+                        }
+                        disabled={Boolean(responseFeedback[message.id])}
+                      >
+                        <ThumbDownAltOutlinedIcon fontSize="inherit" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              ) : null}
             </Box>
           ))}
 

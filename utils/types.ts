@@ -146,6 +146,15 @@ export interface FeedbackItemDoc {
       detail?: string;
     }>;
   };
+  coachFeedback?: {
+    sentiment: "like" | "dislike";
+    messageId?: string;
+    selectedResponse?: string;
+    conversation?: Array<{
+      role: "coach" | "user";
+      text: string;
+    }>;
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }

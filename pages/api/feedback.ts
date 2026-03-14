@@ -137,6 +137,52 @@ const sanitizeBugReport = (value: unknown) => {
   };
 };
 
+const sanitizeCoachFeedback = (value: unknown) => {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const feedback = value as Record<string, unknown>;
+  const sentiment = sanitizeText(feedback.sentiment);
+
+  if (sentiment !== "like" && sentiment !== "dislike") {
+    return undefined;
+  }
+
+  const rawConversation = Array.isArray(feedback.conversation)
+    ? feedback.conversation
+    : [];
+
+  const conversation = rawConversation
+    .slice(0, 50)
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const entry = item as Record<string, unknown>;
+      const role = sanitizeText(entry.role);
+      const text = sanitizeText(entry.text);
+
+      if ((role !== "coach" && role !== "user") || !text) {
+        return null;
+      }
+
+      return {
+        role: role as "coach" | "user",
+        text,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    sentiment: sentiment as "like" | "dislike",
+    messageId: sanitizeText(feedback.messageId) || undefined,
+    selectedResponse: sanitizeText(feedback.selectedResponse) || undefined,
+    conversation: conversation.length > 0 ? conversation : undefined,
+  };
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -203,6 +249,7 @@ export default async function handler(
             ? feedback.deviceType
             : "unknown",
         bugReport: sanitizeBugReport(feedback.bugReport),
+        coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
         createdAt: now,
         updatedAt: now,
       };
