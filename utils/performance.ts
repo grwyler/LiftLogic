@@ -42,6 +42,14 @@ export type ExerciseProgressSummary = {
   latestWorkoutBrokePR: boolean;
 };
 
+export type ProgressCoachContext = {
+  exerciseName: string;
+  userName?: string | null;
+  sex?: string | null;
+  age?: string | null;
+  preferredUnits?: "lb" | "kg" | null;
+};
+
 export const estimateOneRepMax = (weight: number, reps: number): number => {
   if (weight <= 0 || reps <= 0) {
     return 0;
@@ -255,4 +263,68 @@ export const buildExerciseProgressSummary = (
     bestRepPerformance: historicalPRs.bestRepPerformance,
     latestWorkoutBrokePR,
   };
+};
+
+const buildUserIntro = (userName?: string | null) => {
+  const trimmed = String(userName ?? "").trim();
+  if (!trimmed) {
+    return "Coach note";
+  }
+
+  const firstName = trimmed.split(/\s+/)[0];
+  return `${firstName},`;
+};
+
+const formatLoad = (value: number | null, preferredUnits?: "lb" | "kg" | null) => {
+  if (value === null) {
+    return null;
+  }
+
+  const rounded = Number.isInteger(value) ? String(value) : String(roundToOneDecimal(value));
+  return `${rounded} ${preferredUnits || "lb"}`;
+};
+
+export const buildProgressCoachMessage = (
+  summary: ExerciseProgressSummary | null | undefined,
+  context: ProgressCoachContext
+) => {
+  if (!summary) {
+    return null;
+  }
+
+  const intro = buildUserIntro(context.userName);
+  const exerciseName = context.exerciseName || "this lift";
+  const latestEstimated1RM = summary.latestEstimated1RM;
+  const previousEstimated1RM = summary.previousEstimated1RM;
+  const delta =
+    latestEstimated1RM !== null && previousEstimated1RM !== null
+      ? roundToOneDecimal(latestEstimated1RM - previousEstimated1RM)
+      : null;
+  const isFirstMeaningfulBenchmark = previousEstimated1RM === null;
+
+  if (isFirstMeaningfulBenchmark && summary.bestRepPerformance) {
+    return `${intro} solid first logged benchmark on ${exerciseName}. Keep stacking clean sets like that and the app will start dialing your recommendations in more accurately.`;
+  }
+
+  if (summary.latestWorkoutBrokePR && !isFirstMeaningfulBenchmark) {
+    const bestEver = formatLoad(
+      summary.bestEstimated1RMEver ?? latestEstimated1RM,
+      context.preferredUnits
+    );
+
+    return `${intro} you set a new PR on ${exerciseName}. That kind of steady progress is exactly what we want to build on.${bestEver ? ` Your best estimated 1RM is now around ${bestEver}.` : ""}`;
+  }
+
+  if (delta !== null && delta > 0) {
+    const latest = formatLoad(latestEstimated1RM, context.preferredUnits);
+    const previous = formatLoad(previousEstimated1RM, context.preferredUnits);
+
+    return `${intro} this was real progress on ${exerciseName}. Your estimated strength moved up by ${delta} ${context.preferredUnits || "lb"}${previous && latest ? `, from about ${previous} to ${latest}` : ""}. Those steady jumps are usually the ones that last.`;
+  }
+
+  if (summary.bestRepPerformance) {
+    return `${intro} you kept useful work on the board for ${exerciseName}. Consistency like that is what sets up the next clean jump.`;
+  }
+
+  return null;
 };

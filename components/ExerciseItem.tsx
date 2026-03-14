@@ -60,6 +60,7 @@ const ExerciseItem = ({
   darkMode,
   setRefetchExercises,
   refreshCalendarStatuses,
+  userProfile,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
@@ -302,8 +303,9 @@ const ExerciseItem = ({
       latestEstimated1RM !== null && previousEstimated1RM !== null
         ? Math.round((latestEstimated1RM - previousEstimated1RM) * 10) / 10
         : null;
+    const hasPriorBenchmark = previousEstimated1RM !== null;
     const trendLabel =
-      progressSummary?.latestWorkoutBrokePR
+      progressSummary?.latestWorkoutBrokePR && hasPriorBenchmark
         ? "PR"
         : delta === null
         ? "Logged"
@@ -313,12 +315,12 @@ const ExerciseItem = ({
         ? "Trending Down"
         : "Steady";
     const trendColor =
-      progressSummary?.latestWorkoutBrokePR || (delta !== null && delta > 0)
+      (progressSummary?.latestWorkoutBrokePR && hasPriorBenchmark) ||
+      (delta !== null && delta > 0)
         ? "success"
         : delta !== null && delta < 0
         ? "warning"
         : "default";
-
     return (
       <Paper
         elevation={0}

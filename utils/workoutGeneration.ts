@@ -388,10 +388,6 @@ const pickDays = (profile: SetupFormValues) => {
     Math.min(6, Number(profile.workoutDaysPerWeek || preferred.length || 3))
   );
 
-  if (preferred.length >= count) {
-    return preferred.slice(0, count);
-  }
-
   const defaultsByCount: Record<number, (typeof dayKeys)[number][]> = {
     2: ["monday", "thursday"],
     3: ["monday", "wednesday", "friday"],
@@ -399,6 +395,15 @@ const pickDays = (profile: SetupFormValues) => {
     5: ["monday", "tuesday", "wednesday", "friday", "saturday"],
     6: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
   };
+
+  if (preferred.length >= count) {
+    return preferred.slice(0, count);
+  }
+
+  if (preferred.length > 0) {
+    const remainder = dayKeys.filter((day) => !preferred.includes(day));
+    return [...preferred, ...remainder].slice(0, count);
+  }
 
   return defaultsByCount[count] ?? defaultsByCount[3];
 };
@@ -663,15 +668,6 @@ export const buildWorkoutCoachResponse = (
           " "
         )}.`
       : null,
-    profile.sex
-      ? `It also accounts for the biological context you shared: ${profile.sex.replace(
-          /_/g,
-          " "
-        )}.`
-      : null,
-    profile.age
-      ? `Age was considered when keeping recovery and exercise selection realistic: ${profile.age}.`
-      : null,
     profile.currentFitnessLevel
       ? `The starting difficulty was shaped around your current fitness baseline: ${profile.currentFitnessLevel.replace(
           /_/g,
@@ -717,6 +713,54 @@ export const buildWorkoutCoachResponse = (
       "Can I swap an exercise?",
     ],
   };
+};
+
+export const buildWorkoutCoachResponseFromRoutine = (
+  profile: SetupFormValues,
+  routine: any
+): WorkoutCoachResponse | null => {
+  const dayOrder = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ] as const;
+
+  const days = dayOrder
+    .map((dayKey) => {
+      const workout = routine?.days?.[dayKey]?.[0];
+      const exercises = Array.isArray(workout?.exercises) ? workout.exercises : [];
+
+      if (!workout?.title || exercises.length === 0) {
+        return null;
+      }
+
+      return {
+        dayKey,
+        title: String(workout.title),
+        exercises: exercises.map((exercise: any) => ({
+          name: String(exercise?.name ?? "Exercise"),
+          type: exercise?.type === "timed" ? "timed" : "weight",
+          sets: Array.isArray(exercise?.sets) ? exercise.sets : [],
+          max: Number(exercise?.max ?? 0) || 0,
+          rest: Number(exercise?.rest ?? 0) || 0,
+          complete: Boolean(exercise?.complete),
+        })),
+      };
+    })
+    .filter(Boolean) as GeneratedWorkoutPlan["days"];
+
+  if (days.length === 0) {
+    return null;
+  }
+
+  return buildWorkoutCoachResponse(profile, {
+    summary: "Restored your current weekly plan from the saved routine.",
+    days,
+  });
 };
 
 const buildPlanOverview = (coachResponse: WorkoutCoachResponse) =>
@@ -840,10 +884,11 @@ export const buildFallbackCoachReply = ({
         ? `You told me you usually have ${profile.equipmentAccess.join(", ")}.`
         : "You didn't lock in equipment yet, so I kept the choices fairly general.";
     return {
-      reply: `${equipmentLine} If one movement feels off, keep the same pattern instead of forcing the exact exercise. For example, swap a squat for another squat pattern, or a row for another pull. That keeps the plan coherent without making it fragile.`,
+      reply: `${equipmentLine} If those movements don't fit what you have, I can update the workout around your actual equipment instead of leaving you to patch it manually. Do you want me to update the workout, yes or no?`,
       suggestedReplies: [
-        "Why did you pick this split?",
-        "Can you walk me through the week?",
+        "Yes, update the workout",
+        "No, I'll adjust it myself",
+        "What equipment do you need me to have?",
       ],
     };
   }

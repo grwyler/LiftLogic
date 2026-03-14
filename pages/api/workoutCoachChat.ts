@@ -11,6 +11,18 @@ type ChatTurn = {
   text: string;
 };
 
+const isAffirmative = (value: string) =>
+  /\b(yes|yeah|yep|sure|ok|okay|please|go ahead|do it)\b/i.test(value);
+
+const assistantAskedToUpdateWorkout = (history: ChatTurn[]) =>
+  history
+    .slice(-3)
+    .some(
+      (turn) =>
+        turn.role === "coach" &&
+        /want me to update the workout|update the workout around/i.test(turn.text)
+    );
+
 type CoachAction =
   | { type: "remove_day_schedule"; dayKey: string }
   | {
@@ -97,6 +109,66 @@ const extractPreferredDaySwap = (
   return { fromDay, toDay, preferredTrainingDays };
 };
 
+const extractUnavailableDays = (
+  message: string,
+  profile: SetupFormValues,
+  coachResponse: WorkoutCoachResponse
+) => {
+  const normalized = message.toLowerCase();
+  if (!/(can't|cannot|unable|not available|won't work|do not work|don't work)/.test(normalized)) {
+    return null;
+  }
+
+  const matchedDays =
+    normalized.match(
+      /\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday|s)?|thu(?:r|rs|rsday|rday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/g
+    ) ?? [];
+
+  const unavailableDays = Array.from(
+    new Set(
+      matchedDays
+        .map((day) => normalizeWeekdayToken(day))
+        .filter(Boolean) as string[]
+    )
+  );
+
+  if (unavailableDays.length === 0) {
+    return null;
+  }
+
+  const currentDays =
+    profile.preferredTrainingDays.length > 0
+      ? profile.preferredTrainingDays
+      : (coachResponse.planSnapshot ?? [])
+          .map((day) => normalizeWeekdayToken(day.dayLabel))
+          .filter(Boolean) as string[];
+
+  const remainingCurrentDays = currentDays.filter(
+    (day) => !unavailableDays.includes(day)
+  );
+  const fallbackDays = Object.values(weekdayTokenMap).filter(
+    (day, index, array) =>
+      array.indexOf(day) === index &&
+      !unavailableDays.includes(day) &&
+      !remainingCurrentDays.includes(day)
+  );
+
+  const targetCount = Math.max(
+    2,
+    Math.min(6, Number(profile.workoutDaysPerWeek || currentDays.length || 3))
+  );
+  const preferredTrainingDays = [...remainingCurrentDays, ...fallbackDays].slice(
+    0,
+    targetCount
+  );
+
+  if (preferredTrainingDays.length === 0) {
+    return null;
+  }
+
+  return { unavailableDays, preferredTrainingDays };
+};
+
 const askCoachWithAI = async ({
   message,
   history,
@@ -174,8 +246,11 @@ const extractFallbackPatch = (
   const normalized = message.toLowerCase();
   const patch: Partial<SetupFormValues> = {};
   const preferredDaySwap = extractPreferredDaySwap(message, profile, coachResponse);
+  const unavailableDays = extractUnavailableDays(message, profile, coachResponse);
 
-  if (preferredDaySwap) {
+  if (unavailableDays) {
+    patch.preferredTrainingDays = unavailableDays.preferredTrainingDays;
+  } else if (preferredDaySwap) {
     patch.preferredTrainingDays = preferredDaySwap.preferredTrainingDays;
   }
 
@@ -216,6 +291,7 @@ const extractFallbackPatch = (
     patch,
     shouldRegeneratePlan: Object.keys(patch).length > 0,
     preferredDaySwap,
+    unavailableDays,
   };
 };
 
@@ -319,6 +395,55 @@ export default async function handler(
         .json({ message: "message, profile, and coachResponse are required" });
     }
 
+    if (assistantAskedToUpdateWorkout(history) && isAffirmative(message)) {
+      return res.status(200).json({
+        reply:
+          "Yeah. Tell me what equipment you do have available and I can update the workout around that.",
+        suggestedReplies: [
+          "I have dumbbells and a bench",
+          "I have a full gym",
+          "Bodyweight and bands only",
+        ],
+        profilePatch: {},
+        shouldRegeneratePlan: false,
+        action: null,
+        source: "fallback",
+      });
+    }
+
+    const extracted = extractFallbackPatch(message, profile, coachResponse);
+    if (extracted.unavailableDays) {
+      return res.status(200).json({
+        reply: `Yeah, I removed ${extracted.unavailableDays.unavailableDays.join(
+          " and "
+        )} from your training days and rebuilt the schedule around the days you can actually train.`,
+        suggestedReplies: [
+          "Can you show me the updated week?",
+          "Can you shorten one of the days?",
+          "Can I swap an exercise too?",
+        ],
+        profilePatch: extracted.patch,
+        shouldRegeneratePlan: true,
+        action: null,
+        source: "fallback",
+      });
+    }
+
+    if (extracted.preferredDaySwap) {
+      return res.status(200).json({
+        reply: `Yeah, I switched that from ${extracted.preferredDaySwap.fromDay} to ${extracted.preferredDaySwap.toDay}.`,
+        suggestedReplies: [
+          "Can you show me the updated week?",
+          "Can you shorten one of the days?",
+          "Can I swap an exercise too?",
+        ],
+        profilePatch: extracted.patch,
+        shouldRegeneratePlan: true,
+        action: null,
+        source: "fallback",
+      });
+    }
+
     try {
       const aiReply = await askCoachWithAI({
         message,
@@ -349,7 +474,6 @@ export default async function handler(
       profile,
       coachResponse,
     });
-    const extracted = extractFallbackPatch(message, profile, coachResponse);
     const fallbackAction = extractFallbackAction(message);
     const fallbackReply = extracted.preferredDaySwap
       ? {

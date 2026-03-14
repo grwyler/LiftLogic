@@ -8,6 +8,7 @@ import AddIcon from "@mui/icons-material/Add";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import ExerciseItem from "./ExerciseItem";
+import MuscleRecoveryMap from "./MuscleRecoveryMap";
 import RepeatScheduleDialog from "./RepeatScheduleDialog";
 import { saveRecurringRule, saveWorkoutEntry } from "../utils/helpers";
 import { toast } from "react-toastify";
@@ -25,6 +26,7 @@ const WorkoutDisplay = ({
   darkMode,
   setRefetchExercises,
   refreshCalendarStatuses,
+  userProfile,
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [showWorkoutRepeatDialog, setShowWorkoutRepeatDialog] = useState(false);
@@ -495,6 +497,7 @@ const WorkoutDisplay = ({
                               shownMenuIndex={shownMenuIndex}
                               setShownMenuIndex={setShownMenuIndex}
                               darkMode={darkMode}
+                              userProfile={userProfile}
                             />
                           </Box>
                         )}
@@ -526,6 +529,7 @@ const WorkoutDisplay = ({
                 shownMenuIndex={shownMenuIndex}
                 setShownMenuIndex={setShownMenuIndex}
                 darkMode={darkMode}
+                userProfile={userProfile}
               />
             );
           })
@@ -684,6 +688,14 @@ const WorkoutDisplay = ({
           )}
         </Stack>
       </Paper>
+
+      <MuscleRecoveryMap
+        exercises={exercises}
+        userId={currentUserId}
+        sex={userProfile?.sex}
+        currentDate={currentDate}
+        darkMode={darkMode}
+      />
 
       {plannedExercises.length > 0
         ? renderSection(

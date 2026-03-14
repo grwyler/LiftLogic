@@ -91,7 +91,14 @@ const WorkoutsManager: React.FC<{
   routine: any;
   setRoutine: (routine: any) => void;
   darkMode: boolean;
-}> = ({ routine, setRoutine, darkMode }) => {
+  userProfile?: {
+    name?: string;
+    username?: string;
+    sex?: string;
+    age?: string;
+    preferredUnits?: "lb" | "kg";
+  } | null;
+}> = ({ routine, setRoutine, darkMode, userProfile }) => {
   const startDate = new Date();
   const {
     currentDay,
@@ -176,6 +183,7 @@ const WorkoutsManager: React.FC<{
               darkMode={darkMode}
               setRefetchExercises={setRefetchExercises}
               refreshCalendarStatuses={refreshCalendarStatuses}
+              userProfile={userProfile}
             />
           )}
         </Box>

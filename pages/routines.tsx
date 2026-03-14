@@ -48,6 +48,7 @@ import {
   workoutFrequencyOptions,
   workoutLengthOptions,
 } from "../utils/profileSetup";
+import { buildWorkoutCoachResponseFromRoutine } from "../utils/workoutGeneration";
 
 type Routine = any;
 
@@ -72,6 +73,7 @@ const RoutinesPage = ({
   const [routineViewKey, setRoutineViewKey] = useState(0);
   const [generatedCoachResponse, setGeneratedCoachResponse] = useState<any>(null);
   const [setupForm, setSetupForm] = useState(defaultSetupForm);
+  const [assistantName, setAssistantName] = useState("");
   const [assistantIntent, setAssistantIntent] = useState<"tracker" | "planner" | null>(
     null
   );
@@ -131,9 +133,25 @@ const RoutinesPage = ({
   }, [user, setDarkMode]);
 
   useEffect(() => {
+    if (!user || !routine || showSetupDialog) {
+      return;
+    }
+
+    const restored = buildWorkoutCoachResponseFromRoutine(
+      normalizeSetupForm(user),
+      routine
+    );
+
+    if (restored) {
+      setGeneratedCoachResponse(restored);
+    }
+  }, [routine, showSetupDialog, user]);
+
+  useEffect(() => {
     if (!user) return;
 
     setSetupForm(normalizeSetupForm(user));
+    setAssistantName(user.name || user.username || "");
 
     const welcomeRequested = router.query.welcome === "1";
     if (welcomeRequested || !user?.setupPromptSeen) {
@@ -159,8 +177,6 @@ const RoutinesPage = ({
     if (
       setupForm.trainingGoal ||
       setupForm.workoutDaysPerWeek ||
-      setupForm.sex ||
-      setupForm.age ||
       setupForm.currentFitnessLevel ||
       setupForm.experienceLevel ||
       setupForm.workoutLength ||
@@ -174,8 +190,8 @@ const RoutinesPage = ({
         Boolean(
           setupForm.sex ||
             setupForm.age ||
-            setupForm.currentFitnessLevel ||
-            setupForm.experienceLevel ||
+          setupForm.currentFitnessLevel ||
+          setupForm.experienceLevel ||
             setupForm.workoutLength ||
             setupForm.equipmentAccess.length > 0 ||
             setupForm.preferredTrainingDays.length > 0 ||
@@ -191,8 +207,6 @@ const RoutinesPage = ({
   }, [
     setupForm.trainingGoal,
     setupForm.workoutDaysPerWeek,
-    setupForm.sex,
-    setupForm.age,
     setupForm.currentFitnessLevel,
     setupForm.experienceLevel,
     setupForm.workoutLength,
@@ -335,6 +349,7 @@ const RoutinesPage = ({
 
     const nextUser = {
       ...user,
+      name: assistantName.trim() || user.name || user.username,
       ...setupForm,
       setupPromptSeen: true,
       setupCompleted: true,
@@ -364,6 +379,9 @@ const RoutinesPage = ({
 
     const nextUser = {
       ...user,
+      name: assistantName.trim() || user.name || user.username,
+      sex: setupForm.sex,
+      age: setupForm.age,
       setupPromptSeen: true,
       setupCompleted: true,
     };
@@ -390,6 +408,7 @@ const RoutinesPage = ({
 
     const nextUser = {
       ...user,
+      name: assistantName.trim() || user.name || user.username,
       ...setupForm,
       setupPromptSeen: true,
       setupCompleted: true,
@@ -581,6 +600,7 @@ const RoutinesPage = ({
               routine={routine}
               setRoutine={setRoutine}
               darkMode={darkMode}
+              userProfile={user}
             />
           </Box>
         </>
@@ -655,19 +675,18 @@ const RoutinesPage = ({
                     Workout Assistant
                   </Typography>
                   <Typography variant="h6" sx={{ mt: 0.25 }}>
-                    Give your workout assistant a strong starting point.
+                    Hi, I can help you get set up.
                   </Typography>
                   <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                    Pick the basics your workout assistant should optimize around, generate
-                    your first weekly plan, then refine it with follow-up chat
-                    instead of trying to get everything perfect up front.
+                    First I just need your name, age, and sex. Then I&apos;ll ask whether
+                    you want help building a workout plan or just want to use Lift Logic as a tracker.
                   </Typography>
                 </Box>
 
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip label="1. Build your assistant brief" color="primary" variant="filled" />
-                  <Chip label="2. Generate your plan" variant="outlined" />
-                  <Chip label="3. Refine it with assistant chat" variant="outlined" />
+                  <Chip label="1. Quick intro" color="primary" variant="filled" />
+                  <Chip label="2. Planning help if you want it" variant="outlined" />
+                  <Chip label="3. Refine later in chat" variant="outlined" />
                 </Stack>
               </Stack>
             </Paper>
@@ -683,8 +702,46 @@ const RoutinesPage = ({
               }}
             >
               <Stack spacing={1.5}>
+                <TextField
+                  label="Name"
+                  value={assistantName}
+                  onChange={(event) => setAssistantName(event.target.value)}
+                  fullWidth
+                />
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="Age"
+                    value={setupForm.age}
+                    onChange={handleSetupFieldChange("age")}
+                    fullWidth
+                    type="number"
+                    inputProps={{ min: 0, max: 120 }}
+                  />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                      Biological sex
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {sexOptions.map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          clickable
+                          color={setupForm.sex === option.value ? "primary" : "default"}
+                          variant={setupForm.sex === option.value ? "filled" : "outlined"}
+                          onClick={() =>
+                            setSetupForm((prev) => ({
+                              ...prev,
+                              sex: option.value,
+                            }))
+                          }
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                </Stack>
                 <Typography sx={{ fontWeight: 700 }}>
-                  What do you want help with?
+                  Do you want help setting up a workout plan?
                 </Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                   <Button
@@ -692,14 +749,14 @@ const RoutinesPage = ({
                     onClick={() => setAssistantIntent("tracker")}
                     fullWidth
                   >
-                    I just want to track workouts
+                    No, I just want to track workouts
                   </Button>
                   <Button
                     variant={assistantIntent === "planner" ? "contained" : "outlined"}
                     onClick={() => setAssistantIntent("planner")}
                     fullWidth
                   >
-                    Help me plan workouts
+                    Yes, help me plan workouts
                   </Button>
                 </Stack>
               </Stack>
@@ -790,43 +847,6 @@ const RoutinesPage = ({
                 </Stack>
               </Stack>
             </Paper>
-
-            <Box>
-              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                Biological sex
-              </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {sexOptions.map((option) => (
-                  <Chip
-                    key={option.value}
-                    label={option.label}
-                    clickable
-                    color={setupForm.sex === option.value ? "primary" : "default"}
-                    variant={setupForm.sex === option.value ? "filled" : "outlined"}
-                    onClick={() =>
-                      setSetupForm((prev) => ({
-                        ...prev,
-                        sex: option.value,
-                      }))
-                    }
-                  />
-                ))}
-              </Stack>
-            </Box>
-
-            <Box>
-              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                Age
-              </Typography>
-              <TextField
-                value={setupForm.age}
-                onChange={handleSetupFieldChange("age")}
-                fullWidth
-                type="number"
-                inputProps={{ min: 0, max: 120 }}
-                placeholder="35"
-              />
-            </Box>
 
             <Box>
               <Typography sx={{ fontWeight: 700, mb: 0.5 }}>

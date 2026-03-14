@@ -103,11 +103,7 @@ export default function CoachChatPanel({
   );
 
   useEffect(() => {
-    setMessages(buildInitialMessages(coachResponse));
-    setDraft("");
     setLoading(false);
-    setPlanExpanded(false);
-    setMinimized(false);
     setQuickReplies(coachResponse.suggestedReplies ?? []);
   }, [coachResponse]);
 

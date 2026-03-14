@@ -147,6 +147,17 @@ export const fetchWorkoutMonthEntries = async (
   monthDate: Date,
   routineName?: string
 ): Promise<WorkoutEntryDoc[]> => {
+  const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  return fetchWorkoutEntriesRange(userId, start, end, routineName);
+};
+
+export const fetchWorkoutEntriesRange = async (
+  userId: string,
+  startDate: Date,
+  endDate: Date,
+  routineName?: string
+): Promise<WorkoutEntryDoc[]> => {
   const toLocalDateKey = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -154,13 +165,10 @@ export const fetchWorkoutMonthEntries = async (
     return `${year}-${month}-${day}`;
   };
 
-  const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-
   const qs = new URLSearchParams({
     userId,
-    monthStart: toLocalDateKey(start),
-    monthEnd: toLocalDateKey(end),
+    monthStart: toLocalDateKey(startDate),
+    monthEnd: toLocalDateKey(endDate),
   });
 
   if (routineName) {
@@ -170,7 +178,7 @@ export const fetchWorkoutMonthEntries = async (
   const res = await fetch(`/api/workoutEntry?${qs.toString()}`);
   if (!res.ok) {
     const message = await res.text();
-    throw new Error(`fetchWorkoutMonthEntries ${res.status}: ${message}`);
+    throw new Error(`fetchWorkoutEntriesRange ${res.status}: ${message}`);
   }
 
   const data = (await res.json()) as { entries?: WorkoutEntryDoc[] };
