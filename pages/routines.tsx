@@ -48,7 +48,10 @@ import {
   workoutFrequencyOptions,
   workoutLengthOptions,
 } from "../utils/profileSetup";
-import { buildWorkoutCoachResponseFromRoutine } from "../utils/workoutGeneration";
+import {
+  buildSetupCoachResponse,
+  buildWorkoutCoachResponseFromRoutine,
+} from "../utils/workoutGeneration";
 
 type Routine = any;
 
@@ -359,6 +362,12 @@ const RoutinesPage = ({
       const response = await saveUser(nextUser);
       if (response?.success) {
         setUser(nextUser);
+        setGeneratedCoachResponse(
+          buildWorkoutCoachResponseFromRoutine(
+            normalizeSetupForm(nextUser),
+            routine
+          ) ?? buildSetupCoachResponse(normalizeSetupForm(nextUser))
+        );
         setShowSetupDialog(false);
         toast.success("Profile setup saved");
       } else {

@@ -780,6 +780,44 @@ export const buildWorkoutCoachResponseFromRoutine = (
   });
 };
 
+export const buildSetupCoachResponse = (
+  profile: SetupFormValues
+): WorkoutCoachResponse => {
+  const goalLabel = profile.trainingGoal
+    ? profile.trainingGoal.replace(/_/g, " ")
+    : "general training";
+  const frequencyLabel = profile.workoutDaysPerWeek
+    ? `${profile.workoutDaysPerWeek} day${profile.workoutDaysPerWeek === "1" ? "" : "s"}`
+    : "a flexible schedule";
+
+  return {
+    headline: "Your workout assistant is ready",
+    summary:
+      "Your preferences are saved. The assistant can now help you build a plan, adjust scheduling, and tailor exercises around your equipment.",
+    openingMessage: `I saved your setup and I’m ready to help you build something around ${goalLabel} with ${frequencyLabel} per week. If you want, I can draft a split, adjust your schedule, or help you figure out what kind of plan fits best.`,
+    plannedDays: [],
+    planSnapshot: [],
+    why: [
+      profile.trainingGoal
+        ? `I know your current goal is ${profile.trainingGoal.replace(/_/g, " ")}.`
+        : "You can tell me your main goal any time and I’ll adapt around it.",
+      profile.equipmentAccess.length > 0
+        ? `I’ll keep your equipment in mind: ${profile.equipmentAccess.join(", ")}.`
+        : "If you tell me what equipment you have, I can make the plan much more specific.",
+    ].filter(Boolean) as string[],
+    tips: [
+      "Ask me to build a split, shorten a day, or make the plan fit your schedule.",
+      "You can also tell me what equipment you have and I’ll make the exercise choices more realistic.",
+    ],
+    suggestedReplies: [
+      "Build me a 4 day split",
+      "I only have dumbbells",
+      "Help me pick the right goal",
+      "What plan would fit me best?",
+    ],
+  };
+};
+
 const buildPlanOverview = (coachResponse: WorkoutCoachResponse) =>
   coachResponse.planSnapshot
     .map(
