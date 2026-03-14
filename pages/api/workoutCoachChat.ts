@@ -36,7 +36,164 @@ type CoachAction =
         aliases?: string[];
         description?: string;
       };
+    }
+  | {
+      type: "create_recurring_exercise";
+      exerciseName: string;
+      exerciseType?: "weight" | "timed";
+      dayKey?: string;
+      recurrenceType?: "daily" | "weekly";
+      endDate?: string;
     };
+
+type PreferredDaySwap = {
+  fromDay: string;
+  toDay: string;
+  preferredTrainingDays: string[];
+};
+
+const isTimedExerciseName = (name: string) =>
+  /\b(run|row|rowing|bike|cycling|walk|jump rope|plank|carry|cardio|yoga|mobility|flow|stretch|elliptical|stair|interval|hold|hang|wall sit|dead hang|hollow hold|support hold)\b/i.test(
+    String(name).trim().toLowerCase()
+  );
+
+const inferExerciseMetadata = (name: string) => {
+  const lower = String(name).trim().toLowerCase();
+  const type: "weight" | "timed" = isTimedExerciseName(lower) ? "timed" : "weight";
+
+  if (type === "timed") {
+    if (/dead hang|hang|support hold/.test(lower)) {
+      return {
+        type,
+        equipment: ["Pull-Up Bar"],
+        target: "lats",
+        bodyPart: "pull",
+      };
+    }
+
+    if (/carry/.test(lower)) {
+      return {
+        type,
+        equipment: /dumbbell/.test(lower)
+          ? ["Dumbbells"]
+          : /trap bar/.test(lower)
+          ? ["Trap Bar"]
+          : ["Bodyweight"],
+        target: "grip",
+        bodyPart: "core",
+      };
+    }
+
+    if (/plank|dead bug|hollow hold|wall sit/.test(lower)) {
+      return {
+        type,
+        equipment: ["Bodyweight"],
+        target: "core",
+        bodyPart: "core",
+      };
+    }
+
+    if (/yoga|stretch|mobility|flow/.test(lower)) {
+      return {
+        type,
+        equipment: ["Bodyweight"],
+        target: "mobility",
+        bodyPart: "mobility",
+      };
+    }
+
+    if (/treadmill/.test(lower)) {
+      return {
+        type,
+        equipment: ["Treadmill"],
+        target: "conditioning",
+        bodyPart: "conditioning",
+      };
+    }
+
+    if (/bike|cycling/.test(lower)) {
+      return {
+        type,
+        equipment: ["Stationary Bike"],
+        target: "conditioning",
+        bodyPart: "conditioning",
+      };
+    }
+
+    if (/row/.test(lower)) {
+      return {
+        type,
+        equipment: ["Rowing Machine"],
+        target: "conditioning",
+        bodyPart: "conditioning",
+      };
+    }
+
+    if (/jump rope/.test(lower)) {
+      return {
+        type,
+        equipment: ["Jump Rope"],
+        target: "conditioning",
+        bodyPart: "conditioning",
+      };
+    }
+
+    return {
+      type,
+      equipment: ["Bodyweight"],
+      target: "conditioning",
+      bodyPart: "conditioning",
+    };
+  }
+
+  return {
+    type,
+    equipment: /dumbbell/.test(lower)
+      ? ["Dumbbells"]
+      : /barbell/.test(lower)
+      ? ["Barbell"]
+      : /cable/.test(lower)
+      ? ["Cable Machine"]
+      : /machine|press|curl|extension/.test(lower)
+      ? ["Machine"]
+      : ["Bodyweight"],
+    target: "general",
+    bodyPart: "full body",
+  };
+};
+
+const normalizeCoachAction = (action: CoachAction | null | undefined): CoachAction | null => {
+  if (!action) {
+    return null;
+  }
+
+  if (action.type === "create_catalog_exercise") {
+    const inferred = inferExerciseMetadata(action.exercise?.name ?? "");
+
+    return {
+      ...action,
+      exercise: {
+        ...action.exercise,
+        type: inferred.type,
+        equipment:
+          Array.isArray(action.exercise?.equipment) && action.exercise.equipment.length > 0
+            ? action.exercise.equipment
+            : inferred.equipment,
+        target: action.exercise?.target || inferred.target,
+        bodyPart: action.exercise?.bodyPart || inferred.bodyPart,
+      },
+    };
+  }
+
+  if (action.type === "create_recurring_exercise") {
+    return {
+      ...action,
+      exerciseType: inferExerciseMetadata(action.exerciseName).type,
+    };
+  }
+
+  return action;
+};
 
 const weekdayTokenMap: Record<string, string> = {
   mon: "Mon",
@@ -59,31 +216,68 @@ const weekdayTokenMap: Record<string, string> = {
   sunday: "Sun",
 };
 
+const weekdayMentionPattern =
+  "\\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday|s)?|thu(?:r|rs|rsday|rday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\\b";
+
 const normalizeWeekdayToken = (value?: string | null) => {
   if (!value) return null;
   return weekdayTokenMap[String(value).trim().toLowerCase()] ?? null;
+};
+
+const extractExplicitDaySwapTargets = (message: string) => {
+  const swapTargetPrefixPattern =
+    "(?:(?:it|that|this|my\\s+workout|the\\s+workout|training\\s+day|day)\\s+)?";
+  const patterns = [
+    {
+      regex: new RegExp(
+        `(?:move|switch|swap|shift|replace)\\s+${swapTargetPrefixPattern}(?:from\\s+)?${weekdayMentionPattern}\\s+(?:to|for|with)\\s+${weekdayMentionPattern}`,
+        "i"
+      ),
+      fromIndex: 1,
+      toIndex: 2,
+    },
+    {
+      regex: new RegExp(
+        `(?:can't|cannot|unable|not available|won't work|do not work|don't work)\\s+(?:do\\s+)?${weekdayMentionPattern}.*?(?:move|switch|swap|shift)\\s+${swapTargetPrefixPattern}(?:to|for|with)\\s+${weekdayMentionPattern}`,
+        "i"
+      ),
+      fromIndex: 1,
+      toIndex: 2,
+    },
+    {
+      regex: new RegExp(
+        `${weekdayMentionPattern}\\s+instead of\\s+${weekdayMentionPattern}`,
+        "i"
+      ),
+      fromIndex: 2,
+      toIndex: 1,
+    },
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern.regex);
+    if (!match) {
+      continue;
+    }
+
+    const fromDay = normalizeWeekdayToken(match[pattern.fromIndex]);
+    const toDay = normalizeWeekdayToken(match[pattern.toIndex]);
+
+    if (fromDay && toDay && fromDay !== toDay) {
+      return { fromDay, toDay };
+    }
+  }
+
+  return null;
 };
 
 const extractPreferredDaySwap = (
   message: string,
   profile: SetupFormValues,
   coachResponse: WorkoutCoachResponse
-) => {
-  const normalized = message.toLowerCase();
-  const matchedDays =
-    normalized.match(
-      /\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday|s)?|thu(?:r|rs|rsday|rday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/g
-    ) ?? [];
-
-  const days = Array.from(
-    new Set(
-      matchedDays
-        .map((day) => normalizeWeekdayToken(day))
-        .filter(Boolean) as string[]
-    )
-  );
-
-  if (days.length < 2) {
+) : PreferredDaySwap | null => {
+  const explicitSwap = extractExplicitDaySwapTargets(message);
+  if (!explicitSwap) {
     return null;
   }
 
@@ -94,26 +288,33 @@ const extractPreferredDaySwap = (
           .map((day) => normalizeWeekdayToken(day.dayLabel))
           .filter(Boolean) as string[];
 
-  const fromDay = days.find((day) => currentDays.includes(day)) ?? days[0];
-  const toDay = days.find((day) => day !== fromDay) ?? days[1];
-
-  if (!fromDay || !toDay || fromDay === toDay) {
+  if (currentDays.length > 0 && !currentDays.includes(explicitSwap.fromDay)) {
     return null;
   }
 
-  const baseDays = currentDays.length > 0 ? currentDays : days;
+  const baseDays =
+    currentDays.length > 0 ? currentDays : [explicitSwap.fromDay, explicitSwap.toDay];
   const preferredTrainingDays = Array.from(
-    new Set(baseDays.map((day) => (day === fromDay ? toDay : day)))
+    new Set(baseDays.map((day) => (day === explicitSwap.fromDay ? explicitSwap.toDay : day)))
   );
 
-  return { fromDay, toDay, preferredTrainingDays };
+  return {
+    fromDay: explicitSwap.fromDay,
+    toDay: explicitSwap.toDay,
+    preferredTrainingDays,
+  };
 };
 
 const extractUnavailableDays = (
   message: string,
   profile: SetupFormValues,
-  coachResponse: WorkoutCoachResponse
+  coachResponse: WorkoutCoachResponse,
+  preferredDaySwap: PreferredDaySwap | null
 ) => {
+  if (preferredDaySwap) {
+    return null;
+  }
+
   const normalized = message.toLowerCase();
   if (
     !/(can't|cannot|unable|not available|won't work|do not work|don't work|don't like|do not like|hate|prefer not|rather not|avoid)/.test(
@@ -124,9 +325,7 @@ const extractUnavailableDays = (
   }
 
   const matchedDays =
-    normalized.match(
-      /\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday|s)?|thu(?:r|rs|rsday|rday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/g
-    ) ?? [];
+    normalized.match(new RegExp(weekdayMentionPattern, "g")) ?? [];
 
   const unavailableDays = Array.from(
     new Set(
@@ -218,7 +417,7 @@ const askCoachWithAI = async ({
       {
         role: "system",
         content:
-          "You are the Lift Logic workout assistant. Explain plans like a calm, practical assistant. Return only JSON with keys reply, suggestedReplies, profilePatch, shouldRegeneratePlan, and action. reply should be 2-5 short sentences. suggestedReplies should be 2-4 short follow-up prompts. If the user changes training constraints like equipment, preferred training days, available dumbbell weight, goal, workout days, or workout length, include a profilePatch and set shouldRegeneratePlan true. If the user asks to move a workout from one weekday to another, update preferredTrainingDays to reflect that change and clearly say you handled it. If the user wants a scheduled day removed, return action {\"type\":\"remove_day_schedule\",\"dayKey\":\"monday\"}. If the user wants a new trackable exercise added to the app, return action {\"type\":\"create_catalog_exercise\",\"exercise\":{...}} with a simple useful exercise shape.",
+          "You are the Lift Logic workout assistant. Explain plans like a calm, practical assistant. Return only JSON with keys reply, suggestedReplies, profilePatch, shouldRegeneratePlan, and action. reply should be 2-5 short sentences. suggestedReplies should be 2-4 short follow-up prompts. If the user changes training constraints like equipment, preferred training days, available dumbbell weight, goal, workout days, or workout length, include a profilePatch and set shouldRegeneratePlan true. If the user asks to move a workout from one weekday to another, update preferredTrainingDays to reflect that change and clearly say you handled it. If the user asks what plan or split would fit them best, and profile context is already enough to draft one, set shouldRegeneratePlan true even if profilePatch is empty. If the user wants a scheduled day removed, return action {\"type\":\"remove_day_schedule\",\"dayKey\":\"monday\"}. If the user wants a recurring exercise added to the calendar, return action {\"type\":\"create_recurring_exercise\",\"exerciseName\":\"Squat\",\"dayKey\":\"monday\",\"recurrenceType\":\"weekly\",\"endDate\":\"2026-03-31\"}. If the user wants a new trackable exercise added to the app, return action {\"type\":\"create_catalog_exercise\",\"exercise\":{...}} with a simple useful exercise shape. Static holds, hangs, carries, planks, and similar duration-based movements should be typed as \"timed\", not \"weight\".",
       },
       {
         role: "user",
@@ -250,7 +449,12 @@ const extractFallbackPatch = (
   const normalized = message.toLowerCase();
   const patch: Partial<SetupFormValues> = {};
   const preferredDaySwap = extractPreferredDaySwap(message, profile, coachResponse);
-  const unavailableDays = extractUnavailableDays(message, profile, coachResponse);
+  const unavailableDays = extractUnavailableDays(
+    message,
+    profile,
+    coachResponse,
+    preferredDaySwap
+  );
 
   if (unavailableDays) {
     patch.preferredTrainingDays = unavailableDays.preferredTrainingDays;
@@ -305,10 +509,16 @@ const extractFallbackPatch = (
   const explicitRebuildRequest = /(?:make|build|create|generate|give)\s+me\b/.test(
     normalized
   ) && /split|plan|program|workout/.test(normalized);
+  const bestFitPlanRequest =
+    /what\s+(?:plan|split|program)\s+(?:would|will)\s+fit\s+me\s+best/.test(
+      normalized
+    ) ||
+    /what\s+would\s+fit\s+me\s+best/.test(normalized);
 
   return {
     patch,
-    shouldRegeneratePlan: explicitRebuildRequest || Object.keys(patch).length > 0,
+    shouldRegeneratePlan:
+      explicitRebuildRequest || bestFitPlanRequest || Object.keys(patch).length > 0,
     preferredDaySwap,
     unavailableDays,
   };
@@ -328,6 +538,45 @@ const extractFallbackAction = (message: string): CoachAction | null => {
     };
   }
 
+  const scheduleMatch =
+    normalized.match(
+      /(?:add|schedule|put|track|log|include)\s+(.+?)\s+on\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(.*)/
+    ) ??
+    normalized.match(
+      /(?:every|each)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:.*)\s+(?:add|schedule|put|track|log)\s+(.+)/
+    );
+
+  if (scheduleMatch) {
+    const rawExerciseName = (scheduleMatch[2] ? scheduleMatch[1] : scheduleMatch[2]) ?? "";
+    const rawDayKey = (scheduleMatch[2] ? scheduleMatch[2] : scheduleMatch[1]) ?? "";
+    const trailingText = (scheduleMatch[3] ?? "").trim();
+    const cleanedName = rawExerciseName
+      .replace(/\s+(for me|please)$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (cleanedName && rawDayKey) {
+      const now = new Date();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const endDate = /\bthis month\b/.test(trailingText)
+        ? `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(
+            2,
+            "0"
+          )}-${String(endOfMonth.getDate()).padStart(2, "0")}`
+        : undefined;
+      const lowerName = cleanedName.toLowerCase();
+
+      return {
+        type: "create_recurring_exercise",
+        exerciseName: cleanedName.replace(/\b\w/g, (char) => char.toUpperCase()),
+        exerciseType: inferExerciseMetadata(cleanedName).type,
+        dayKey: rawDayKey,
+        recurrenceType: "weekly",
+        endDate,
+      };
+    }
+  }
+
   const addExerciseMatch =
     normalized.match(/(?:add|track|include|create)\s+(?:an?\s+)?exercise\s+(?:called\s+)?(.+)/) ||
     normalized.match(/(?:add|track|include|create)\s+(.+?)\s+(?:to the library|to the app|as an exercise)/);
@@ -342,40 +591,16 @@ const extractFallbackAction = (message: string): CoachAction | null => {
       const titleCased = rawName.replace(/\b\w/g, (char) => char.toUpperCase());
       const lower = rawName.toLowerCase();
 
-      const type: "weight" | "timed" =
-        /run|rowing|cycling|bike|jump rope|plank|yoga|walk|elliptical|stair/.test(lower)
-          ? "timed"
-          : "weight";
-
-      const equipment =
-        type === "timed"
-          ? /treadmill/.test(lower)
-            ? ["Treadmill"]
-            : /bike|cycling/.test(lower)
-            ? ["Stationary Bike"]
-            : /row/.test(lower)
-            ? ["Rowing Machine"]
-            : /jump rope/.test(lower)
-            ? ["Jump Rope"]
-            : ["Bodyweight"]
-          : /dumbbell/.test(lower)
-          ? ["Dumbbells"]
-          : /barbell/.test(lower)
-          ? ["Barbell"]
-          : /cable/.test(lower)
-          ? ["Cable Machine"]
-          : /machine|press|curl|extension/.test(lower)
-          ? ["Machine"]
-          : ["Bodyweight"];
+      const inferred = inferExerciseMetadata(rawName);
 
       return {
         type: "create_catalog_exercise",
         exercise: {
           name: titleCased,
-          type,
-          equipment,
-          target: type === "timed" ? "conditioning" : "general",
-          bodyPart: type === "timed" ? "conditioning" : "full body",
+          type: inferred.type,
+          equipment: inferred.equipment,
+          target: inferred.target,
+          bodyPart: inferred.bodyPart,
           aliases: [],
           description: `Added by Lift Logic workout assistant from user request: ${titleCased}.`,
         },
@@ -496,7 +721,7 @@ export default async function handler(
               : coachResponse.suggestedReplies,
           profilePatch: aiReply.profilePatch ?? {},
           shouldRegeneratePlan: Boolean(aiReply.shouldRegeneratePlan),
-          action: aiReply.action ?? null,
+          action: normalizeCoachAction(aiReply.action ?? null),
           source: "ai",
         });
       }
@@ -519,13 +744,26 @@ export default async function handler(
             "Can I swap an exercise too?",
           ],
         }
+      : fallbackAction?.type === "create_recurring_exercise"
+      ? {
+          reply: `Yeah, I can add ${fallbackAction.exerciseName} to ${
+            fallbackAction.dayKey
+          } and put it on the calendar${
+            fallbackAction.endDate ? " for the rest of this month" : ""
+          }.`,
+          suggestedReplies: [
+            "Can you add another day too?",
+            "Can you make that bodyweight instead?",
+            "Show me what is on the calendar now",
+          ],
+        }
       : fallback;
 
     return res.status(200).json({
       ...fallbackReply,
       profilePatch: extracted.patch,
       shouldRegeneratePlan: extracted.shouldRegeneratePlan,
-      action: fallbackAction,
+      action: normalizeCoachAction(fallbackAction),
       source: "fallback",
     });
   } catch (error) {

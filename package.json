@@ -15,6 +15,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@hello-pangea/dnd": "^18.0.1",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
     "@mui/x-date-pickers": "^7.27.3",
@@ -29,7 +30,6 @@
     "nodemailer": "^6.10.1",
     "openai": "^4.28.0",
     "react": "^18.2.0",
-    "react-beautiful-dnd": "^13.1.1",
     "react-bootstrap": "^2.9.2",
     "react-datepicker": "^8.1.0",
     "react-dom": "^18.2.0",
@@ -39,6 +39,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.2",
     "@types/node": "12.20.55",
     "@types/react": "17.0.73",
     "@types/react-dom": "^17.0.1",

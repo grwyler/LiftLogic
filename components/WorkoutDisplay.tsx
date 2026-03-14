@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
-import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import AddIcon from "@mui/icons-material/Add";

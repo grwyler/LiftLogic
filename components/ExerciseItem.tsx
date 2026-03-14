@@ -119,40 +119,44 @@ const ExerciseItem = ({
     return null;
   };
 
-  useEffect(() => {
-    setCurrentExercise(exercise);
-    setIsRepeating(exercise.isRepeating);
-    setRestEditorValue(String(exercise.rest ?? 0));
+  const syncRepeatScheduleState = (sourceExercise: any) => {
     const parsedDate = parseFormattedDate(formattedDate);
     const defaultDay = parsedDate?.getDay() ?? 0;
     const defaultDayOfMonth = parsedDate?.getDate() ?? 1;
     const nextRecurrenceType =
-      (exercise as any).recurrenceType ??
-      (Array.isArray((exercise as any).daysOfWeek) &&
-      (exercise as any).daysOfWeek.length > 1
+      sourceExercise?.recurrenceType ??
+      (Array.isArray(sourceExercise?.daysOfWeek) &&
+      sourceExercise?.daysOfWeek.length > 1
         ? "custom"
         : "weekly");
 
     setRecurrenceType(nextRecurrenceType);
-    setRepeatDayOfWeek((exercise as any).dayOfWeek ?? defaultDay);
+    setRepeatDayOfWeek(sourceExercise?.dayOfWeek ?? defaultDay);
     setRepeatDaysOfWeek(
-      Array.isArray((exercise as any).daysOfWeek) &&
-        (exercise as any).daysOfWeek.length > 0
-        ? (exercise as any).daysOfWeek
-        : [((exercise as any).dayOfWeek ?? defaultDay)]
+      Array.isArray(sourceExercise?.daysOfWeek) &&
+        sourceExercise?.daysOfWeek.length > 0
+        ? sourceExercise.daysOfWeek
+        : [sourceExercise?.dayOfWeek ?? defaultDay]
     );
-    setRepeatDayOfMonth((exercise as any).dayOfMonth ?? defaultDayOfMonth);
+    setRepeatDayOfMonth(sourceExercise?.dayOfMonth ?? defaultDayOfMonth);
     setRepeatInterval(
       Math.max(
         1,
-        Number((exercise as any).interval ?? (exercise as any).intervalWeeks) || 1
+        Number(sourceExercise?.interval ?? sourceExercise?.intervalWeeks) || 1
       )
     );
     setRepeatEndDate(
-      (exercise as any).endDate
-        ? new Date((exercise as any).endDate).toISOString().slice(0, 10)
+      sourceExercise?.endDate
+        ? new Date(sourceExercise.endDate).toISOString().slice(0, 10)
         : ""
     );
+  };
+
+  useEffect(() => {
+    setCurrentExercise(exercise);
+    setIsRepeating(exercise.isRepeating);
+    setRestEditorValue(String(exercise.rest ?? 0));
+    syncRepeatScheduleState(exercise as any);
 
     if (exerciseIdentityRef.current !== exerciseIdentity) {
       exerciseIdentityRef.current = exerciseIdentity;
@@ -657,6 +661,7 @@ const ExerciseItem = ({
 
   const openRepeatDialog = (e: React.MouseEvent) => {
     e.stopPropagation();
+    syncRepeatScheduleState(currentExercise as any);
     setShowRepeatDialog(true);
   };
 

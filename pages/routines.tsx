@@ -9,6 +9,7 @@ import {
   fetchUser,
   fetchRoutine,
   generateWorkoutPlan,
+  saveRecurringRule,
   saveExercise,
   saveUser,
 } from "../utils/helpers";
@@ -222,23 +223,58 @@ const RoutinesPage = ({
 
   useEffect(() => {
     let wakeLock: any = null;
+    let isDisposed = false;
+
+    const releaseWakeLock = async () => {
+      if (!wakeLock) {
+        return;
+      }
+
+      try {
+        await wakeLock.release();
+      } catch {
+        // Ignore release failures from browsers that auto-release on visibility changes.
+      } finally {
+        wakeLock = null;
+      }
+    };
 
     const requestWakeLock = async () => {
+      if (
+        isDisposed ||
+        typeof document === "undefined" ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+
       try {
         if ((navigator as any)?.wakeLock) {
           wakeLock = await (navigator as any).wakeLock.request("screen");
         }
       } catch (error: any) {
-        console.error(`${error?.name}, ${error?.message}`);
+        if (error?.name === "NotAllowedError") {
+          return;
+        }
       }
     };
 
-    requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock();
+        return;
+      }
+
+      void releaseWakeLock();
+    };
+
+    void requestWakeLock();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      if (wakeLock) {
-        wakeLock.release();
-      }
+      isDisposed = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void releaseWakeLock();
     };
   }, []);
 
@@ -317,6 +353,15 @@ const RoutinesPage = ({
     setupForm.age,
     showPlanningDetails,
   ]);
+  const setupDialogCoachResponse = useMemo(
+    () =>
+      buildSetupCoachResponse({
+        ...setupForm,
+        age: setupForm.age,
+        sex: setupForm.sex,
+      }),
+    [setupForm]
+  );
 
   const handleSetupFieldChange =
     (field: keyof typeof setupForm) =>
@@ -399,6 +444,7 @@ const RoutinesPage = ({
       const response = await saveUser(nextUser);
       if (response?.success) {
         setUser(nextUser);
+        setGeneratedCoachResponse(buildSetupCoachResponse(normalizeSetupForm(nextUser)));
         setShowSetupDialog(false);
         toast.success("Tracker mode is ready");
       } else {
@@ -538,6 +584,82 @@ const RoutinesPage = ({
       });
 
       return `${action.exercise.name} is in your exercise library now, so you can add it like any other movement.`;
+    }
+
+    if (action.type === "create_recurring_exercise" && action.exerciseName) {
+      const dayIndexLookup: Record<string, number> = {
+        sunday: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+      };
+      const dayLabelLookup: Record<string, string> = {
+        sunday: "Sunday",
+        monday: "Monday",
+        tuesday: "Tuesday",
+        wednesday: "Wednesday",
+        thursday: "Thursday",
+        friday: "Friday",
+        saturday: "Saturday",
+      };
+      const dayKey = String(action.dayKey ?? "").toLowerCase();
+      const dayOfWeek = dayIndexLookup[dayKey];
+
+      if (dayOfWeek === undefined) {
+        return "I couldn't tell which day to schedule that on.";
+      }
+
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const delta = (dayOfWeek - startDate.getDay() + 7) % 7;
+      startDate.setDate(startDate.getDate() + delta);
+
+      const endDate = action.endDate ? new Date(action.endDate) : undefined;
+      const exerciseName = String(action.exerciseName).trim();
+      const exerciseType = action.exerciseType === "timed" ? "timed" : "weight";
+      const templateSets =
+        exerciseType === "timed"
+          ? [{ name: "Set 1", minutes: 20 }]
+          : [
+              { name: "Set 1", reps: 8, weight: 0 },
+              { name: "Set 2", reps: 8, weight: 0 },
+              { name: "Set 3", reps: 8, weight: 0 },
+            ];
+
+      await saveRecurringRule({
+        userId: sessionUserId,
+        exerciseId: exerciseName.toLowerCase().replace(/\s+/g, "-"),
+        exerciseName,
+        exerciseType,
+        routineName: `${dayLabelLookup[dayKey]} Assistant Add-On`,
+        recurrenceType: action.recurrenceType === "daily" ? "daily" : "weekly",
+        interval: 1,
+        intervalWeeks: 1,
+        dayOfWeek,
+        daysOfWeek: [dayOfWeek],
+        startDate,
+        endDate,
+        templateSets,
+        defaultMax: 0,
+        defaultRest: exerciseType === "timed" ? 0 : 90,
+        active: true,
+      } as any);
+
+      setRoutineViewKey((prev) => prev + 1);
+
+      const throughLine =
+        endDate && !Number.isNaN(endDate.getTime())
+          ? ` through ${endDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}`
+          : "";
+
+      return `I added ${exerciseName} to ${dayLabelLookup[dayKey]}${throughLine}.`;
     }
   };
 
@@ -699,6 +821,14 @@ const RoutinesPage = ({
                 </Stack>
               </Stack>
             </Paper>
+
+            <CoachChatPanel
+              coachResponse={setupDialogCoachResponse}
+              profile={setupForm}
+              onApplyProfilePatch={(patch) =>
+                setSetupForm((prev) => normalizeSetupForm({ ...prev, ...patch }))
+              }
+            />
 
             <Paper
               elevation={0}

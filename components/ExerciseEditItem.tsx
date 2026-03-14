@@ -17,7 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { FaSave, FaTimes } from "react-icons/fa";
-import { DragDropContext, Droppable } from "react-beautiful-dnd";
+import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 
 import TimerInput from "./TimerInput";
 import SetEditTimerItem from "./SetEditTimerItem";

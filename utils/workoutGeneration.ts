@@ -103,6 +103,10 @@ const getEquipmentTags = (value: string) => {
   if (/machine|selectorized|smith/.test(normalized)) tags.add("machines");
   if (/smith/.test(normalized)) tags.add("smith");
   if (/pull-up/.test(normalized)) tags.add("pullup_bar");
+  if (/dip bars?|parallel bars?/.test(normalized)) tags.add("dip_bars");
+  if (/preacher/.test(normalized)) tags.add("preacher_bench");
+  if (/ez curl/.test(normalized)) tags.add("ez_bar");
+  if (/trap bar/.test(normalized)) tags.add("trap_bar");
   if (/band/.test(normalized)) tags.add("bands");
   if (/bike|cycling|treadmill|rowing|stair|elliptical|cardio/.test(normalized)) {
     tags.add("cardio");
@@ -113,6 +117,53 @@ const getEquipmentTags = (value: string) => {
   if (/stair|elliptical/.test(normalized)) tags.add("stair_elliptical");
 
   return tags;
+};
+
+const getSelectedEquipmentTags = (profile: SetupFormValues) =>
+  new Set(
+    profile.equipmentAccess.flatMap((item) => Array.from(getEquipmentTags(item)))
+  );
+
+const requiredSupportTags = [
+  "bench",
+  "rack",
+  "pullup_bar",
+  "dip_bars",
+  "preacher_bench",
+] as const;
+
+const getRequiredSupportTags = (equipment: string[]) => {
+  const required = new Set<string>();
+
+  equipment.forEach((item) => {
+    const tags = getEquipmentTags(item);
+
+    requiredSupportTags.forEach((tag) => {
+      if (tags.has(tag)) {
+        required.add(tag);
+      }
+    });
+  });
+
+  return required;
+};
+
+const isHomeDumbbellProfile = (profile: SetupFormValues) => {
+  const tags = getSelectedEquipmentTags(profile);
+
+  return (
+    tags.has("dumbbells") &&
+    ![
+      "full_gym",
+      "barbell",
+      "rack",
+      "bench",
+      "cable",
+      "machines",
+      "smith",
+      "pullup_bar",
+    ].some((tag) => tags.has(tag))
+  );
 };
 
 const normalizeGoalForProgramming = (goal: string) => {
@@ -141,13 +192,18 @@ const equipmentMatchesProfile = (
     return true;
   }
 
-  const equipmentTags = equipment.flatMap((item) => Array.from(getEquipmentTags(item)));
-  const selectedTags = profile.equipmentAccess.flatMap((item) =>
-    Array.from(getEquipmentTags(item))
+  const equipmentTags = Array.from(
+    new Set(equipment.flatMap((item) => Array.from(getEquipmentTags(item))))
   );
+  const selectedTags = Array.from(getSelectedEquipmentTags(profile));
+  const requiredTags = Array.from(getRequiredSupportTags(equipment));
 
-  if (selectedTags.includes("bodyweight")) {
+  if (selectedTags.length === 1 && selectedTags.includes("bodyweight")) {
     return equipmentTags.every((item) => item === "bodyweight");
+  }
+
+  if (requiredTags.some((tag) => !selectedTags.includes(tag))) {
+    return false;
   }
 
   return equipmentTags.some((tag) => {
@@ -163,7 +219,11 @@ const equipmentMatchesProfile = (
       return true;
     }
 
-    if (tag === "bench" && selectedTags.includes("dumbbells")) {
+    if (tag === "ez_bar" && selectedTags.includes("barbell")) {
+      return true;
+    }
+
+    if (tag === "trap_bar" && selectedTags.includes("barbell")) {
       return true;
     }
 
@@ -181,43 +241,98 @@ const equipmentMatchesProfile = (
 
 const findEquipmentFriendlyAlternative = (
   exerciseName: string,
-  profile: SetupFormValues
+  profile: SetupFormValues,
+  excludedNames: Set<string> = new Set()
 ) => {
   const original = resolveCatalogExercise(exerciseName);
   const candidates = initialExercises.filter((exercise) =>
     equipmentMatchesProfile(exercise.equipment, profile)
   );
+  const availableCandidates = candidates.filter(
+    (exercise) => !excludedNames.has(normalizeName(exercise.name))
+  );
+  const pool = availableCandidates.length > 0 ? availableCandidates : candidates;
+
+  const scoreCandidate = (exercise: any) => {
+    if (!original) {
+      return 0;
+    }
+
+    let score = 0;
+
+    if (exercise.type === original.type) score += 4;
+    if (exercise.target === original.target) score += 6;
+    if (exercise.bodyPart === original.bodyPart) score += 3;
+
+    if (
+      isHomeDumbbellProfile(profile) &&
+      Array.from(getRequiredSupportTags(exercise.equipment)).length === 0
+    ) {
+      score += 2;
+    }
+
+    return score;
+  };
+
+  const pickBestMatch = (matches: typeof initialExercises) =>
+    [...matches].sort((left, right) => scoreCandidate(right) - scoreCandidate(left))[0] ?? null;
+  const pickMatch = (matcher: (exercise: any) => boolean) =>
+    pickBestMatch(pool.filter(matcher)) ?? pickBestMatch(candidates.filter(matcher));
 
   if (!original) {
-    return candidates[0] ?? null;
+    return pool[0] ?? null;
   }
 
   return (
-    candidates.find(
+    pickMatch(
       (exercise) =>
         exercise.type === original.type && exercise.target === original.target
     ) ??
-    candidates.find(
+    pickMatch(
       (exercise) =>
         exercise.type === original.type && exercise.bodyPart === original.bodyPart
     ) ??
-    candidates.find((exercise) => exercise.type === original.type) ??
+    pickMatch((exercise) => exercise.type === original.type) ??
+    pickBestMatch(pool) ??
+    pickBestMatch(candidates) ??
     null
   );
 };
 
-const resolveExerciseForProfile = (name: string, profile: SetupFormValues) => {
+const resolveExerciseForProfile = (
+  name: string,
+  profile: SetupFormValues,
+  excludedNames: Set<string> = new Set()
+) => {
   const direct = resolveCatalogExercise(name);
-  if (direct && equipmentMatchesProfile(direct.equipment, profile)) {
+  if (
+    direct &&
+    equipmentMatchesProfile(direct.equipment, profile) &&
+    !excludedNames.has(normalizeName(direct.name))
+  ) {
     return direct;
   }
 
-  return findEquipmentFriendlyAlternative(name, profile);
+  return findEquipmentFriendlyAlternative(name, profile, excludedNames);
 };
 
 const parsePositiveNumber = (value?: string) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const isLightDumbbellHomeProfile = (profile: SetupFormValues) => {
+  if (!isHomeDumbbellProfile(profile)) {
+    return false;
+  }
+
+  const maxDumbbellWeight = parsePositiveNumber(profile.maxDumbbellWeight);
+  if (!maxDumbbellWeight) {
+    return false;
+  }
+
+  const lightDumbbellLimit = profile.preferredUnits === "kg" ? 12 : 25;
+  return maxDumbbellWeight <= lightDumbbellLimit;
 };
 
 const getWeightDefaults = (goal: string, timed = false) => {
@@ -282,19 +397,30 @@ const getTargetWeight = (exercise: any, profile: SetupFormValues) => {
   return 0;
 };
 
-const getRepTarget = (goal: string, exercise: any) => {
+const getRepTarget = (goal: string, exercise: any, profile: SetupFormValues) => {
   if (exercise.type === "timed") {
     return null;
   }
 
+  const name = normalizeName(exercise.name);
+  const normalizedEquipment = exercise.equipment.map(normalizeEquipmentText);
+
   if (goal === "strength") {
-    return /curl|raise|pushdown|fly|extension/.test(normalizeName(exercise.name))
+    return /curl|raise|pushdown|fly|extension/.test(name)
       ? 8
       : 5;
   }
 
   if (goal === "conditioning" || goal === "fat_loss") {
     return 10;
+  }
+
+  if (
+    goal === "muscle" &&
+    isLightDumbbellHomeProfile(profile) &&
+    normalizedEquipment.some((item: string) => /dumbbell|bodyweight/.test(item))
+  ) {
+    return /curl|raise|fly|extension/.test(name) ? 15 : 12;
   }
 
   return goal === "muscle" ? 8 : 8;
@@ -333,7 +459,7 @@ const getRestTarget = (goal: string, exercise: any) => {
 };
 
 const inferExerciseType = (name: string): "weight" | "timed" =>
-  /run|row|bike|cycle|walk|jump rope|plank|carry|treadmill|elliptical|stair|cardio|interval|hold/.test(
+  /run|row|bike|cycle|walk|jump rope|plank|carry|treadmill|elliptical|stair|cardio|interval|hold|hang|wall sit|support hold/.test(
     normalizeName(name)
   )
     ? "timed"
@@ -350,10 +476,14 @@ const createFallbackExerciseDefinition = (name: string) => ({
 const buildExercise = (
   name: string,
   goal: string,
-  profile: SetupFormValues
+  profile: SetupFormValues,
+  excludedNames: Set<string> = new Set()
 ): GeneratedExercise => {
   const catalogExercise =
-    resolveExerciseForProfile(name, profile) ?? resolveCatalogExercise(name);
+    resolveExerciseForProfile(name, profile, excludedNames) ??
+    ((!profile.equipmentAccess.length || profile.equipmentAccess.includes("Full gym"))
+      ? resolveCatalogExercise(name)
+      : null);
   const resolvedExercise =
     catalogExercise ?? createFallbackExerciseDefinition(name);
 
@@ -377,7 +507,7 @@ const buildExercise = (
 
   const defaults = getWeightDefaults(goal, false);
   const setTarget = getSetTarget(goal, resolvedExercise);
-  const repTarget = getRepTarget(goal, resolvedExercise) ?? defaults.reps;
+  const repTarget = getRepTarget(goal, resolvedExercise, profile) ?? defaults.reps;
   const restTarget = getRestTarget(goal, resolvedExercise);
   const targetWeight = getTargetWeight(resolvedExercise, profile);
   return {
@@ -393,6 +523,20 @@ const buildExercise = (
       complete: false,
     })),
   };
+};
+
+const buildExercisesForDay = (
+  exerciseNames: string[],
+  goal: string,
+  profile: SetupFormValues
+) => {
+  const usedNames = new Set<string>();
+
+  return exerciseNames.map((name) => {
+    const exercise = buildExercise(name, goal, profile, usedNames);
+    usedNames.add(normalizeName(exercise.name));
+    return exercise;
+  });
 };
 
 const pickDays = (profile: SetupFormValues) => {
@@ -430,7 +574,7 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
   const normalizedGoal = normalizeGoalForProgramming(goal);
   const days = pickDays(profile);
 
-  const templates: Record<string, { title: string; exerciseNames: string[] }[]> = {
+  const defaultTemplates: Record<string, { title: string; exerciseNames: string[] }[]> = {
     strength: [
       {
         title: "Lower Strength",
@@ -503,6 +647,110 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
     ],
   };
 
+  const homeDumbbellTemplates: Record<
+    string,
+    { title: string; exerciseNames: string[] }[]
+  > = {
+    strength: [
+      {
+        title: "Lower Strength",
+        exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Plank"],
+      },
+      {
+        title: "Upper Strength",
+        exerciseNames: [
+          "Dumbbell Floor Press",
+          "One-Arm Dumbbell Row",
+          "Standing Dumbbell Shoulder Press",
+          "Farmer Carry",
+        ],
+      },
+      {
+        title: "Posterior + Pull",
+        exerciseNames: [
+          "Romanian Deadlift",
+          "One-Arm Dumbbell Row",
+          "Rear Delt Fly",
+          "Hammer Curl",
+        ],
+      },
+    ],
+    muscle: [
+      {
+        title: "Push",
+        exerciseNames: [
+          "Dumbbell Floor Press",
+          "Push-Up",
+          "Lateral Raise",
+          "Overhead Dumbbell Triceps Extension",
+        ],
+      },
+      {
+        title: "Pull",
+        exerciseNames: ["One-Arm Dumbbell Row", "Shrug", "Rear Delt Fly", "Hammer Curl"],
+      },
+      {
+        title: "Legs",
+        exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Farmer Carry"],
+      },
+    ],
+    conditioning: [
+      {
+        title: "Conditioning + Core",
+        exerciseNames: ["Jump Rope", "Plank", "Dead Bug"],
+      },
+      {
+        title: "Full Body Circuit",
+        exerciseNames: ["Goblet Squat", "Push-Up", "Walking Lunge", "Jump Rope"],
+      },
+      {
+        title: "Engine Builder",
+        exerciseNames: ["Farmer Carry", "Walking Lunge", "Dead Bug"],
+      },
+    ],
+    fat_loss: [
+      {
+        title: "Full Body A",
+        exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Jump Rope"],
+      },
+      {
+        title: "Full Body B",
+        exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Plank"],
+      },
+      {
+        title: "Full Body C",
+        exerciseNames: [
+          "Walking Lunge",
+          "Standing Dumbbell Shoulder Press",
+          "Hammer Curl",
+          "Farmer Carry",
+        ],
+      },
+    ],
+    consistency: [
+      {
+        title: "Full Body A",
+        exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Plank"],
+      },
+      {
+        title: "Full Body B",
+        exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Farmer Carry"],
+      },
+      {
+        title: "Full Body C",
+        exerciseNames: [
+          "Walking Lunge",
+          "Standing Dumbbell Shoulder Press",
+          "Hammer Curl",
+          "Dead Bug",
+        ],
+      },
+    ],
+  };
+
+  const templates = isHomeDumbbellProfile(profile)
+    ? homeDumbbellTemplates
+    : defaultTemplates;
   const split = templates[normalizedGoal] ?? templates.consistency;
 
   return days.map((dayKey, index) => {
@@ -510,8 +758,10 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
     return {
       dayKey,
       title: template.title,
-      exercises: template.exerciseNames.map((name) =>
-        buildExercise(name, normalizedGoal, profile)
+      exercises: buildExercisesForDay(
+        template.exerciseNames,
+        normalizedGoal,
+        profile
       ),
     };
   });
@@ -551,7 +801,21 @@ export const buildFallbackWorkoutPlan = (
 };
 
 export const buildWorkoutGenerationPrompt = (profile: SetupFormValues) => {
-  const allowedExerciseNames = initialExercises.map((exercise) => exercise.name).join(", ");
+  const compatibleExercises = initialExercises.filter((exercise) =>
+    equipmentMatchesProfile(exercise.equipment, profile)
+  );
+  const allowedExercises =
+    compatibleExercises.length > 0 ? compatibleExercises : initialExercises;
+  const allowedExerciseNames = allowedExercises
+    .map((exercise) => exercise.name)
+    .join(", ");
+  const exampleExercises = allowedExercises
+    .slice(0, 2)
+    .map((exercise) => `        { "name": ${JSON.stringify(exercise.name)} }`)
+    .join(",\n");
+  const lightDumbbellRule = isLightDumbbellHomeProfile(profile)
+    ? "\n- Because the user only has light dumbbells, favor floor press, one-arm rows, push-up progressions, unilateral lower-body work, carries, and higher-rep accessory work."
+    : "";
 
   return `
 You are generating a weekly workout plan for a fitness app.
@@ -564,8 +828,7 @@ Return only valid JSON with this shape:
       "dayKey": "monday",
       "title": "Push Day",
       "exercises": [
-        { "name": "Bench Press" },
-        { "name": "Overhead Press" }
+${exampleExercises}
       ]
     }
   ]
@@ -589,6 +852,7 @@ Rules:
 - Limitations: ${profile.limitations || "none specified"}
 - Notes: ${profile.notes || "none specified"}
 - Keep each workout simple and realistic for the stated experience and workout length
+- Only choose movements that can actually be done with the listed equipment. Do not assume access to a bench, rack, cable station, machine, or pull-up bar unless it is listed.${lightDumbbellRule}
 - Do not include more than 6 exercises in a day
 `.trim();
 };
@@ -620,9 +884,7 @@ export const normalizeGeneratedPlan = (
         title: String(day?.title ?? `${dayKey} workout`)
           .replace(/\s+/g, " ")
           .trim(),
-        exercises: exerciseNames.map((name: string) =>
-          buildExercise(name, goal, profile)
-        ),
+        exercises: buildExercisesForDay(exerciseNames, goal, profile),
       };
     })
     .filter(Boolean) as GeneratedWorkoutDay[];
@@ -855,6 +1117,42 @@ export const buildFallbackCoachReply = ({
   coachResponse: WorkoutCoachResponse;
 }) => {
   const normalized = message.toLowerCase();
+  const hasGeneratedPlan = (coachResponse.planSnapshot ?? []).length > 0;
+
+  if (
+    !hasGeneratedPlan &&
+    /(what\s+(plan|split|program).*(fit me best|best for me)|what would fit me best)/.test(
+      normalized
+    )
+  ) {
+    const goalLabel = profile.trainingGoal
+      ? profile.trainingGoal.replace(/_/g, " ")
+      : "general training";
+    const daysPerWeek = Number(profile.workoutDaysPerWeek || 0);
+    const splitLabel =
+      daysPerWeek >= 4
+        ? `${daysPerWeek}-day upper-lower or full-body split`
+        : daysPerWeek >= 2
+        ? `${daysPerWeek}-day full-body split`
+        : "simple full-body split";
+
+    return {
+      reply:
+        daysPerWeek > 0
+          ? `Based on ${goalLabel} and ${daysPerWeek} training day${
+              daysPerWeek === 1 ? "" : "s"
+            } per week, ${splitLabel} is probably your best fit. I can draft that now and put it on the calendar so you have something concrete to start from.`
+          : `A simple full-body split is usually the best starting point when the goal is ${goalLabel}. Tell me how many days per week you want to train and I can draft it properly.`,
+      suggestedReplies:
+        daysPerWeek > 0
+          ? [
+              "Build that plan for me",
+              "Can you keep the workouts short?",
+              "I only have dumbbells",
+            ]
+          : ["I want to train 3 days per week", "I want to train 4 days per week"],
+    };
+  }
 
   if (/(why|reason|picked|choose|chose|split)/.test(normalized)) {
     return {
