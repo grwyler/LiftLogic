@@ -169,6 +169,14 @@ export default async function handler(
       } = entry;
 
       const normalizedSets = normalizeWorkoutEntrySets(cleanEntry.sets);
+      const shouldUnsetRuleId =
+        Object.prototype.hasOwnProperty.call(cleanEntry, "ruleId") &&
+        (cleanEntry as any).ruleId == null;
+
+      const {
+        ruleId: incomingRuleId,
+        ...settableEntry
+      } = cleanEntry as WorkoutEntryDoc & { ruleId?: string | null };
 
       const filter = {
         userId: entry.userId,
@@ -181,12 +189,14 @@ export default async function handler(
         filter,
         {
           $set: {
-            ...cleanEntry,
+            ...settableEntry,
+            ...(shouldUnsetRuleId ? {} : { ruleId: incomingRuleId }),
             sets: normalizedSets,
             exerciseId,
             date: parsedDate,
             updatedAt: new Date(),
           },
+          ...(shouldUnsetRuleId ? { $unset: { ruleId: "" } } : {}),
           $setOnInsert: { createdAt: new Date() },
         },
         { upsert: true }

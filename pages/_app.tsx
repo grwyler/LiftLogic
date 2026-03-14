@@ -20,6 +20,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       mode: darkMode ? "dark" : "light",
       primary: {
         main: darkMode ? "#f8fafc" : "#111827",
+        contrastText: darkMode ? "#0f172a" : "#ffffff",
       },
       secondary: {
         main: darkMode ? "#94a3b8" : "#6b7280",
@@ -128,6 +129,17 @@ function MyApp({ Component, pageProps }: AppProps) {
             backgroundColor: darkMode
               ? "rgba(255,255,255,0.05)"
               : "rgba(255,255,255,0.72)",
+            color: darkMode ? "#f8fafc" : "#101828",
+          },
+          filledPrimary: {
+            backgroundColor: darkMode ? "#f8fafc" : "#111827",
+            color: darkMode ? "#0f172a" : "#ffffff",
+          },
+          outlinedPrimary: {
+            borderColor: darkMode
+              ? "rgba(248, 250, 252, 0.48)"
+              : "rgba(17, 24, 39, 0.24)",
+            color: darkMode ? "#f8fafc" : "#111827",
           },
         },
       },

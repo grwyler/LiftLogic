@@ -20,6 +20,7 @@ import SelectedSetItem from "./SelectedSetItem";
 import CompletedSetItem from "./CompletedSetItem";
 import SetItem from "./SetItem";
 import ExerciseEditItem from "./ExerciseEditItem";
+import RepeatScheduleDialog from "./RepeatScheduleDialog";
 import CRUDMenuButton from "./CRUDMenuButton";
 import {
   deleteWorkoutEntry,
@@ -64,7 +65,16 @@ const ExerciseItem = ({
   const [currentExercise, setCurrentExercise] = useState(exercise);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRepeatDialog, setShowRepeatDialog] = useState(false);
   const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
+  const [recurrenceType, setRecurrenceType] = useState<
+    "daily" | "weekly" | "custom" | "monthly"
+  >("weekly");
+  const [repeatInterval, setRepeatInterval] = useState(1);
+  const [repeatDayOfWeek, setRepeatDayOfWeek] = useState(0);
+  const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>([0]);
+  const [repeatDayOfMonth, setRepeatDayOfMonth] = useState(1);
+  const [repeatEndDate, setRepeatEndDate] = useState("");
   const [recommendation, setRecommendation] = useState<any>(null);
   const [progressSummary, setProgressSummary] = useState<any>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
@@ -89,10 +99,59 @@ const ExerciseItem = ({
     exercise?.ruleId ?? exercise?.exerciseId ?? exercise?._id ?? exercise?.name ?? exerciseIndex
   );
 
+  const parseFormattedDate = (value: string): Date | null => {
+    const trimmed = value.trim();
+    const direct = new Date(trimmed);
+    if (!Number.isNaN(+direct)) {
+      return direct;
+    }
+
+    const needsYear = !/\b\d{4}\b/.test(trimmed);
+    if (needsYear) {
+      const withYear = `${trimmed} ${new Date().getFullYear()}`;
+      const fallback = new Date(withYear);
+      if (!Number.isNaN(+fallback)) {
+        return fallback;
+      }
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     setCurrentExercise(exercise);
     setIsRepeating(exercise.isRepeating);
     setRestEditorValue(String(exercise.rest ?? 0));
+    const parsedDate = parseFormattedDate(formattedDate);
+    const defaultDay = parsedDate?.getDay() ?? 0;
+    const defaultDayOfMonth = parsedDate?.getDate() ?? 1;
+    const nextRecurrenceType =
+      (exercise as any).recurrenceType ??
+      (Array.isArray((exercise as any).daysOfWeek) &&
+      (exercise as any).daysOfWeek.length > 1
+        ? "custom"
+        : "weekly");
+
+    setRecurrenceType(nextRecurrenceType);
+    setRepeatDayOfWeek((exercise as any).dayOfWeek ?? defaultDay);
+    setRepeatDaysOfWeek(
+      Array.isArray((exercise as any).daysOfWeek) &&
+        (exercise as any).daysOfWeek.length > 0
+        ? (exercise as any).daysOfWeek
+        : [((exercise as any).dayOfWeek ?? defaultDay)]
+    );
+    setRepeatDayOfMonth((exercise as any).dayOfMonth ?? defaultDayOfMonth);
+    setRepeatInterval(
+      Math.max(
+        1,
+        Number((exercise as any).interval ?? (exercise as any).intervalWeeks) || 1
+      )
+    );
+    setRepeatEndDate(
+      (exercise as any).endDate
+        ? new Date((exercise as any).endDate).toISOString().slice(0, 10)
+        : ""
+    );
 
     if (exerciseIdentityRef.current !== exerciseIdentity) {
       exerciseIdentityRef.current = exerciseIdentity;
@@ -548,6 +607,7 @@ const ExerciseItem = ({
       }
 
       setRefetchExercises((prev) => !prev);
+      refreshCalendarStatuses?.();
       toast.success(
         scope === "all"
           ? "Removed from all recurring days"
@@ -577,6 +637,7 @@ const ExerciseItem = ({
       date: updatedExercise.date ?? formattedDate,
     });
     setRefetchExercises((prev) => !prev);
+    refreshCalendarStatuses?.();
   };
 
   if (isEditing) {
@@ -592,113 +653,173 @@ const ExerciseItem = ({
     );
   }
 
-  const toggleRepeat = async (e: React.MouseEvent) => {
+  const openRepeatDialog = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const parseFormattedDate = (value: string): Date | null => {
-      const trimmed = value.trim();
-      const direct = new Date(trimmed);
-      if (!Number.isNaN(+direct)) {
-        return direct;
-      }
+    setShowRepeatDialog(true);
+  };
 
-      const needsYear = !/\b\d{4}\b/.test(trimmed);
-      if (needsYear) {
-        const withYear = `${trimmed} ${new Date().getFullYear()}`;
-        const fallback = new Date(withYear);
-        if (!Number.isNaN(+fallback)) {
-          return fallback;
-        }
-      }
-
-      return null;
-    };
-
+  const handleDisableRepeat = async () => {
     const parsedDate = parseFormattedDate(formattedDate);
-    if (!parsedDate) return console.error("Bad date:", formattedDate);
-    if (!currentUserId) {
-      console.error("Missing userId for repeat toggle");
+    if (!parsedDate || !currentUserId) {
+      toast.error("Couldn't update the schedule");
       return;
     }
-
-    setIsRepeating((p) => !p);
-    const willRepeat = !isRepeating;
 
     try {
-      if (willRepeat) {
-        const savedRule = await saveRecurringRule({
-          userId: currentUserId,
-          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
-          exerciseName: currentExercise.name,
-          exerciseType: currentExercise.type,
-          routineName,
-          dayOfWeek: parsedDate.getDay(),
-          intervalWeeks: 1,
-          startDate: parsedDate,
-          templateSets: currentExercise.sets,
-          active: true,
-        } as any);
+      if (currentExercise.ruleId) {
+        const response = await fetch("/api/recurringRule", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ruleId: String(currentExercise.ruleId) }),
+        });
 
-        setCurrentExercise((prev) => ({
-          ...prev,
-          isRepeating: true,
-          ruleId: savedRule._id,
-        }));
-
-        await saveWorkoutEntry({
-          ...currentExercise,
-          name: currentExercise.name,
-          type: currentExercise.type,
-          max: currentExercise.max,
-          userId: currentExercise.userId ?? currentUserId,
-          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
-          routineName,
-          isRepeating: true,
-          ruleId: savedRule._id.toString(),
-          date: parsedDate.toISOString().slice(0, 10),
-        } as any);
-      } else {
-        if (currentExercise.ruleId) {
-          const response = await fetch("/api/recurringRule", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ruleId: String(currentExercise.ruleId) }),
-          });
-
-          if (!response.ok) {
-            const message = await response.text();
-            throw new Error(
-              `deleteRecurringRule ${response.status}: ${message}`
-            );
-          }
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(`deleteRecurringRule ${response.status}: ${message}`);
         }
-        setCurrentExercise((prev) => ({
-          ...prev,
-          isRepeating: false,
-          ruleId: undefined,
-        }));
-        await saveWorkoutEntry({
-          name: currentExercise.name,
-          type: currentExercise.type,
-          max: currentExercise.max,
-          userId: currentUserId,
-          exerciseId: currentExercise.exerciseId ?? currentExercise._id,
-          routineName,
-          date: parsedDate.toISOString().slice(0, 10),
-          rest: currentExercise.rest ?? 0,
-          complete: currentExercise.complete ?? false,
-          sets: currentExercise.sets,
-          isRepeating: false,
-          ruleId: undefined,
-        } as any);
       }
+
+      setCurrentExercise((prev) => ({
+        ...prev,
+        isRepeating: false,
+        ruleId: undefined,
+        recurrenceType: undefined,
+        interval: undefined,
+        daysOfWeek: undefined,
+        dayOfMonth: undefined,
+        endDate: undefined,
+      }));
+      setIsRepeating(false);
+
+      await saveWorkoutEntry({
+        name: currentExercise.name,
+        type: currentExercise.type,
+        max: currentExercise.max,
+        userId: currentUserId,
+        exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+        routineName,
+        date: parsedDate.toISOString().slice(0, 10),
+        rest: currentExercise.rest ?? 0,
+        complete: currentExercise.complete ?? false,
+        sets: currentExercise.sets,
+        isRepeating: false,
+        ruleId: null,
+        recurrenceType: null,
+        interval: null,
+        daysOfWeek: null,
+        dayOfMonth: null,
+        endDate: null,
+      } as any);
+
+      setShowRepeatDialog(false);
+      setRefetchExercises((prev) => !prev);
+      refreshCalendarStatuses?.();
+      toast.success("Schedule removed");
     } catch (err) {
       console.error(err);
-      setIsRepeating((p) => !p);
+      toast.error("Couldn't update the schedule");
+    }
+  };
+
+  const handleSaveRepeatSchedule = async () => {
+    const parsedDate = parseFormattedDate(formattedDate);
+    if (!parsedDate) {
+      console.error("Bad date:", formattedDate);
+      toast.error("Couldn't save the schedule");
       return;
     }
 
-    setRefetchExercises((prev) => !prev);
-    refreshCalendarStatuses?.();
+    if (!currentUserId) {
+      console.error("Missing userId for repeat toggle");
+      toast.error("Couldn't save the schedule");
+      return;
+    }
+
+    try {
+      if (currentExercise.ruleId) {
+        const response = await fetch("/api/recurringRule", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ruleId: String(currentExercise.ruleId) }),
+        });
+
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(`deleteRecurringRule ${response.status}: ${message}`);
+        }
+      }
+
+      const savedRule = await saveRecurringRule({
+        userId: currentUserId,
+        exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+        exerciseName: currentExercise.name,
+        exerciseType: currentExercise.type,
+        routineName,
+        recurrenceType,
+        interval: repeatInterval,
+        dayOfWeek: repeatDayOfWeek,
+        daysOfWeek:
+          recurrenceType === "custom"
+            ? repeatDaysOfWeek
+            : [repeatDayOfWeek],
+        dayOfMonth: repeatDayOfMonth,
+        intervalWeeks: repeatInterval,
+        startDate: parsedDate,
+        endDate: repeatEndDate || undefined,
+        templateSets: currentExercise.sets,
+        defaultMax: currentExercise.max,
+        defaultRest: currentExercise.rest,
+        active: true,
+      } as any);
+
+      setCurrentExercise((prev) => ({
+        ...prev,
+        isRepeating: true,
+        ruleId: savedRule._id,
+        recurrenceType,
+        interval: repeatInterval,
+        intervalWeeks: repeatInterval,
+        dayOfWeek: repeatDayOfWeek,
+        daysOfWeek:
+          recurrenceType === "custom"
+            ? repeatDaysOfWeek
+            : [repeatDayOfWeek],
+        dayOfMonth: repeatDayOfMonth,
+        endDate: repeatEndDate || undefined,
+      }));
+      setIsRepeating(true);
+
+      await saveWorkoutEntry({
+        ...currentExercise,
+        name: currentExercise.name,
+        type: currentExercise.type,
+        max: currentExercise.max,
+        userId: currentExercise.userId ?? currentUserId,
+        exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+        routineName,
+        isRepeating: true,
+        ruleId: savedRule._id.toString(),
+        recurrenceType,
+        interval: repeatInterval,
+        intervalWeeks: repeatInterval,
+        dayOfWeek: repeatDayOfWeek,
+        daysOfWeek:
+          recurrenceType === "custom"
+            ? repeatDaysOfWeek
+            : [repeatDayOfWeek],
+        dayOfMonth: repeatDayOfMonth,
+        endDate: repeatEndDate || undefined,
+        date: parsedDate.toISOString().slice(0, 10),
+      } as any);
+
+      setShowRepeatDialog(false);
+      setRefetchExercises((prev) => !prev);
+      refreshCalendarStatuses?.();
+      toast.success("Schedule updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't save the schedule");
+    }
   };
 
   if (currentExercise.complete) {
@@ -757,8 +878,8 @@ const ExerciseItem = ({
               show={shownMenuIndex === exerciseIndex}
             />
             <IconButton
-              onClick={toggleRepeat}
-              title="Toggle on to make this exercise repeat next week"
+              onClick={openRepeatDialog}
+              title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
             >
               <RepeatIcon
@@ -833,6 +954,25 @@ const ExerciseItem = ({
           }}
           targetDate={formattedDate}
         />
+        <RepeatScheduleDialog
+          open={showRepeatDialog}
+          onClose={() => setShowRepeatDialog(false)}
+          onSave={handleSaveRepeatSchedule}
+          onDisable={isRepeating ? handleDisableRepeat : undefined}
+          isRepeating={isRepeating}
+          recurrenceType={recurrenceType}
+          setRecurrenceType={setRecurrenceType}
+          interval={repeatInterval}
+          setInterval={setRepeatInterval}
+          dayOfWeek={repeatDayOfWeek}
+          setDayOfWeek={setRepeatDayOfWeek}
+          daysOfWeek={repeatDaysOfWeek}
+          setDaysOfWeek={setRepeatDaysOfWeek}
+          dayOfMonth={repeatDayOfMonth}
+          setDayOfMonth={setRepeatDayOfMonth}
+          endDate={repeatEndDate}
+          setEndDate={setRepeatEndDate}
+        />
       </Paper>
     );
   }
@@ -905,8 +1045,8 @@ const ExerciseItem = ({
               show={shownMenuIndex === exerciseIndex}
             />
             <IconButton
-              onClick={toggleRepeat}
-              title="Toggle on to make this exercise repeat next week"
+              onClick={openRepeatDialog}
+              title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
             >
               <RepeatIcon
@@ -1184,8 +1324,8 @@ const ExerciseItem = ({
               </Typography>
             </Box>
             <IconButton
-              onClick={toggleRepeat}
-              title="Toggle on to make this exercise repeat next week"
+              onClick={openRepeatDialog}
+              title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               color="inherit"
             >
               <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
@@ -1308,6 +1448,25 @@ const ExerciseItem = ({
           setShowDeleteDialog(false);
         }}
         targetDate={formattedDate}
+      />
+      <RepeatScheduleDialog
+        open={showRepeatDialog}
+        onClose={() => setShowRepeatDialog(false)}
+        onSave={handleSaveRepeatSchedule}
+        onDisable={isRepeating ? handleDisableRepeat : undefined}
+        isRepeating={isRepeating}
+        recurrenceType={recurrenceType}
+        setRecurrenceType={setRecurrenceType}
+        interval={repeatInterval}
+        setInterval={setRepeatInterval}
+        dayOfWeek={repeatDayOfWeek}
+        setDayOfWeek={setRepeatDayOfWeek}
+        daysOfWeek={repeatDaysOfWeek}
+        setDaysOfWeek={setRepeatDaysOfWeek}
+        dayOfMonth={repeatDayOfMonth}
+        setDayOfMonth={setRepeatDayOfMonth}
+        endDate={repeatEndDate}
+        setEndDate={setRepeatEndDate}
       />
     </>
   );

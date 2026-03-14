@@ -17,6 +17,7 @@ interface ExerciseManagerProps {
   userId: string;
   date: string;
   setRefetchExercises: Dispatch<SetStateAction<boolean>>;
+  refreshCalendarStatuses?: () => void;
 }
 
 const DEFAULT_MAX_WEIGHT = 35;
@@ -153,6 +154,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   userId,
   date,
   setRefetchExercises,
+  refreshCalendarStatuses,
 }) => {
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -314,6 +316,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     const newExercise = await buildExerciseDraft(exercise);
     await persistExercise(newExercise);
     setRefetchExercises((prev) => !prev);
+    refreshCalendarStatuses?.();
     setIsAddingExercise(false);
   };
 
@@ -329,6 +332,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     });
     await persistExercise(updatedExercise);
     setRefetchExercises((prev) => !prev);
+    refreshCalendarStatuses?.();
     setOpenEditModal(false);
     setIsAddingExercise(false);
   };

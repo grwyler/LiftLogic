@@ -29,6 +29,7 @@ import { FeedbackItemDoc } from "../utils/types";
 import {
   DEV_BUG_INTERACTION_EVENT,
   DEV_BUG_ERROR_EVENT,
+  emitDevBugInteraction,
 } from "../utils/devBugRecorder";
 
 type RecorderInteraction =
@@ -546,6 +547,14 @@ const DevBugRecorder = () => {
     }
 
     setSubmitting(true);
+    emitDevBugInteraction({
+      type: "submit",
+      kind: "semantic",
+      label: "Complete repro recording",
+      expected: "The full bug report is copied and saved to feedback.",
+      actual: "Recorder completion was requested.",
+      status: "info",
+    });
 
     try {
       await new Promise((resolve) => {
@@ -570,7 +579,23 @@ const DevBugRecorder = () => {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         try {
           await navigator.clipboard.writeText(description);
+          emitDevBugInteraction({
+            type: "lifecycle",
+            kind: "semantic",
+            label: "Copied recorded bug report",
+            expected: "The full bug report is copied to the clipboard.",
+            actual: "Clipboard copy succeeded before saving feedback.",
+            status: "success",
+          });
         } catch (clipboardError) {
+          emitDevBugInteraction({
+            type: "lifecycle",
+            kind: "semantic",
+            label: "Copy recorded bug report failed",
+            expected: "The full bug report is copied to the clipboard.",
+            actual: "Clipboard copy failed before saving feedback.",
+            status: "failure",
+          });
           console.error("Failed to copy bug report to clipboard", clipboardError);
         }
       }
@@ -602,9 +627,25 @@ const DevBugRecorder = () => {
         },
       });
 
+      emitDevBugInteraction({
+        type: "lifecycle",
+        kind: "semantic",
+        label: "Saved recorded bug report",
+        expected: "The full bug report is copied and saved to feedback.",
+        actual: "Feedback save succeeded.",
+        status: "success",
+      });
       toast.success("Bug report copied and saved to feedback.");
       handleReset();
     } catch (error) {
+      emitDevBugInteraction({
+        type: "lifecycle",
+        kind: "semantic",
+        label: "Save recorded bug report failed",
+        expected: "The full bug report is copied and saved to feedback.",
+        actual: "Feedback save failed while completing the recording.",
+        status: "failure",
+      });
       console.error("Failed to submit recorded bug report", error);
       toast.error("Couldn't save the recorded bug report.");
     } finally {

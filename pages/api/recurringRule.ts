@@ -40,19 +40,29 @@ export default async function handler(
           ...cleanRule
         } = rule;
 
-        const filter = {
-          userId: rule.userId,
-          exerciseId,
-          dayOfWeek: rule.dayOfWeek,
-          routineName: rule.routineName,
-        };
+        const filter =
+          rule._id && ObjectId.isValid(String(rule._id))
+            ? { _id: new ObjectId(String(rule._id)) }
+            : {
+                userId: rule.userId,
+                exerciseId,
+                routineName: rule.routineName,
+                active: true,
+              };
 
         const doc: RecurringRuleDoc = {
           ...cleanRule,
           exerciseId,
           updatedAt: new Date(),
           active: rule.active ?? true,
+          recurrenceType: rule.recurrenceType ?? "weekly",
+          interval: rule.interval ?? rule.intervalWeeks ?? 1,
           intervalWeeks: rule.intervalWeeks ?? 1,
+          daysOfWeek:
+            rule.daysOfWeek && rule.daysOfWeek.length > 0
+              ? rule.daysOfWeek
+              : [rule.dayOfWeek],
+          dayOfMonth: rule.dayOfMonth,
           templateSets: rule.templateSets ?? [],
         };
 

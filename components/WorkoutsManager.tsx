@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  doesRecurringRuleMatchDate,
   fetchDay,
   fetchRecurringRules,
   fetchWorkoutMonthEntries,
@@ -97,7 +98,9 @@ const WorkoutsManager: React.FC<{
     currentDayIndex,
     setCurrentDayIndex,
     currentDate,
+    calendarViewDate,
     setCurrentDate,
+    setCalendarViewDate,
     currentWorkout,
     currentExerciseIndex,
     setCurrentExerciseIndex,
@@ -142,12 +145,15 @@ const WorkoutsManager: React.FC<{
           userId={sessionUserId}
           date={dateISO}
           setRefetchExercises={setRefetchExercises}
+          refreshCalendarStatuses={refreshCalendarStatuses}
         />
       ) : (
         <Box>
           <DaySwitcher
             currentDate={currentDate}
+            calendarViewDate={calendarViewDate}
             setCurrentDate={setCurrentDate}
+            setCalendarViewDate={setCalendarViewDate}
             handleCurrentDayChange={handleCurrentDayChange}
             darkMode={darkMode}
             calendarStatusMap={calendarStatusMap}
@@ -186,6 +192,7 @@ const useWorkoutsManagerState = (
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [currentDate, setCurrentDate] = useState(startDate);
+  const [calendarViewDate, setCalendarViewDate] = useState(startDate);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
 
   const { data: session } = useSession() as {
@@ -224,6 +231,10 @@ const useWorkoutsManagerState = (
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
 
   useEffect(() => {
+    setCalendarViewDate(currentDate);
+  }, [currentDate]);
+
+  useEffect(() => {
     if (!userId || !dateISO || !currentDate || !currentDay) {
       return;
     }
@@ -255,7 +266,7 @@ const useWorkoutsManagerState = (
     const loadCalendarStatus = async () => {
       try {
         const [entries, rules] = await Promise.all([
-          fetchWorkoutMonthEntries(userId, currentDate),
+          fetchWorkoutMonthEntries(userId, calendarViewDate),
           fetchRecurringRules(userId),
         ]);
 
@@ -266,13 +277,13 @@ const useWorkoutsManagerState = (
         const nextMap: CalendarStatusMap = {};
         const dayExerciseKeys = new Map<string, globalThis.Set<string>>();
         const monthStart = new Date(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
+          calendarViewDate.getFullYear(),
+          calendarViewDate.getMonth(),
           1
         );
         const monthEnd = new Date(
-          currentDate.getFullYear(),
-          currentDate.getMonth() + 1,
+          calendarViewDate.getFullYear(),
+          calendarViewDate.getMonth() + 1,
           0
         );
 
@@ -355,28 +366,12 @@ const useWorkoutsManagerState = (
             return;
           }
 
-          const startDate = new Date(rule.startDate);
-          startDate.setHours(0, 0, 0, 0);
-          const intervalWeeks = Math.max(1, Number(rule.intervalWeeks) || 1);
-
           for (
             let cursor = new Date(monthStart);
             cursor <= monthEnd;
             cursor.setDate(cursor.getDate() + 1)
           ) {
-            const sameWeekday = cursor.getDay() === rule.dayOfWeek;
-            const afterStart = !rule.startDate || cursor >= startDate;
-
-            if (!sameWeekday || !afterStart) {
-              continue;
-            }
-
-            const diffDays = Math.floor(
-              (cursor.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-            );
-            const diffWeeks = Math.floor(diffDays / 7);
-
-            if (diffWeeks < 0 || diffWeeks % intervalWeeks !== 0) {
+            if (!doesRecurringRuleMatchDate(rule, cursor)) {
               continue;
             }
 
@@ -414,14 +409,16 @@ const useWorkoutsManagerState = (
     return () => {
       isMounted = false;
     };
-  }, [userId, currentDate, refetchExercises, calendarRefreshTick]);
+  }, [userId, calendarViewDate, refetchExercises, calendarRefreshTick]);
 
   return {
     currentDay,
     currentDayIndex,
     setCurrentDayIndex,
     currentDate,
+    calendarViewDate,
     setCurrentDate,
+    setCalendarViewDate,
     currentWorkout,
     currentExerciseIndex,
     setCurrentExerciseIndex,

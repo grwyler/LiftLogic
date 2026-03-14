@@ -176,6 +176,106 @@ export const fetchWorkoutMonthEntries = async (
   return Array.isArray(data.entries) ? data.entries : [];
 };
 
+const normalizeRuleDate = (value?: Date | string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+export const getRecurringRuleConfig = (rule: RecurringRuleDoc) => {
+  const startDate = normalizeRuleDate(rule.startDate);
+  const fallbackDayOfWeek = startDate?.getDay() ?? 0;
+  const fallbackDayOfMonth = startDate?.getDate() ?? 1;
+  const recurrenceType =
+    rule.recurrenceType ??
+    (Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.length > 1
+      ? "custom"
+      : "weekly");
+  const interval = Math.max(
+    1,
+    Number(rule.interval ?? rule.intervalWeeks ?? 1) || 1
+  );
+  const daysOfWeek =
+    Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.length > 0
+      ? rule.daysOfWeek.map((value) => Number(value)).filter((value) => value >= 0 && value <= 6)
+      : [Number(rule.dayOfWeek ?? fallbackDayOfWeek)];
+  const dayOfMonth = Math.max(
+    1,
+    Math.min(31, Number(rule.dayOfMonth ?? fallbackDayOfMonth) || fallbackDayOfMonth)
+  );
+  const endDate = normalizeRuleDate(rule.endDate);
+
+  return {
+    recurrenceType,
+    interval,
+    daysOfWeek,
+    dayOfMonth,
+    startDate,
+    endDate,
+  };
+};
+
+export const doesRecurringRuleMatchDate = (
+  rule: RecurringRuleDoc,
+  targetDate: Date
+) => {
+  const {
+    recurrenceType,
+    interval,
+    daysOfWeek,
+    dayOfMonth,
+    startDate,
+    endDate,
+  } = getRecurringRuleConfig(rule);
+
+  if (!startDate) {
+    return false;
+  }
+
+  const normalizedTarget = new Date(targetDate);
+  normalizedTarget.setHours(0, 0, 0, 0);
+
+  if (normalizedTarget < startDate) {
+    return false;
+  }
+
+  if (endDate && normalizedTarget > endDate) {
+    return false;
+  }
+
+  const diffDays = Math.floor(
+    (normalizedTarget.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const diffWeeks = Math.floor(diffDays / 7);
+  const monthDiff =
+    (normalizedTarget.getFullYear() - startDate.getFullYear()) * 12 +
+    (normalizedTarget.getMonth() - startDate.getMonth());
+
+  switch (recurrenceType) {
+    case "daily":
+      return diffDays % interval === 0;
+    case "monthly":
+      return monthDiff >= 0 && monthDiff % interval === 0 && normalizedTarget.getDate() === dayOfMonth;
+    case "custom":
+      return diffWeeks >= 0 &&
+        diffWeeks % interval === 0 &&
+        daysOfWeek.includes(normalizedTarget.getDay());
+    case "weekly":
+    default:
+      return diffWeeks >= 0 &&
+        diffWeeks % interval === 0 &&
+        normalizedTarget.getDay() === daysOfWeek[0];
+  }
+};
+
 // delete log
 export const deleteWorkoutEntry = async (entryId: string) => {
   const res = await fetch("/api/workoutEntry", {
@@ -260,11 +360,8 @@ export const fetchDay = async (
   /* 3. Apply recurrence filter                                          */
   /* ------------------------------------------------------------------ */
   const targetDate = parseLocalISODate(dateISO);
-  const dow = targetDate.getDay();
-  const recurringToday = rules.filter(
-    (r: any) =>
-      r.dayOfWeek === dow &&
-      (!r.startDate || new Date(r.startDate) <= targetDate)
+  const recurringToday = rules.filter((r: any) =>
+    doesRecurringRuleMatchDate(r, targetDate)
   );
 
   const skippedKeys = new Set(
@@ -461,6 +558,12 @@ export const ruleToExercise = (r: RecurringRuleDoc): Exercise => {
     complete: false,
     sets,
     isRepeating: true,
+    recurrenceType: (r as any).recurrenceType ?? "weekly",
+    interval: (r as any).interval ?? (r as any).intervalWeeks ?? 1,
+    intervalWeeks: (r as any).intervalWeeks ?? (r as any).interval ?? 1,
+    daysOfWeek: (r as any).daysOfWeek ?? [(r as any).dayOfWeek],
+    dayOfMonth: (r as any).dayOfMonth,
+    endDate: (r as any).endDate,
     ruleId: (r as any)._id?.toString?.() ?? (r as any)._id,
     /** keep the routineName so fetchDay can group */
     routineName: r.routineName,

@@ -64,7 +64,11 @@ export interface RecurringRuleDoc {
   userId: string;
   exerciseId: ObjectId | string;
   routineName: string;
+  recurrenceType?: "daily" | "weekly" | "custom" | "monthly";
+  interval?: number;
+  daysOfWeek?: number[];
   dayOfWeek: number;
+  dayOfMonth?: number;
   intervalWeeks: number;
   startDate: Date;
   endDate?: Date;

@@ -20,8 +20,10 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 const DaySwitcher = ({
   currentDate,
+  calendarViewDate,
   handleCurrentDayChange,
   setCurrentDate,
+  setCalendarViewDate,
   darkMode,
   calendarStatusMap = {},
 }) => {
@@ -87,14 +89,55 @@ const DaySwitcher = ({
             <ChevronLeft fontSize="small" />
           </IconButton>
 
-          <Box sx={{ minWidth: 0 }}>
+          <Box
+            sx={{
+              minWidth: 0,
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
+              overflow: "hidden",
+              "& .MuiDateCalendar-root": {
+                width: { xs: "100%", sm: 320 },
+                maxWidth: 320,
+                marginInline: "auto",
+              },
+              "& .MuiDayCalendar-slideTransition": {
+                minHeight: 220,
+              },
+              "& .MuiDayCalendar-header": {
+                justifyContent: "space-between",
+                mx: { xs: 0.5, sm: 1 },
+              },
+              "& .MuiPickersCalendarHeader-root": {
+                paddingLeft: { xs: 0.5, sm: 1 },
+                paddingRight: { xs: 0.5, sm: 1 },
+              },
+              "& .MuiPickersDay-root": {
+                width: { xs: 32, sm: 36 },
+                height: { xs: 32, sm: 36 },
+                margin: { xs: "0 1px", sm: "0 2px" },
+                fontSize: { xs: "0.88rem", sm: "0.95rem" },
+              },
+              "& .MuiDayCalendar-weekContainer": {
+                justifyContent: "space-between",
+                mx: { xs: 0.5, sm: 1 },
+              },
+            }}
+          >
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               {isInline ? (
                 <StaticDatePicker
                   displayStaticWrapperAs="desktop"
                   value={currentDate}
+                  referenceDate={calendarViewDate}
+                  onMonthChange={(newMonth) => {
+                    if (newMonth) {
+                      setCalendarViewDate?.(newMonth);
+                    }
+                  }}
                   onChange={(newDate) => {
                     if (newDate) {
+                      setCalendarViewDate?.(newDate);
                       setCurrentDate(newDate);
                       handleCurrentDayChange(newDate, true);
                     }
