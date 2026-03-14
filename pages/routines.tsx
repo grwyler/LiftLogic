@@ -402,7 +402,7 @@ const RoutinesPage = ({
             ? "0 28px 90px rgba(2,6,23,0.42)"
             : "0 26px 72px rgba(15,23,42,0.1)",
           backdropFilter: "blur(20px)",
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         {renderBody()}

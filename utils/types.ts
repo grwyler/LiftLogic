@@ -64,6 +64,7 @@ export interface RecurringRuleDoc {
   userId: string;
   exerciseId: ObjectId | string;
   routineName: string;
+  sortOrder?: number;
   recurrenceType?: "daily" | "weekly" | "custom" | "monthly";
   interval?: number;
   daysOfWeek?: number[];
@@ -82,6 +83,7 @@ export interface WorkoutEntryDoc {
   _id?: ObjectId;
   userId: string;
   exerciseId: ObjectId | string;
+  sortOrder?: number;
   name?: string;
   type?: "timed" | "weight";
   max?: number;

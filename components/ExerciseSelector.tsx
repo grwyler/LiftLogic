@@ -6,7 +6,9 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   CircularProgress,
+  Divider,
   InputAdornment,
   MenuItem,
   Stack,
@@ -20,7 +22,10 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import SearchIcon from "@mui/icons-material/Search";
+import TuneIcon from "@mui/icons-material/Tune";
+import TodayIcon from "@mui/icons-material/Today";
 import { initialExercises } from "../utils/sample-data";
+import RepeatScheduleDialog from "./RepeatScheduleDialog";
 
 interface ExerciseSelectorProps {
   setIsAddingExercise: (value: boolean) => void;
@@ -29,7 +34,20 @@ interface ExerciseSelectorProps {
   darkMode: boolean;
   isRecurring: boolean;
   setIsRecurring: (value: boolean) => void;
+  recurrenceType: "daily" | "weekly" | "custom" | "monthly";
+  setRecurrenceType: (value: "daily" | "weekly" | "custom" | "monthly") => void;
+  repeatInterval: number;
+  setRepeatInterval: (value: number) => void;
+  repeatDayOfWeek: number;
+  setRepeatDayOfWeek: (value: number) => void;
+  repeatDaysOfWeek: number[];
+  setRepeatDaysOfWeek: (value: number[]) => void;
+  repeatDayOfMonth: number;
+  setRepeatDayOfMonth: (value: number) => void;
+  repeatEndDate: string;
+  setRepeatEndDate: (value: string) => void;
   currentWorkoutTitle: string;
+  currentExercises?: any[];
   userId: string;
 }
 
@@ -211,7 +229,20 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   darkMode,
   isRecurring,
   setIsRecurring,
+  recurrenceType,
+  setRecurrenceType,
+  repeatInterval,
+  setRepeatInterval,
+  repeatDayOfWeek,
+  setRepeatDayOfWeek,
+  repeatDaysOfWeek,
+  setRepeatDaysOfWeek,
+  repeatDayOfMonth,
+  setRepeatDayOfMonth,
+  repeatEndDate,
+  setRepeatEndDate,
   currentWorkoutTitle,
+  currentExercises = [],
   userId,
 }) => {
   const [catalogExercises, setCatalogExercises] = useState<CatalogExercise[]>([]);
@@ -219,6 +250,9 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [busyExerciseId, setBusyExerciseId] = useState<string | null>(null);
+  const [showScheduleOptions, setShowScheduleOptions] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filters, setFilters] = useState({
     bodyPart: "",
     type: "",
@@ -366,6 +400,18 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
     setSearchQuery("");
   };
 
+  const currentWorkoutExerciseNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          currentExercises
+            .map((exercise) => String(exercise?.name ?? "").trim())
+            .filter(Boolean)
+        )
+      ),
+    [currentExercises]
+  );
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
       <Stack spacing={2.5}>
@@ -386,20 +432,95 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
               Add Exercise
             </Typography>
             <Typography variant="h5">Choose an exercise</Typography>
-            <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-              Search a much bigger built-in catalog with common names and shortcuts,
-              then quick add or customize it.
+            <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+              Search first, then quick add or customize if you need more control.
             </Typography>
           </Box>
-
-          <Button
-            onClick={() => setIsAddingExercise(false)}
-            variant="outlined"
-            startIcon={<ChevronLeftIcon />}
-          >
-            Back
-          </Button>
         </Box>
+
+        {currentWorkoutExerciseNames.length > 0 ? (
+          <Card
+            sx={{
+              position: "sticky",
+              top: { xs: 8, sm: 12 },
+              zIndex: 12,
+              borderRadius: { xs: 3, sm: 4 },
+              border: "1px solid",
+              borderColor: "divider",
+              backgroundColor: darkMode
+                ? "rgba(17,24,39,0.94)"
+                : "rgba(255,255,255,0.94)",
+              backdropFilter: "blur(18px)",
+              boxShadow: "none",
+            }}
+          >
+            <CardContent sx={{ p: { xs: 1.25, sm: 2 } }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: { xs: "flex-start", sm: "center" },
+                  gap: 1,
+                  flexDirection: { xs: "row", sm: "row" },
+                }}
+              >
+                <Button
+                  onClick={() => setIsAddingExercise(false)}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ChevronLeftIcon />}
+                  sx={{
+                    minWidth: "auto",
+                    px: 1.25,
+                    flexShrink: 0,
+                    alignSelf: { xs: "center", sm: "center" },
+                  }}
+                >
+                  Back
+                </Button>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      display: "block",
+                      color: "text.secondary",
+                      letterSpacing: "0.12em",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Already On Today&apos;s Plan
+                  </Typography>
+                </Box>
+              </Box>
+              <Stack
+                direction="row"
+                spacing={0.75}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{
+                  mt: 1,
+                  maxHeight: { xs: 72, sm: 96 },
+                  overflowY: "auto",
+                  pr: 0.5,
+                }}
+              >
+                {currentWorkoutExerciseNames.map((name) => (
+                  <Chip key={name} label={name} variant="outlined" size="small" />
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : (
+          <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
+            <Button
+              onClick={() => setIsAddingExercise(false)}
+              variant="outlined"
+              startIcon={<ChevronLeftIcon />}
+            >
+              Back
+            </Button>
+          </Box>
+        )}
 
         <Card
           sx={{
@@ -466,89 +587,144 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                 ))}
                 <Chip
                   icon={<RepeatIcon />}
-                  label={isRecurring ? "Repeats weekly" : "Only this workout"}
+                  label={isRecurring ? "Repeats on a schedule" : "Only this workout"}
                   variant="outlined"
                 />
               </Stack>
 
-              <Box>
-                <Typography
-                  variant="body2"
-                  sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  variant="outlined"
+                  startIcon={<TodayIcon />}
+                  onClick={() => setShowScheduleOptions((prev) => !prev)}
                 >
-                  When should this exercise appear?
-                </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  fullWidth
-                  value={isRecurring ? "recurring" : "today"}
-                  onChange={(_, nextValue) => {
-                    if (nextValue) {
-                      setIsRecurring(nextValue === "recurring");
-                    }
-                  }}
-                  color="primary"
+                  {isRecurring ? "Schedule options" : "Add options"}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<TuneIcon />}
+                  onClick={() => setShowAdvancedFilters((prev) => !prev)}
                 >
-                  <ToggleButton value="today">Just this workout</ToggleButton>
-                  <ToggleButton value="recurring">Repeat weekly</ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Focus"
-                  value={filters.bodyPart}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      bodyPart: event.target.value,
-                    }))
-                  }
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {filterOptions.bodyParts.map((part) => (
-                    <MenuItem key={part} value={part}>
-                      {toTitle(part)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-
-                <TextField
-                  select
-                  fullWidth
-                  label="Type"
-                  value={filters.type}
-                  onChange={(event) =>
-                    setFilters((prev) => ({ ...prev, type: event.target.value }))
-                  }
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="weight">Weight</MenuItem>
-                  <MenuItem value="timed">Timed</MenuItem>
-                </TextField>
-
-                <TextField
-                  select
-                  fullWidth
-                  label="Equipment"
-                  value={filters.equipment}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      equipment: event.target.value,
-                    }))
-                  }
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {filterOptions.equipment.map((item) => (
-                    <MenuItem key={item} value={normalizeText(item)}>
-                      {item}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  Filters
+                </Button>
               </Stack>
+
+              <Collapse in={showScheduleOptions}>
+                <Box sx={{ pt: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    When should this exercise appear?
+                  </Typography>
+                  <ToggleButtonGroup
+                    exclusive
+                    fullWidth
+                    value={isRecurring ? "recurring" : "today"}
+                    onChange={(_, nextValue) => {
+                      if (nextValue) {
+                        setIsRecurring(nextValue === "recurring");
+                        if (nextValue === "recurring") {
+                          setShowScheduleDialog(true);
+                        }
+                      }
+                    }}
+                    color="primary"
+                  >
+                    <ToggleButton value="today">Just this workout</ToggleButton>
+                    <ToggleButton value="recurring">Use a schedule</ToggleButton>
+                  </ToggleButtonGroup>
+
+                  {isRecurring ? (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      flexWrap="wrap"
+                      useFlexGap
+                      sx={{ mt: 1 }}
+                    >
+                      <Chip
+                        icon={<RepeatIcon />}
+                        label={
+                          recurrenceType === "daily"
+                            ? `Every ${repeatInterval} day${repeatInterval === 1 ? "" : "s"}`
+                            : recurrenceType === "monthly"
+                            ? `Day ${repeatDayOfMonth} every ${repeatInterval} month${repeatInterval === 1 ? "" : "s"}`
+                            : recurrenceType === "custom"
+                            ? `${repeatDaysOfWeek.length} weekday${repeatDaysOfWeek.length === 1 ? "" : "s"} every ${repeatInterval} week${repeatInterval === 1 ? "" : "s"}`
+                            : `Every ${repeatInterval} week${repeatInterval === 1 ? "" : "s"}`
+                        }
+                        variant="outlined"
+                      />
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setShowScheduleDialog(true)}
+                      >
+                        Edit schedule
+                      </Button>
+                    </Stack>
+                  ) : null}
+                </Box>
+              </Collapse>
+
+              <Collapse in={showAdvancedFilters}>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ pt: 0.5 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Focus"
+                    value={filters.bodyPart}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        bodyPart: event.target.value,
+                      }))
+                    }
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {filterOptions.bodyParts.map((part) => (
+                      <MenuItem key={part} value={part}>
+                        {toTitle(part)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <TextField
+                    select
+                    fullWidth
+                    label="Type"
+                    value={filters.type}
+                    onChange={(event) =>
+                      setFilters((prev) => ({ ...prev, type: event.target.value }))
+                    }
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="weight">Weight</MenuItem>
+                    <MenuItem value="timed">Timed</MenuItem>
+                  </TextField>
+
+                  <TextField
+                    select
+                    fullWidth
+                    label="Equipment"
+                    value={filters.equipment}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        equipment: event.target.value,
+                      }))
+                    }
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {filterOptions.equipment.map((item) => (
+                      <MenuItem key={item} value={normalizeText(item)}>
+                        {item}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+              </Collapse>
             </Stack>
           </CardContent>
         </Card>
@@ -666,6 +842,36 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
             No exercises matched your search yet.
           </Alert>
         )}
+
+        <RepeatScheduleDialog
+          open={showScheduleDialog}
+          onClose={() => setShowScheduleDialog(false)}
+          onSave={() => {
+            setIsRecurring(true);
+            setShowScheduleDialog(false);
+          }}
+          onDisable={
+            isRecurring && showScheduleOptions
+              ? () => {
+                  setIsRecurring(false);
+                  setShowScheduleDialog(false);
+                }
+              : undefined
+          }
+          isRepeating={false}
+          recurrenceType={recurrenceType}
+          setRecurrenceType={setRecurrenceType}
+          interval={repeatInterval}
+          setInterval={setRepeatInterval}
+          dayOfWeek={repeatDayOfWeek}
+          setDayOfWeek={setRepeatDayOfWeek}
+          daysOfWeek={repeatDaysOfWeek}
+          setDaysOfWeek={setRepeatDaysOfWeek}
+          dayOfMonth={repeatDayOfMonth}
+          setDayOfMonth={setRepeatDayOfMonth}
+          endDate={repeatEndDate}
+          setEndDate={setRepeatEndDate}
+        />
       </Stack>
     </Box>
   );

@@ -100,6 +100,11 @@ export default async function handler(
         }
 
         const rules = await col.find(query).toArray();
+        rules.sort(
+          (a, b) =>
+            Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+            Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+        );
         return res.status(200).json({ rules });
       }
 

@@ -424,6 +424,20 @@ export const fetchDay = async (
     (grouped[key] ??= []).push(ex);
   });
 
+  Object.values(grouped).forEach((group) => {
+    group.sort((a: any, b: any) => {
+      const sortDelta =
+        Number(a?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        Number(b?.sortOrder ?? Number.MAX_SAFE_INTEGER);
+
+      if (sortDelta !== 0) {
+        return sortDelta;
+      }
+
+      return String(a?.name ?? "").localeCompare(String(b?.name ?? ""));
+    });
+  });
+
   const result = Object.entries(grouped).map(([title, exercises]) => ({
     title,
     exercises,
@@ -555,6 +569,7 @@ export const ruleToExercise = (r: RecurringRuleDoc): Exercise => {
     exerciseId: (r as any).exerciseId,
     max: (r as any).defaultMax,
     rest: (r as any).defaultRest ?? 0,
+    sortOrder: (r as any).sortOrder,
     complete: false,
     sets,
     isRepeating: true,

@@ -20,6 +20,9 @@ type Props = {
   onSave: () => void;
   onDisable?: () => void;
   isRepeating: boolean;
+  title?: string;
+  description?: string;
+  disableLabel?: string;
   recurrenceType: RecurrenceType;
   setRecurrenceType: (value: RecurrenceType) => void;
   interval: number;
@@ -50,6 +53,9 @@ const RepeatScheduleDialog: React.FC<Props> = ({
   onSave,
   onDisable,
   isRepeating,
+  title,
+  description,
+  disableLabel,
   recurrenceType,
   setRecurrenceType,
   interval,
@@ -74,12 +80,13 @@ const RepeatScheduleDialog: React.FC<Props> = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        {isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
+        {title || (isRepeating ? "Edit repeating schedule" : "Repeat this exercise")}
       </DialogTitle>
 
       <DialogContent sx={{ display: "grid", gap: 2, pt: 1.5 }}>
         <Typography color="text.secondary">
-          Set up a recurring schedule for this exercise. This works like a calendar rule, but without time of day.
+          {description ||
+            "Set up a recurring schedule for this exercise. This works like a calendar rule, but without time of day."}
         </Typography>
 
         <TextField
@@ -175,7 +182,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 0.5 }}>
         {isRepeating && onDisable ? (
           <Button color="error" onClick={onDisable}>
-            Remove schedule
+            {disableLabel || "Remove schedule"}
           </Button>
         ) : null}
         <Button onClick={onClose}>Cancel</Button>

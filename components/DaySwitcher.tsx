@@ -80,14 +80,18 @@ const DaySwitcher = ({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "44px minmax(0, 1fr) 44px",
+            gridTemplateColumns: isInline
+              ? "minmax(0, 1fr)"
+              : "44px minmax(0, 1fr) 44px",
             alignItems: "center",
             gap: 1,
           }}
         >
-          <IconButton onClick={handlePreviousDay} size="small">
-            <ChevronLeft fontSize="small" />
-          </IconButton>
+          {!isInline ? (
+            <IconButton onClick={handlePreviousDay} size="small">
+              <ChevronLeft fontSize="small" />
+            </IconButton>
+          ) : null}
 
           <Box
             sx={{
@@ -95,32 +99,41 @@ const DaySwitcher = ({
               width: "100%",
               display: "flex",
               justifyContent: "center",
-              overflow: "hidden",
+              overflow: "visible",
               "& .MuiDateCalendar-root": {
                 width: { xs: "100%", sm: 320 },
-                maxWidth: 320,
+                maxWidth: { xs: "100%", sm: 320 },
                 marginInline: "auto",
               },
               "& .MuiDayCalendar-slideTransition": {
                 minHeight: 220,
               },
-              "& .MuiDayCalendar-header": {
-                justifyContent: "space-between",
-                mx: { xs: 0.5, sm: 1 },
+              "& .MuiPickersCalendarHeader-labelContainer": {
+                minWidth: 0,
               },
               "& .MuiPickersCalendarHeader-root": {
-                paddingLeft: { xs: 0.5, sm: 1 },
-                paddingRight: { xs: 0.5, sm: 1 },
+                paddingLeft: { xs: 0, sm: 1 },
+                paddingRight: { xs: 0, sm: 1 },
               },
               "& .MuiPickersDay-root": {
-                width: { xs: 32, sm: 36 },
-                height: { xs: 32, sm: 36 },
-                margin: { xs: "0 1px", sm: "0 2px" },
-                fontSize: { xs: "0.88rem", sm: "0.95rem" },
+                width: { xs: 36, sm: 36 },
+                height: { xs: 36, sm: 36 },
+                margin: { xs: "0 2px", sm: "0 2px" },
+                fontSize: { xs: "0.92rem", sm: "0.95rem" },
               },
               "& .MuiDayCalendar-weekContainer": {
-                justifyContent: "space-between",
-                mx: { xs: 0.5, sm: 1 },
+                justifyContent: { xs: "space-evenly", sm: "space-between" },
+                mx: { xs: 0.25, sm: 1 },
+              },
+              "& .MuiDayCalendar-header": {
+                justifyContent: { xs: "space-evenly", sm: "space-between" },
+                mx: { xs: 0.25, sm: 1 },
+              },
+              "& .MuiIconButton-root": {
+                padding: { xs: "6px", sm: "8px" },
+              },
+              "& .MuiTypography-caption": {
+                fontSize: { xs: "0.72rem", sm: "0.75rem" },
               },
             }}
           >
@@ -230,9 +243,11 @@ const DaySwitcher = ({
             </LocalizationProvider>
           </Box>
 
-          <IconButton onClick={handleNextDay} size="small">
-            <ChevronRight fontSize="small" />
-          </IconButton>
+          {!isInline ? (
+            <IconButton onClick={handleNextDay} size="small">
+              <ChevronRight fontSize="small" />
+            </IconButton>
+          ) : null}
         </Box>
 
         <Box

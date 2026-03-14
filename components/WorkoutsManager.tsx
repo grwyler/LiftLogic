@@ -141,6 +141,7 @@ const WorkoutsManager: React.FC<{
           index={currentExerciseIndex}
           darkMode={darkMode}
           currentWorkoutTitle={currentWorkout.title}
+          currentExercises={exercises}
           setIsAddingExercise={setIsAddingExercise}
           userId={sessionUserId}
           date={dateISO}
@@ -167,6 +168,7 @@ const WorkoutsManager: React.FC<{
               currentWorkout={currentWorkout}
               currentExerciseIndex={currentExerciseIndex}
               setCurrentExerciseIndex={setCurrentExerciseIndex}
+              currentDate={currentDate}
               formattedDate={formattedDate}
               routineName={currentWorkout.title}
               setIsAddingExercise={setIsAddingExercise}

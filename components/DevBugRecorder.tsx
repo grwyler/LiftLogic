@@ -663,55 +663,95 @@ const DevBugRecorder = () => {
         zIndex: 1500,
       }}
     >
-      <Paper
-        elevation={0}
-        sx={{
-          width: { xs: "calc(100vw - 24px)", sm: 360 },
-          borderRadius: 3,
-          border: "1px solid",
-          borderColor: state.isRecording ? "error.main" : "divider",
-          overflow: "hidden",
-          boxShadow: "0 22px 50px rgba(15, 23, 42, 0.18)",
-        }}
-      >
-        <Box
+      {!expanded ? (
+        <Tooltip title={state.isRecording ? "Bug recorder is recording" : "Open bug recorder"}>
+          <Paper
+            elevation={0}
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: "999px",
+              border: "1px solid",
+              borderColor: state.isRecording ? "error.main" : "divider",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+              backgroundColor: "background.paper",
+              boxShadow: "0 22px 50px rgba(15, 23, 42, 0.18)",
+              overflow: "hidden",
+            }}
+          >
+            <IconButton
+              size="small"
+              onClick={() => setExpanded(true)}
+              sx={{ width: 48, height: 48, borderRadius: "999px" }}
+            >
+              <BugReportOutlinedIcon fontSize="small" />
+            </IconButton>
+            {state.isRecording ? (
+              <FiberManualRecordIcon
+                sx={{
+                  position: "absolute",
+                  top: 7,
+                  right: 7,
+                  color: "error.main",
+                  fontSize: 11,
+                }}
+              />
+            ) : null}
+          </Paper>
+        </Tooltip>
+      ) : (
+        <Paper
+          elevation={0}
           sx={{
-            px: 1.5,
-            py: 1.25,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background:
-              state.isRecording
-                ? "linear-gradient(135deg, rgba(220,38,38,0.14), rgba(248,113,113,0.04))"
-                : "linear-gradient(135deg, rgba(15,23,42,0.06), rgba(15,23,42,0.02))",
+            width: { xs: "calc(100vw - 24px)", sm: 360 },
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: state.isRecording ? "error.main" : "divider",
+            overflow: "hidden",
+            boxShadow: "0 22px 50px rgba(15, 23, 42, 0.18)",
           }}
         >
-          <Stack direction="row" spacing={1} alignItems="center">
-            <BugReportOutlinedIcon fontSize="small" />
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                Dev bug recorder
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Development only
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            {state.isRecording ? (
-              <FiberManualRecordIcon sx={{ color: "error.main", fontSize: 14 }} />
-            ) : null}
-            <Tooltip title={expanded ? "Minimize" : "Expand"}>
-              <IconButton size="small" onClick={() => setExpanded((prev) => !prev)}>
-                <MinimizeRoundedIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        </Box>
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1.25,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background:
+                state.isRecording
+                  ? "linear-gradient(135deg, rgba(220,38,38,0.14), rgba(248,113,113,0.04))"
+                  : "linear-gradient(135deg, rgba(15,23,42,0.06), rgba(15,23,42,0.02))",
+            }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <BugReportOutlinedIcon fontSize="small" />
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  Dev bug recorder
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Development only
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {state.isRecording ? (
+                <FiberManualRecordIcon sx={{ color: "error.main", fontSize: 14 }} />
+              ) : null}
+              <Tooltip title="Minimize">
+                <IconButton size="small" onClick={() => setExpanded(false)}>
+                  <MinimizeRoundedIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
 
-        <Collapse in={expanded}>
-          <Stack spacing={1.5} sx={{ p: 1.5 }}>
+          <Collapse in={expanded}>
+            <Stack spacing={1.5} sx={{ p: 1.5 }}>
             <Alert severity="info" sx={{ borderRadius: 2 }}>
               Start a recording, reproduce the issue, then save the generated bug
               report to `feedback`.
@@ -896,9 +936,10 @@ const DevBugRecorder = () => {
                 </Stack>
               </Box>
             ) : null}
-          </Stack>
-        </Collapse>
-      </Paper>
+            </Stack>
+          </Collapse>
+        </Paper>
+      )}
     </Box>
   );
 };

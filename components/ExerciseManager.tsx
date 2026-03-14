@@ -13,6 +13,7 @@ interface ExerciseManagerProps {
   index: number;
   darkMode: boolean;
   currentWorkoutTitle: string;
+  currentExercises?: any[];
   setIsAddingExercise: (value: boolean) => void;
   userId: string;
   date: string;
@@ -150,6 +151,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   index,
   darkMode,
   currentWorkoutTitle,
+  currentExercises = [],
   setIsAddingExercise,
   userId,
   date,
@@ -159,6 +161,21 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
+  const parsedBaseDate = parseLocalDate(date);
+  const [recurrenceType, setRecurrenceType] = useState<
+    "daily" | "weekly" | "custom" | "monthly"
+  >("weekly");
+  const [repeatInterval, setRepeatInterval] = useState(1);
+  const [repeatDayOfWeek, setRepeatDayOfWeek] = useState(
+    Number.isNaN(parsedBaseDate.getTime()) ? 0 : parsedBaseDate.getDay()
+  );
+  const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>([
+    Number.isNaN(parsedBaseDate.getTime()) ? 0 : parsedBaseDate.getDay(),
+  ]);
+  const [repeatDayOfMonth, setRepeatDayOfMonth] = useState(
+    Number.isNaN(parsedBaseDate.getTime()) ? 1 : parsedBaseDate.getDate()
+  );
+  const [repeatEndDate, setRepeatEndDate] = useState("");
 
   const normalizeExerciseId = (exercise: any) => {
     if (!exercise) {
@@ -245,10 +262,22 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       ...exercise,
       type: exerciseType,
       exerciseId: normalizedExerciseId,
+      sortOrder: currentExercises.length,
       routineName: currentWorkoutTitle,
       userId,
       date,
       isRecurring,
+      recurrenceType: isRecurring ? recurrenceType : undefined,
+      interval: isRecurring ? repeatInterval : undefined,
+      intervalWeeks: isRecurring ? repeatInterval : undefined,
+      dayOfWeek: isRecurring ? repeatDayOfWeek : undefined,
+      daysOfWeek: isRecurring
+        ? recurrenceType === "custom"
+          ? repeatDaysOfWeek
+          : [repeatDayOfWeek]
+        : undefined,
+      dayOfMonth: isRecurring ? repeatDayOfMonth : undefined,
+      endDate: isRecurring && repeatEndDate ? repeatEndDate : undefined,
       max: exercise.max ?? exercise.defaultMax ?? recommendedWeight,
       rest:
         exercise.rest ??
@@ -273,9 +302,18 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         exerciseName: updatedExercise.name,
         exerciseType: resolveExerciseType(updatedExercise),
         routineName: updatedExercise.routineName,
-        dayOfWeek: parsedDate.getDay(),
-        intervalWeeks: 1,
+        recurrenceType: updatedExercise.recurrenceType ?? recurrenceType,
+        interval: updatedExercise.interval ?? repeatInterval,
+        dayOfWeek: updatedExercise.dayOfWeek ?? repeatDayOfWeek,
+        daysOfWeek:
+          updatedExercise.daysOfWeek ??
+          (updatedExercise.recurrenceType ?? recurrenceType) === "custom"
+            ? repeatDaysOfWeek
+            : [updatedExercise.dayOfWeek ?? repeatDayOfWeek],
+        dayOfMonth: updatedExercise.dayOfMonth ?? repeatDayOfMonth,
+        intervalWeeks: updatedExercise.intervalWeeks ?? updatedExercise.interval ?? repeatInterval,
         startDate: parsedDate,
+        endDate: updatedExercise.endDate ?? (repeatEndDate || undefined),
         templateSets: updatedExercise.sets,
         defaultMax: updatedExercise.max,
         defaultRest: updatedExercise.rest,
@@ -356,8 +394,21 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         darkMode={darkMode}
         isRecurring={isRecurring}
         setIsRecurring={setIsRecurring}
+        recurrenceType={recurrenceType}
+        setRecurrenceType={setRecurrenceType}
+        repeatInterval={repeatInterval}
+        setRepeatInterval={setRepeatInterval}
+        repeatDayOfWeek={repeatDayOfWeek}
+        setRepeatDayOfWeek={setRepeatDayOfWeek}
+        repeatDaysOfWeek={repeatDaysOfWeek}
+        setRepeatDaysOfWeek={setRepeatDaysOfWeek}
+        repeatDayOfMonth={repeatDayOfMonth}
+        setRepeatDayOfMonth={setRepeatDayOfMonth}
+        repeatEndDate={repeatEndDate}
+        setRepeatEndDate={setRepeatEndDate}
         userId={userId}
         currentWorkoutTitle={currentWorkoutTitle}
+        currentExercises={currentExercises}
         addExerciseToWorkout={handleAddExercise} // delegate add handler
         quickAddExerciseToWorkout={handleQuickAddExercise}
         setIsAddingExercise={setIsAddingExercise}

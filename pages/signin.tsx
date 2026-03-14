@@ -145,7 +145,7 @@ const SignIn = () => {
             border: "1px solid",
             borderColor: "divider",
             borderRadius: 4,
-            display: "flex",
+            display: { xs: "none", md: "flex" },
             flexDirection: "column",
             justifyContent: "space-between",
             minHeight: { md: 640 },
@@ -219,6 +219,30 @@ const SignIn = () => {
             borderRadius: 4,
           }}
         >
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ display: { xs: "flex", md: "none" }, mb: 2 }}
+          >
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: 2,
+                display: "grid",
+                placeItems: "center",
+                backgroundColor: "text.primary",
+                color: "background.paper",
+              }}
+            >
+              <FitnessCenterIcon fontSize="small" />
+            </Box>
+            <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
+              Lift Logic
+            </Typography>
+          </Stack>
+
           <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
             Sign In
           </Typography>
