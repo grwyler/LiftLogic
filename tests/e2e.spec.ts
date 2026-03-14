@@ -395,6 +395,32 @@ test.describe("Lift Logic e2e", () => {
     await expect(page.getByText(title)).toBeVisible();
   });
 
+  test("non-admin users cannot access the bug workflow inbox or admin feedback APIs", async ({
+    page,
+  }) => {
+    const username = buildUsername("bugs-locked");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await continueAsTracker(page);
+    await page.goto("/bugs");
+
+    await expect(
+      page.getByText("This page is restricted to the Lift Logic admin account.")
+    ).toBeVisible();
+
+    const workflowResponse = await page.request.get("/api/feedback");
+    expect(workflowResponse.status()).toBe(403);
+
+    const patchResponse = await page.request.patch("/api/feedback", {
+      data: {
+        workItemId: "507f1f77bcf86cd799439011",
+        triageStatus: "queued",
+      },
+    });
+    expect(patchResponse.status()).toBe(403);
+  });
+
   test("coach thumbs up feedback stores the selected response and conversation history", async ({
     page,
   }) => {
@@ -452,7 +478,10 @@ test.describe("Lift Logic e2e", () => {
     await page.getByRole("button", { name: "Save assistant setup" }).click();
 
     await expect(openingCoachBubble(page)).toBeVisible();
-    await openingCoachBubble(page).locator("button").nth(1).click();
+    await openingCoachBubble(page)
+      .locator("button")
+      .nth(1)
+      .evaluate((button: HTMLButtonElement) => button.click());
 
     await expect(
       page.getByRole("heading", { name: "What went wrong with this response?" })

@@ -62,6 +62,40 @@ type WorkflowDraft = {
   fixCommitSha: string;
 };
 
+const triageLabel: Record<FeedbackTriageStatus, string> = {
+  new: "New",
+  duplicate: "Duplicate",
+  queued: "Sent to Codex",
+  fixing: "In Progress",
+  resolved: "Ready to Verify",
+  verified: "Verified",
+};
+
+const getPrimaryAction = (triageStatus: FeedbackTriageStatus) => {
+  switch (triageStatus) {
+    case "new":
+    case "duplicate":
+      return {
+        label: "Send to Codex",
+        nextStatus: "fixing" as FeedbackTriageStatus,
+      };
+    case "queued":
+    case "fixing":
+      return {
+        label: "Ready to Verify",
+        nextStatus: "resolved" as FeedbackTriageStatus,
+      };
+    case "resolved":
+      return {
+        label: "Verified",
+        nextStatus: "verified" as FeedbackTriageStatus,
+      };
+    case "verified":
+    default:
+      return null;
+  }
+};
+
 const serializeWorkItems = (items: FeedbackWorkItemDoc[]) =>
   JSON.stringify(
     items.map((item) => ({
@@ -110,6 +144,9 @@ const BugsPage = () => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
   const [drafts, setDrafts] = useState<Record<string, WorkflowDraft>>({});
+  const [advancedOpenById, setAdvancedOpenById] = useState<
+    Record<string, boolean>
+  >({});
 
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
@@ -255,7 +292,7 @@ const BugsPage = () => {
         }));
       }
 
-      toast.success(`Marked as ${triageStatus}`);
+      toast.success(`Marked as ${triageLabel[triageStatus] || triageStatus}`);
     } catch (error) {
       console.error("Feedback workflow update error:", error);
       toast.error("Couldn't update that work item.");
@@ -299,12 +336,14 @@ const BugsPage = () => {
       <Stack divider={<Divider flexItem />} spacing={0}>
         {items.map((item) => {
           const workItemId = String(item._id);
+          const primaryAction = getPrimaryAction(item.triageStatus);
           const draft = drafts[workItemId] || {
             fixThreadId: item.fixThreadId || "",
             fixCommitSha: item.fixCommitSha || "",
           };
           const anchorId = getWorkItemAnchorId(workItemId);
           const selected = activeAnchor === anchorId;
+          const showAdvanced = Boolean(advancedOpenById[workItemId]);
 
           return (
             <Box
@@ -336,7 +375,7 @@ const BugsPage = () => {
                   />
                   <Chip
                     size="small"
-                    label={item.triageStatus}
+                    label={triageLabel[item.triageStatus] || item.triageStatus}
                     color={triageTone[item.triageStatus] || "default"}
                   />
                   <Chip
@@ -387,78 +426,107 @@ const BugsPage = () => {
               </Typography>
 
               <Stack
-                direction={{ xs: "column", md: "row" }}
-                spacing={1}
-                sx={{ mt: 1.25 }}
-              >
-                <TextField
-                  label="Fix thread ID"
-                  size="small"
-                  value={draft.fixThreadId}
-                  onChange={(event) =>
-                    handleDraftChange(workItemId, "fixThreadId", event.target.value)
-                  }
-                  fullWidth
-                />
-                <TextField
-                  label="Commit SHA"
-                  size="small"
-                  value={draft.fixCommitSha}
-                  onChange={(event) =>
-                    handleDraftChange(workItemId, "fixCommitSha", event.target.value)
-                  }
-                  fullWidth
-                />
-              </Stack>
-
-              <Stack
                 direction="row"
                 spacing={1}
                 flexWrap="wrap"
                 useFlexGap
                 sx={{ mt: 1.25 }}
               >
+                {primaryAction ? (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() =>
+                      handleWorkflowUpdate(item, primaryAction.nextStatus)
+                    }
+                    disabled={savingId === workItemId}
+                  >
+                    {primaryAction.label}
+                  </Button>
+                ) : null}
+                {item.triageStatus !== "duplicate" ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleWorkflowUpdate(item, "duplicate")}
+                    disabled={savingId === workItemId}
+                  >
+                    Mark Duplicate
+                  </Button>
+                ) : null}
                 <Button
-                  variant="outlined"
+                  variant="text"
                   size="small"
-                  onClick={() => handleWorkflowUpdate(item, "queued")}
-                  disabled={savingId === workItemId}
+                  onClick={() =>
+                    setAdvancedOpenById((previous) => ({
+                      ...previous,
+                      [workItemId]: !previous[workItemId],
+                    }))
+                  }
                 >
-                  Create fix job
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleWorkflowUpdate(item, "duplicate")}
-                  disabled={savingId === workItemId}
-                >
-                  Mark duplicate
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleWorkflowUpdate(item, "fixing")}
-                  disabled={savingId === workItemId}
-                >
-                  Fixing
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleWorkflowUpdate(item, "resolved")}
-                  disabled={savingId === workItemId}
-                >
-                  Resolved
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleWorkflowUpdate(item, "verified")}
-                  disabled={savingId === workItemId}
-                >
-                  Verified
+                  {showAdvanced ? "Hide Advanced" : "Advanced"}
                 </Button>
               </Stack>
+
+              {showAdvanced ? (
+                <Box sx={{ mt: 1.25 }}>
+                  <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={1}
+                  >
+                    <TextField
+                      label="Fix thread ID"
+                      helperText="Optional: store the Codex conversation or job reference."
+                      size="small"
+                      value={draft.fixThreadId}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "fixThreadId",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Commit SHA"
+                      helperText="Optional: store the commit that fixed this issue."
+                      size="small"
+                      value={draft.fixCommitSha}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "fixCommitSha",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                  </Stack>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    flexWrap="wrap"
+                    useFlexGap
+                    sx={{ mt: 1 }}
+                  >
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() =>
+                        handleWorkflowUpdate(item, item.triageStatus)
+                      }
+                      disabled={savingId === workItemId}
+                    >
+                      Save Tracking
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      Only use these if you want to remember the Codex thread or
+                      the final fix commit.
+                    </Typography>
+                  </Stack>
+                </Box>
+              ) : null}
 
               <Stack
                 direction="row"
@@ -529,8 +597,9 @@ const BugsPage = () => {
             </Typography>
             <Typography variant="h4">Feedback work items</Typography>
             <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
-              Raw reports now flow into triaged work items. Use queue actions
-              here instead of copying report prose into a separate thread.
+              Review the bug, click `Send to Codex` when you want Codex to work
+              it, then move it to `Ready to Verify` and `Verified` as you
+              confirm the fix. Advanced tracking is optional.
             </Typography>
           </Box>
           <Button
@@ -560,8 +629,8 @@ const BugsPage = () => {
             <Box>
               <Typography variant="h6">Bug queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Unique bug work items with occurrence counts, notification state,
-                and fix metadata.
+                One card per unique bug. Duplicates roll into the same card so
+                you can decide when to hand the issue to Codex.
               </Typography>
             </Box>
             <Chip
@@ -608,8 +677,8 @@ const BugsPage = () => {
             <Box>
               <Typography variant="h6">Feature queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Feature requests are triaged the same way, so one queue owns the
-                operational state for both bugs and product ideas.
+                Feature requests use the same simplified queue, but the advanced
+                tracking fields stay hidden until you need them.
               </Typography>
             </Box>
             <Chip

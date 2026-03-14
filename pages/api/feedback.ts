@@ -15,7 +15,6 @@ import {
   buildWorkItemUrl,
   createFeedbackFingerprint,
   getLegacyStatusFromTriage,
-  shouldAutoQueueFixJob,
 } from "../../utils/feedbackWorkflow";
 
 const sanitizeText = (value: unknown) =>
@@ -372,14 +371,7 @@ const upsertFeedbackWorkItem = async ({
 
   if (existing?._id) {
     const occurrenceCount = Number(existing.occurrenceCount || 0) + 1;
-    const triageStatus = shouldAutoQueueFixJob({
-      feedback,
-      occurrenceCount,
-      triageStatus: existing.triageStatus,
-      hasFixThreadId: Boolean(existing.fixThreadId),
-    })
-      ? "queued"
-      : existing.triageStatus || "new";
+    const triageStatus = existing.triageStatus || "new";
     const workItemId = existing._id.toString();
     const nextReportIds = buildReportIdList(existing.reportIds, feedbackId);
     const nextSeverity = selectHigherSeverity(existing.severity, feedback.severity);
@@ -420,14 +412,7 @@ const upsertFeedbackWorkItem = async ({
     };
   }
 
-  const triageStatus = shouldAutoQueueFixJob({
-    feedback,
-    occurrenceCount: 1,
-    triageStatus: "new",
-    hasFixThreadId: false,
-  })
-    ? "queued"
-    : "new";
+  const triageStatus = "new";
   const workItem: FeedbackWorkItemDoc = {
     type: feedback.type,
     title: feedback.title,
