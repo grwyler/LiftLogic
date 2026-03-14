@@ -1,4 +1,3 @@
-import axios from "axios";
 import {
   WorkoutEntryDoc,
   RecurringRuleDoc,
@@ -847,33 +846,42 @@ export const fetchRoutine = async (userId) => {
 export async function getImageFromOpenAI(
   setImage: Function,
   setIsLoading: Function,
-  userInput: string
+  userInput: string,
+  setError?: (message: string) => void
 ) {
-  setIsLoading(true);
+  const prompt = userInput.trim();
+  if (!prompt) {
+    setError?.("Enter a prompt first.");
+    return;
+  }
 
-  const prompt = userInput;
-  axios({
-    method: "post",
-    url: "https://api.openai.com/v1/images/generations",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer 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`,
-    },
-    data: {
-      prompt,
-      n: 1,
-      size: "512x512",
-      response_format: "url",
-    },
-  })
-    .then((response) => {
-      const imageUrl = response.data.data[0].url;
-      setImage(imageUrl);
-      setIsLoading(false);
-    })
-    .catch((error) => {
-      console.error(error);
+  setIsLoading(true);
+  setError?.("");
+
+  try {
+    const response = await fetch("/api/imageGeneration", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
     });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || "Couldn't generate an image right now.");
+    }
+
+    const data = await response.json();
+    setImage(data.imageUrl);
+  } catch (error) {
+    console.error("Error generating image:", error);
+    setError?.(
+      error instanceof Error ? error.message : "Couldn't generate an image right now."
+    );
+  } finally {
+    setIsLoading(false);
+  }
 }
 export const fetchUser = async (id) => {
   try {

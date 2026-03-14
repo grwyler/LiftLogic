@@ -48,6 +48,25 @@ const formatBugForClipboard = (item: FeedbackItemDoc) => {
     item.description,
   ];
 
+  if (item.coachFeedback?.conversation?.length) {
+    parts.push(
+      "",
+      "Coach Feedback",
+      `Sentiment: ${item.coachFeedback.sentiment}`,
+      ...(item.coachFeedback.selectedResponse
+        ? ["", "Selected response", item.coachFeedback.selectedResponse]
+        : []),
+      ...(item.coachFeedback.explanation
+        ? ["", "Why it was flagged", item.coachFeedback.explanation]
+        : []),
+      "",
+      "Conversation history",
+      ...item.coachFeedback.conversation.map(
+        (entry) => `${entry.role === "coach" ? "Coach" : "User"}: ${entry.text}`
+      )
+    );
+  }
+
   return parts.join("\n");
 };
 
@@ -418,6 +437,81 @@ const BugsPage = () => {
                     >
                       {item.description}
                     </Typography>
+                    {item.coachFeedback?.conversation?.length ? (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          mt: 1.25,
+                          p: 1.25,
+                          borderRadius: 2.5,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          backgroundColor: "background.paper",
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Chip
+                              size="small"
+                              label={`Coach feedback: ${item.coachFeedback.sentiment}`}
+                              variant="outlined"
+                            />
+                            <Chip
+                              size="small"
+                              label={`${item.coachFeedback.conversation.length} chat message${
+                                item.coachFeedback.conversation.length === 1 ? "" : "s"
+                              }`}
+                              variant="outlined"
+                            />
+                          </Stack>
+                          {item.coachFeedback.selectedResponse ? (
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                Selected response
+                              </Typography>
+                              <Typography
+                                sx={{ mt: 0.35, color: "text.secondary", whiteSpace: "pre-wrap" }}
+                              >
+                                {item.coachFeedback.selectedResponse}
+                              </Typography>
+                            </Box>
+                          ) : null}
+                          {item.coachFeedback.explanation ? (
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                User note
+                              </Typography>
+                              <Typography
+                                sx={{ mt: 0.35, color: "text.secondary", whiteSpace: "pre-wrap" }}
+                              >
+                                {item.coachFeedback.explanation}
+                              </Typography>
+                            </Box>
+                          ) : null}
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              Conversation history
+                            </Typography>
+                            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                              {item.coachFeedback.conversation.map((entry, index) => (
+                                <Typography
+                                  key={`${String(item._id)}-coach-feedback-${index}`}
+                                  sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
+                                >
+                                  <Box
+                                    component="span"
+                                    sx={{ fontWeight: 700, color: "text.primary" }}
+                                  >
+                                    {entry.role === "coach" ? "Coach" : "User"}:
+                                  </Box>{" "}
+                                  {entry.text}
+                                </Typography>
+                              ))}
+                            </Stack>
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    ) : null}
                   </Box>
                 );
               })}

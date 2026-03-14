@@ -2,6 +2,19 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 
+const buildDefaultRoutine = (userId: string) => ({
+  userId,
+  days: {
+    sunday: [{ title: "Sunday Workout", exercises: [] }],
+    monday: [{ title: "Monday Workout", exercises: [] }],
+    tuesday: [{ title: "Tuesday Workout", exercises: [] }],
+    wednesday: [{ title: "Wednesday Workout", exercises: [] }],
+    thursday: [{ title: "Thursday Workout", exercises: [] }],
+    friday: [{ title: "Friday Workout", exercises: [] }],
+    saturday: [{ title: "Saturday Workout", exercises: [] }],
+  },
+});
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -15,65 +28,48 @@ export default async function handler(
     const routineCollection = db.collection("routines");
     const exerciseCollection = db.collection("exercises");
     const { routine } = req.body;
-    const userId = routine?.userId || req.query?.userId;
-    const defaultRoutine = {
-      userId,
-      days: {
-        sunday: [{ title: "Sunday Workout", exercises: [] }],
-        monday: [{ title: "Monday Workout", exercises: [] }],
-        tuesday: [{ title: "Tuesday Workout", exercises: [] }],
-        wednesday: [{ title: "Wednesday Workout", exercises: [] }],
-        thursday: [{ title: "Thursday Workout", exercises: [] }],
-        friday: [{ title: "Friday Workout", exercises: [] }],
-        saturday: [{ title: "Saturday Workout", exercises: [] }],
-      },
-    };
+    const rawUserId = routine?.userId || req.query?.userId;
+    const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
+
     if (req.method === "POST") {
-      // Handling POST request to save a routine
-
-      // const existingRoutine = await routineCollection.findOne({
-      //   userId,
-      // });
-
-      // delete routine._id;
-
-      // if (existingRoutine) {
-      //   // Update existing routine
-      //   await routineCollection.updateOne({ userId }, { $set: routine });
-      // } else {
-      //   // Insert new routine
-      //   try {
-      //     await routineCollection.insertOne(routine);
-      //   } catch (error) {
-      //     console.error("Failed to instert Routine: ", error);
-      //   }
-      // }
-
-      // return res.status(201).json({ message: "routine saved successfully!" });
+      if (!routine || !userId) {
+        return res.status(400).json({ message: "Routine and userId are required" });
+      }
 
       const existingRoutine = await routineCollection.findOne({ userId });
-
-      // If you only allow one routine per user, remove `_id` so that
-      // an "update" doesn't conflict with an existing ObjectId
-      delete routine._id;
+      const { _id, ...routineWithoutId } = routine;
+      const nextRoutine = {
+        ...buildDefaultRoutine(userId),
+        ...routineWithoutId,
+        userId,
+        days: routineWithoutId.days ?? buildDefaultRoutine(userId).days,
+      };
 
       if (existingRoutine) {
-        // Update the existing routine for the user
-        await routineCollection.updateOne({ userId }, { $set: routine });
+        await routineCollection.updateOne(
+          { userId },
+          {
+            $set: {
+              ...nextRoutine,
+              updatedAt: new Date(),
+            },
+          }
+        );
         return res
-          .status(201)
+          .status(200)
           .json({ message: "Routine updated successfully!" });
-      } else {
-        // Insert the default routine if none exists yet
-        try {
-          await routineCollection.insertOne(defaultRoutine);
-          return res
-            .status(201)
-            .json({ message: "New default routine created!" });
-        } catch (error) {
-          console.error("Failed to insert routine: ", error);
-          return res.status(500).json({ error: "Failed to insert routine." });
-        }
+      }
+
+      try {
+        await routineCollection.insertOne({
+          ...nextRoutine,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        return res.status(201).json({ message: "Routine saved successfully!" });
+      } catch (error) {
+        console.error("Failed to insert routine: ", error);
+        return res.status(500).json({ error: "Failed to insert routine." });
       }
     } else if (req.method === "GET") {
       if (!userId) {
@@ -82,21 +78,13 @@ export default async function handler(
       let routine = await routineCollection.findOne({ userId });
       if (!routine) {
         try {
-          const defaultRoutine = {
-            userId,
-            days: {
-              sunday: [{ title: "Sunday Workout", exercises: [] }],
-              monday: [{ title: "Monday Workout", exercises: [] }],
-              tuesday: [{ title: "Tuesday Workout", exercises: [] }],
-              wednesday: [{ title: "Wednesday Workout", exercises: [] }],
-              thursday: [{ title: "Thursday Workout", exercises: [] }],
-              friday: [{ title: "Friday Workout", exercises: [] }],
-              saturday: [{ title: "Saturday Workout", exercises: [] }],
-            },
-          };
+          const defaultRoutine = buildDefaultRoutine(userId);
 
-          // Insert default routine and re-fetch it to include _id
-          await routineCollection.insertOne(defaultRoutine);
+          await routineCollection.insertOne({
+            ...defaultRoutine,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
           routine = await routineCollection.findOne({ userId });
         } catch (error) {
           console.error("Failed to insert routine: ", error);
@@ -104,7 +92,6 @@ export default async function handler(
         }
       }
 
-      // Return the routine
       return res.status(200).json({ routine });
     } else if (req.method === "DELETE") {
       const { userId, name } = req.query;
@@ -121,8 +108,6 @@ export default async function handler(
       });
 
       if (result.deletedCount === 1) {
-        // Delete related documents in the 'exercises' collection
-
         await exerciseCollection.deleteMany({ userId });
         return res
           .status(200)
@@ -131,7 +116,6 @@ export default async function handler(
         return res.status(404).json({ error: "Routine not found" });
       }
     } else {
-      // Handling other HTTP methods
       return res.status(405).json({ message: "Method Not Allowed" });
     }
   } catch (error) {

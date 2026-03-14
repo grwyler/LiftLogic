@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { getImageFromOpenAI } from "../utils/helpers";
 import { FaSpinner } from "react-icons/fa";
-import LoadingIndicator from "../components/LoadingIndicator";
 
-const imageGeneratorHome = () => {
+const ImageGeneratorHome = () => {
   const [userPrompt, setUserPrompt] = useState("");
-  const [image, setImage] = useState("images/image.jpg");
+  const [image, setImage] = useState("/images/image.jpg");
   const [loading, setIsLoading] = useState(false);
-  const handleGenerateImage = () => {
-    getImageFromOpenAI(setImage, setIsLoading, userPrompt);
+  const [error, setError] = useState("");
+
+  const handleGenerateImage = async () => {
+    await getImageFromOpenAI(setImage, setIsLoading, userPrompt, setError);
   };
+
   return (
     <div className="container  mt-2">
       <div className="d-flex">
@@ -18,16 +20,22 @@ const imageGeneratorHome = () => {
           type="text"
           placeholder="Describe the image"
           value={userPrompt}
-          onChange={(e) => setUserPrompt(e.target.value)}
+          onChange={(e) => {
+            setUserPrompt(e.target.value);
+            if (error) {
+              setError("");
+            }
+          }}
         />
         <button
           className="btn btn-success"
-          disabled={userPrompt === ""}
+          disabled={userPrompt === "" || loading}
           onClick={handleGenerateImage}
         >
-          Generate
+          {loading ? "Generating..." : "Generate"}
         </button>
       </div>
+      {error ? <p className="mt-2 text-danger">{error}</p> : null}
       {loading ? (
         <div className="spinning m-3 text-center">
           <FaSpinner />
@@ -45,4 +53,4 @@ const imageGeneratorHome = () => {
   );
 };
 
-export default imageGeneratorHome;
+export default ImageGeneratorHome;

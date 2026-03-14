@@ -115,7 +115,11 @@ const extractUnavailableDays = (
   coachResponse: WorkoutCoachResponse
 ) => {
   const normalized = message.toLowerCase();
-  if (!/(can't|cannot|unable|not available|won't work|do not work|don't work)/.test(normalized)) {
+  if (
+    !/(can't|cannot|unable|not available|won't work|do not work|don't work|don't like|do not like|hate|prefer not|rather not|avoid)/.test(
+      normalized
+    )
+  ) {
     return null;
   }
 
@@ -269,7 +273,10 @@ const extractFallbackPatch = (
     patch.equipmentAccess = ["Dumbbells", "Bodyweight only"];
   }
 
-  const daysMatch = normalized.match(/(\d+)\s+days?\s+(per week|a week)/);
+  const daysMatch =
+    normalized.match(/(\d+)\s+days?\s+(per week|a week)/) ||
+    normalized.match(/(\d+)[-\s]?day\s+split/) ||
+    normalized.match(/split\s+for\s+(\d+)\s+days?/);
   if (daysMatch) {
     patch.workoutDaysPerWeek = daysMatch[1];
   }
@@ -286,10 +293,22 @@ const extractFallbackPatch = (
   if (/general fitness/.test(normalized)) patch.trainingGoal = "general_fitness";
   if (/athletic|athleticism|sport/.test(normalized)) patch.trainingGoal = "athleticism";
   if (/conditioning|cardio|endurance/.test(normalized)) patch.trainingGoal = "conditioning";
+  if (
+    /progressive overload|compound lifts?|compound exercises?|big lifts?/.test(
+      normalized
+    ) &&
+    !patch.trainingGoal
+  ) {
+    patch.trainingGoal = "strength";
+  }
+
+  const explicitRebuildRequest = /(?:make|build|create|generate|give)\s+me\b/.test(
+    normalized
+  ) && /split|plan|program|workout/.test(normalized);
 
   return {
     patch,
-    shouldRegeneratePlan: Object.keys(patch).length > 0,
+    shouldRegeneratePlan: explicitRebuildRequest || Object.keys(patch).length > 0,
     preferredDaySwap,
     unavailableDays,
   };
@@ -436,6 +455,22 @@ export default async function handler(
           "Can you show me the updated week?",
           "Can you shorten one of the days?",
           "Can I swap an exercise too?",
+        ],
+        profilePatch: extracted.patch,
+        shouldRegeneratePlan: true,
+        action: null,
+        source: "fallback",
+      });
+    }
+
+    if (extracted.shouldRegeneratePlan && Object.keys(extracted.patch).length > 0) {
+      return res.status(200).json({
+        reply:
+          "I updated your setup from that request and I’m rebuilding the weekly plan so it actually matches what you asked for.",
+        suggestedReplies: [
+          "Can you walk me through the new week?",
+          "Can you make one day shorter?",
+          "Can I swap an exercise?",
         ],
         profilePatch: extracted.patch,
         shouldRegeneratePlan: true,

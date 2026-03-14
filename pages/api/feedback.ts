@@ -179,6 +179,7 @@ const sanitizeCoachFeedback = (value: unknown) => {
     sentiment: sentiment as "like" | "dislike",
     messageId: sanitizeText(feedback.messageId) || undefined,
     selectedResponse: sanitizeText(feedback.selectedResponse) || undefined,
+    explanation: sanitizeText(feedback.explanation) || undefined,
     conversation: conversation.length > 0 ? conversation : undefined,
   };
 };

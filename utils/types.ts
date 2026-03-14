@@ -150,6 +150,7 @@ export interface FeedbackItemDoc {
     sentiment: "like" | "dislike";
     messageId?: string;
     selectedResponse?: string;
+    explanation?: string;
     conversation?: Array<{
       role: "coach" | "user";
       text: string;

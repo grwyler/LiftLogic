@@ -11,6 +11,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ToastContainer } from "react-toastify";
 import DevBugRecorder from "../components/DevBugRecorder";
+import AutomaticBugReporter from "../components/AutomaticBugReporter";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const [darkMode, setDarkMode] = useState(false);
@@ -181,6 +182,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           darkMode={darkMode}
           setDarkMode={setDarkMode}
         />
+        <AutomaticBugReporter />
         <ToastContainer position="bottom-center" autoClose={2500} />
         {process.env.NODE_ENV !== "production" ? <DevBugRecorder /> : null}
       </ThemeProvider>

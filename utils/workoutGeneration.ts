@@ -332,6 +332,21 @@ const getRestTarget = (goal: string, exercise: any) => {
   return goal === "conditioning" ? 45 : 75;
 };
 
+const inferExerciseType = (name: string): "weight" | "timed" =>
+  /run|row|bike|cycle|walk|jump rope|plank|carry|treadmill|elliptical|stair|cardio|interval|hold/.test(
+    normalizeName(name)
+  )
+    ? "timed"
+    : "weight";
+
+const createFallbackExerciseDefinition = (name: string) => ({
+  name: name.trim() || "Exercise",
+  type: inferExerciseType(name),
+  equipment: ["Bodyweight"],
+  target: "general",
+  bodyPart: "full body",
+});
+
 const buildExercise = (
   name: string,
   goal: string,
@@ -339,11 +354,13 @@ const buildExercise = (
 ): GeneratedExercise => {
   const catalogExercise =
     resolveExerciseForProfile(name, profile) ?? resolveCatalogExercise(name);
+  const resolvedExercise =
+    catalogExercise ?? createFallbackExerciseDefinition(name);
 
-  if (catalogExercise?.type === "timed") {
+  if (resolvedExercise.type === "timed") {
     const timedDefaults = getWeightDefaults(goal, true);
     return {
-      name: catalogExercise.name,
+      name: resolvedExercise.name,
       type: "timed",
       rest: timedDefaults.rest,
       complete: false,
@@ -359,12 +376,12 @@ const buildExercise = (
   }
 
   const defaults = getWeightDefaults(goal, false);
-  const setTarget = getSetTarget(goal, catalogExercise);
-  const repTarget = getRepTarget(goal, catalogExercise) ?? defaults.reps;
-  const restTarget = getRestTarget(goal, catalogExercise);
-  const targetWeight = getTargetWeight(catalogExercise, profile);
+  const setTarget = getSetTarget(goal, resolvedExercise);
+  const repTarget = getRepTarget(goal, resolvedExercise) ?? defaults.reps;
+  const restTarget = getRestTarget(goal, resolvedExercise);
+  const targetWeight = getTargetWeight(resolvedExercise, profile);
   return {
-    name: catalogExercise?.name ?? name,
+    name: resolvedExercise.name,
     type: "weight",
     max: targetWeight,
     rest: restTarget,

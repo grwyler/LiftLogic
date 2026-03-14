@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
-import { connectToDatabase } from "../../utils/mongodb";
+import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 import {
   buildWorkoutCoachResponse,
   buildFallbackWorkoutPlan,
@@ -26,6 +26,84 @@ const getNextOccurrence = (dayIndex: number) => {
   const delta = (dayIndex - start.getDay() + 7) % 7;
   start.setDate(start.getDate() + delta);
   return start;
+};
+
+const buildRecurringRules = (userId: string, plan: ReturnType<typeof buildFallbackWorkoutPlan>) =>
+  plan.days.flatMap((day) =>
+    day.exercises.map((exercise, index) => ({
+      userId,
+      exerciseId: exercise.name.toLowerCase().replace(/\s+/g, "-"),
+      exerciseName: exercise.name,
+      exerciseType: exercise.type,
+      routineName: day.title,
+      sortOrder: index,
+      recurrenceType: "weekly",
+      interval: 1,
+      intervalWeeks: 1,
+      dayOfWeek: dayToIndex[day.dayKey],
+      daysOfWeek: [dayToIndex[day.dayKey]],
+      dayOfMonth: undefined,
+      startDate: getNextOccurrence(dayToIndex[day.dayKey]),
+      templateSets: exercise.sets,
+      defaultMax: exercise.max,
+      defaultRest: exercise.rest,
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }))
+  );
+
+const persistGeneratedPlan = async ({
+  userId,
+  plan,
+  routine,
+}: {
+  userId: string;
+  plan: ReturnType<typeof buildFallbackWorkoutPlan>;
+  routine: ReturnType<typeof buildRoutineFromPlan>;
+}) => {
+  const db = await connectToDatabase();
+  const recurringRuleCollection = db.collection("recurringRules");
+  const routineCollection = db.collection("routines");
+
+  await recurringRuleCollection.updateMany(
+    { userId, active: true },
+    { $set: { active: false, updatedAt: new Date() } }
+  );
+
+  const rules = buildRecurringRules(userId, plan);
+
+  if (rules.length > 0) {
+    await recurringRuleCollection.insertMany(rules);
+  }
+
+  const existingRoutine = await routineCollection.findOne({ userId });
+  if (existingRoutine) {
+    await routineCollection.updateOne(
+      { userId },
+      { $set: { ...routine, updatedAt: new Date() } }
+    );
+    return;
+  }
+
+  await routineCollection.insertOne({
+    ...routine,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+};
+
+const isRetryableMongoWriteError = (error: unknown) => {
+  const code = String((error as { code?: unknown })?.code ?? "");
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+
+  return (
+    code === "ECONNRESET" ||
+    /ECONNRESET|Mongo(Network|ServerSelection)|connection.*reset|timed out/i.test(
+      message
+    )
+  );
 };
 
 const generatePlanWithAI = async (profile: SetupFormValues) => {
@@ -96,10 +174,6 @@ export default async function handler(
         .json({ message: "trainingGoal and workoutDaysPerWeek are required" });
     }
 
-    const db = await connectToDatabase();
-    const recurringRuleCollection = db.collection("recurringRules");
-    const routineCollection = db.collection("routines");
-
     let rawPlan: any = null;
     let source: "ai" | "fallback" = "fallback";
 
@@ -118,51 +192,19 @@ export default async function handler(
     const coachResponse = buildWorkoutCoachResponse(profile, plan);
     const routine = buildRoutineFromPlan(userId, plan);
 
-    await recurringRuleCollection.updateMany(
-      { userId, active: true },
-      { $set: { active: false, updatedAt: new Date() } }
-    );
+    try {
+      await persistGeneratedPlan({ userId, plan, routine });
+    } catch (error) {
+      if (!isRetryableMongoWriteError(error)) {
+        throw error;
+      }
 
-    const rules = plan.days.flatMap((day) =>
-      day.exercises.map((exercise, index) => ({
-        userId,
-        exerciseId: exercise.name.toLowerCase().replace(/\s+/g, "-"),
-        exerciseName: exercise.name,
-        exerciseType: exercise.type,
-        routineName: day.title,
-        sortOrder: index,
-        recurrenceType: "weekly",
-        interval: 1,
-        intervalWeeks: 1,
-        dayOfWeek: dayToIndex[day.dayKey],
-        daysOfWeek: [dayToIndex[day.dayKey]],
-        dayOfMonth: undefined,
-        startDate: getNextOccurrence(dayToIndex[day.dayKey]),
-        templateSets: exercise.sets,
-        defaultMax: exercise.max,
-        defaultRest: exercise.rest,
-        active: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }))
-    );
-
-    if (rules.length > 0) {
-      await recurringRuleCollection.insertMany(rules);
-    }
-
-    const existingRoutine = await routineCollection.findOne({ userId });
-    if (existingRoutine) {
-      await routineCollection.updateOne(
-        { userId },
-        { $set: { ...routine, updatedAt: new Date() } }
+      console.warn(
+        "generateWorkout persistence hit a retryable Mongo error, retrying once",
+        error
       );
-    } else {
-      await routineCollection.insertOne({
-        ...routine,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await disconnectFromDatabase();
+      await persistGeneratedPlan({ userId, plan, routine });
     }
 
     return res.status(200).json({

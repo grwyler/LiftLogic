@@ -8,13 +8,26 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
+    const db = await connectToDatabase();
+    const userCollection = db.collection("users");
+
     if (req.method === "GET") {
-      const db = await connectToDatabase();
-      const userCollection = await db.collection("users");
       const { id } = req.query;
-      if (id) {
+      const normalizedId = Array.isArray(id) ? id[0] : id;
+
+      if (normalizedId) {
+        if (!ObjectId.isValid(normalizedId)) {
+          return res.status(400).json({ message: "Invalid user ID" });
+        }
+
         const matchingUser = await userCollection.findOne({
-          _id: new ObjectId(id as string),
+          _id: new ObjectId(normalizedId),
+        }, {
+          projection: {
+            password: 0,
+            sessionId: 0,
+            providerAccountId: 0,
+          },
         });
 
         if (!matchingUser) {
@@ -22,18 +35,31 @@ export default async function handler(
         }
 
         return res.status(200).json({ user: matchingUser });
-      } else {
-        const users = await userCollection.find({}).toArray();
-        return res.status(200).json({ users });
       }
+
+      if (process.env.NEXT_PUBLIC_ENV !== "local") {
+        return res.status(403).json({ message: "Listing users is only allowed locally" });
+      }
+
+      const users = await userCollection
+        .find(
+          {},
+          {
+            projection: {
+              username: 1,
+              password: 1,
+            },
+          }
+        )
+        .toArray();
+
+      return res.status(200).json({ users });
     } else if (req.method === "DELETE") {
-      const db = await connectToDatabase();
-      const userCollection = await db.collection("users");
-      const routineCollection = await db.collection("routines");
-      const exerciseCollection = await db.collection("exercises");
-      const setCollection = await db.collection("sets");
-      const workoutEntryCollection = await db.collection("workoutEntries");
-      const recurringRuleCollection = await db.collection("recurringRules");
+      const routineCollection = db.collection("routines");
+      const exerciseCollection = db.collection("exercises");
+      const setCollection = db.collection("sets");
+      const workoutEntryCollection = db.collection("workoutEntries");
+      const recurringRuleCollection = db.collection("recurringRules");
       const { id } = req.query;
       const normalizedId = Array.isArray(id) ? id[0] : id;
 
@@ -65,32 +91,34 @@ export default async function handler(
         return res.status(404).json({ error: "User not found" });
       }
     } else if (req.method === "POST") {
-      const db = await connectToDatabase();
-      const userCollection = await db.collection("users");
       const { user } = req.body;
       if (!user) {
         return res.status(400).json({ error: "User is required" });
       }
 
+      const normalizedId = String(user._id ?? "");
+      if (!normalizedId || !ObjectId.isValid(normalizedId)) {
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+
       const existingUser = await userCollection.findOne({
-        _id: new ObjectId(user._id as string),
+        _id: new ObjectId(normalizedId),
       });
 
-      if (existingUser) {
-        // Remove _id field from the user object to prevent updating it
-        const { _id, ...updatedUser } = user;
-
-        // Construct the update document using $set operator
-        const updateDocument = {
-          $set: updatedUser,
-        };
-
-        // Update existing user
-        await userCollection.updateOne(
-          { _id: existingUser._id },
-          updateDocument
-        );
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
       }
+
+      const { _id, ...updatedUser } = user;
+      await userCollection.updateOne(
+        { _id: existingUser._id },
+        {
+          $set: {
+            ...updatedUser,
+            updatedAt: new Date(),
+          },
+        }
+      );
 
       return res.status(200).json({ message: "User saved successfully!" });
     } else {

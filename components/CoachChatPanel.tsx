@@ -10,6 +10,10 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Paper,
   Portal,
@@ -29,6 +33,7 @@ type ChatMessage = {
   id: string;
   role: "coach" | "user";
   text: string;
+  feedbackEnabled?: boolean;
 };
 
 type CoachResponse = {
@@ -61,6 +66,7 @@ const buildInitialMessages = (coachResponse: CoachResponse): ChatMessage[] => {
       id: "opening",
       role: "coach",
       text: coachResponse.openingMessage,
+      feedbackEnabled: true,
     });
   }
 
@@ -68,10 +74,14 @@ const buildInitialMessages = (coachResponse: CoachResponse): ChatMessage[] => {
     id: "follow-up",
     role: "coach",
     text: "If you want, ask me why I chose this split, how to adjust it, or what to do first.",
+    feedbackEnabled: false,
   });
 
   return messages;
 };
+
+const truncateText = (value: string, maxLength = 120) =>
+  value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}...`;
 
 export default function CoachChatPanel({
   coachResponse,
@@ -105,6 +115,9 @@ export default function CoachChatPanel({
   const [responseFeedback, setResponseFeedback] = useState<
     Record<string, "like" | "dislike">
   >({});
+  const [dislikeTarget, setDislikeTarget] = useState<ChatMessage | null>(null);
+  const [dislikeExplanation, setDislikeExplanation] = useState("");
+  const [submittingDislike, setSubmittingDislike] = useState(false);
   const { data: session } = useSession() as {
     data: { user?: { _id?: string; username?: string; email?: string } } | null;
   };
@@ -134,7 +147,12 @@ export default function CoachChatPanel({
 
     const nextHistory = [
       ...messages,
-      { id: `user-${Date.now()}`, role: "user" as const, text: trimmed },
+      {
+        id: `user-${Date.now()}`,
+        role: "user" as const,
+        text: trimmed,
+        feedbackEnabled: false,
+      },
     ];
 
     setMessages(nextHistory);
@@ -158,6 +176,7 @@ export default function CoachChatPanel({
           id: `coach-${Date.now()}`,
           role: "coach",
           text: response.reply,
+          feedbackEnabled: true,
         },
       ]);
 
@@ -177,6 +196,7 @@ export default function CoachChatPanel({
             id: `coach-plan-${Date.now()}`,
             role: "coach",
             text: regenerationMessage,
+            feedbackEnabled: false,
           },
         ]);
       }
@@ -190,6 +210,7 @@ export default function CoachChatPanel({
               id: `coach-action-${Date.now()}`,
               role: "coach",
               text: actionResult,
+              feedbackEnabled: false,
             },
           ]);
         }
@@ -206,6 +227,7 @@ export default function CoachChatPanel({
           id: `coach-error-${Date.now()}`,
           role: "coach",
           text: "I hit a snag answering that, but I can still help. Ask me about the split, exercise swaps, or how to start the week.",
+          feedbackEnabled: false,
         },
       ]);
     } finally {
@@ -215,7 +237,8 @@ export default function CoachChatPanel({
 
   const handleResponseFeedback = async (
     message: ChatMessage,
-    sentiment: "like" | "dislike"
+    sentiment: "like" | "dislike",
+    explanation?: string
   ) => {
     if (!sessionUserId) {
       toast.error("You need to be signed in to send assistant feedback.");
@@ -230,11 +253,16 @@ export default function CoachChatPanel({
         type: "bug",
         title:
           sentiment === "like"
-            ? "Workout assistant response liked"
+            ? `Liked coach response: ${truncateText(message.text, 72)}`
             : "Workout assistant response disliked",
         description:
           sentiment === "like"
-            ? "A user marked this workout assistant response as helpful."
+            ? `A user marked this coach response as helpful.\n\nSelected response:\n${message.text}\n\nConversation history:\n${messages
+                .map(
+                  ({ role, text }) =>
+                    `${role === "coach" ? "Coach" : "User"}: ${text}`
+                )
+                .join("\n")}`
             : "A user marked this workout assistant response as unhelpful or incorrect.",
         severity: sentiment === "dislike" ? "medium" : "low",
         page: router.pathname || "/routines",
@@ -246,6 +274,7 @@ export default function CoachChatPanel({
           sentiment,
           messageId: message.id,
           selectedResponse: message.text,
+          explanation: explanation?.trim() || undefined,
           conversation: messages.map(({ role, text }) => ({ role, text })),
         },
       });
@@ -259,6 +288,25 @@ export default function CoachChatPanel({
     } catch (error) {
       console.error("Error submitting assistant feedback:", error);
       toast.error("Couldn't save that assistant feedback.");
+    }
+  };
+
+  const submitDislikeFeedback = async () => {
+    if (!dislikeTarget || submittingDislike) {
+      return;
+    }
+
+    setSubmittingDislike(true);
+    try {
+      await handleResponseFeedback(
+        dislikeTarget,
+        "dislike",
+        dislikeExplanation
+      );
+      setDislikeTarget(null);
+      setDislikeExplanation("");
+    } finally {
+      setSubmittingDislike(false);
     }
   };
 
@@ -379,7 +427,7 @@ export default function CoachChatPanel({
               }}
             >
               <Typography sx={{ lineHeight: 1.5 }}>{message.text}</Typography>
-              {message.role === "coach" ? (
+              {message.role === "coach" && message.feedbackEnabled !== false ? (
                 <Stack
                   direction="row"
                   spacing={0.75}
@@ -405,9 +453,10 @@ export default function CoachChatPanel({
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          handleResponseFeedback(message, "dislike")
-                        }
+                        onClick={() => {
+                          setDislikeTarget(message);
+                          setDislikeExplanation("");
+                        }}
                         color={
                           responseFeedback[message.id] === "dislike"
                             ? "primary"
@@ -564,6 +613,55 @@ export default function CoachChatPanel({
           </Button>
         </Stack>
       </Stack>
+
+      <Dialog
+        open={Boolean(dislikeTarget)}
+        onClose={() => {
+          if (!submittingDislike) {
+            setDislikeTarget(null);
+            setDislikeExplanation("");
+          }
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>What went wrong with this response?</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.25} sx={{ pt: 0.5 }}>
+            <Typography sx={{ color: "text.secondary" }}>
+              This note will be attached to the bug report along with the chat
+              history.
+            </Typography>
+            <TextField
+              autoFocus
+              multiline
+              minRows={4}
+              fullWidth
+              value={dislikeExplanation}
+              onChange={(event) => setDislikeExplanation(event.target.value)}
+              placeholder="Examples: it ignored my equipment, changed the wrong day, made up exercises, or didn’t schedule anything."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => {
+              setDislikeTarget(null);
+              setDislikeExplanation("");
+            }}
+            disabled={submittingDislike}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submitDislikeFeedback}
+            disabled={!dislikeExplanation.trim() || submittingDislike}
+          >
+            {submittingDislike ? "Submitting..." : "Submit feedback"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
