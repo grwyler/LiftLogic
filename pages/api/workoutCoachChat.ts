@@ -255,6 +255,14 @@ const extractExplicitDaySwapTargets = (message: string) => {
     },
     {
       regex: new RegExp(
+        `instead of\\s+${weekdayMentionPattern}.*?(?:on|to|for|with)\\s+${weekdayMentionPattern}`,
+        "i"
+      ),
+      fromIndex: 1,
+      toIndex: 2,
+    },
+    {
+      regex: new RegExp(
         `${weekdayMentionPattern}\\s+instead of\\s+${weekdayMentionPattern}`,
         "i"
       ),

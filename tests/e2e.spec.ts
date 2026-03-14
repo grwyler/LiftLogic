@@ -180,16 +180,12 @@ test.describe("Lift Logic e2e", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", {
-        name: "Plan smarter lifts. Keep the workout moving.",
-      })
+      page.getByText(/Plan smarter lifts\. Keep the workout moving\./i)
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Create account" })).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "I already have an account" })
-    ).toBeVisible();
+    await expect(page.getByText("Create account").first()).toBeVisible();
+    await expect(page.getByText("I already have an account")).toBeVisible();
 
-    await page.getByRole("link", { name: "Create account" }).click();
+    await page.getByText("Create account").first().click();
     await page.waitForURL(/\/signup/);
   });
 
@@ -279,6 +275,27 @@ test.describe("Lift Logic e2e", () => {
     await expect(page.getByLabel("Ends on (optional)")).toHaveValue(updatedEndDate);
   });
 
+  test("signed in user can submit bug feedback", async ({ page }) => {
+    const username = buildUsername("feedback");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await continueAsTracker(page);
+    await page.goto("/feedback");
+
+    const title = `Feedback bug ${Date.now()}`;
+    await page.getByLabel("What went wrong?").fill(title);
+    await page
+      .getByLabel("What happened, and how can we reproduce it?")
+      .fill(
+        "Open the feedback page, submit a signed-in bug report, and confirm it shows up in recent submissions."
+      );
+    await page.getByRole("button", { name: "Submit bug report" }).click();
+
+    await expect(page.getByText("Bug report submitted")).toBeVisible();
+    await expect(page.getByText(title)).toBeVisible();
+  });
+
   test("coach can move a scheduled day from Friday to Wednesday", async ({
     page,
   }) => {
@@ -297,7 +314,7 @@ test.describe("Lift Logic e2e", () => {
       workoutLength: "45",
       equipmentAccess: ["Bodyweight only"],
       maxDumbbellWeight: "",
-      preferredTrainingDays: [],
+      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
       limitations: "",
       notes: "",
     };
@@ -385,6 +402,57 @@ test.describe("Lift Logic e2e", () => {
     const chatData = await chatResponse.json();
     expect(chatData.action?.type).toBe("clear_all_schedules");
     expect(String(chatData.reply)).toMatch(/cleared the current scheduled workouts/i);
+  });
+
+  test("coach can interpret instead-of weekday swaps", async ({ page }) => {
+    const username = buildUsername("coach-instead");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const profile = {
+      sex: "",
+      age: "",
+      preferredUnits: "lb",
+      trainingGoal: "strength",
+      currentFitnessLevel: "starting_out",
+      workoutDaysPerWeek: "4",
+      experienceLevel: "beginner",
+      workoutLength: "45",
+      equipmentAccess: ["Bodyweight only"],
+      maxDumbbellWeight: "",
+      preferredTrainingDays: [],
+      limitations: "",
+      notes: "",
+    };
+
+    const generated = await generatePlanForProfile(page, currentUserId, profile);
+    const initialDays = generated.coachResponse.planSnapshot.map(
+      (day: any) => day.dayLabel
+    );
+
+    expect(initialDays).toContain("Saturday");
+
+    const chatResponse = await page.request.post("/api/workoutCoachChat", {
+      data: {
+        message: "Instead of Saturday I'd like to workout on wed",
+        history: [
+          {
+            role: "coach",
+            text: generated.coachResponse.openingMessage,
+          },
+        ],
+        profile: {
+          ...profile,
+        },
+        coachResponse: generated.coachResponse,
+      },
+    });
+
+    expect(chatResponse.ok()).toBeTruthy();
+    const chatData = await chatResponse.json();
+    expect(chatData.shouldRegeneratePlan).toBeTruthy();
+    expect(chatData.profilePatch?.preferredTrainingDays).toContain("Wed");
+    expect(chatData.profilePatch?.preferredTrainingDays).not.toContain("Sat");
   });
 
   test("logs a QA feedback note for this e2e pass", async ({ page }) => {
