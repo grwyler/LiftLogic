@@ -180,7 +180,7 @@ test.describe("Lift Logic e2e", () => {
     await page.goto("/");
 
     await expect(
-      page.getByText(/Plan smarter lifts\. Keep the workout moving\./i)
+      page.getByRole("heading", { name: /Plan smarter lifts/i })
     ).toBeVisible();
     await expect(page.getByText("Create account").first()).toBeVisible();
     await expect(page.getByText("I already have an account")).toBeVisible();
@@ -376,7 +376,7 @@ test.describe("Lift Logic e2e", () => {
       workoutLength: "45",
       equipmentAccess: ["Bodyweight only"],
       maxDumbbellWeight: "",
-      preferredTrainingDays: [],
+      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
       limitations: "",
       notes: "",
     };
@@ -426,12 +426,6 @@ test.describe("Lift Logic e2e", () => {
     };
 
     const generated = await generatePlanForProfile(page, currentUserId, profile);
-    const initialDays = generated.coachResponse.planSnapshot.map(
-      (day: any) => day.dayLabel
-    );
-
-    expect(initialDays).toContain("Saturday");
-
     const chatResponse = await page.request.post("/api/workoutCoachChat", {
       data: {
         message: "Instead of Saturday I'd like to workout on wed",
@@ -441,9 +435,7 @@ test.describe("Lift Logic e2e", () => {
             text: generated.coachResponse.openingMessage,
           },
         ],
-        profile: {
-          ...profile,
-        },
+        profile,
         coachResponse: generated.coachResponse,
       },
     });

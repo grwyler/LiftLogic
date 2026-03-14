@@ -12,95 +12,115 @@ import {
   Divider,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { deleteFeedback, fetchFeedback } from "../utils/helpers";
-import { FeedbackItemDoc } from "../utils/types";
+import {
+  fetchFeedbackWorkflow,
+  updateFeedbackWorkItem,
+} from "../utils/helpers";
+import {
+  FeedbackTriageStatus,
+  FeedbackWorkItemDoc,
+} from "../utils/types";
 import { toast } from "react-toastify";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
+import {
+  formatFingerprintLabel,
+  getWorkItemAnchorId,
+} from "../utils/feedbackWorkflow";
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
-const statusTone: Record<string, "default" | "success" | "warning" | "info"> = {
+const triageTone: Record<
+  FeedbackTriageStatus,
+  "default" | "success" | "warning" | "info"
+> = {
   new: "warning",
-  reviewing: "info",
-  planned: "info",
+  duplicate: "default",
+  queued: "info",
+  fixing: "warning",
   resolved: "success",
-  closed: "default",
+  verified: "success",
 };
 
-const formatBugForClipboard = (item: FeedbackItemDoc) => {
-  const parts = [
-    `Title: ${item.title}`,
-    `Reporter: ${item.username || item.email || item.userId}`,
-    `Created: ${
-      item.createdAt ? new Date(item.createdAt).toLocaleString() : "Unknown"
-    }`,
-    `Status: ${item.status || "new"}`,
-    `Severity: ${item.severity || "unknown"}`,
-    `Page: ${item.page || "unknown"}`,
-    "",
-    item.description,
-  ];
-
-  if (item.coachFeedback?.conversation?.length) {
-    parts.push(
-      "",
-      "Coach Feedback",
-      `Sentiment: ${item.coachFeedback.sentiment}`,
-      ...(item.coachFeedback.selectedResponse
-        ? ["", "Selected response", item.coachFeedback.selectedResponse]
-        : []),
-      ...(item.coachFeedback.explanation
-        ? ["", "Why it was flagged", item.coachFeedback.explanation]
-        : []),
-      "",
-      "Conversation history",
-      ...item.coachFeedback.conversation.map(
-        (entry) => `${entry.role === "coach" ? "Coach" : "User"}: ${entry.text}`
-      )
-    );
-  }
-
-  return parts.join("\n");
+const notificationTone: Record<
+  string,
+  "default" | "success" | "warning" | "error"
+> = {
+  pending: "warning",
+  sent: "success",
+  skipped: "default",
+  failed: "error",
 };
 
-const formatFeedbackForClipboard = (item: FeedbackItemDoc) => {
-  const parts = [
-    `Title: ${item.title}`,
-    `Reporter: ${item.username || item.email || item.userId}`,
-    `Created: ${
-      item.createdAt ? new Date(item.createdAt).toLocaleString() : "Unknown"
-    }`,
-    `Status: ${item.status || "new"}`,
-    `Type: ${item.type}`,
-    `Page: ${item.page || "unknown"}`,
-    "",
-    item.description,
-  ];
+type WorkflowDraft = {
+  fixThreadId: string;
+  fixCommitSha: string;
+};
 
-  return parts.join("\n");
+const serializeWorkItems = (items: FeedbackWorkItemDoc[]) =>
+  JSON.stringify(
+    items.map((item) => ({
+      _id: String(item._id),
+      updatedAt: item.updatedAt,
+      occurrenceCount: item.occurrenceCount,
+      triageStatus: item.triageStatus,
+      notificationStatus: item.notificationStatus,
+    }))
+  );
+
+const formatTimestamp = (value?: Date | string) =>
+  value ? new Date(value).toLocaleString() : "Unknown";
+
+const createDraftMap = (
+  items: FeedbackWorkItemDoc[],
+  previous: Record<string, WorkflowDraft>
+) => {
+  const next = { ...previous };
+
+  items.forEach((item) => {
+    const id = String(item._id);
+    if (!next[id]) {
+      next[id] = {
+        fixThreadId: item.fixThreadId || "",
+        fixCommitSha: item.fixCommitSha || "",
+      };
+    }
+  });
+
+  return next;
 };
 
 const BugsPage = () => {
   const { data: session } = useSession() as {
-    data: (Session & { token?: { user?: { _id?: string; username?: string; email?: string } } }) | null;
+    data:
+      | (Session & {
+          token?: {
+            user?: { _id?: string; username?: string; email?: string };
+          };
+        })
+      | null;
   };
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [items, setItems] = useState<FeedbackItemDoc[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, WorkflowDraft>>({});
+
+  const activeAnchor =
+    typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
 
   const isAdmin =
     String(session?.token?.user?.username || "").toLowerCase() === "grwyler" ||
     String((session as any)?.user?.username || "").toLowerCase() === "grwyler" ||
-    String(session?.token?.user?.email || "").toLowerCase() === "grwyler@gmail.com" ||
-    String((session as any)?.user?.email || "").toLowerCase() === "grwyler@gmail.com";
+    String(session?.token?.user?.email || "").toLowerCase() ===
+      "grwyler@gmail.com" ||
+    String((session as any)?.user?.email || "").toLowerCase() ===
+      "grwyler@gmail.com";
 
   useEffect(() => {
     if (!session?.token?.user?._id) {
@@ -114,68 +134,39 @@ const BugsPage = () => {
     }
 
     let active = true;
+
     emitDevBugInteraction({
       type: "lifecycle",
       kind: "semantic",
-      label: "Open bugs inbox",
-      expected: "All bug reports load and stay current.",
-      actual: "Bugs page mounted and started loading reports.",
+      label: "Open workflow inbox",
+      expected: "Feedback work items load and stay current.",
+      actual: "The workflow inbox started loading triaged work items.",
       status: "info",
     });
 
     const load = async (options?: { silent?: boolean }) => {
       try {
-        const feedback = await fetchFeedback();
+        const { workItems: nextWorkItems } = await fetchFeedbackWorkflow();
         if (!active) {
           return;
         }
 
-        setItems((prev) => {
-          const prevSerialized = JSON.stringify(
-            prev.map((item) => ({
-              _id: String(item._id),
-              updatedAt: item.updatedAt,
-              createdAt: item.createdAt,
-            }))
-          );
-          const nextSerialized = JSON.stringify(
-            feedback.map((item) => ({
-              _id: String(item._id),
-              updatedAt: item.updatedAt,
-              createdAt: item.createdAt,
-            }))
-          );
-
-          if (prevSerialized === nextSerialized) {
-            return prev;
+        setWorkItems((previous) => {
+          if (serializeWorkItems(previous) === serializeWorkItems(nextWorkItems)) {
+            return previous;
           }
 
-          if (options?.silent && feedback.length > prev.length) {
-            emitDevBugInteraction({
-              type: "lifecycle",
-              kind: "semantic",
-              label: "Live bug refresh received new reports",
-              expected: "New bug reports appear automatically in the inbox.",
-              actual: `${feedback.length - prev.length} new report(s) were added to the list.`,
-              status: "success",
-            });
-            toast.info("New bug report received");
+          if (options?.silent && nextWorkItems.length > previous.length) {
+            toast.info("New feedback work item received");
           }
 
-          return feedback;
+          return nextWorkItems;
         });
+        setDrafts((previous) => createDraftMap(nextWorkItems, previous));
       } catch (error) {
         if (!options?.silent) {
-          emitDevBugInteraction({
-            type: "lifecycle",
-            kind: "semantic",
-            label: "Load bugs inbox failed",
-            expected: "All bug reports load and stay current.",
-            actual: "The bugs page could not load feedback records.",
-            status: "failure",
-          });
-          console.error("Error loading bugs page:", error);
-          toast.error("Couldn't load bug reports.");
+          console.error("Error loading bugs workflow:", error);
+          toast.error("Couldn't load the feedback workflow.");
         }
       } finally {
         if (!options?.silent && active) {
@@ -184,10 +175,10 @@ const BugsPage = () => {
       }
     };
 
-    load();
+    void load();
 
     const interval = window.setInterval(() => {
-      load({ silent: true });
+      void load({ silent: true });
     }, LIVE_REFRESH_INTERVAL_MS);
 
     return () => {
@@ -197,82 +188,79 @@ const BugsPage = () => {
   }, [isAdmin, session]);
 
   const bugItems = useMemo(
-    () => items.filter((item) => item.type === "bug"),
-    [items]
+    () => workItems.filter((item) => item.type === "bug"),
+    [workItems]
   );
-  const feedbackItems = useMemo(
-    () => items.filter((item) => item.type === "feature"),
-    [items]
+  const featureItems = useMemo(
+    () => workItems.filter((item) => item.type === "feature"),
+    [workItems]
   );
 
-  const handleDelete = async (feedbackId: string) => {
-    setDeletingId(feedbackId);
-    const item = items.find((entry) => String(entry._id) === String(feedbackId));
-
-    emitDevBugInteraction({
-      type: "click",
-      kind: "semantic",
-      label: `Delete bug report "${item?.title || feedbackId}"`,
-      expected: "The selected bug report is removed from the inbox.",
-      actual: "Bug delete was requested from the bugs page.",
-      status: "info",
-    });
-
-    try {
-      await deleteFeedback(feedbackId);
-      setItems((prev) =>
-        prev.filter((item) => String(item._id) !== String(feedbackId))
-      );
-      toast.success("Bug report deleted");
-    } catch (error) {
-      console.error("Delete feedback error:", error);
-      toast.error("Couldn't delete that bug report.");
-    } finally {
-      setDeletingId(null);
-    }
+  const handleDraftChange = (
+    workItemId: string,
+    key: keyof WorkflowDraft,
+    value: string
+  ) => {
+    setDrafts((previous) => ({
+      ...previous,
+      [workItemId]: {
+        ...(previous[workItemId] || { fixThreadId: "", fixCommitSha: "" }),
+        [key]: value,
+      },
+    }));
   };
 
-  const handleCopy = async (item: FeedbackItemDoc) => {
+  const handleWorkflowUpdate = async (
+    item: FeedbackWorkItemDoc,
+    triageStatus: FeedbackTriageStatus
+  ) => {
+    const workItemId = String(item._id);
+    const draft = drafts[workItemId] || {
+      fixThreadId: item.fixThreadId || "",
+      fixCommitSha: item.fixCommitSha || "",
+    };
+
+    setSavingId(workItemId);
+
     try {
       emitDevBugInteraction({
         type: "click",
         kind: "semantic",
-        label: `Copy bug report "${item.title}"`,
-        expected: "The full bug report is copied to the clipboard.",
-        actual: "Clipboard copy was requested from the bugs page.",
+        label: `Update work item "${item.title}" to ${triageStatus}`,
+        expected: "The workflow queue updates the selected work item.",
+        actual: `A ${triageStatus} action was requested.`,
         status: "info",
       });
-      await navigator.clipboard.writeText(
-        item.type === "bug"
-          ? formatBugForClipboard(item)
-          : formatFeedbackForClipboard(item)
-      );
-      emitDevBugInteraction({
-        type: "lifecycle",
-        kind: "semantic",
-        label: `Copied ${item.type} report "${item.title}"`,
-        expected: "The full report is copied to the clipboard.",
-        actual: "Clipboard copy succeeded.",
-        status: "success",
+
+      const response = await updateFeedbackWorkItem({
+        workItemId,
+        triageStatus,
+        fixThreadId: draft.fixThreadId || undefined,
+        fixCommitSha: draft.fixCommitSha || undefined,
       });
-      toast.success(
-        item.type === "bug" ? "Bug report copied" : "Feedback copied"
-      );
+
+      const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
+      if (updatedWorkItem) {
+        setWorkItems((previous) =>
+          previous.map((entry) =>
+            String(entry._id) === workItemId ? updatedWorkItem : entry
+          )
+        );
+        setDrafts((previous) => ({
+          ...previous,
+          [workItemId]: {
+            fixThreadId: updatedWorkItem.fixThreadId || "",
+            fixCommitSha: updatedWorkItem.fixCommitSha || "",
+          },
+        }));
+      }
+
+      toast.success(`Marked as ${triageStatus}`);
     } catch (error) {
-      emitDevBugInteraction({
-        type: "lifecycle",
-        kind: "semantic",
-        label: `Copy ${item.type} report failed for "${item.title}"`,
-        expected: "The full report is copied to the clipboard.",
-        actual: "Clipboard copy failed.",
-        status: "failure",
-      });
-      console.error("Copy bug error:", error);
-      toast.error(
-        item.type === "bug"
-          ? "Couldn't copy that bug report."
-          : "Couldn't copy that feedback item."
-      );
+      console.error("Feedback workflow update error:", error);
+      toast.error("Couldn't update that work item.");
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -283,7 +271,7 @@ const BugsPage = () => {
   if (!session?.token?.user?._id) {
     return (
       <Box sx={{ maxWidth: 760, mx: "auto", px: 2, py: 4 }}>
-        <Alert severity="warning">Sign in to view bug reports.</Alert>
+        <Alert severity="warning">Sign in to view feedback work items.</Alert>
       </Box>
     );
   }
@@ -298,6 +286,222 @@ const BugsPage = () => {
     );
   }
 
+  const renderWorkItems = (
+    items: FeedbackWorkItemDoc[],
+    emptyMessage: string,
+    typeLabel: string
+  ) => {
+    if (items.length === 0) {
+      return <Alert severity="info">{emptyMessage}</Alert>;
+    }
+
+    return (
+      <Stack divider={<Divider flexItem />} spacing={0}>
+        {items.map((item) => {
+          const workItemId = String(item._id);
+          const draft = drafts[workItemId] || {
+            fixThreadId: item.fixThreadId || "",
+            fixCommitSha: item.fixCommitSha || "",
+          };
+          const anchorId = getWorkItemAnchorId(workItemId);
+          const selected = activeAnchor === anchorId;
+
+          return (
+            <Box
+              key={workItemId}
+              id={anchorId}
+              sx={{
+                py: 1.75,
+                scrollMarginTop: 24,
+                borderRadius: 2,
+                px: selected ? 1.25 : 0,
+                mx: selected ? -1.25 : 0,
+                backgroundColor: selected
+                  ? "rgba(59, 130, 246, 0.08)"
+                  : "transparent",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", md: "center" }}
+              >
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    size="small"
+                    label={typeLabel}
+                    color={item.type === "bug" ? "warning" : "info"}
+                    variant="outlined"
+                  />
+                  <Chip
+                    size="small"
+                    label={item.triageStatus}
+                    color={triageTone[item.triageStatus] || "default"}
+                  />
+                  <Chip
+                    size="small"
+                    label={item.notificationStatus || "pending"}
+                    color={
+                      notificationTone[item.notificationStatus || "pending"] ||
+                      "default"
+                    }
+                    variant="outlined"
+                  />
+                  <Chip
+                    size="small"
+                    label={`${item.occurrenceCount} report${
+                      item.occurrenceCount === 1 ? "" : "s"
+                    }`}
+                    variant="outlined"
+                  />
+                  {item.severity ? (
+                    <Chip
+                      size="small"
+                      label={`${item.severity} severity`}
+                      variant="outlined"
+                    />
+                  ) : null}
+                  {item.page ? (
+                    <Chip size="small" label={item.page} variant="outlined" />
+                  ) : null}
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Latest report {item.latestReportId || "unknown"}
+                  {" | "}
+                  {formatTimestamp(item.lastReportedAt)}
+                </Typography>
+              </Stack>
+
+              <Typography variant="h6" sx={{ mt: 1.25 }}>
+                {item.title}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.9,
+                  color: "text.secondary",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {item.latestDescription}
+              </Typography>
+
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={1}
+                sx={{ mt: 1.25 }}
+              >
+                <TextField
+                  label="Fix thread ID"
+                  size="small"
+                  value={draft.fixThreadId}
+                  onChange={(event) =>
+                    handleDraftChange(workItemId, "fixThreadId", event.target.value)
+                  }
+                  fullWidth
+                />
+                <TextField
+                  label="Commit SHA"
+                  size="small"
+                  value={draft.fixCommitSha}
+                  onChange={(event) =>
+                    handleDraftChange(workItemId, "fixCommitSha", event.target.value)
+                  }
+                  fullWidth
+                />
+              </Stack>
+
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mt: 1.25 }}
+              >
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleWorkflowUpdate(item, "queued")}
+                  disabled={savingId === workItemId}
+                >
+                  Create fix job
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleWorkflowUpdate(item, "duplicate")}
+                  disabled={savingId === workItemId}
+                >
+                  Mark duplicate
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleWorkflowUpdate(item, "fixing")}
+                  disabled={savingId === workItemId}
+                >
+                  Fixing
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleWorkflowUpdate(item, "resolved")}
+                  disabled={savingId === workItemId}
+                >
+                  Resolved
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleWorkflowUpdate(item, "verified")}
+                  disabled={savingId === workItemId}
+                >
+                  Verified
+                </Button>
+              </Stack>
+
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mt: 1.25 }}
+              >
+                <Chip
+                  size="small"
+                  label={`Fingerprint ${formatFingerprintLabel(item.fingerprint)}`}
+                  variant="outlined"
+                />
+                {item.fixThreadId ? (
+                  <Chip
+                    size="small"
+                    label={`Thread ${item.fixThreadId}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.fixCommitSha ? (
+                  <Chip
+                    size="small"
+                    label={`Commit ${item.fixCommitSha}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.lastNotificationError ? (
+                  <Chip
+                    size="small"
+                    label={item.lastNotificationError}
+                    color="warning"
+                    variant="outlined"
+                  />
+                ) : null}
+              </Stack>
+            </Box>
+          );
+        })}
+      </Stack>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -306,7 +510,7 @@ const BugsPage = () => {
         py: { xs: 2, sm: 3 },
       }}
     >
-      <Box sx={{ maxWidth: 980, mx: "auto", display: "grid", gap: 2 }}>
+      <Box sx={{ maxWidth: 1080, mx: "auto", display: "grid", gap: 2 }}>
         <Box
           sx={{
             display: "flex",
@@ -321,12 +525,12 @@ const BugsPage = () => {
               variant="overline"
               sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
             >
-              Bugs
+              Workflow
             </Typography>
-            <Typography variant="h4">All bug reports</Typography>
-            <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 720 }}>
-              Review bug reports across all users and remove ones you no longer
-              want to keep.
+            <Typography variant="h4">Feedback work items</Typography>
+            <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
+              Raw reports now flow into triaged work items. Use queue actions
+              here instead of copying report prose into a separate thread.
             </Typography>
           </Box>
           <Button
@@ -347,25 +551,28 @@ const BugsPage = () => {
             borderColor: "divider",
           }}
         >
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.5}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", sm: "center" }}
-            >
-              <Box>
-                <Typography variant="h6">Bug inbox</Typography>
-                <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                  Showing every record in `feedback` where `type` is `bug`.
-                </Typography>
-              </Box>
-              <Chip
-                icon={<BugReportOutlinedIcon />}
-                label={`${bugItems.length} bug${bugItems.length === 1 ? "" : "s"}`}
-                variant="outlined"
-              />
-            </Stack>
-          </Paper>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
+            <Box>
+              <Typography variant="h6">Bug queue</Typography>
+              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                Unique bug work items with occurrence counts, notification state,
+                and fix metadata.
+              </Typography>
+            </Box>
+            <Chip
+              icon={<BugReportOutlinedIcon />}
+              label={`${bugItems.length} work item${
+                bugItems.length === 1 ? "" : "s"
+              }`}
+              variant="outlined"
+            />
+          </Stack>
+        </Paper>
 
         <Paper
           elevation={0}
@@ -376,167 +583,10 @@ const BugsPage = () => {
             borderColor: "divider",
           }}
         >
-          {bugItems.length === 0 ? (
-            <Alert severity="info">No bug reports found.</Alert>
-          ) : (
-            <Stack divider={<Divider flexItem />} spacing={0}>
-              {bugItems.map((item) => {
-                const feedbackId = String(item._id);
-                return (
-                  <Box key={feedbackId} sx={{ py: 1.75 }}>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={1.5}
-                      justifyContent="space-between"
-                      alignItems={{ xs: "flex-start", md: "center" }}
-                    >
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip
-                          size="small"
-                          label="Bug"
-                          color="warning"
-                          variant="outlined"
-                        />
-                        <Chip
-                          size="small"
-                          label={item.status || "new"}
-                          color={statusTone[item.status || "new"] || "default"}
-                        />
-                        {item.severity ? (
-                          <Chip
-                            size="small"
-                            label={`${item.severity} severity`}
-                            variant="outlined"
-                          />
-                        ) : null}
-                        {item.page ? (
-                          <Chip size="small" label={item.page} variant="outlined" />
-                        ) : null}
-                      </Stack>
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                        alignItems={{ xs: "flex-start", sm: "center" }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          {item.username || item.email || item.userId}
-                          {" · "}
-                          {item.createdAt
-                            ? new Date(item.createdAt).toLocaleString()
-                            : ""}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<ContentCopyIcon />}
-                          onClick={() => handleCopy(item)}
-                        >
-                          Copy
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          startIcon={<DeleteOutlineIcon />}
-                          onClick={() => handleDelete(feedbackId)}
-                          disabled={deletingId === feedbackId}
-                        >
-                          {deletingId === feedbackId ? "Deleting..." : "Delete"}
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Typography variant="h6" sx={{ mt: 1.25 }}>
-                      {item.title}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        mt: 0.9,
-                        color: "text.secondary",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {item.description}
-                    </Typography>
-                    {item.coachFeedback?.conversation?.length ? (
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          mt: 1.25,
-                          p: 1.25,
-                          borderRadius: 2.5,
-                          border: "1px solid",
-                          borderColor: "divider",
-                          backgroundColor: "background.paper",
-                        }}
-                      >
-                        <Stack spacing={1}>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            <Chip
-                              size="small"
-                              label={`Coach feedback: ${item.coachFeedback.sentiment}`}
-                              variant="outlined"
-                            />
-                            <Chip
-                              size="small"
-                              label={`${item.coachFeedback.conversation.length} chat message${
-                                item.coachFeedback.conversation.length === 1 ? "" : "s"
-                              }`}
-                              variant="outlined"
-                            />
-                          </Stack>
-                          {item.coachFeedback.selectedResponse ? (
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                Selected response
-                              </Typography>
-                              <Typography
-                                sx={{ mt: 0.35, color: "text.secondary", whiteSpace: "pre-wrap" }}
-                              >
-                                {item.coachFeedback.selectedResponse}
-                              </Typography>
-                            </Box>
-                          ) : null}
-                          {item.coachFeedback.explanation ? (
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                User note
-                              </Typography>
-                              <Typography
-                                sx={{ mt: 0.35, color: "text.secondary", whiteSpace: "pre-wrap" }}
-                              >
-                                {item.coachFeedback.explanation}
-                              </Typography>
-                            </Box>
-                          ) : null}
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                              Conversation history
-                            </Typography>
-                            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                              {item.coachFeedback.conversation.map((entry, index) => (
-                                <Typography
-                                  key={`${String(item._id)}-coach-feedback-${index}`}
-                                  sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
-                                >
-                                  <Box
-                                    component="span"
-                                    sx={{ fontWeight: 700, color: "text.primary" }}
-                                  >
-                                    {entry.role === "coach" ? "Coach" : "User"}:
-                                  </Box>{" "}
-                                  {entry.text}
-                                </Typography>
-                              ))}
-                            </Stack>
-                          </Box>
-                        </Stack>
-                      </Paper>
-                    ) : null}
-                  </Box>
-                );
-              })}
-            </Stack>
+          {renderWorkItems(
+            bugItems,
+            "No bug work items found.",
+            "Bug"
           )}
         </Paper>
 
@@ -556,14 +606,15 @@ const BugsPage = () => {
             alignItems={{ xs: "flex-start", sm: "center" }}
           >
             <Box>
-              <Typography variant="h6">Feedback inbox</Typography>
+              <Typography variant="h6">Feature queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Showing every record in `feedback` where `type` is `feature`.
+                Feature requests are triaged the same way, so one queue owns the
+                operational state for both bugs and product ideas.
               </Typography>
             </Box>
             <Chip
-              label={`${feedbackItems.length} feedback item${
-                feedbackItems.length === 1 ? "" : "s"
+              label={`${featureItems.length} work item${
+                featureItems.length === 1 ? "" : "s"
               }`}
               variant="outlined"
             />
@@ -579,85 +630,10 @@ const BugsPage = () => {
             borderColor: "divider",
           }}
         >
-          {feedbackItems.length === 0 ? (
-            <Alert severity="info">No feature feedback found.</Alert>
-          ) : (
-            <Stack divider={<Divider flexItem />} spacing={0}>
-              {feedbackItems.map((item) => {
-                const feedbackId = String(item._id);
-                return (
-                  <Box key={feedbackId} sx={{ py: 1.75 }}>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={1.5}
-                      justifyContent="space-between"
-                      alignItems={{ xs: "flex-start", md: "center" }}
-                    >
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip
-                          size="small"
-                          label="Feature"
-                          color="info"
-                          variant="outlined"
-                        />
-                        <Chip
-                          size="small"
-                          label={item.status || "new"}
-                          color={statusTone[item.status || "new"] || "default"}
-                        />
-                        {item.page ? (
-                          <Chip size="small" label={item.page} variant="outlined" />
-                        ) : null}
-                      </Stack>
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                        alignItems={{ xs: "flex-start", sm: "center" }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          {item.username || item.email || item.userId}
-                          {" · "}
-                          {item.createdAt
-                            ? new Date(item.createdAt).toLocaleString()
-                            : ""}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<ContentCopyIcon />}
-                          onClick={() => handleCopy(item)}
-                        >
-                          Copy
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          startIcon={<DeleteOutlineIcon />}
-                          onClick={() => handleDelete(feedbackId)}
-                          disabled={deletingId === feedbackId}
-                        >
-                          {deletingId === feedbackId ? "Deleting..." : "Delete"}
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Typography variant="h6" sx={{ mt: 1.25 }}>
-                      {item.title}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        mt: 0.9,
-                        color: "text.secondary",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {item.description}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Stack>
+          {renderWorkItems(
+            featureItems,
+            "No feature work items found.",
+            "Feature"
           )}
         </Paper>
       </Box>

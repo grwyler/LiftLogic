@@ -103,6 +103,27 @@ export interface WorkoutEntryDoc {
   updatedAt?: Date;
 }
 
+export type FeedbackLegacyStatus =
+  | "new"
+  | "reviewing"
+  | "planned"
+  | "resolved"
+  | "closed";
+
+export type FeedbackTriageStatus =
+  | "new"
+  | "duplicate"
+  | "queued"
+  | "fixing"
+  | "resolved"
+  | "verified";
+
+export type FeedbackNotificationStatus =
+  | "pending"
+  | "sent"
+  | "skipped"
+  | "failed";
+
 export interface FeedbackItemDoc {
   _id?: ObjectId;
   userId: string;
@@ -111,10 +132,18 @@ export interface FeedbackItemDoc {
   type: "bug" | "feature";
   title: string;
   description: string;
-  status?: "new" | "reviewing" | "planned" | "resolved" | "closed";
+  status?: FeedbackLegacyStatus;
+  triageStatus?: FeedbackTriageStatus;
   severity?: "low" | "medium" | "high";
   page?: string;
   deviceType?: "mobile" | "desktop" | "unknown";
+  fingerprint?: string;
+  workItemId?: ObjectId | string;
+  notificationStatus?: FeedbackNotificationStatus;
+  lastNotificationError?: string;
+  fixThreadId?: string;
+  fixCommitSha?: string;
+  resolvedAt?: Date | string;
   bugReport?: {
     mode: "recorded";
     startedAt?: Date | string;
@@ -156,6 +185,34 @@ export interface FeedbackItemDoc {
       text: string;
     }>;
   };
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface FeedbackWorkItemDoc {
+  _id?: ObjectId;
+  type: "bug" | "feature";
+  title: string;
+  latestDescription: string;
+  page?: string;
+  severity?: "low" | "medium" | "high";
+  deviceType?: "mobile" | "desktop" | "unknown";
+  fingerprint: string;
+  occurrenceCount: number;
+  status?: FeedbackLegacyStatus;
+  triageStatus: FeedbackTriageStatus;
+  notificationStatus?: FeedbackNotificationStatus;
+  lastNotificationError?: string;
+  firstReportId?: ObjectId | string;
+  latestReportId?: ObjectId | string;
+  reportIds?: Array<ObjectId | string>;
+  latestReporter?: string;
+  latestEmail?: string;
+  fixThreadId?: string;
+  fixCommitSha?: string;
+  resolvedAt?: Date | string;
+  firstReportedAt?: Date;
+  lastReportedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }

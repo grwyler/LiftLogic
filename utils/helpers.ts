@@ -5,6 +5,8 @@ import {
   Exercise,
   ExerciseSet,
   FeedbackItemDoc,
+  FeedbackTriageStatus,
+  FeedbackWorkItemDoc,
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
@@ -688,7 +690,20 @@ export const saveUser = async (user) => {
 };
 
 export const submitFeedback = async (
-  feedback: Omit<FeedbackItemDoc, "_id" | "createdAt" | "updatedAt" | "status">
+  feedback: Omit<
+    FeedbackItemDoc,
+    | "_id"
+    | "createdAt"
+    | "updatedAt"
+    | "status"
+    | "triageStatus"
+    | "notificationStatus"
+    | "lastNotificationError"
+    | "workItemId"
+    | "fixThreadId"
+    | "fixCommitSha"
+    | "resolvedAt"
+  >
 ) => {
   emitDevBugRequest({
     label: `Submit ${feedback.type} feedback`,
@@ -738,6 +753,76 @@ export const fetchFeedback = async (userId?: string) => {
 
   const data = await response.json();
   return Array.isArray(data.feedback) ? data.feedback : [];
+};
+
+export const fetchFeedbackWorkflow = async () => {
+  const response = await fetch("/api/feedback");
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`fetchFeedbackWorkflow ${response.status}: ${message}`);
+  }
+
+  const data = await response.json();
+  return {
+    feedback: Array.isArray(data.feedback)
+      ? (data.feedback as FeedbackItemDoc[])
+      : [],
+    workItems: Array.isArray(data.workItems)
+      ? (data.workItems as FeedbackWorkItemDoc[])
+      : [],
+  };
+};
+
+export const updateFeedbackWorkItem = async ({
+  workItemId,
+  triageStatus,
+  fixThreadId,
+  fixCommitSha,
+}: {
+  workItemId: string;
+  triageStatus: FeedbackTriageStatus;
+  fixThreadId?: string;
+  fixCommitSha?: string;
+}) => {
+  emitDevBugRequest({
+    label: `Update work item ${workItemId}`,
+    expected: "The feedback work item status is updated successfully.",
+    actual: `Saving triage status ${triageStatus}.`,
+    status: "info",
+  });
+
+  const response = await fetch("/api/feedback", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      workItemId,
+      triageStatus,
+      fixThreadId,
+      fixCommitSha,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    emitDevBugRequest({
+      label: `Update work item ${workItemId} failed`,
+      expected: "The feedback work item status is updated successfully.",
+      actual: `Work item update failed with ${response.status}: ${message}`,
+      status: "failure",
+    });
+    throw new Error(`updateFeedbackWorkItem ${response.status}: ${message}`);
+  }
+
+  emitDevBugRequest({
+    label: `Updated work item ${workItemId}`,
+    expected: "The feedback work item status is updated successfully.",
+    actual: `Work item update completed with ${response.status}.`,
+    status: "success",
+  });
+
+  return response.json();
 };
 
 export const deleteFeedback = async (feedbackId: string) => {

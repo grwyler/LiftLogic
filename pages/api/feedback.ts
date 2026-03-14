@@ -1,16 +1,31 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { connectToDatabase } from "../../utils/mongodb";
-import { FeedbackItemDoc } from "../../utils/types";
-import { ObjectId } from "mongodb";
+import { Collection, Db, ObjectId } from "mongodb";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
 import nodemailer from "nodemailer";
+import { connectToDatabase } from "../../utils/mongodb";
+import {
+  FeedbackItemDoc,
+  FeedbackNotificationStatus,
+  FeedbackTriageStatus,
+  FeedbackWorkItemDoc,
+} from "../../utils/types";
+import { authOptions } from "./auth/[...nextauth]";
+import {
+  FEEDBACK_TRIAGE_STATUSES,
+  buildWorkItemUrl,
+  createFeedbackFingerprint,
+  getLegacyStatusFromTriage,
+  shouldAutoQueueFixJob,
+} from "../../utils/feedbackWorkflow";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
+const MAX_STORED_REPORT_IDS = 25;
+
+let feedbackIndexesReady = false;
 
 const isAdminSession = (session: any) => {
   const username = sanitizeText(
@@ -22,6 +37,33 @@ const isAdminSession = (session: any) => {
 
   return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
 };
+
+const ensureFeedbackWorkflowIndexes = async (db: Db) => {
+  if (feedbackIndexesReady) {
+    return;
+  }
+
+  const feedbackCollection = db.collection("feedback");
+  const workItemCollection = db.collection("feedbackWorkItems");
+
+  await Promise.all([
+    feedbackCollection.createIndex({ createdAt: -1 }),
+    feedbackCollection.createIndex({ type: 1, triageStatus: 1, createdAt: -1 }),
+    feedbackCollection.createIndex({ workItemId: 1, createdAt: -1 }),
+    workItemCollection.createIndex({ fingerprint: 1 }, { unique: true }),
+    workItemCollection.createIndex({ type: 1, triageStatus: 1, updatedAt: -1 }),
+  ]);
+
+  feedbackIndexesReady = true;
+};
+
+const getSessionUserContext = (session: any) => ({
+  userId: sanitizeText(session?.user?._id || session?.token?.user?._id),
+  username: sanitizeText(
+    session?.user?.username || session?.token?.user?.username
+  ),
+  email: sanitizeText(session?.user?.email || session?.token?.user?.email),
+});
 
 const sanitizeBugInteractions = (value: unknown) => {
   if (!Array.isArray(value)) {
@@ -71,7 +113,10 @@ const sanitizeBugInteractions = (value: unknown) => {
           sanitizeText(interaction.status) === "success" ||
           sanitizeText(interaction.status) === "failure" ||
           sanitizeText(interaction.status) === "info"
-            ? (sanitizeText(interaction.status) as "info" | "success" | "failure")
+            ? (sanitizeText(interaction.status) as
+                | "info"
+                | "success"
+                | "failure")
             : undefined,
       };
     })
@@ -201,7 +246,269 @@ const sanitizeCoachFeedback = (value: unknown) => {
   };
 };
 
-const sendFeedbackEmail = async (feedback: FeedbackItemDoc) => {
+const sanitizeFeedbackSeverity = (value: unknown) =>
+  value === "low" || value === "medium" || value === "high" ? value : undefined;
+
+const sanitizeDeviceType = (value: unknown) =>
+  value === "mobile" || value === "desktop" || value === "unknown"
+    ? value
+    : "unknown";
+
+const sanitizeTriageStatus = (
+  value: unknown
+): FeedbackTriageStatus | undefined =>
+  FEEDBACK_TRIAGE_STATUSES.includes(value as FeedbackTriageStatus)
+    ? (value as FeedbackTriageStatus)
+    : undefined;
+
+const compareSeverity = (value?: string) => {
+  switch (value) {
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const selectHigherSeverity = (
+  left?: "low" | "medium" | "high",
+  right?: "low" | "medium" | "high"
+) =>
+  compareSeverity(left) >= compareSeverity(right) ? left : right;
+
+const buildReportIdList = (existing: unknown, nextReportId: string) => {
+  const seen = new Set<string>();
+  const reportIds = Array.isArray(existing)
+    ? existing.map((value) => String(value)).filter(Boolean)
+    : [];
+
+  return [...reportIds, nextReportId]
+    .filter((value) => {
+      if (seen.has(value)) {
+        return false;
+      }
+
+      seen.add(value);
+      return true;
+    })
+    .slice(-MAX_STORED_REPORT_IDS);
+};
+
+const buildFeedbackDoc = ({
+  feedback,
+  session,
+  now,
+}: {
+  feedback: Partial<FeedbackItemDoc>;
+  session: any;
+  now: Date;
+}) => {
+  const { userId, username, email } = getSessionUserContext(session);
+  const type =
+    feedback.type === "feature" || feedback.type === "bug"
+      ? feedback.type
+      : null;
+  const title = sanitizeText(feedback.title);
+  const description = sanitizeText(feedback.description);
+
+  if (!userId || !type || !title || !description) {
+    return null;
+  }
+
+  const doc: FeedbackItemDoc = {
+    userId,
+    username: username || undefined,
+    email: email || undefined,
+    type,
+    title,
+    description,
+    status: "new",
+    triageStatus: "new",
+    severity: sanitizeFeedbackSeverity(feedback.severity),
+    page: sanitizeText(feedback.page) || undefined,
+    deviceType: sanitizeDeviceType(feedback.deviceType),
+    bugReport: sanitizeBugReport(feedback.bugReport),
+    coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
+    fingerprint: createFeedbackFingerprint({
+      ...feedback,
+      userId,
+      username,
+      email,
+      title,
+      description,
+      type,
+      page: sanitizeText(feedback.page),
+      severity: sanitizeFeedbackSeverity(feedback.severity),
+      bugReport: sanitizeBugReport(feedback.bugReport),
+      coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
+    }),
+    notificationStatus: "pending",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return doc;
+};
+
+const upsertFeedbackWorkItem = async ({
+  workItemCollection,
+  feedback,
+  feedbackId,
+  now,
+}: {
+  workItemCollection: Collection<FeedbackWorkItemDoc>;
+  feedback: FeedbackItemDoc;
+  feedbackId: string;
+  now: Date;
+}) => {
+  const fingerprint = feedback.fingerprint || createFeedbackFingerprint(feedback);
+  const existing = (await workItemCollection.findOne({
+    fingerprint,
+  })) as FeedbackWorkItemDoc | null;
+
+  if (existing?._id) {
+    const occurrenceCount = Number(existing.occurrenceCount || 0) + 1;
+    const triageStatus = shouldAutoQueueFixJob({
+      feedback,
+      occurrenceCount,
+      triageStatus: existing.triageStatus,
+      hasFixThreadId: Boolean(existing.fixThreadId),
+    })
+      ? "queued"
+      : existing.triageStatus || "new";
+    const workItemId = existing._id.toString();
+    const nextReportIds = buildReportIdList(existing.reportIds, feedbackId);
+    const nextSeverity = selectHigherSeverity(existing.severity, feedback.severity);
+
+    const update: Partial<FeedbackWorkItemDoc> = {
+      title: feedback.title,
+      latestDescription: feedback.description,
+      page: feedback.page || existing.page,
+      severity: nextSeverity,
+      deviceType: feedback.deviceType || existing.deviceType,
+      occurrenceCount,
+      triageStatus,
+      status: getLegacyStatusFromTriage(triageStatus),
+      latestReportId: feedbackId,
+      reportIds: nextReportIds,
+      latestReporter: feedback.username || feedback.email || feedback.userId,
+      latestEmail: feedback.email,
+      lastReportedAt: now,
+      updatedAt: now,
+    };
+
+    await workItemCollection.updateOne(
+      { _id: existing._id },
+      {
+        $set: update,
+      }
+    );
+
+    return {
+      workItem: {
+        ...existing,
+        ...update,
+        _id: existing._id,
+      } as FeedbackWorkItemDoc,
+      isDuplicate: true,
+      shouldSendNotification: false,
+      workItemId,
+    };
+  }
+
+  const triageStatus = shouldAutoQueueFixJob({
+    feedback,
+    occurrenceCount: 1,
+    triageStatus: "new",
+    hasFixThreadId: false,
+  })
+    ? "queued"
+    : "new";
+  const workItem: FeedbackWorkItemDoc = {
+    type: feedback.type,
+    title: feedback.title,
+    latestDescription: feedback.description,
+    page: feedback.page,
+    severity: feedback.severity,
+    deviceType: feedback.deviceType,
+    fingerprint,
+    occurrenceCount: 1,
+    status: getLegacyStatusFromTriage(triageStatus),
+    triageStatus,
+    notificationStatus: "pending",
+    firstReportId: feedbackId,
+    latestReportId: feedbackId,
+    reportIds: [feedbackId],
+    latestReporter: feedback.username || feedback.email || feedback.userId,
+    latestEmail: feedback.email,
+    firstReportedAt: now,
+    lastReportedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const result = await workItemCollection.insertOne(workItem);
+  const workItemId = result.insertedId.toString();
+
+  return {
+    workItem: {
+      ...workItem,
+      _id: result.insertedId,
+    } as FeedbackWorkItemDoc,
+    isDuplicate: false,
+    shouldSendNotification: true,
+    workItemId,
+  };
+};
+
+const updateNotificationState = async ({
+  feedbackCollection,
+  workItemCollection,
+  feedbackId,
+  workItemId,
+  status,
+  error,
+}: {
+  feedbackCollection: Collection<FeedbackItemDoc>;
+  workItemCollection: Collection<FeedbackWorkItemDoc>;
+  feedbackId: string;
+  workItemId: string;
+  status: FeedbackNotificationStatus;
+  error?: string;
+}) => {
+  const update = {
+    notificationStatus: status,
+    lastNotificationError: error || undefined,
+    updatedAt: new Date(),
+  };
+
+  await Promise.all([
+    feedbackCollection.updateOne(
+      { _id: new ObjectId(feedbackId) },
+      {
+        $set: update,
+      }
+    ),
+    workItemCollection.updateOne(
+      { _id: new ObjectId(workItemId) },
+      {
+        $set: update,
+      }
+    ),
+  ]);
+};
+
+const sendFeedbackEmail = async ({
+  feedback,
+  workItem,
+}: {
+  feedback: FeedbackItemDoc;
+  workItem: FeedbackWorkItemDoc;
+}) => {
   const host = sanitizeText(process.env.SMTP_HOST);
   const user = sanitizeText(process.env.SMTP_USER);
   const pass = sanitizeText(process.env.SMTP_PASS);
@@ -212,9 +519,13 @@ const sendFeedbackEmail = async (feedback: FeedbackItemDoc) => {
   const to = sanitizeText(process.env.BUG_ALERT_EMAIL_TO) || ADMIN_EMAIL;
   const appUrl =
     sanitizeText(process.env.NEXTAUTH_URL) || "http://localhost:3000";
+  const workItemId = String(workItem._id || "");
 
   if (!host || !user || !pass) {
-    return;
+    return {
+      status: "skipped" as const,
+      error: "SMTP is not configured for feedback alerts.",
+    };
   }
 
   const transporter = nodemailer.createTransport({
@@ -227,13 +538,24 @@ const sendFeedbackEmail = async (feedback: FeedbackItemDoc) => {
     },
   });
 
+  const workItemUrl = buildWorkItemUrl({
+    appUrl,
+    workItemId,
+  });
   const lines = [
     `Title: ${feedback.title}`,
     `Type: ${feedback.type}`,
+    `Report ID: ${String(feedback._id || "")}`,
+    `Work item ID: ${workItemId}`,
+    `Fingerprint: ${feedback.fingerprint || workItem.fingerprint}`,
+    `Occurrences: ${workItem.occurrenceCount || 1}`,
     `Reporter: ${feedback.username || feedback.email || feedback.userId}`,
     `Severity: ${feedback.severity || "unknown"}`,
     `Page: ${feedback.page || "unknown"}`,
-    `Created: ${feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : "Unknown"}`,
+    `Triage status: ${workItem.triageStatus}`,
+    `Created: ${
+      feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : "Unknown"
+    }`,
     "",
     feedback.description,
   ];
@@ -256,14 +578,84 @@ const sendFeedbackEmail = async (feedback: FeedbackItemDoc) => {
     );
   }
 
-  const bugsUrl = `${appUrl.replace(/\/$/, "")}/bugs`;
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject: `[Lift Logic] New ${feedback.type} work item: ${feedback.title}`,
+      text: `${lines.join("\n")}\n\nOpen item: ${workItemUrl}`,
+    });
 
-  await transporter.sendMail({
-    from,
-    to,
-    subject: `[Lift Logic] New ${feedback.type} report: ${feedback.title}`,
-    text: `${lines.join("\n")}\n\nReview inbox: ${bugsUrl}`,
-  });
+    return {
+      status: "sent" as const,
+    };
+  } catch (error) {
+    return {
+      status: "failed" as const,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown feedback email delivery error.",
+    };
+  }
+};
+
+const refreshWorkItemAfterDelete = async ({
+  feedbackCollection,
+  workItemCollection,
+  workItemId,
+}: {
+  feedbackCollection: Collection<FeedbackItemDoc>;
+  workItemCollection: Collection<FeedbackWorkItemDoc>;
+  workItemId: string;
+}) => {
+  if (!ObjectId.isValid(workItemId)) {
+    return;
+  }
+
+  const remaining = (await feedbackCollection
+    .find({ workItemId })
+    .sort({ createdAt: -1 })
+    .toArray()) as FeedbackItemDoc[];
+
+  if (remaining.length === 0) {
+    await workItemCollection.deleteOne({
+      _id: new ObjectId(workItemId),
+    });
+    return;
+  }
+
+  const latest = remaining[0];
+  const oldest = remaining[remaining.length - 1];
+  const reportIds = remaining
+    .map((item) => String(item._id))
+    .slice(0, MAX_STORED_REPORT_IDS);
+  const severity = remaining.reduce<"low" | "medium" | "high" | undefined>(
+    (accumulator, item) => selectHigherSeverity(accumulator, item.severity),
+    undefined
+  );
+
+  await workItemCollection.updateOne(
+    { _id: new ObjectId(workItemId) },
+    {
+      $set: {
+        title: latest.title,
+        latestDescription: latest.description,
+        page: latest.page,
+        severity,
+        deviceType: latest.deviceType,
+        occurrenceCount: remaining.length,
+        latestReportId: String(latest._id),
+        firstReportId: String(oldest._id),
+        reportIds,
+        latestReporter: latest.username || latest.email || latest.userId,
+        latestEmail: latest.email,
+        firstReportedAt: oldest.createdAt,
+        lastReportedAt: latest.createdAt,
+        updatedAt: new Date(),
+      },
+    }
+  );
 };
 
 export default async function handler(
@@ -273,14 +665,16 @@ export default async function handler(
   try {
     const session = await getServerSession(req, res, authOptions);
     const db = await connectToDatabase();
+    await ensureFeedbackWorkflowIndexes(db);
+
     const feedbackCollection = db.collection<FeedbackItemDoc>("feedback");
+    const workItemCollection =
+      db.collection<FeedbackWorkItemDoc>("feedbackWorkItems");
 
     if (req.method === "GET") {
       const { userId } = req.query;
       const normalizedUserId = Array.isArray(userId) ? userId[0] : userId;
-      const requesterId = sanitizeText(
-        (session as any)?.user?._id || (session as any)?.token?.user?._id
-      );
+      const requesterId = getSessionUserContext(session).userId;
       const admin = isAdminSession(session);
 
       if (!session) {
@@ -291,89 +685,224 @@ export default async function handler(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      if (
-        normalizedUserId &&
-        !admin &&
-        normalizedUserId !== requesterId
-      ) {
+      if (normalizedUserId && !admin && normalizedUserId !== requesterId) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
       const query = normalizedUserId ? { userId: normalizedUserId } : {};
-
       const feedback = await feedbackCollection
         .find(query)
         .sort({ createdAt: -1 })
         .toArray();
 
+      if (admin && !normalizedUserId) {
+        const workItems = await workItemCollection
+          .find({})
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .toArray();
+
+        return res.status(200).json({ feedback, workItems });
+      }
+
       return res.status(200).json({ feedback });
     }
 
     if (req.method === "POST") {
-      const { feedback } = req.body as { feedback?: Partial<FeedbackItemDoc> };
+      if (!session) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
+      const { feedback } = req.body as { feedback?: Partial<FeedbackItemDoc> };
       if (!feedback) {
         return res.status(400).json({ message: "Feedback is required" });
       }
 
-      const userId = sanitizeText(feedback.userId);
-      const type =
-        feedback.type === "feature" || feedback.type === "bug"
-          ? feedback.type
-          : null;
-      const title = sanitizeText(feedback.title);
-      const description = sanitizeText(feedback.description);
+      const now = new Date();
+      const doc = buildFeedbackDoc({
+        feedback,
+        session,
+        now,
+      });
 
-      if (!userId || !type || !title || !description) {
+      if (!doc) {
         return res.status(400).json({
-          message: "userId, type, title, and description are required",
+          message: "A signed-in user, type, title, and description are required",
         });
       }
 
-      const now = new Date();
-      const doc: FeedbackItemDoc = {
-        userId,
-        username: sanitizeText(feedback.username) || undefined,
-        email: sanitizeText(feedback.email) || undefined,
-        type,
-        title,
-        description,
-        status: "new",
-        severity:
-          feedback.severity === "low" ||
-          feedback.severity === "medium" ||
-          feedback.severity === "high"
-            ? feedback.severity
-            : undefined,
-        page: sanitizeText(feedback.page) || undefined,
-        deviceType:
-          feedback.deviceType === "mobile" ||
-          feedback.deviceType === "desktop" ||
-          feedback.deviceType === "unknown"
-            ? feedback.deviceType
-            : "unknown",
-        bugReport: sanitizeBugReport(feedback.bugReport),
-        coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
-        createdAt: now,
-        updatedAt: now,
+      const insertResult = await feedbackCollection.insertOne(doc);
+      const feedbackId = insertResult.insertedId.toString();
+      const feedbackWithId: FeedbackItemDoc = {
+        ...doc,
+        _id: insertResult.insertedId,
       };
 
-      const result = await feedbackCollection.insertOne(doc);
+      const {
+        workItem,
+        isDuplicate,
+        shouldSendNotification,
+        workItemId,
+      } = await upsertFeedbackWorkItem({
+        workItemCollection,
+        feedback: feedbackWithId,
+        feedbackId,
+        now,
+      });
 
-      try {
-        await sendFeedbackEmail({
-          ...doc,
-          _id: result.insertedId,
+      const rawUpdate: Partial<FeedbackItemDoc> = {
+        workItemId,
+        triageStatus: workItem.triageStatus,
+        status: workItem.status,
+        fixThreadId: workItem.fixThreadId,
+        fixCommitSha: workItem.fixCommitSha,
+        resolvedAt: workItem.resolvedAt,
+        notificationStatus: shouldSendNotification ? "pending" : "skipped",
+        lastNotificationError: shouldSendNotification
+          ? undefined
+          : "Duplicate work item; notification suppressed.",
+        updatedAt: new Date(),
+      };
+
+      await feedbackCollection.updateOne(
+        { _id: insertResult.insertedId },
+        {
+          $set: rawUpdate,
+        }
+      );
+
+      let notificationState: {
+        status: FeedbackNotificationStatus;
+        error?: string;
+      } = {
+        status: rawUpdate.notificationStatus || "pending",
+        error: rawUpdate.lastNotificationError,
+      };
+
+      if (shouldSendNotification) {
+        notificationState = await sendFeedbackEmail({
+          feedback: {
+            ...feedbackWithId,
+            ...rawUpdate,
+            workItemId,
+          },
+          workItem,
         });
-      } catch (emailError) {
-        console.error("Feedback email notification error:", emailError);
+
+        await updateNotificationState({
+          feedbackCollection,
+          workItemCollection,
+          feedbackId,
+          workItemId,
+          status: notificationState.status,
+          error: notificationState.error,
+        });
       }
+
+      const responseFeedback: FeedbackItemDoc = {
+        ...feedbackWithId,
+        ...rawUpdate,
+        notificationStatus: notificationState.status,
+        lastNotificationError: notificationState.error,
+      };
+
+      const responseWorkItem: FeedbackWorkItemDoc = {
+        ...workItem,
+        notificationStatus: shouldSendNotification
+          ? notificationState.status
+          : workItem.notificationStatus,
+        lastNotificationError: shouldSendNotification
+          ? notificationState.error
+          : workItem.lastNotificationError,
+      };
 
       return res.status(200).json({
         success: true,
-        feedback: {
-          ...doc,
-          _id: result.insertedId,
+        feedback: responseFeedback,
+        workItem: responseWorkItem,
+        duplicate: isDuplicate,
+      });
+    }
+
+    if (req.method === "PATCH") {
+      if (!session || !isAdminSession(session)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const {
+        workItemId,
+        triageStatus,
+        fixThreadId,
+        fixCommitSha,
+      } = req.body as {
+        workItemId?: string;
+        triageStatus?: FeedbackTriageStatus;
+        fixThreadId?: string;
+        fixCommitSha?: string;
+      };
+
+      const normalizedWorkItemId = sanitizeText(workItemId);
+      const normalizedTriageStatus = sanitizeTriageStatus(triageStatus);
+
+      if (!normalizedWorkItemId || !ObjectId.isValid(normalizedWorkItemId)) {
+        return res.status(400).json({ message: "Valid workItemId is required" });
+      }
+
+      if (!normalizedTriageStatus) {
+        return res.status(400).json({ message: "Valid triageStatus is required" });
+      }
+
+      const existing = await workItemCollection.findOne({
+        _id: new ObjectId(normalizedWorkItemId),
+      });
+
+      if (!existing) {
+        return res.status(404).json({ message: "Work item not found" });
+      }
+
+      const now = new Date();
+      const normalizedFixThreadId = sanitizeText(fixThreadId) || undefined;
+      const normalizedFixCommitSha = sanitizeText(fixCommitSha) || undefined;
+      const nextResolvedAt =
+        normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
+          ? existing.resolvedAt || now
+          : undefined;
+      const update: Partial<FeedbackWorkItemDoc> = {
+        triageStatus: normalizedTriageStatus,
+        status: getLegacyStatusFromTriage(normalizedTriageStatus),
+        fixThreadId: normalizedFixThreadId,
+        fixCommitSha: normalizedFixCommitSha,
+        resolvedAt: nextResolvedAt,
+        updatedAt: now,
+      };
+
+      await Promise.all([
+        workItemCollection.updateOne(
+          { _id: new ObjectId(normalizedWorkItemId) },
+          {
+            $set: update,
+          }
+        ),
+        feedbackCollection.updateMany(
+          { workItemId: normalizedWorkItemId },
+          {
+            $set: {
+              triageStatus: update.triageStatus,
+              status: update.status,
+              fixThreadId: update.fixThreadId,
+              fixCommitSha: update.fixCommitSha,
+              resolvedAt: update.resolvedAt,
+              updatedAt: now,
+            },
+          }
+        ),
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        workItem: {
+          ...existing,
+          ...update,
+          _id: existing._id,
         },
       });
     }
@@ -386,21 +915,28 @@ export default async function handler(
       const { feedbackId } = req.body as { feedbackId?: string };
       const normalizedFeedbackId = sanitizeText(feedbackId);
 
-      if (!normalizedFeedbackId) {
-        return res.status(400).json({ message: "feedbackId is required" });
+      if (!normalizedFeedbackId || !ObjectId.isValid(normalizedFeedbackId)) {
+        return res.status(400).json({ message: "Valid feedbackId is required" });
       }
 
-      let objectId: ObjectId;
-      try {
-        objectId = new ObjectId(normalizedFeedbackId);
-      } catch {
-        return res.status(400).json({ message: "Invalid feedbackId" });
-      }
+      const existing = await feedbackCollection.findOne({
+        _id: new ObjectId(normalizedFeedbackId),
+      });
 
-      const result = await feedbackCollection.deleteOne({ _id: objectId as any });
-
-      if (!result.deletedCount) {
+      if (!existing) {
         return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      await feedbackCollection.deleteOne({
+        _id: new ObjectId(normalizedFeedbackId),
+      });
+
+      if (existing.workItemId) {
+        await refreshWorkItemAfterDelete({
+          feedbackCollection,
+          workItemCollection,
+          workItemId: String(existing.workItemId),
+        });
       }
 
       return res.status(200).json({ success: true });

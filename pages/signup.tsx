@@ -294,7 +294,7 @@ const SignUp: React.FC = () => {
 
           <Typography sx={{ mt: 2.5, color: "text.secondary" }}>
             Already have an account?{" "}
-            <NextLink href="/" passHref legacyBehavior>
+            <NextLink href="/signin" passHref legacyBehavior>
               <Link underline="hover">Sign in</Link>
             </NextLink>
           </Typography>

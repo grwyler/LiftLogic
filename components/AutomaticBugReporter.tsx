@@ -11,6 +11,7 @@ type AutoBugReporterProps = {
 
 const MAX_AUTO_REPORTS = 8;
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
+const OCCURRENCE_WINDOW_MS = 30 * 60 * 1000;
 
 const stringifyDetail = (value: unknown): string | undefined => {
   if (value == null) {
@@ -54,6 +55,7 @@ export default function AutomaticBugReporter({
   const router = useRouter();
   const inFlightRef = useRef(false);
   const sentFingerprintsRef = useRef<Map<string, number>>(new Map());
+  const recentOccurrencesRef = useRef<Map<string, number[]>>(new Map());
   const sentCountRef = useRef(0);
 
   useEffect(() => {
@@ -77,16 +79,29 @@ export default function AutomaticBugReporter({
       detail,
       severity = "medium",
       extraLines = [],
+      minimumOccurrences = 1,
     }: {
       titlePrefix: string;
       message: string;
       detail?: string;
       severity?: "low" | "medium" | "high";
       extraLines?: string[];
+      minimumOccurrences?: number;
     }) => {
       const normalizedMessage = (message || "Unknown error").trim();
       const fingerprint = `${titlePrefix}::${normalizedMessage}::${router.asPath}`;
       const now = Date.now();
+      const previousOccurrences =
+        recentOccurrencesRef.current.get(fingerprint)?.filter(
+          (timestamp) => now - timestamp < OCCURRENCE_WINDOW_MS
+        ) || [];
+      const nextOccurrences = [...previousOccurrences, now];
+      recentOccurrencesRef.current.set(fingerprint, nextOccurrences);
+
+      if (nextOccurrences.length < minimumOccurrences) {
+        return;
+      }
+
       const previous = sentFingerprintsRef.current.get(fingerprint);
 
       if (
@@ -196,37 +211,42 @@ export default function AutomaticBugReporter({
       });
     };
 
+    const shouldCaptureConsoleErrors = process.env.NODE_ENV !== "production";
     const originalConsoleError = console.error;
-    console.error = (...args: unknown[]) => {
-      originalConsoleError(...args);
 
-      const message = args
-        .map((arg) =>
-          typeof arg === "string"
-            ? arg
-            : arg instanceof Error
-            ? `${arg.message}\n${arg.stack || ""}`
-            : stringifyDetail(arg) || ""
-        )
-        .filter(Boolean)
-        .join(" ");
+    if (shouldCaptureConsoleErrors) {
+      console.error = (...args: unknown[]) => {
+        originalConsoleError(...args);
 
-      if (
-        !message ||
-        /Automatic bug reporter failed to submit feedback|submitFeedback|\/api\/feedback|Feedback API error/i.test(
-          message
-        )
-      ) {
-        return;
-      }
+        const message = args
+          .map((arg) =>
+            typeof arg === "string"
+              ? arg
+              : arg instanceof Error
+              ? `${arg.message}\n${arg.stack || ""}`
+              : stringifyDetail(arg) || ""
+          )
+          .filter(Boolean)
+          .join(" ");
 
-      void submitAutoBug({
-        titlePrefix: "Console error",
-        message: message.slice(0, 300),
-        detail: message,
-        severity: "medium",
-      });
-    };
+        if (
+          !message ||
+          /Automatic bug reporter failed to submit feedback|submitFeedback|\/api\/feedback|Feedback API error/i.test(
+            message
+          )
+        ) {
+          return;
+        }
+
+        void submitAutoBug({
+          titlePrefix: "Console error",
+          message: message.slice(0, 300),
+          detail: message,
+          severity: "medium",
+          minimumOccurrences: 2,
+        });
+      };
+    }
 
     window.addEventListener("error", handleWindowError, true);
     window.addEventListener("unhandledrejection", handleRejection);
