@@ -9,6 +9,9 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   Paper,
   Stack,
@@ -23,6 +26,7 @@ import {
   updateFeedbackWorkItem,
 } from "../utils/helpers";
 import {
+  FeedbackItemDoc,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
 } from "../utils/types";
@@ -32,6 +36,10 @@ import {
   formatFingerprintLabel,
   getWorkItemAnchorId,
 } from "../utils/feedbackWorkflow";
+import {
+  getFeedbackEvidenceForWorkItem,
+  summarizeBugReportEvidence,
+} from "../utils/feedbackDetails";
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -143,10 +151,12 @@ const BugsPage = () => {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackItemDoc[]>([]);
   const [drafts, setDrafts] = useState<Record<string, WorkflowDraft>>({});
   const [advancedOpenById, setAdvancedOpenById] = useState<
     Record<string, boolean>
   >({});
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
 
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
@@ -183,11 +193,15 @@ const BugsPage = () => {
 
     const load = async (options?: { silent?: boolean }) => {
       try {
-        const { workItems: nextWorkItems } = await fetchFeedbackWorkflow();
+        const {
+          feedback: nextFeedbackItems,
+          workItems: nextWorkItems,
+        } = await fetchFeedbackWorkflow();
         if (!active) {
           return;
         }
 
+        setFeedbackItems(nextFeedbackItems);
         setWorkItems((previous) => {
           if (serializeWorkItems(previous) === serializeWorkItems(nextWorkItems)) {
             return previous;
@@ -231,6 +245,47 @@ const BugsPage = () => {
   const featureItems = useMemo(
     () => workItems.filter((item) => item.type === "feature"),
     [workItems]
+  );
+  const selectedWorkItem = useMemo(
+    () =>
+      workItems.find((item) => String(item._id) === String(selectedWorkItemId)) ||
+      null,
+    [selectedWorkItemId, workItems]
+  );
+  const selectedEvidence = useMemo(
+    () =>
+      getFeedbackEvidenceForWorkItem({
+        workItem: selectedWorkItem,
+        feedbackItems,
+      }),
+    [feedbackItems, selectedWorkItem]
+  );
+
+  const renderMetadataRows = (
+    rows: Array<{ label: string; value?: string | number | boolean | null }>
+  ) => (
+    <Stack spacing={0.75}>
+      {rows
+        .filter((row) => row.value !== undefined && row.value !== null && row.value !== "")
+        .map((row) => (
+          <Stack
+            key={row.label}
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ minWidth: { sm: 132 } }}
+            >
+              {row.label}
+            </Typography>
+            <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+              {String(row.value)}
+            </Typography>
+          </Stack>
+        ))}
+    </Stack>
   );
 
   const handleDraftChange = (
@@ -281,6 +336,20 @@ const BugsPage = () => {
         setWorkItems((previous) =>
           previous.map((entry) =>
             String(entry._id) === workItemId ? updatedWorkItem : entry
+          )
+        );
+        setFeedbackItems((previous) =>
+          previous.map((entry) =>
+            String(entry.workItemId || "") === workItemId
+              ? {
+                  ...entry,
+                  triageStatus: updatedWorkItem.triageStatus,
+                  status: updatedWorkItem.status,
+                  fixThreadId: updatedWorkItem.fixThreadId,
+                  fixCommitSha: updatedWorkItem.fixCommitSha,
+                  resolvedAt: updatedWorkItem.resolvedAt,
+                }
+              : entry
           )
         );
         setDrafts((previous) => ({
@@ -466,6 +535,13 @@ const BugsPage = () => {
                 >
                   {showAdvanced ? "Hide Advanced" : "Advanced"}
                 </Button>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => setSelectedWorkItemId(workItemId)}
+                >
+                  View Details
+                </Button>
               </Stack>
 
               {showAdvanced ? (
@@ -551,6 +627,34 @@ const BugsPage = () => {
                   <Chip
                     size="small"
                     label={`Commit ${item.fixCommitSha}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.latestRuntimeContext?.environment ? (
+                  <Chip
+                    size="small"
+                    label={`Env ${item.latestRuntimeContext.environment}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.latestRuntimeContext?.appVersion ? (
+                  <Chip
+                    size="small"
+                    label={`Version ${item.latestRuntimeContext.appVersion}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.latestRuntimeContext?.commitSha ? (
+                  <Chip
+                    size="small"
+                    label={`Build ${item.latestRuntimeContext.commitSha.slice(0, 10)}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.latestReporterRole ? (
+                  <Chip
+                    size="small"
+                    label={`Reporter ${item.latestReporterRole}`}
                     variant="outlined"
                   />
                 ) : null}
@@ -705,6 +809,521 @@ const BugsPage = () => {
             "Feature"
           )}
         </Paper>
+
+        <Dialog
+          open={Boolean(selectedWorkItem)}
+          onClose={() => setSelectedWorkItemId(null)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle>
+            {selectedWorkItem?.title || "Work item details"}
+          </DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 2, pt: 1.5 }}>
+            {selectedWorkItem ? (
+              <>
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Work item summary
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Chip
+                      size="small"
+                      label={
+                        triageLabel[selectedWorkItem.triageStatus] ||
+                        selectedWorkItem.triageStatus
+                      }
+                      color={triageTone[selectedWorkItem.triageStatus] || "default"}
+                    />
+                    <Chip
+                      size="small"
+                      label={`${selectedWorkItem.occurrenceCount} report${
+                        selectedWorkItem.occurrenceCount === 1 ? "" : "s"
+                      }`}
+                      variant="outlined"
+                    />
+                    <Chip
+                      size="small"
+                      label={`Fingerprint ${formatFingerprintLabel(selectedWorkItem.fingerprint)}`}
+                      variant="outlined"
+                    />
+                    {selectedWorkItem.severity ? (
+                      <Chip
+                        size="small"
+                        label={`${selectedWorkItem.severity} severity`}
+                        variant="outlined"
+                      />
+                    ) : null}
+                    {selectedWorkItem.page ? (
+                      <Chip
+                        size="small"
+                        label={selectedWorkItem.page}
+                        variant="outlined"
+                      />
+                    ) : null}
+                  </Stack>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
+                  >
+                    {selectedWorkItem.latestDescription}
+                  </Typography>
+                  {renderMetadataRows([
+                    { label: "Work item ID", value: String(selectedWorkItem._id || "") },
+                    {
+                      label: "First report",
+                      value: String(selectedWorkItem.firstReportId || ""),
+                    },
+                    {
+                      label: "Latest report",
+                      value: String(selectedWorkItem.latestReportId || ""),
+                    },
+                    {
+                      label: "Latest reporter",
+                      value: selectedWorkItem.latestReporter,
+                    },
+                    {
+                      label: "Reporter role",
+                      value: selectedWorkItem.latestReporterRole,
+                    },
+                    { label: "Latest email", value: selectedWorkItem.latestEmail },
+                    { label: "Fix thread", value: selectedWorkItem.fixThreadId },
+                    { label: "Fix commit", value: selectedWorkItem.fixCommitSha },
+                    {
+                      label: "Notification",
+                      value: selectedWorkItem.notificationStatus,
+                    },
+                    {
+                      label: "First reported",
+                      value: formatTimestamp(selectedWorkItem.firstReportedAt),
+                    },
+                    {
+                      label: "Last reported",
+                      value: formatTimestamp(selectedWorkItem.lastReportedAt),
+                    },
+                    {
+                      label: "Resolved",
+                      value: selectedWorkItem.resolvedAt
+                        ? formatTimestamp(selectedWorkItem.resolvedAt)
+                        : undefined,
+                    },
+                  ])}
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Latest runtime and build context
+                  </Typography>
+                  {renderMetadataRows([
+                    {
+                      label: "Environment",
+                      value: selectedWorkItem.latestRuntimeContext?.environment,
+                    },
+                    {
+                      label: "App version",
+                      value: selectedWorkItem.latestRuntimeContext?.appVersion,
+                    },
+                    {
+                      label: "Commit SHA",
+                      value: selectedWorkItem.latestRuntimeContext?.commitSha,
+                    },
+                    {
+                      label: "Route",
+                      value: selectedWorkItem.latestRuntimeContext?.route,
+                    },
+                    {
+                      label: "User agent",
+                      value: selectedWorkItem.latestRuntimeContext?.userAgent,
+                    },
+                    {
+                      label: "Viewport",
+                      value: selectedWorkItem.latestRuntimeContext?.viewport
+                        ? `${selectedWorkItem.latestRuntimeContext.viewport.width}x${selectedWorkItem.latestRuntimeContext.viewport.height}`
+                        : undefined,
+                    },
+                    {
+                      label: "Online",
+                      value:
+                        typeof selectedWorkItem.latestRuntimeContext?.online ===
+                        "boolean"
+                          ? selectedWorkItem.latestRuntimeContext.online
+                            ? "yes"
+                            : "no"
+                          : undefined,
+                    },
+                  ])}
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Linked evidence
+                  </Typography>
+                  {selectedEvidence.length === 0 ? (
+                    <Alert severity="info">
+                      No linked feedback items were found for this work item.
+                    </Alert>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      {selectedEvidence.map((entry) => {
+                        const bugSummary = summarizeBugReportEvidence(entry);
+
+                        return (
+                          <Paper
+                            key={String(entry._id)}
+                            variant="outlined"
+                            sx={{ p: 1.5, borderRadius: 2, display: "grid", gap: 1 }}
+                          >
+                            <Stack
+                              direction={{ xs: "column", sm: "row" }}
+                              spacing={1}
+                              justifyContent="space-between"
+                              alignItems={{ xs: "flex-start", sm: "center" }}
+                            >
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                flexWrap="wrap"
+                                useFlexGap
+                              >
+                                <Chip size="small" label={entry.type} variant="outlined" />
+                                {entry.triageStatus ? (
+                                  <Chip
+                                    size="small"
+                                    label={
+                                      triageLabel[entry.triageStatus] ||
+                                      entry.triageStatus
+                                    }
+                                    variant="outlined"
+                                  />
+                                ) : null}
+                                {entry.severity ? (
+                                  <Chip
+                                    size="small"
+                                    label={`${entry.severity} severity`}
+                                    variant="outlined"
+                                  />
+                                ) : null}
+                                {entry.bugReport?.mode ? (
+                                  <Chip
+                                    size="small"
+                                    label={`${bugSummary.errorCount} error${
+                                      bugSummary.errorCount === 1 ? "" : "s"
+                                    }`}
+                                    variant="outlined"
+                                  />
+                                ) : null}
+                                {entry.bugReport?.mode ? (
+                                  <Chip
+                                    size="small"
+                                    label={`${bugSummary.interactionCount} step${
+                                      bugSummary.interactionCount === 1 ? "" : "s"
+                                    }`}
+                                    variant="outlined"
+                                  />
+                                ) : null}
+                              </Stack>
+                              <Typography variant="caption" color="text.secondary">
+                                {formatTimestamp(entry.createdAt)}
+                              </Typography>
+                            </Stack>
+
+                            <Typography variant="subtitle2">{entry.title}</Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
+                            >
+                              {entry.description}
+                            </Typography>
+
+                            {renderMetadataRows([
+                              { label: "Feedback ID", value: String(entry._id || "") },
+                              {
+                                label: "Reporter",
+                                value: entry.username || entry.email || entry.userId,
+                              },
+                              { label: "Reporter role", value: entry.reporterRole },
+                              { label: "Email", value: entry.email },
+                              { label: "Page", value: entry.page },
+                              { label: "Device", value: entry.deviceType },
+                              { label: "Notification", value: entry.notificationStatus },
+                              { label: "Fix thread", value: entry.fixThreadId },
+                              { label: "Fix commit", value: entry.fixCommitSha },
+                            ])}
+
+                            {entry.runtimeContext ? (
+                              <Box>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: "block", mb: 0.75 }}
+                                >
+                                  Runtime context
+                                </Typography>
+                                {renderMetadataRows([
+                                  {
+                                    label: "Environment",
+                                    value: entry.runtimeContext.environment,
+                                  },
+                                  {
+                                    label: "App version",
+                                    value: entry.runtimeContext.appVersion,
+                                  },
+                                  {
+                                    label: "Commit SHA",
+                                    value: entry.runtimeContext.commitSha,
+                                  },
+                                  {
+                                    label: "Route",
+                                    value: entry.runtimeContext.route,
+                                  },
+                                  {
+                                    label: "User agent",
+                                    value: entry.runtimeContext.userAgent,
+                                  },
+                                  {
+                                    label: "Viewport",
+                                    value: entry.runtimeContext.viewport
+                                      ? `${entry.runtimeContext.viewport.width}x${entry.runtimeContext.viewport.height}`
+                                      : undefined,
+                                  },
+                                  {
+                                    label: "Online",
+                                    value:
+                                      typeof entry.runtimeContext.online === "boolean"
+                                        ? entry.runtimeContext.online
+                                          ? "yes"
+                                          : "no"
+                                        : undefined,
+                                  },
+                                ])}
+                              </Box>
+                            ) : null}
+
+                            {entry.bugReport ? (
+                              <Box sx={{ display: "grid", gap: 1 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Recorded bug report
+                                </Typography>
+                                {renderMetadataRows([
+                                  { label: "Mode", value: entry.bugReport.mode },
+                                  {
+                                    label: "Started",
+                                    value: entry.bugReport.startedAt
+                                      ? formatTimestamp(entry.bugReport.startedAt)
+                                      : undefined,
+                                  },
+                                  {
+                                    label: "Completed",
+                                    value: entry.bugReport.completedAt
+                                      ? formatTimestamp(entry.bugReport.completedAt)
+                                      : undefined,
+                                  },
+                                  {
+                                    label: "Current path",
+                                    value: entry.bugReport.currentPath,
+                                  },
+                                  {
+                                    label: "User agent",
+                                    value: entry.bugReport.userAgent,
+                                  },
+                                  {
+                                    label: "Viewport",
+                                    value: entry.bugReport.viewport
+                                      ? `${entry.bugReport.viewport.width}x${entry.bugReport.viewport.height}`
+                                      : undefined,
+                                  },
+                                ])}
+                                {entry.bugReport.errors?.length ? (
+                                  <Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{ display: "block", mb: 0.75 }}
+                                    >
+                                      Captured errors
+                                    </Typography>
+                                    <Stack spacing={0.75}>
+                                      {entry.bugReport.errors.map((error, index) => (
+                                        <Paper
+                                          key={`${String(entry._id)}-error-${index}`}
+                                          variant="outlined"
+                                          sx={{ p: 1, borderRadius: 2 }}
+                                        >
+                                          <Typography variant="body2">
+                                            [{error.source}] {error.message}
+                                          </Typography>
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                          >
+                                            {formatTimestamp(error.timestamp)} on{" "}
+                                            {error.page}
+                                          </Typography>
+                                          {error.detail ? (
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                              sx={{
+                                                display: "block",
+                                                whiteSpace: "pre-wrap",
+                                              }}
+                                            >
+                                              {error.detail}
+                                            </Typography>
+                                          ) : null}
+                                        </Paper>
+                                      ))}
+                                    </Stack>
+                                  </Box>
+                                ) : null}
+                                {entry.bugReport.interactions?.length ? (
+                                  <Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{ display: "block", mb: 0.75 }}
+                                    >
+                                      Repro steps and interactions
+                                    </Typography>
+                                    <Stack spacing={0.75}>
+                                      {entry.bugReport.interactions.map(
+                                        (interaction, index) => (
+                                          <Paper
+                                            key={`${String(entry._id)}-interaction-${index}`}
+                                            variant="outlined"
+                                            sx={{ p: 1, borderRadius: 2 }}
+                                          >
+                                            <Typography variant="body2">
+                                              {interaction.label ||
+                                                interaction.detail ||
+                                                interaction.target ||
+                                                interaction.type}
+                                            </Typography>
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                            >
+                                              {formatTimestamp(interaction.timestamp)} on{" "}
+                                              {interaction.page}
+                                            </Typography>
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                              sx={{ display: "block" }}
+                                            >
+                                              {interaction.kind || "raw"}{" "}
+                                              {interaction.type}
+                                              {interaction.status
+                                                ? ` • ${interaction.status}`
+                                                : ""}
+                                            </Typography>
+                                            {interaction.expected ? (
+                                              <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                sx={{ display: "block" }}
+                                              >
+                                                Expected: {interaction.expected}
+                                              </Typography>
+                                            ) : null}
+                                            {interaction.actual ? (
+                                              <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                sx={{ display: "block" }}
+                                              >
+                                                Actual: {interaction.actual}
+                                              </Typography>
+                                            ) : null}
+                                            {interaction.value ? (
+                                              <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                                sx={{
+                                                  display: "block",
+                                                  whiteSpace: "pre-wrap",
+                                                }}
+                                              >
+                                                {interaction.value}
+                                              </Typography>
+                                            ) : null}
+                                          </Paper>
+                                        )
+                                      )}
+                                    </Stack>
+                                  </Box>
+                                ) : null}
+                              </Box>
+                            ) : null}
+
+                            {entry.coachFeedback ? (
+                              <Box sx={{ display: "grid", gap: 0.75 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Coach feedback evidence
+                                </Typography>
+                                {renderMetadataRows([
+                                  {
+                                    label: "Sentiment",
+                                    value: entry.coachFeedback.sentiment,
+                                  },
+                                  {
+                                    label: "Message ID",
+                                    value: entry.coachFeedback.messageId,
+                                  },
+                                  {
+                                    label: "Selected response",
+                                    value: entry.coachFeedback.selectedResponse,
+                                  },
+                                  {
+                                    label: "Explanation",
+                                    value: entry.coachFeedback.explanation,
+                                  },
+                                ])}
+                                {entry.coachFeedback.conversation?.length ? (
+                                  <Paper variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{ display: "block", mb: 0.75 }}
+                                    >
+                                      Conversation
+                                    </Typography>
+                                    <Stack spacing={0.5}>
+                                      {entry.coachFeedback.conversation.map(
+                                        (turn, index) => (
+                                          <Typography
+                                            key={`${String(entry._id)}-turn-${index}`}
+                                            variant="body2"
+                                          >
+                                            {turn.role === "coach" ? "Coach" : "User"}:{" "}
+                                            {turn.text}
+                                          </Typography>
+                                        )
+                                      )}
+                                    </Stack>
+                                  </Paper>
+                                ) : null}
+                              </Box>
+                            ) : null}
+                          </Paper>
+                        );
+                      })}
+                    </Stack>
+                  )}
+                </Paper>
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </Box>
     </Box>
   );

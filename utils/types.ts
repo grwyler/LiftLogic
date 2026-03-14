@@ -124,11 +124,25 @@ export type FeedbackNotificationStatus =
   | "skipped"
   | "failed";
 
+export interface FeedbackRuntimeContext {
+  appVersion?: string;
+  commitSha?: string;
+  environment?: string;
+  route?: string;
+  userAgent?: string;
+  viewport?: {
+    width: number;
+    height: number;
+  };
+  online?: boolean;
+}
+
 export interface FeedbackItemDoc {
   _id?: ObjectId;
   userId: string;
   username?: string;
   email?: string;
+  reporterRole?: "admin" | "user";
   type: "bug" | "feature";
   title: string;
   description: string;
@@ -137,6 +151,7 @@ export interface FeedbackItemDoc {
   severity?: "low" | "medium" | "high";
   page?: string;
   deviceType?: "mobile" | "desktop" | "unknown";
+  runtimeContext?: FeedbackRuntimeContext;
   fingerprint?: string;
   workItemId?: ObjectId | string;
   notificationStatus?: FeedbackNotificationStatus;
@@ -197,6 +212,7 @@ export interface FeedbackWorkItemDoc {
   page?: string;
   severity?: "low" | "medium" | "high";
   deviceType?: "mobile" | "desktop" | "unknown";
+  latestRuntimeContext?: FeedbackRuntimeContext;
   fingerprint: string;
   occurrenceCount: number;
   status?: FeedbackLegacyStatus;
@@ -208,6 +224,7 @@ export interface FeedbackWorkItemDoc {
   reportIds?: Array<ObjectId | string>;
   latestReporter?: string;
   latestEmail?: string;
+  latestReporterRole?: "admin" | "user";
   fixThreadId?: string;
   fixCommitSha?: string;
   resolvedAt?: Date | string;

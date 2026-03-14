@@ -16,6 +16,10 @@ import {
   createFeedbackFingerprint,
   getLegacyStatusFromTriage,
 } from "../../utils/feedbackWorkflow";
+import {
+  getAppBuildMetadata,
+  getReporterRole,
+} from "../../utils/feedbackMetadata";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
@@ -63,6 +67,43 @@ const getSessionUserContext = (session: any) => ({
   ),
   email: sanitizeText(session?.user?.email || session?.token?.user?.email),
 });
+
+const sanitizeReporterRole = (value: unknown) =>
+  value === "admin" || value === "user" ? value : undefined;
+
+const sanitizeRuntimeContext = (value: unknown) => {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const context = value as Record<string, unknown>;
+  const rawViewport = context.viewport;
+  const viewport =
+    rawViewport && typeof rawViewport === "object"
+      ? {
+          width: Number((rawViewport as Record<string, unknown>).width) || 0,
+          height: Number((rawViewport as Record<string, unknown>).height) || 0,
+        }
+      : undefined;
+  const online =
+    typeof context.online === "boolean" ? context.online : undefined;
+  const appVersion = sanitizeText(context.appVersion) || undefined;
+  const commitSha = sanitizeText(context.commitSha).slice(0, 40) || undefined;
+  const environment = sanitizeText(context.environment) || undefined;
+  const route = sanitizeText(context.route) || undefined;
+  const userAgent = sanitizeText(context.userAgent) || undefined;
+
+  return {
+    appVersion,
+    commitSha,
+    environment,
+    route,
+    userAgent,
+    viewport:
+      viewport && viewport.width > 0 && viewport.height > 0 ? viewport : undefined,
+    online,
+  };
+};
 
 const sanitizeBugInteractions = (value: unknown) => {
   if (!Array.isArray(value)) {
@@ -307,6 +348,9 @@ const buildFeedbackDoc = ({
   now: Date;
 }) => {
   const { userId, username, email } = getSessionUserContext(session);
+  const reporterRole =
+    getReporterRole({ username, email }) ||
+    sanitizeReporterRole(feedback.reporterRole);
   const type =
     feedback.type === "feature" || feedback.type === "bug"
       ? feedback.type
@@ -318,10 +362,13 @@ const buildFeedbackDoc = ({
     return null;
   }
 
+  const runtimeContext = sanitizeRuntimeContext(feedback.runtimeContext);
+  const buildMetadata = getAppBuildMetadata();
   const doc: FeedbackItemDoc = {
     userId,
     username: username || undefined,
     email: email || undefined,
+    reporterRole,
     type,
     title,
     description,
@@ -330,6 +377,17 @@ const buildFeedbackDoc = ({
     severity: sanitizeFeedbackSeverity(feedback.severity),
     page: sanitizeText(feedback.page) || undefined,
     deviceType: sanitizeDeviceType(feedback.deviceType),
+    runtimeContext: {
+      ...runtimeContext,
+      appVersion: runtimeContext?.appVersion || buildMetadata.appVersion,
+      commitSha: runtimeContext?.commitSha || buildMetadata.commitSha,
+      environment: runtimeContext?.environment || buildMetadata.environment,
+      route:
+        runtimeContext?.route ||
+        sanitizeText(feedback.page) ||
+        sanitizeBugReport(feedback.bugReport)?.currentPath ||
+        undefined,
+    },
     bugReport: sanitizeBugReport(feedback.bugReport),
     coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
     fingerprint: createFeedbackFingerprint({
@@ -382,6 +440,7 @@ const upsertFeedbackWorkItem = async ({
       page: feedback.page || existing.page,
       severity: nextSeverity,
       deviceType: feedback.deviceType || existing.deviceType,
+      latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
       occurrenceCount,
       triageStatus,
       status: getLegacyStatusFromTriage(triageStatus),
@@ -389,6 +448,7 @@ const upsertFeedbackWorkItem = async ({
       reportIds: nextReportIds,
       latestReporter: feedback.username || feedback.email || feedback.userId,
       latestEmail: feedback.email,
+      latestReporterRole: feedback.reporterRole || existing.latestReporterRole,
       lastReportedAt: now,
       updatedAt: now,
     };
@@ -430,6 +490,8 @@ const upsertFeedbackWorkItem = async ({
     reportIds: [feedbackId],
     latestReporter: feedback.username || feedback.email || feedback.userId,
     latestEmail: feedback.email,
+    latestReporterRole: feedback.reporterRole,
+    latestRuntimeContext: feedback.runtimeContext,
     firstReportedAt: now,
     lastReportedAt: now,
     createdAt: now,
@@ -535,8 +597,14 @@ const sendFeedbackEmail = async ({
     `Fingerprint: ${feedback.fingerprint || workItem.fingerprint}`,
     `Occurrences: ${workItem.occurrenceCount || 1}`,
     `Reporter: ${feedback.username || feedback.email || feedback.userId}`,
+    `Reporter role: ${feedback.reporterRole || "unknown"}`,
     `Severity: ${feedback.severity || "unknown"}`,
     `Page: ${feedback.page || "unknown"}`,
+    `Environment: ${feedback.runtimeContext?.environment || "unknown"}`,
+    `App version: ${feedback.runtimeContext?.appVersion || "unknown"}`,
+    `Commit SHA: ${feedback.runtimeContext?.commitSha || "unknown"}`,
+    `Route: ${feedback.runtimeContext?.route || feedback.page || "unknown"}`,
+    `User agent: ${feedback.runtimeContext?.userAgent || "unknown"}`,
     `Triage status: ${workItem.triageStatus}`,
     `Created: ${
       feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : "Unknown"
@@ -629,12 +697,14 @@ const refreshWorkItemAfterDelete = async ({
         page: latest.page,
         severity,
         deviceType: latest.deviceType,
+        latestRuntimeContext: latest.runtimeContext,
         occurrenceCount: remaining.length,
         latestReportId: String(latest._id),
         firstReportId: String(oldest._id),
         reportIds,
         latestReporter: latest.username || latest.email || latest.userId,
         latestEmail: latest.email,
+        latestReporterRole: latest.reporterRole,
         firstReportedAt: oldest.createdAt,
         lastReportedAt: latest.createdAt,
         updatedAt: new Date(),

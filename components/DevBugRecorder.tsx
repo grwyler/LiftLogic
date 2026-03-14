@@ -27,6 +27,10 @@ import { toast } from "react-toastify";
 import { submitFeedback } from "../utils/helpers";
 import { FeedbackItemDoc } from "../utils/types";
 import {
+  getClientRuntimeContext,
+  getReporterRole,
+} from "../utils/feedbackMetadata";
+import {
   DEV_BUG_INTERACTION_EVENT,
   DEV_BUG_ERROR_EVENT,
   emitDevBugInteraction,
@@ -288,8 +292,11 @@ const DevBugRecorder = () => {
   }, [state]);
 
   const userId = session?.token?.user?._id || "";
+  const username = (session as any)?.user?.username || (session as any)?.token?.user?.username || "";
+  const email = (session as any)?.user?.email || (session as any)?.token?.user?.email || "";
   const currentPath = router.asPath || "/";
   const isAuthenticated = Boolean(userId);
+  const reporterRole = getReporterRole({ username, email });
 
   const interactionCountLabel = useMemo(
     () => `${state.interactions.length} step${state.interactions.length === 1 ? "" : "s"}`,
@@ -602,12 +609,16 @@ const DevBugRecorder = () => {
 
       await submitFeedback({
         userId,
+        username: username || undefined,
+        email: email || undefined,
+        reporterRole,
         type: "bug",
         title,
         description,
         severity: snapshot.severity,
         page: finalPath,
         deviceType,
+        runtimeContext: getClientRuntimeContext(finalPath),
         bugReport: {
           mode: "recorded",
           startedAt: snapshot.startedAt || undefined,

@@ -5,7 +5,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001";
 const useLocalWebServer = /^https?:\/\/127\.0\.0\.1:3001$/i.test(baseURL);
 
 export default defineConfig({
-  testDir: "./tests",
+  testDir: "./tests/playwright",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

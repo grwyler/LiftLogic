@@ -1,226 +1,20 @@
-import { expect, Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import {
+  buildUsername,
+  continueAsTracker,
+  fetchFeedbackForUser,
+  formatDateInput,
+  generatePlanForProfile,
+  getSessionUserId,
+  openingCoachBubble,
+  planCoachBubble,
+  reportFailedTestAsBug,
+  saveUserProfile,
+  signUp,
+  submitFeatureFeedback,
+} from "./helpers";
 
-type SessionPayload = {
-  user?: {
-    _id?: string;
-    username?: string;
-    email?: string;
-  };
-  token?: {
-    user?: {
-      _id?: string;
-      username?: string;
-      email?: string;
-    };
-  };
-};
-
-type RecurringRulePayload = {
-  rules?: Array<{
-    _id?: string;
-    userId?: string;
-    exerciseName?: string;
-    dayOfWeek?: number;
-    daysOfWeek?: number[];
-    recurrenceType?: string;
-    active?: boolean;
-  }>;
-};
-
-type FeedbackPayload = {
-  feedback?: Array<{
-    _id?: string;
-    title?: string;
-    description?: string;
-    coachFeedback?: {
-      sentiment?: "like" | "dislike";
-      explanation?: string;
-      selectedResponse?: string;
-      conversation?: Array<{
-        role?: "coach" | "user";
-        text?: string;
-      }>;
-    };
-    createdAt?: string;
-  }>;
-};
-
-const buildUsername = (suffix: string) =>
-  `e2e-${suffix}-${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
-
-const password = "LiftLogicE2E123!";
-
-const formatDateInput = (offsetDays = 7) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-};
-
-const submitBugFeedback = async (
-  page: Page,
-  {
-    userId,
-    title,
-    description,
-    severity = "medium",
-  }: {
-    userId?: string;
-    title: string;
-    description: string;
-    severity?: "low" | "medium" | "high";
-  }
-) => {
-  if (!userId) {
-    return false;
-  }
-
-  const response = await page.request.post("/api/feedback", {
-    data: {
-      feedback: {
-        userId,
-        type: "bug",
-        title,
-        description,
-        severity,
-        page: "/routines",
-        deviceType: "desktop",
-      },
-    },
-  });
-
-  return response.ok();
-};
-
-const submitFeatureFeedback = async (
-  page: Page,
-  {
-    userId,
-    username,
-    title,
-    description,
-  }: {
-    userId?: string;
-    username?: string;
-    title: string;
-    description: string;
-  }
-) => {
-  if (!userId) {
-    return false;
-  }
-
-  const response = await page.request.post("/api/feedback", {
-    data: {
-      feedback: {
-        userId,
-        username,
-        type: "feature",
-        title,
-        description,
-        severity: "low",
-        page: "/routines",
-        deviceType: "desktop",
-      },
-    },
-  });
-
-  return response.ok();
-};
-
-const getSessionUserId = async (page: Page) => {
-  const sessionResponse = await page.request.get("/api/auth/session");
-  if (!sessionResponse.ok()) {
-    return "";
-  }
-
-  const session = (await sessionResponse.json()) as SessionPayload;
-  return (
-    session?.token?.user?._id ||
-    session?.user?._id ||
-    ""
-  );
-};
-
-const signUp = async (
-  page: Page,
-  username: string
-) => {
-  await page.goto("/signup");
-  await page.getByLabel("Username").fill(username);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL(/\/routines/);
-};
-
-const saveUserProfile = async (
-  page: Page,
-  user: Record<string, unknown>
-) => {
-  const response = await page.request.post("/api/user", {
-    data: {
-      user,
-    },
-  });
-
-  expect(response.ok()).toBeTruthy();
-};
-
-const continueAsTracker = async (page: Page) => {
-  await expect(
-    page.getByRole("heading", { name: "Set up your workout assistant" })
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "No, I just want to track workouts" })
-    .click();
-  await page.getByRole("button", { name: "Continue to workouts" }).click();
-  await expect(
-    page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
-  ).toBeVisible();
-};
-
-const generatePlanForProfile = async (
-  page: Page,
-  userId: string,
-  profile: Record<string, any>
-) => {
-  const response = await page.request.post("/api/generateWorkout", {
-    data: {
-      userId,
-      profile,
-    },
-  });
-
-  expect(response.ok()).toBeTruthy();
-  return response.json();
-};
-
-const fetchRecurringRulesForUser = async (page: Page, userId: string) => {
-  const response = await page.request.get(
-    `/api/recurringRule?userId=${encodeURIComponent(userId)}`
-  );
-
-  expect(response.ok()).toBeTruthy();
-  const data = (await response.json()) as RecurringRulePayload;
-  return Array.isArray(data.rules) ? data.rules : [];
-};
-
-const fetchFeedbackForUser = async (page: Page, userId: string) => {
-  const response = await page.request.get(
-    `/api/feedback?userId=${encodeURIComponent(userId)}`
-  );
-
-  expect(response.ok()).toBeTruthy();
-  const data = (await response.json()) as FeedbackPayload;
-  return Array.isArray(data.feedback) ? data.feedback : [];
-};
-
-const openingCoachBubble = (page: Page) =>
-  page.locator("xpath=(//p[contains(., 'I saved your setup')])[1]/ancestor::div[1]");
-
-const planCoachBubble = (page: Page) =>
-  page.locator("xpath=(//p[contains(., 'I mapped out a ')])[1]/ancestor::div[1]");
-
-test.describe("Lift Logic e2e", () => {
+test.describe("Lift Logic regression", () => {
   let currentUserId = "";
 
   test.beforeEach(async () => {
@@ -228,134 +22,11 @@ test.describe("Lift Logic e2e", () => {
   });
 
   test.afterEach(async ({ page }, testInfo) => {
-    if (testInfo.status === testInfo.expectedStatus) {
-      return;
-    }
-
-    const userId = currentUserId || (await getSessionUserId(page));
-    const errorText =
-      testInfo.errors.map((error) => error.message).join("\n\n") ||
-      "Test failed without a captured Playwright error message.";
-
-    await submitBugFeedback(page, {
-      userId,
-      title: `E2E failure: ${testInfo.title}`,
-      description: `Automated e2e test failure.\n\nTest: ${testInfo.title}\n\nError:\n${errorText}`,
-      severity: "high",
+    await reportFailedTestAsBug({
+      page,
+      testInfo,
+      currentUserId,
     });
-  });
-
-  test("landing page exposes signup and signin entry points", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(
-      page.getByRole("heading", { name: /Plan smarter lifts/i })
-    ).toBeVisible();
-    await expect(page.getByText("Create account").first()).toBeVisible();
-    await expect(page.getByText("I already have an account")).toBeVisible();
-
-    await page.getByText("Create account").first().click();
-    await page.waitForURL(/\/signup/);
-  });
-
-  test("new user can save assistant setup and immediately access the workout assistant", async ({
-    page,
-  }) => {
-    const username = buildUsername("assistant");
-    await signUp(page, username);
-
-    currentUserId = await getSessionUserId(page);
-
-    await page.getByLabel("Name").fill("E2E Planner");
-    await page
-      .getByRole("button", { name: "Yes, help me plan workouts" })
-      .click();
-    await page.getByRole("button", { name: "Get stronger" }).click();
-    await page.getByRole("button", { name: "3 days" }).click();
-    await page.getByRole("button", { name: "Save assistant setup" }).click();
-
-    await expect(
-      page.getByText("The workout assistant is still in beta testing.").first()
-    ).toBeVisible();
-    await expect(
-      page.getByRole("textbox", {
-        name: /Ask why this fits, how to swap lifts, or what to do first/i,
-      })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
-    ).toBeVisible();
-  });
-
-  test("user can quick add an exercise and log a set", async ({ page }) => {
-    const username = buildUsername("logging");
-    await signUp(page, username);
-    currentUserId = await getSessionUserId(page);
-
-    await continueAsTracker(page);
-
-    await page.getByRole("button", { name: "Add First Exercise" }).click();
-    await expect(page.getByRole("heading", { name: "Choose an exercise" })).toBeVisible();
-
-    await page.locator("button:has-text('Quick Add')").first().click();
-    await expect(page.getByText(/0\/3 sets|0\/\d+ sets/).first()).toBeVisible();
-
-    await page
-      .getByRole("button", { name: /Assisted Pull-Up .* Open/ })
-      .click();
-    await expect(page.getByText("Active Set")).toBeVisible();
-
-    await page.getByRole("button", { name: "Log Set" }).click();
-    await expect(page.getByText("Rest Between Sets")).toBeVisible();
-    await page.getByRole("button", { name: "Continue to Next Set" }).click();
-
-    await expect(page.getByText("1/3 sets logged")).toBeVisible();
-  });
-
-  test("generated plans schedule recurring rules onto the routines calendar", async ({
-    page,
-  }) => {
-    const username = buildUsername("coach-plan");
-    await signUp(page, username);
-    currentUserId = await getSessionUserId(page);
-
-    const generated = await generatePlanForProfile(page, currentUserId, {
-      sex: "",
-      age: "",
-      preferredUnits: "lb",
-      trainingGoal: "strength",
-      currentFitnessLevel: "starting_out",
-      workoutDaysPerWeek: "4",
-      experienceLevel: "beginner",
-      workoutLength: "45",
-      equipmentAccess: ["Bodyweight only"],
-      maxDumbbellWeight: "",
-      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
-      limitations: "",
-      notes: "Focus on progressive overload with practical compound lifts.",
-    });
-
-    expect(generated?.coachResponse?.planSnapshot?.length).toBe(4);
-
-    await expect
-      .poll(async () => {
-        const rules = await fetchRecurringRulesForUser(page, currentUserId);
-        const distinctDays = new Set(
-          rules.flatMap((rule) =>
-            Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.length > 0
-              ? rule.daysOfWeek
-              : typeof rule.dayOfWeek === "number"
-              ? [rule.dayOfWeek]
-              : []
-          )
-        );
-
-        return JSON.stringify({
-          ruleCount: rules.length,
-          distinctDayCount: distinctDays.size,
-        });
-      })
-      .toContain('"distinctDayCount":4');
   });
 
   test("repeat schedule end date can be saved and edited after reopening", async ({
@@ -377,7 +48,9 @@ test.describe("Lift Logic e2e", () => {
     await page.getByLabel("Ends on (optional)").fill(initialEndDate);
     await page.getByRole("button", { name: "Save schedule" }).click();
 
-    await expect(page.locator('[title="Edit repeating schedule"]').first()).toBeVisible();
+    await expect(
+      page.locator('[title="Edit repeating schedule"]').first()
+    ).toBeVisible();
 
     await page.locator('[title="Edit repeating schedule"]').first().click();
     await expect(page.getByLabel("Ends on (optional)")).toHaveValue(initialEndDate);
@@ -388,27 +61,6 @@ test.describe("Lift Logic e2e", () => {
 
     await page.locator('[title="Edit repeating schedule"]').first().click();
     await expect(page.getByLabel("Ends on (optional)")).toHaveValue(updatedEndDate);
-  });
-
-  test("signed in user can submit bug feedback", async ({ page }) => {
-    const username = buildUsername("feedback");
-    await signUp(page, username);
-    currentUserId = await getSessionUserId(page);
-
-    await continueAsTracker(page);
-    await page.goto("/feedback");
-
-    const title = `Feedback bug ${Date.now()}`;
-    await page.getByLabel("What went wrong?").fill(title);
-    await page
-      .getByLabel("What happened, and how can we reproduce it?")
-      .fill(
-        "Open the feedback page, submit a signed-in bug report, and confirm it shows up in recent submissions."
-      );
-    await page.getByRole("button", { name: "Submit bug report" }).click();
-
-    await expect(page.getByText("Bug report submitted")).toBeVisible();
-    await expect(page.getByText(title)).toBeVisible();
   });
 
   test("non-admin users cannot access the bug workflow inbox or admin feedback APIs", async ({

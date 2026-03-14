@@ -4,6 +4,10 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
 import { submitFeedback } from "../utils/helpers";
+import {
+  getClientRuntimeContext,
+  getReporterRole,
+} from "../utils/feedbackMetadata";
 
 type AutoBugReporterProps = {
   enabled?: boolean;
@@ -68,6 +72,7 @@ export default function AutomaticBugReporter({
     const username =
       session?.user?.username || session?.token?.user?.username || "";
     const email = session?.user?.email || session?.token?.user?.email || "";
+    const reporterRole = getReporterRole({ username, email });
 
     if (!userId) {
       return;
@@ -124,6 +129,9 @@ export default function AutomaticBugReporter({
           typeof window !== "undefined"
             ? `${window.innerWidth}x${window.innerHeight}`
             : "unknown";
+        const runtimeContext = getClientRuntimeContext(
+          router.asPath || window.location.pathname
+        );
         const description = truncate(
           [
             normalizedMessage,
@@ -142,12 +150,14 @@ export default function AutomaticBugReporter({
           userId,
           username: username || undefined,
           email: email || undefined,
+          reporterRole,
           type: "bug",
           title: sanitizeTitle(titlePrefix, normalizedMessage),
           description,
           severity,
           page: router.asPath || window.location.pathname,
           deviceType: window.innerWidth < 900 ? "mobile" : "desktop",
+          runtimeContext,
         });
       } catch (error) {
         // Avoid recursive reporting loops.
