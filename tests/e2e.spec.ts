@@ -138,6 +138,10 @@ const continueAsTracker = async (page: Page) => {
 test.describe("Lift Logic e2e", () => {
   let currentUserId = "";
 
+  test.beforeEach(async () => {
+    currentUserId = "";
+  });
+
   test.afterEach(async ({ page }, testInfo) => {
     if (testInfo.status === testInfo.expectedStatus) {
       return;
@@ -269,5 +273,125 @@ test.describe("Lift Logic e2e", () => {
     });
 
     expect(logged).toBeTruthy();
+  });
+
+  test("routines load does not 500 recurring rule requests", async ({ page }) => {
+    const username = buildUsername("recurring-api");
+    const recurringRuleFailures: string[] = [];
+
+    page.on("response", (response) => {
+      if (
+        response.url().includes("/api/recurringRule") &&
+        response.status() >= 500
+      ) {
+        recurringRuleFailures.push(`${response.status()} ${response.url()}`);
+      }
+    });
+
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await continueAsTracker(page);
+    await expect(
+      page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
+    ).toBeVisible();
+
+    await page.waitForTimeout(1500);
+    expect(recurringRuleFailures).toEqual([]);
+  });
+
+  test("bodyweight-only generation avoids impossible exercises and same-day duplicates", async ({
+    page,
+  }) => {
+    const username = buildUsername("bodyweight");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const response = await page.request.post("/api/generateWorkout", {
+      data: {
+        userId: currentUserId,
+        profile: {
+          sex: "",
+          age: "",
+          preferredUnits: "lb",
+          trainingGoal: "general_fitness",
+          currentFitnessLevel: "starting_out",
+          workoutDaysPerWeek: "3",
+          experienceLevel: "beginner",
+          workoutLength: "25",
+          equipmentAccess: ["Bodyweight only"],
+          maxDumbbellWeight: "",
+          preferredTrainingDays: [],
+          limitations: "",
+          notes: "Apartment workout, no pull-up bar.",
+        },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const data = await response.json();
+    const planDays = Array.isArray(data?.coachResponse?.planSnapshot)
+      ? data.coachResponse.planSnapshot
+      : [];
+
+    expect(planDays.length).toBeGreaterThan(0);
+
+    const forbiddenNames = ["trap bar deadlift"];
+    for (const day of planDays) {
+      const names = Array.isArray(day.exercises)
+        ? day.exercises.map((exercise: any) => String(exercise.name).toLowerCase())
+        : [];
+
+      forbiddenNames.forEach((name) => {
+        expect(names).not.toContain(name);
+      });
+
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+
+  test("older adult limitations generation avoids jump rope and unsupported heavy hinges", async ({
+    page,
+  }) => {
+    const username = buildUsername("limitations");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    const response = await page.request.post("/api/generateWorkout", {
+      data: {
+        userId: currentUserId,
+        profile: {
+          sex: "female",
+          age: "67",
+          preferredUnits: "lb",
+          trainingGoal: "general_fitness",
+          currentFitnessLevel: "starting_out",
+          workoutDaysPerWeek: "3",
+          experienceLevel: "beginner",
+          workoutLength: "25",
+          equipmentAccess: ["Bodyweight only", "Resistance bands"],
+          maxDumbbellWeight: "",
+          preferredTrainingDays: [],
+          limitations:
+            "Knee discomfort and shoulder mobility limits. Prioritize joint-friendly movements.",
+          notes: "",
+        },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const data = await response.json();
+    const planDays = Array.isArray(data?.coachResponse?.planSnapshot)
+      ? data.coachResponse.planSnapshot
+      : [];
+    const allNames = planDays.flatMap((day: any) =>
+      Array.isArray(day.exercises)
+        ? day.exercises.map((exercise: any) => String(exercise.name).toLowerCase())
+        : []
+    );
+
+    expect(planDays.length).toBeGreaterThan(0);
+    expect(allNames).not.toContain("jump rope");
+    expect(allNames).not.toContain("trap bar deadlift");
   });
 });

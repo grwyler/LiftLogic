@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001";
+const useLocalWebServer = /^https?:\/\/127\.0\.0\.1:3001$/i.test(baseURL);
 
 export default defineConfig({
   testDir: "./tests",
@@ -14,7 +16,7 @@ export default defineConfig({
     timeout: 15_000,
   },
   use: {
-    baseURL: "http://127.0.0.1:3001",
+    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
@@ -23,13 +25,15 @@ export default defineConfig({
       executablePath: chromePath,
     },
   },
-  webServer: {
-    command: "cmd.exe /c npm run start -- -p 3001",
-    url: "http://127.0.0.1:3001",
-    reuseExistingServer: true,
-    timeout: 120_000,
-    cwd: ".",
-  },
+  webServer: useLocalWebServer
+    ? {
+        command: "cmd.exe /c npm run start -- -p 3001",
+        url: "http://127.0.0.1:3001",
+        reuseExistingServer: true,
+        timeout: 120_000,
+        cwd: ".",
+      }
+    : undefined,
   projects: [
     {
       name: "chromium",

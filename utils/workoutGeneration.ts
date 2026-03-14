@@ -108,6 +108,8 @@ const getEquipmentTags = (value: string) => {
   if (/ez curl/.test(normalized)) tags.add("ez_bar");
   if (/trap bar/.test(normalized)) tags.add("trap_bar");
   if (/band/.test(normalized)) tags.add("bands");
+  if (/jump rope|rope/.test(normalized)) tags.add("jump_rope");
+  if (/yoga mat|mat/.test(normalized)) tags.add("mat");
   if (/bike|cycling|treadmill|rowing|stair|elliptical|cardio/.test(normalized)) {
     tags.add("cardio");
   }
@@ -164,6 +166,12 @@ const isHomeDumbbellProfile = (profile: SetupFormValues) => {
       "pullup_bar",
     ].some((tag) => tags.has(tag))
   );
+};
+
+const isBodyweightOnlyProfile = (profile: SetupFormValues) => {
+  const tags = getSelectedEquipmentTags(profile);
+
+  return tags.size === 1 && tags.has("bodyweight");
 };
 
 const normalizeGoalForProgramming = (goal: string) => {
@@ -251,7 +259,7 @@ const findEquipmentFriendlyAlternative = (
   const availableCandidates = candidates.filter(
     (exercise) => !excludedNames.has(normalizeName(exercise.name))
   );
-  const pool = availableCandidates.length > 0 ? availableCandidates : candidates;
+  const pool = availableCandidates;
 
   const scoreCandidate = (exercise: any) => {
     if (!original) {
@@ -277,7 +285,7 @@ const findEquipmentFriendlyAlternative = (
   const pickBestMatch = (matches: typeof initialExercises) =>
     [...matches].sort((left, right) => scoreCandidate(right) - scoreCandidate(left))[0] ?? null;
   const pickMatch = (matcher: (exercise: any) => boolean) =>
-    pickBestMatch(pool.filter(matcher)) ?? pickBestMatch(candidates.filter(matcher));
+    pickBestMatch(pool.filter(matcher));
 
   if (!original) {
     return pool[0] ?? null;
@@ -294,7 +302,6 @@ const findEquipmentFriendlyAlternative = (
     ) ??
     pickMatch((exercise) => exercise.type === original.type) ??
     pickBestMatch(pool) ??
-    pickBestMatch(candidates) ??
     null
   );
 };
@@ -748,7 +755,85 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
     ],
   };
 
-  const templates = isHomeDumbbellProfile(profile)
+  const bodyweightOnlyTemplates: Record<
+    string,
+    { title: string; exerciseNames: string[] }[]
+  > = {
+    strength: [
+      {
+        title: "Lower Strength",
+        exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"],
+      },
+      {
+        title: "Upper Strength",
+        exerciseNames: ["Push-Up", "Pike Push-Up", "Prone Back Extension", "Plank"],
+      },
+      {
+        title: "Full Body Strength",
+        exerciseNames: ["Reverse Lunge", "Push-Up", "Bird Dog", "Superman Hold"],
+      },
+    ],
+    muscle: [
+      {
+        title: "Push + Legs",
+        exerciseNames: ["Push-Up", "Pike Push-Up", "Bodyweight Squat", "Wall Sit"],
+      },
+      {
+        title: "Lower + Core",
+        exerciseNames: ["Reverse Lunge", "Glute Bridge", "Plank", "Dead Bug"],
+      },
+      {
+        title: "Full Body Pump",
+        exerciseNames: ["Reverse Lunge", "Push-Up", "Prone Back Extension", "Mountain Climber"],
+      },
+    ],
+    conditioning: [
+      {
+        title: "Conditioning + Core",
+        exerciseNames: ["Mountain Climber", "Plank", "Dead Bug", "Bird Dog"],
+      },
+      {
+        title: "Full Body Circuit",
+        exerciseNames: ["Bodyweight Squat", "Push-Up", "Reverse Lunge", "Mountain Climber"],
+      },
+      {
+        title: "Engine Builder",
+        exerciseNames: ["Reverse Lunge", "Wall Sit", "Superman Hold", "Dead Bug"],
+      },
+    ],
+    fat_loss: [
+      {
+        title: "Full Body A",
+        exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Mountain Climber"],
+      },
+      {
+        title: "Full Body B",
+        exerciseNames: ["Reverse Lunge", "Pike Push-Up", "Glute Bridge", "Plank"],
+      },
+      {
+        title: "Full Body C",
+        exerciseNames: ["Reverse Lunge", "Push-Up", "Bird Dog", "Wall Sit"],
+      },
+    ],
+    consistency: [
+      {
+        title: "Full Body A",
+        exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Plank"],
+      },
+      {
+        title: "Full Body B",
+        exerciseNames: ["Reverse Lunge", "Glute Bridge", "Bird Dog", "Mountain Climber"],
+      },
+      {
+        title: "Full Body C",
+        exerciseNames: ["Reverse Lunge", "Pike Push-Up", "Dead Bug", "Wall Sit"],
+      },
+    ],
+  };
+
+  const templates = isBodyweightOnlyProfile(profile)
+    ? bodyweightOnlyTemplates
+    : isHomeDumbbellProfile(profile)
     ? homeDumbbellTemplates
     : defaultTemplates;
   const split = templates[normalizedGoal] ?? templates.consistency;
