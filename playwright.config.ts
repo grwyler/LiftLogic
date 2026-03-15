@@ -29,7 +29,7 @@ export default defineConfig({
     ? {
         command: "cmd.exe /c npm run dev -- -p 3001",
         url: "http://127.0.0.1:3001",
-        reuseExistingServer: true,
+        reuseExistingServer: false,
         timeout: 180_000,
         cwd: ".",
       }

@@ -184,6 +184,8 @@ export default function CoachChatPanel({
   onPrimaryAction,
   onApplyProfilePatch,
   onCoachAction,
+  defaultMinimized = false,
+  minimizedStorageKey,
 }: {
   coachResponse: CoachResponse;
   coachSource?: "ai" | "fallback";
@@ -196,6 +198,8 @@ export default function CoachChatPanel({
     patch: Partial<SetupFormValues>
   ) => Promise<void> | void;
   onCoachAction?: (action: any) => Promise<string | void> | string | void;
+  defaultMinimized?: boolean;
+  minimizedStorageKey?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     buildInitialMessages(coachResponse)
@@ -203,7 +207,7 @@ export default function CoachChatPanel({
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(defaultMinimized);
   const [quickReplies, setQuickReplies] = useState<string[]>(
     coachResponse.suggestedReplies ?? []
   );
@@ -244,6 +248,10 @@ export default function CoachChatPanel({
       }),
     [coachResponse, router.pathname, sessionUserId]
   );
+  const minimizedLauncherBottom =
+    process.env.NODE_ENV === "production"
+      ? { xs: 12, sm: 18 }
+      : { xs: 72, sm: 84 };
 
   useEffect(() => {
     setLoading(false);
@@ -251,6 +259,32 @@ export default function CoachChatPanel({
     setAssistantSource(coachSource);
     setAssistantSourceDetail(coachSourceDetail);
   }, [coachResponse, coachSource, coachSourceDetail]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !minimizedStorageKey) {
+      return;
+    }
+
+    const storedValue = window.localStorage.getItem(minimizedStorageKey);
+    if (storedValue === "true") {
+      setMinimized(true);
+      return;
+    }
+    if (storedValue === "false") {
+      setMinimized(false);
+      return;
+    }
+
+    setMinimized(defaultMinimized);
+  }, [defaultMinimized, minimizedStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !minimizedStorageKey) {
+      return;
+    }
+
+    window.localStorage.setItem(minimizedStorageKey, String(minimized));
+  }, [minimized, minimizedStorageKey]);
 
   useEffect(() => {
     const storedReactions = readStoredReactions(reactionStorageKey);
@@ -479,7 +513,7 @@ export default function CoachChatPanel({
           sx={{
             position: "fixed",
             right: { xs: 12, sm: 18 },
-            bottom: { xs: 72, sm: 84 },
+            bottom: minimizedLauncherBottom,
             zIndex: 1600,
           }}
         >
@@ -503,6 +537,7 @@ export default function CoachChatPanel({
               <IconButton
                 size="small"
                 onClick={() => setMinimized(false)}
+                aria-label="Open workout assistant"
                 sx={{ width: 48, height: 48, borderRadius: "999px" }}
               >
                 <AutoAwesomeOutlinedIcon fontSize="small" />
@@ -560,7 +595,7 @@ export default function CoachChatPanel({
           <Stack direction="row" spacing={1}>
             {onDismiss ? (
               <Button variant="text" onClick={() => setMinimized(true)}>
-                Dismiss
+                Collapse
               </Button>
             ) : null}
             {primaryActionLabel && onPrimaryAction ? (

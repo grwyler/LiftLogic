@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { BetaFunnelAnalytics } from "./betaFunnel";
 
 export interface ExerciseSet {
   name: string;
@@ -99,6 +100,36 @@ export interface WorkoutEntryDoc {
   sets?: ExerciseSet[];
   ruleId?: string;
   skipped?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface UserDoc {
+  _id?: ObjectId;
+  username: string;
+  email?: string;
+  name?: string;
+  provider?: string;
+  providerAccountId?: string;
+  sex?: string;
+  age?: string;
+  preferredUnits?: "lb" | "kg";
+  height?: string;
+  weight?: string;
+  trainingGoal?: string;
+  currentFitnessLevel?: string;
+  workoutDaysPerWeek?: string;
+  experienceLevel?: string;
+  workoutLength?: string;
+  equipmentAccess?: string[];
+  maxDumbbellWeight?: string;
+  preferredTrainingDays?: string[];
+  limitations?: string;
+  notes?: string;
+  setupPromptSeen?: boolean;
+  setupCompleted?: boolean;
+  darkMode?: boolean;
+  betaFunnel?: BetaFunnelAnalytics;
   createdAt?: Date;
   updatedAt?: Date;
 }

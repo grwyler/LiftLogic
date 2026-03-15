@@ -23,6 +23,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import LoadingIndicator from "../components/LoadingIndicator";
 import {
+  deleteFeedbackWorkItem,
   fetchFeedbackWorkflow,
   updateFeedbackWorkItem,
 } from "../utils/helpers";
@@ -68,6 +69,8 @@ const notificationTone: Record<
 };
 
 type WorkflowDraft = {
+  title: string;
+  latestDescription: string;
   fixThreadId: string;
   fixCommitSha: string;
 };
@@ -81,36 +84,11 @@ type QueueSortMode =
 
 const triageLabel: Record<FeedbackTriageStatus, string> = {
   new: "New",
-  duplicate: "Duplicate",
-  queued: "Sent to Codex",
+  duplicate: "Closed as Duplicate",
+  queued: "Triaged",
   fixing: "In Progress",
-  resolved: "Ready to Verify",
-  verified: "Verified",
-};
-
-const getPrimaryAction = (triageStatus: FeedbackTriageStatus) => {
-  switch (triageStatus) {
-    case "new":
-    case "duplicate":
-      return {
-        label: "Send to Codex",
-        nextStatus: "fixing" as FeedbackTriageStatus,
-      };
-    case "queued":
-    case "fixing":
-      return {
-        label: "Ready to Verify",
-        nextStatus: "resolved" as FeedbackTriageStatus,
-      };
-    case "resolved":
-      return {
-        label: "Verified",
-        nextStatus: "verified" as FeedbackTriageStatus,
-      };
-    case "verified":
-    default:
-      return null;
-  }
+  resolved: "Fixed",
+  verified: "Closed",
 };
 
 const serializeWorkItems = (items: FeedbackWorkItemDoc[]) =>
@@ -196,6 +174,8 @@ const createDraftMap = (
     const id = String(item._id);
     if (!next[id]) {
       next[id] = {
+        title: item.title || "",
+        latestDescription: item.latestDescription || "",
         fixThreadId: item.fixThreadId || "",
         fixCommitSha: item.fixCommitSha || "",
       };
@@ -371,7 +351,14 @@ const BugsPage = () => {
     setDrafts((previous) => ({
       ...previous,
       [workItemId]: {
-        ...(previous[workItemId] || { fixThreadId: "", fixCommitSha: "" }),
+        ...(
+          previous[workItemId] || {
+            title: "",
+            latestDescription: "",
+            fixThreadId: "",
+            fixCommitSha: "",
+          }
+        ),
         [key]: value,
       },
     }));
@@ -379,10 +366,22 @@ const BugsPage = () => {
 
   const handleWorkflowUpdate = async (
     item: FeedbackWorkItemDoc,
-    triageStatus: FeedbackTriageStatus
+    {
+      triageStatus,
+      title,
+      latestDescription,
+      successMessage,
+    }: {
+      triageStatus: FeedbackTriageStatus;
+      title?: string;
+      latestDescription?: string;
+      successMessage?: string;
+    }
   ) => {
     const workItemId = String(item._id);
     const draft = drafts[workItemId] || {
+      title: item.title || "",
+      latestDescription: item.latestDescription || "",
       fixThreadId: item.fixThreadId || "",
       fixCommitSha: item.fixCommitSha || "",
     };
@@ -402,6 +401,8 @@ const BugsPage = () => {
       const response = await updateFeedbackWorkItem({
         workItemId,
         triageStatus,
+        title: title ?? draft.title,
+        latestDescription: latestDescription ?? draft.latestDescription,
         fixThreadId: draft.fixThreadId || undefined,
         fixCommitSha: draft.fixCommitSha || undefined,
       });
@@ -430,13 +431,17 @@ const BugsPage = () => {
         setDrafts((previous) => ({
           ...previous,
           [workItemId]: {
+            title: updatedWorkItem.title || "",
+            latestDescription: updatedWorkItem.latestDescription || "",
             fixThreadId: updatedWorkItem.fixThreadId || "",
             fixCommitSha: updatedWorkItem.fixCommitSha || "",
           },
         }));
       }
 
-      toast.success(`Marked as ${triageLabel[triageStatus] || triageStatus}`);
+      toast.success(
+        successMessage || `Updated to ${triageLabel[triageStatus] || triageStatus}`
+      );
     } catch (error) {
       console.error("Feedback workflow update error:", error);
       toast.error("Couldn't update that work item.");
@@ -445,7 +450,46 @@ const BugsPage = () => {
     }
   };
 
-  const handleCopyForCodex = async (item: FeedbackWorkItemDoc) => {
+  const handleDeleteWorkItem = async (item: FeedbackWorkItemDoc) => {
+    const workItemId = String(item._id || "");
+    const confirmed = window.confirm(
+      `Delete "${item.title}" and all ${item.occurrenceCount} linked report${
+        item.occurrenceCount === 1 ? "" : "s"
+      }? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSavingId(workItemId);
+
+    try {
+      await deleteFeedbackWorkItem(workItemId);
+      setWorkItems((previous) =>
+        previous.filter((entry) => String(entry._id) !== workItemId)
+      );
+      setFeedbackItems((previous) =>
+        previous.filter((entry) => String(entry.workItemId || "") !== workItemId)
+      );
+      setDrafts((previous) => {
+        const next = { ...previous };
+        delete next[workItemId];
+        return next;
+      });
+      if (selectedWorkItemId === workItemId) {
+        setSelectedWorkItemId(null);
+      }
+      toast.success("Issue deleted.");
+    } catch (error) {
+      console.error("Feedback workflow delete error:", error);
+      toast.error("Couldn't delete that issue.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleCopyDetails = async (item: FeedbackWorkItemDoc) => {
     const evidence = getFeedbackEvidenceForWorkItem({
       workItem: item,
       feedbackItems,
@@ -462,7 +506,7 @@ const BugsPage = () => {
 
     try {
       await navigator.clipboard.writeText(copyText);
-      toast.success("Copied full bug details for Codex.");
+      toast.success("Copied issue details.");
     } catch (error) {
       console.error("Failed to copy work item details:", error);
       toast.error("Couldn't copy the work item details.");
@@ -504,8 +548,9 @@ const BugsPage = () => {
       <Stack divider={<Divider flexItem />} spacing={0}>
         {items.map((item) => {
           const workItemId = String(item._id);
-          const primaryAction = getPrimaryAction(item.triageStatus);
           const draft = drafts[workItemId] || {
+            title: item.title || "",
+            latestDescription: item.latestDescription || "",
             fixThreadId: item.fixThreadId || "",
             fixCommitSha: item.fixCommitSha || "",
           };
@@ -600,28 +645,25 @@ const BugsPage = () => {
                 useFlexGap
                 sx={{ mt: 1.25 }}
               >
-                {primaryAction ? (
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() =>
-                      handleWorkflowUpdate(item, primaryAction.nextStatus)
-                    }
-                    disabled={savingId === workItemId}
-                  >
-                    {primaryAction.label}
-                  </Button>
-                ) : null}
-                {item.triageStatus !== "duplicate" ? (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => handleWorkflowUpdate(item, "duplicate")}
-                    disabled={savingId === workItemId}
-                  >
-                    Mark Duplicate
-                  </Button>
-                ) : null}
+                <TextField
+                  select
+                  size="small"
+                  label="Status"
+                  value={item.triageStatus}
+                  onChange={(event) =>
+                    handleWorkflowUpdate(item, {
+                      triageStatus: event.target.value as FeedbackTriageStatus,
+                    })
+                  }
+                  disabled={savingId === workItemId}
+                  sx={{ minWidth: 180 }}
+                >
+                  {Object.entries(triageLabel).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <Button
                   variant="text"
                   size="small"
@@ -644,9 +686,18 @@ const BugsPage = () => {
                 <Button
                   variant="text"
                   size="small"
-                  onClick={() => handleCopyForCodex(item)}
+                  onClick={() => handleCopyDetails(item)}
                 >
-                  Copy for Codex
+                  Copy Details
+                </Button>
+                <Button
+                  color="error"
+                  variant="text"
+                  size="small"
+                  onClick={() => handleDeleteWorkItem(item)}
+                  disabled={savingId === workItemId}
+                >
+                  Delete
                 </Button>
               </Stack>
 
@@ -658,7 +709,7 @@ const BugsPage = () => {
                   >
                     <TextField
                       label="Fix thread ID"
-                      helperText="Optional: store the Codex conversation or job reference."
+                      helperText="Optional: store an implementation thread or job reference."
                       size="small"
                       value={draft.fixThreadId}
                       onChange={(event) =>
@@ -695,16 +746,14 @@ const BugsPage = () => {
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={() =>
-                        handleWorkflowUpdate(item, item.triageStatus)
-                      }
+                      onClick={() => handleWorkflowUpdate(item, { triageStatus: item.triageStatus })}
                       disabled={savingId === workItemId}
                     >
                       Save Tracking
                     </Button>
                     <Typography variant="body2" color="text.secondary">
-                      Only use these if you want to remember the Codex thread or
-                      the final fix commit.
+                      Use these optional fields to track the implementation thread
+                      or final fix commit.
                     </Typography>
                   </Stack>
                 </Box>
@@ -807,9 +856,8 @@ const BugsPage = () => {
             </Typography>
             <Typography variant="h4">Feedback work items</Typography>
             <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
-              Review the bug, click `Send to Codex` when you want Codex to work
-              it, then move it to `Ready to Verify` and `Verified` as you
-              confirm the fix. Advanced tracking is optional.
+              Review, edit, organize, and remove issues from one place. Status
+              changes save immediately, and advanced tracking stays optional.
             </Typography>
           </Box>
           <Button
@@ -840,7 +888,7 @@ const BugsPage = () => {
               <Typography variant="h6">Bug queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
                 One card per unique bug. Duplicates roll into the same card so
-                you can decide when to hand the issue to Codex.
+                you can triage related reports together.
               </Typography>
             </Box>
             <Stack
@@ -909,8 +957,8 @@ const BugsPage = () => {
             <Box>
               <Typography variant="h6">Feature queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Feature requests use the same simplified queue, but the advanced
-                tracking fields stay hidden until you need them.
+                Feature requests use the same workflow so you can manage them
+                alongside bugs without leaving this page.
               </Typography>
             </Box>
             <Chip
@@ -963,14 +1011,44 @@ const BugsPage = () => {
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Work item summary
                     </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleCopyForCodex(selectedWorkItem)}
-                    >
-                      Copy for Codex
-                    </Button>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleCopyDetails(selectedWorkItem)}
+                      >
+                        Copy Details
+                      </Button>
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleDeleteWorkItem(selectedWorkItem)}
+                        disabled={savingId === String(selectedWorkItem._id)}
+                      >
+                        Delete
+                      </Button>
+                    </Stack>
                   </Stack>
+                  <TextField
+                    select
+                    size="small"
+                    label="Status"
+                    value={selectedWorkItem.triageStatus}
+                    onChange={(event) =>
+                      handleWorkflowUpdate(selectedWorkItem, {
+                        triageStatus: event.target.value as FeedbackTriageStatus,
+                      })
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    sx={{ maxWidth: 220 }}
+                  >
+                    {Object.entries(triageLabel).map(([value, label]) => (
+                      <MenuItem key={value} value={value}>
+                        {label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip
                       size="small"
@@ -1007,12 +1085,58 @@ const BugsPage = () => {
                       />
                     ) : null}
                   </Stack>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
-                  >
-                    {selectedWorkItem.latestDescription}
-                  </Typography>
+                  <TextField
+                    label="Title"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.title ??
+                      selectedWorkItem.title
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "title",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Description"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.latestDescription ??
+                      selectedWorkItem.latestDescription
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "latestDescription",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    multiline
+                    minRows={4}
+                    fullWidth
+                  />
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() =>
+                        handleWorkflowUpdate(selectedWorkItem, {
+                          triageStatus: selectedWorkItem.triageStatus,
+                          successMessage: "Issue details saved.",
+                        })
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                    >
+                      Save Details
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      Update the issue summary here to clarify reports during triage.
+                    </Typography>
+                  </Stack>
                   {renderMetadataRows([
                     { label: "Work item ID", value: String(selectedWorkItem._id || "") },
                     {

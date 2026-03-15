@@ -859,6 +859,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
                 coachSource={generatedCoachSource}
                 coachSourceDetail={generatedCoachSourceDetail}
                 profile={normalizeSetupForm(form)}
+                defaultMinimized
+                minimizedStorageKey="lift-logic:user:assistant-minimized"
                 onDismiss={() => {
                   setGeneratedCoachResponse(null);
                   setGeneratedCoachSource(undefined);

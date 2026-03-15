@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { ObjectId } from "mongodb";
 import { connectToDatabase } from "../../utils/mongodb";
 import { authOptions } from "./auth/[...nextauth]";
+import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
 
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
@@ -255,11 +256,21 @@ export default async function handler(
         return res.status(400).json({ error: "No valid user fields were provided" });
       }
 
+      const nextBetaFunnel =
+        updatedUser.setupCompleted === true
+          ? markBetaFunnelMilestone({
+              funnel: existingUser.betaFunnel,
+              key: "setupCompletedAt",
+              occurredAt: new Date(),
+            })
+          : existingUser.betaFunnel;
+
       await userCollection.updateOne(
         { _id: existingUser._id },
         {
           $set: {
             ...updatedUser,
+            betaFunnel: nextBetaFunnel,
             updatedAt: new Date(),
           },
         }

@@ -3,16 +3,16 @@ import {
   buildUsername,
   continueAsTracker,
   fetchFeedbackForUser,
-  formatDateInput,
   generatePlanForProfile,
   getSessionUserId,
   openingCoachBubble,
   planCoachBubble,
+  quickAddFirstExercise,
   reportFailedTestAsBug,
+  saveAndEditRepeatScheduleEndDate,
   saveUserProfile,
   signInWithCredentials,
   signUp,
-  submitFeatureFeedback,
 } from "./helpers";
 
 test.describe("Lift Logic regression", () => {
@@ -38,30 +38,8 @@ test.describe("Lift Logic regression", () => {
     currentUserId = await getSessionUserId(page);
 
     await continueAsTracker(page);
-
-    await page.getByRole("button", { name: "Add First Exercise" }).click();
-    await page.locator("button:has-text('Quick Add')").first().click();
-
-    const repeatButton = page.locator('[title="Repeat this exercise"]').first();
-    await repeatButton.click();
-
-    const initialEndDate = formatDateInput(10);
-    await page.getByLabel("Ends on (optional)").fill(initialEndDate);
-    await page.getByRole("button", { name: "Save schedule" }).click();
-
-    await expect(
-      page.locator('[title="Edit repeating schedule"]').first()
-    ).toBeVisible();
-
-    await page.locator('[title="Edit repeating schedule"]').first().click();
-    await expect(page.getByLabel("Ends on (optional)")).toHaveValue(initialEndDate);
-
-    const updatedEndDate = formatDateInput(18);
-    await page.getByLabel("Ends on (optional)").fill(updatedEndDate);
-    await page.getByRole("button", { name: "Save schedule" }).click();
-
-    await page.locator('[title="Edit repeating schedule"]').first().click();
-    await expect(page.getByLabel("Ends on (optional)")).toHaveValue(updatedEndDate);
+    await quickAddFirstExercise(page);
+    await saveAndEditRepeatScheduleEndDate(page);
   });
 
   test("non-admin users cannot access the bug workflow inbox or admin feedback APIs", async ({
@@ -409,35 +387,6 @@ test.describe("Lift Logic regression", () => {
     expect(chatData.shouldRegeneratePlan).toBeTruthy();
     expect(chatData.profilePatch?.preferredTrainingDays).toContain("Wed");
     expect(chatData.profilePatch?.preferredTrainingDays).not.toContain("Sat");
-  });
-
-  test("logs a QA feedback note for this e2e pass", async ({ page }) => {
-    test.skip(
-      process.env.LOG_QA_NOTE !== "true",
-      "QA feedback logging is only enabled when explicitly requested."
-    );
-
-    const username = buildUsername("qa-note");
-    await signUp(page, username);
-    const userId = await getSessionUserId(page);
-
-    const logged = await submitFeatureFeedback(page, {
-      userId,
-      username,
-      title: "Automated e2e QA pass",
-      description: [
-        "Playwright e2e coverage completed successfully on localhost.",
-        "",
-        "Verified flows:",
-        "1. New user can save assistant setup and immediately access the workout assistant.",
-        "2. User can quick add an exercise and log a set.",
-        "3. Repeat schedule end date can be saved and edited after reopening.",
-        "",
-        "No new bugs were confirmed in these covered flows on the final pass.",
-      ].join("\n"),
-    });
-
-    expect(logged).toBeTruthy();
   });
 
   test("routines load does not 500 recurring rule requests", async ({ page }) => {

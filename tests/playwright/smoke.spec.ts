@@ -1,12 +1,16 @@
 import { expect, test } from "@playwright/test";
 import {
   buildUsername,
+  closeExerciseDetail,
+  completeAssistantSetup,
   continueAsTracker,
   fetchRecurringRulesForUser,
-  formatDateInput,
   generatePlanForProfile,
   getSessionUserId,
+  logFirstSetForFirstExercise,
+  quickAddFirstExercise,
   reportFailedTestAsBug,
+  saveAndEditRepeatScheduleEndDate,
   signUp,
 } from "./helpers";
 
@@ -45,26 +49,7 @@ test.describe("Lift Logic smoke", () => {
     await signUp(page, username);
 
     currentUserId = await getSessionUserId(page);
-
-    await page.getByLabel("Name").fill("E2E Planner");
-    await page
-      .getByRole("button", { name: "Yes, help me plan workouts" })
-      .click();
-    await page.getByRole("button", { name: "Get stronger" }).click();
-    await page.getByRole("button", { name: "3 days" }).click();
-    await page.getByRole("button", { name: "Save assistant setup" }).click();
-
-    await expect(
-      page.getByText("The workout assistant is still in beta testing.").first()
-    ).toBeVisible();
-    await expect(
-      page.getByRole("textbox", {
-        name: /Ask why this fits, how to swap lifts, or what to do first/i,
-      })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
-    ).toBeVisible();
+    await completeAssistantSetup(page);
   });
 
   test("user can quick add an exercise and log a set", async ({ page }) => {
@@ -73,23 +58,29 @@ test.describe("Lift Logic smoke", () => {
     currentUserId = await getSessionUserId(page);
 
     await continueAsTracker(page);
+    await quickAddFirstExercise(page);
+    await logFirstSetForFirstExercise(page);
+  });
 
-    await page.getByRole("button", { name: "Add First Exercise" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Choose an exercise" })
-    ).toBeVisible();
+  test("critical /routines QA journey covers assistant setup, quick add, logging, and repeat schedules", async ({
+    page,
+  }) => {
+    const username = buildUsername("critical-routines");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
 
-    await page.locator("button:has-text('Quick Add')").first().click();
-    await expect(page.getByText(/0\/3 sets|0\/\d+ sets/).first()).toBeVisible();
-
-    await page.getByRole("button", { name: /Assisted Pull-Up .* Open/ }).click();
-    await expect(page.getByText("Active Set")).toBeVisible();
-
-    await page.getByRole("button", { name: "Log Set" }).click();
-    await expect(page.getByText("Rest Between Sets")).toBeVisible();
-    await page.getByRole("button", { name: "Continue to Next Set" }).click();
-
-    await expect(page.getByText("1/3 sets logged")).toBeVisible();
+    await completeAssistantSetup(page, {
+      name: "Critical QA",
+      goal: "Get stronger",
+      frequency: "3 days",
+    });
+    await quickAddFirstExercise(page);
+    await logFirstSetForFirstExercise(page);
+    await closeExerciseDetail(page);
+    await saveAndEditRepeatScheduleEndDate(page, {
+      initialOffsetDays: 10,
+      updatedOffsetDays: 18,
+    });
   });
 
   test("generated plans schedule recurring rules onto the routines calendar", async ({

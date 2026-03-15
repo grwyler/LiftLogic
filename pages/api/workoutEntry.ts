@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 import { ObjectId } from "mongodb";
 import { ExerciseSet, WorkoutEntryDoc } from "@/utils/types";
+import { applyWorkoutMilestones } from "../../utils/betaFunnel";
 
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === "") {
@@ -205,6 +206,46 @@ export default async function handler(
       const mode = result.upsertedCount ? "Inserted" : "Updated";
       const docId = result.upsertedId ?? "(existing)";
       console.info(`[POST] ${mode} - id: ${docId}`);
+
+      if (entry.complete && !entry.skipped && ObjectId.isValid(entry.userId)) {
+        const users = db.collection("users");
+        const [user, completedEntries] = await Promise.all([
+          users.findOne(
+            { _id: new ObjectId(entry.userId) },
+            { projection: { createdAt: 1, betaFunnel: 1 } }
+          ),
+          col
+            .find(
+              {
+                userId: entry.userId,
+                complete: true,
+                skipped: { $ne: true },
+              },
+              { projection: { date: 1 } }
+            )
+            .sort({ date: 1 })
+            .toArray(),
+        ]);
+
+        if (user) {
+          const nextBetaFunnel = applyWorkoutMilestones({
+            funnel: user.betaFunnel,
+            signupCompletedAt:
+              user.betaFunnel?.signupCompletedAt ?? user.createdAt ?? null,
+            workoutDates: completedEntries.map((completedEntry) => completedEntry.date),
+          });
+
+          await users.updateOne(
+            { _id: new ObjectId(entry.userId) },
+            {
+              $set: {
+                betaFunnel: nextBetaFunnel,
+                updatedAt: new Date(),
+              },
+            }
+          );
+        }
+      }
 
       return res
         .status(result.upsertedCount ? 201 : 200)

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import {
+  clearWorkoutProgram,
   deactivateRecurringRule,
   fetchRecurringRules,
   fetchUser,
@@ -57,6 +58,10 @@ import {
   buildSetupCoachResponse,
   buildWorkoutCoachResponseFromRoutine,
 } from "../utils/workoutGeneration";
+import {
+  clearPendingLandingCta,
+  readPendingLandingCta,
+} from "../utils/betaFunnelClient";
 
 type Routine = any;
 type GeneratedPlanPayload = {
@@ -84,6 +89,7 @@ const RoutinesPage = ({
   const [showSetupDialog, setShowSetupDialog] = useState(false);
   const [savingSetup, setSavingSetup] = useState(false);
   const [generatingWorkout, setGeneratingWorkout] = useState(false);
+  const [clearingProgram, setClearingProgram] = useState(false);
   const [routineViewKey, setRoutineViewKey] = useState(0);
   const [generatedCoachResponse, setGeneratedCoachResponse] = useState<any>(null);
   const [generatedCoachSource, setGeneratedCoachSource] = useState<
@@ -98,6 +104,7 @@ const RoutinesPage = ({
     null
   );
   const [showPlanningDetails, setShowPlanningDetails] = useState(false);
+  const [showClearProgramDialog, setShowClearProgramDialog] = useState(false);
 
   const sessionUserId =
     session?.token?.user?._id || (session as any)?.user?._id || "";
@@ -184,6 +191,67 @@ const RoutinesPage = ({
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user?._id || typeof window === "undefined") {
+      return;
+    }
+
+    const createdAt = user?.createdAt ? new Date(user.createdAt) : null;
+    const isFreshSignup =
+      createdAt &&
+      !Number.isNaN(createdAt.getTime()) &&
+      Date.now() - createdAt.getTime() <= 24 * 60 * 60 * 1000;
+    const pendingLandingCta = readPendingLandingCta();
+
+    if (!pendingLandingCta) {
+      return;
+    }
+
+    if (user?.betaFunnel?.landingCtaAt || !isFreshSignup) {
+      clearPendingLandingCta();
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncLandingCta = async () => {
+      try {
+        await fetch("/api/funnel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            milestone: "landing_cta",
+            occurredAt: pendingLandingCta,
+          }),
+        });
+      } catch (error) {
+        console.error("Error syncing landing CTA milestone:", error);
+        return;
+      }
+
+      if (!cancelled) {
+        clearPendingLandingCta();
+        setUser((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                betaFunnel: {
+                  ...(prev.betaFunnel || {}),
+                  landingCtaAt: pendingLandingCta,
+                },
+              }
+            : prev
+        );
+      }
+    };
+
+    void syncLandingCta();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?._id, user?.createdAt, user?.betaFunnel?.landingCtaAt]);
 
   useEffect(() => {
     if (!showSetupDialog) {
@@ -374,6 +442,17 @@ const RoutinesPage = ({
       }),
     [setupForm]
   );
+  const hasProgramExercises = useMemo(() => {
+    const routineDays = routine?.days ? Object.values(routine.days) : [];
+
+    return routineDays.some((dayWorkouts: any) =>
+      Array.isArray(dayWorkouts) &&
+      dayWorkouts.some(
+        (workout: any) =>
+          Array.isArray(workout?.exercises) && workout.exercises.length > 0
+      )
+    );
+  }, [routine]);
 
   const handleSetupFieldChange =
     (field: keyof typeof setupForm) =>
@@ -519,6 +598,36 @@ const RoutinesPage = ({
     }
   };
 
+  const handleOpenReplaceProgram = () => {
+    setAssistantIntent("planner");
+    setShowPlanningDetails(true);
+    setShowSetupDialog(true);
+  };
+
+  const handleClearProgram = async () => {
+    if (!sessionUserId) {
+      toast.error("Couldn't clear the workout program");
+      return;
+    }
+
+    try {
+      setClearingProgram(true);
+      const response = await clearWorkoutProgram(sessionUserId);
+      setRoutine(response.routine ?? null);
+      setGeneratedCoachResponse(null);
+      setGeneratedCoachSource(undefined);
+      setGeneratedCoachSourceDetail(undefined);
+      setRoutineViewKey((prev) => prev + 1);
+      setShowClearProgramDialog(false);
+      toast.success("Workout program cleared");
+    } catch (error) {
+      console.error("Error clearing workout program:", error);
+      toast.error("Couldn't clear the workout program");
+    } finally {
+      setClearingProgram(false);
+    }
+  };
+
   const applyCoachProfilePatch = async (patch: Record<string, any>) => {
     if (!user) return;
 
@@ -564,26 +673,8 @@ const RoutinesPage = ({
     }
 
     if (action.type === "clear_all_schedules") {
-      const rules = await fetchRecurringRules(sessionUserId);
-
-      await Promise.all(
-        rules
-          .map((rule: any) => String(rule._id ?? ""))
-          .filter(Boolean)
-          .map((ruleId: string) => deactivateRecurringRule(ruleId))
-      );
-
-      setRoutine((prev: any) => {
-        if (!prev?.days) return prev;
-        const next = structuredClone(prev);
-        Object.keys(next.days).forEach((dayKey) => {
-          if (next.days?.[dayKey]?.[0]) {
-            next.days[dayKey][0].exercises = [];
-          }
-        });
-        return next;
-      });
-
+      const response = await clearWorkoutProgram(sessionUserId);
+      setRoutine(response.routine ?? null);
       setGeneratedCoachResponse((prev: any) =>
         prev
           ? {
@@ -595,7 +686,7 @@ const RoutinesPage = ({
       );
       setRoutineViewKey((prev) => prev + 1);
 
-      return "I cleared the current scheduled workouts from your calendar.";
+      return "I cleared your current workout program and removed upcoming scheduled exercises.";
     }
 
     if (action.type === "remove_day_schedule" && action.dayKey) {
@@ -797,6 +888,55 @@ const RoutinesPage = ({
             />
           </Box>
           <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.75, sm: 2.25 } }}>
+            <Paper
+              elevation={0}
+              sx={{
+                mb: 2,
+                p: { xs: 1.5, sm: 1.75 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                background: darkMode
+                  ? "linear-gradient(135deg, rgba(30,41,59,0.92), rgba(15,23,42,0.82))"
+                  : "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(241,245,249,0.9))",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", md: "center" }}
+              >
+                <Box>
+                  <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                    Program Management
+                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 0.25 }}>
+                    Replace or reset your workout plan in one step
+                  </Typography>
+                  <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                    Generating a new plan now replaces your upcoming scheduled exercises from today
+                    forward. You can also clear everything and start from a blank slate.
+                  </Typography>
+                </Box>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setShowClearProgramDialog(true)}
+                    disabled={clearingProgram || generatingWorkout || !hasProgramExercises}
+                  >
+                    {clearingProgram ? "Clearing..." : "Start blank"}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleOpenReplaceProgram}
+                    disabled={generatingWorkout || savingSetup}
+                  >
+                    {hasProgramExercises ? "Replace program" : "Create program"}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
             {generatedCoachResponse ? (
               <Box sx={{ mb: 2 }}>
                 <CoachChatPanel
@@ -804,6 +944,8 @@ const RoutinesPage = ({
                   coachSource={generatedCoachSource}
                   coachSourceDetail={generatedCoachSourceDetail}
                   profile={setupForm}
+                  defaultMinimized
+                  minimizedStorageKey="lift-logic:routines:assistant-minimized"
                   onDismiss={() => {
                     setGeneratedCoachResponse(null);
                     setGeneratedCoachSource(undefined);
@@ -1375,7 +1517,9 @@ const RoutinesPage = ({
               }}
             >
               <Typography sx={{ color: "text.secondary" }}>
-                The first draft does not need to be perfect. The workout assistant can revise the split, exercises, and assumptions after generation.
+                {hasProgramExercises
+                  ? "Generating a new plan will replace your upcoming scheduled exercises from today forward. The workout assistant can still revise the split, exercises, and assumptions afterward."
+                  : "The first draft does not need to be perfect. The workout assistant can revise the split, exercises, and assumptions after generation."}
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                 <Button variant="outlined" onClick={() => setShowSetupDialog(false)}>
@@ -1390,7 +1534,11 @@ const RoutinesPage = ({
                     !setupReadyToGenerate
                   }
                 >
-                  {generatingWorkout ? "Generating..." : "Generate with assistant"}
+                  {generatingWorkout
+                    ? "Generating..."
+                    : hasProgramExercises
+                    ? "Replace with assistant"
+                    : "Generate with assistant"}
                 </Button>
                 <Button
                   variant="contained"
@@ -1407,6 +1555,44 @@ const RoutinesPage = ({
             </Box>
           </>
         ) : null}
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showClearProgramDialog}
+        onClose={() => {
+          if (!clearingProgram) {
+            setShowClearProgramDialog(false);
+          }
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Clear current program?</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Stack spacing={2}>
+            <Typography sx={{ color: "text.secondary" }}>
+              This removes your active recurring workout rules and deletes upcoming scheduled
+              exercises from today forward, while keeping past completed history intact.
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                onClick={() => setShowClearProgramDialog(false)}
+                disabled={clearingProgram}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleClearProgram}
+                disabled={clearingProgram}
+              >
+                {clearingProgram ? "Clearing..." : "Clear program"}
+              </Button>
+            </Stack>
           </Stack>
         </DialogContent>
       </Dialog>

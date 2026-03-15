@@ -1,19 +1,7 @@
 // pages/api/routine.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
-
-const buildDefaultRoutine = (userId: string) => ({
-  userId,
-  days: {
-    sunday: [{ title: "Sunday Workout", exercises: [] }],
-    monday: [{ title: "Monday Workout", exercises: [] }],
-    tuesday: [{ title: "Tuesday Workout", exercises: [] }],
-    wednesday: [{ title: "Wednesday Workout", exercises: [] }],
-    thursday: [{ title: "Thursday Workout", exercises: [] }],
-    friday: [{ title: "Friday Workout", exercises: [] }],
-    saturday: [{ title: "Saturday Workout", exercises: [] }],
-  },
-});
+import { buildDefaultRoutine, saveRoutineDocument } from "../../utils/programPersistence";
 
 export default async function handler(
   req: NextApiRequest,
@@ -36,37 +24,15 @@ export default async function handler(
         return res.status(400).json({ message: "Routine and userId are required" });
       }
 
-      const existingRoutine = await routineCollection.findOne({ userId });
       const { _id, ...routineWithoutId } = routine;
-      const nextRoutine = {
-        ...buildDefaultRoutine(userId),
-        ...routineWithoutId,
-        userId,
-        days: routineWithoutId.days ?? buildDefaultRoutine(userId).days,
-      };
-
-      if (existingRoutine) {
-        await routineCollection.updateOne(
-          { userId },
-          {
-            $set: {
-              ...nextRoutine,
-              updatedAt: new Date(),
-            },
-          }
-        );
-        return res
-          .status(200)
-          .json({ message: "Routine updated successfully!" });
-      }
 
       try {
-        await routineCollection.insertOne({
-          ...nextRoutine,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+        await saveRoutineDocument({
+          db,
+          userId,
+          routine: routineWithoutId,
         });
-        return res.status(201).json({ message: "Routine saved successfully!" });
+        return res.status(200).json({ message: "Routine saved successfully!" });
       } catch (error) {
         console.error("Failed to insert routine: ", error);
         return res.status(500).json({ error: "Failed to insert routine." });

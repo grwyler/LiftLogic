@@ -169,6 +169,13 @@ export const buildCodexCopyText = ({
 
   lines.push(
     "",
+    "Codex execution instructions",
+    "Implement the requested change.",
+    "Add or update tests needed to cover the change and ensure relevant tests pass.",
+    "When the work is complete, move this work item to the appropriate status.",
+    "If you identify related bugs, edge cases, or follow-up work that should not be handled in this same change, create additional bug reports or feature requests for them.",
+    "Clearly distinguish what was completed from any follow-up items.",
+    "",
     "Please inspect the relevant code, implement the fix, run appropriate verification, and summarize what changed."
   );
 

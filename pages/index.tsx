@@ -18,6 +18,7 @@ import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
+import { rememberLandingCta } from "../utils/betaFunnelClient";
 
 const featureCards = [
   {
@@ -64,6 +65,10 @@ const HomePage: React.FC = () => {
       router.replace("/routines");
     }
   }, [router, status]);
+
+  const handleLandingCtaClick = () => {
+    rememberLandingCta();
+  };
 
   return (
     <Box
@@ -116,6 +121,7 @@ const HomePage: React.FC = () => {
               href="/signup"
               variant="contained"
               endIcon={<ArrowForwardIcon />}
+              onClick={handleLandingCtaClick}
             >
               Start free beta
             </Button>
@@ -205,6 +211,7 @@ const HomePage: React.FC = () => {
                 variant="contained"
                 size="large"
                 endIcon={<ArrowForwardIcon />}
+                onClick={handleLandingCtaClick}
               >
                 Create account
               </Button>
@@ -501,6 +508,7 @@ const HomePage: React.FC = () => {
                     },
                   }}
                   endIcon={<ArrowForwardIcon />}
+                  onClick={handleLandingCtaClick}
                 >
                   Start free beta
                 </Button>

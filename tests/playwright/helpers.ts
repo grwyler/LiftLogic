@@ -91,42 +91,6 @@ export const submitBugFeedback = async (
   return response.ok();
 };
 
-export const submitFeatureFeedback = async (
-  page: Page,
-  {
-    userId,
-    username,
-    title,
-    description,
-  }: {
-    userId?: string;
-    username?: string;
-    title: string;
-    description: string;
-  }
-) => {
-  if (!userId) {
-    return false;
-  }
-
-  const response = await page.request.post("/api/feedback", {
-    data: {
-      feedback: {
-        userId,
-        username,
-        type: "feature",
-        title,
-        description,
-        severity: "low",
-        page: "/routines",
-        deviceType: "desktop",
-      },
-    },
-  });
-
-  return response.ok();
-};
-
 export const getSessionUserId = async (page: Page) => {
   const sessionResponse = await page.request.get("/api/auth/session");
   if (!sessionResponse.ok()) {
@@ -177,6 +141,96 @@ export const continueAsTracker = async (page: Page) => {
   await expect(
     page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
   ).toBeVisible();
+};
+
+export const completeAssistantSetup = async (
+  page: Page,
+  {
+    name = "E2E Planner",
+    goal = "Get stronger",
+    frequency = "3 days",
+  }: {
+    name?: string;
+    goal?: string;
+    frequency?: string;
+  } = {}
+) => {
+  await page.getByLabel("Name").fill(name);
+  await page
+    .getByRole("button", { name: "Yes, help me plan workouts" })
+    .click();
+  await page.getByRole("button", { name: goal }).click();
+  await page.getByRole("button", { name: frequency }).click();
+  await page.getByRole("button", { name: "Save assistant setup" }).click();
+
+  await expect(
+    page.getByText("The workout assistant is still in beta testing.").first()
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", {
+      name: /Ask why this fits, how to swap lifts, or what to do first/i,
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
+  ).toBeVisible();
+};
+
+export const quickAddFirstExercise = async (page: Page) => {
+  await page.getByRole("button", { name: /Add First Exercise|Add Exercise/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Choose an exercise" })
+  ).toBeVisible();
+
+  await page.locator("button:has-text('Quick Add')").first().click();
+  await expect(page.getByText(/0\/3 sets|0\/\d+ sets/).first()).toBeVisible();
+};
+
+export const logFirstSetForFirstExercise = async (page: Page) => {
+  await page.getByText(/^Open$/).first().click();
+  await expect(page.getByText("Active Set")).toBeVisible();
+
+  await page.getByRole("button", { name: "Log Set" }).click();
+  await expect(page.getByText("Rest Between Sets")).toBeVisible();
+  await page.getByRole("button", { name: "Continue to Next Set" }).click();
+  await expect(page.getByText("1/3 sets logged")).toBeVisible();
+};
+
+export const closeExerciseDetail = async (page: Page) => {
+  await page.locator("button:has(svg[data-testid='CloseIcon'])").first().click();
+  await expect(page.getByText("Active Set")).not.toBeVisible();
+};
+
+export const saveAndEditRepeatScheduleEndDate = async (
+  page: Page,
+  {
+    initialOffsetDays = 10,
+    updatedOffsetDays = 18,
+  }: {
+    initialOffsetDays?: number;
+    updatedOffsetDays?: number;
+  } = {}
+) => {
+  const repeatButton = page.locator('[title="Repeat this exercise"]').first();
+  await repeatButton.click();
+
+  const initialEndDate = formatDateInput(initialOffsetDays);
+  await page.getByLabel("Ends on (optional)").fill(initialEndDate);
+  await page.getByRole("button", { name: "Save schedule" }).click();
+
+  await expect(
+    page.locator('[title="Edit repeating schedule"]').first()
+  ).toBeVisible();
+
+  await page.locator('[title="Edit repeating schedule"]').first().click();
+  await expect(page.getByLabel("Ends on (optional)")).toHaveValue(initialEndDate);
+
+  const updatedEndDate = formatDateInput(updatedOffsetDays);
+  await page.getByLabel("Ends on (optional)").fill(updatedEndDate);
+  await page.getByRole("button", { name: "Save schedule" }).click();
+
+  await page.locator('[title="Edit repeating schedule"]').first().click();
+  await expect(page.getByLabel("Ends on (optional)")).toHaveValue(updatedEndDate);
 };
 
 export const generatePlanForProfile = async (

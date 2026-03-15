@@ -120,6 +120,19 @@ const ExerciseItem = ({
     return null;
   };
 
+  const normalizeRepeatEndDate = (value: unknown) => {
+    if (!value) {
+      return "";
+    }
+
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+
+    const parsed = new Date(value as string | number | Date);
+    return Number.isNaN(parsed.getTime()) ? "" : toLocalDateKey(parsed);
+  };
+
   const syncRepeatScheduleState = (sourceExercise: any) => {
     const parsedDate = parseFormattedDate(formattedDate);
     const defaultDay = parsedDate?.getDay() ?? 0;
@@ -146,11 +159,7 @@ const ExerciseItem = ({
         Number(sourceExercise?.interval ?? sourceExercise?.intervalWeeks) || 1
       )
     );
-    setRepeatEndDate(
-      sourceExercise?.endDate
-        ? toLocalDateKey(new Date(sourceExercise.endDate))
-        : ""
-    );
+    setRepeatEndDate(normalizeRepeatEndDate(sourceExercise?.endDate));
   };
 
   useEffect(() => {
@@ -1105,12 +1114,22 @@ const ExerciseItem = ({
             </Box>
           </Box>
 
-          <Typography
-            variant="body2"
-            sx={{ color: "text.secondary", fontWeight: 600 }}
+          <Button
+            size="small"
+            variant="text"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleWorkoutButtonClick(exerciseIndex);
+            }}
+            sx={{
+              minWidth: "auto",
+              px: 1,
+              color: "text.secondary",
+              fontWeight: 600,
+            }}
           >
             Open
-          </Typography>
+          </Button>
         </Box>
       </Paper>
 

@@ -4,6 +4,7 @@ import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase } from "../../../utils/mongodb";
 import { verifyAndUpgradePassword } from "../../../utils/passwords";
+import { markBetaFunnelMilestone } from "../../../utils/betaFunnel";
 
 const createUsernameSlug = (value: string) =>
   value
@@ -84,6 +85,7 @@ const getOrCreateOAuthUser = async ({
   const username = await getUniqueUsername(
     normalizedEmail.split("@")[0] || name || provider
   );
+  const createdAt = new Date();
 
   const doc = {
     username,
@@ -107,8 +109,13 @@ const getOrCreateOAuthUser = async ({
     notes: "",
     setupPromptSeen: false,
     setupCompleted: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    betaFunnel: markBetaFunnelMilestone({
+      funnel: {},
+      key: "signupCompletedAt",
+      occurredAt: createdAt,
+    }),
+    createdAt,
+    updatedAt: createdAt,
   };
 
   const result = await users.insertOne(doc);

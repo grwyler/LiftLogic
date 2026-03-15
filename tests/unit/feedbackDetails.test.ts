@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCodexCopyText,
   getFeedbackEvidenceForWorkItem,
   sortFeedbackEvidence,
   summarizeBugReportEvidence,
@@ -121,5 +122,37 @@ describe("feedback details helpers", () => {
     expect(summary.semanticSteps).toHaveLength(1);
     expect(summary.rawSteps).toHaveLength(1);
     expect(summary.latestError?.message).toBe("saveWorkoutEntry 500");
+  });
+
+  it("appends standardized Codex execution instructions to copied work item details", () => {
+    const workItem = {
+      _id: "work-1",
+      type: "bug",
+      title: "Workout log failed",
+      latestDescription: "Logging a set throws an error.",
+      fingerprint: "wrk_1",
+      occurrenceCount: 2,
+      triageStatus: "new",
+    } as unknown as FeedbackWorkItemDoc;
+
+    const copyText = buildCodexCopyText({
+      workItem,
+      evidence: [],
+    });
+
+    expect(copyText).toContain("Codex execution instructions");
+    expect(copyText).toContain("Implement the requested change.");
+    expect(copyText).toContain(
+      "Add or update tests needed to cover the change and ensure relevant tests pass."
+    );
+    expect(copyText).toContain(
+      "When the work is complete, move this work item to the appropriate status."
+    );
+    expect(copyText).toContain(
+      "If you identify related bugs, edge cases, or follow-up work that should not be handled in this same change, create additional bug reports or feature requests for them."
+    );
+    expect(copyText).toContain(
+      "Clearly distinguish what was completed from any follow-up items."
+    );
   });
 });

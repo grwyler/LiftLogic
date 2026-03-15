@@ -207,6 +207,13 @@ class MockCollection<T extends Record<string, any>> {
     this.docs.splice(index, 1);
     return { deletedCount: 1 };
   }
+
+  async deleteMany(filter: Query) {
+    const beforeCount = this.docs.length;
+    const remaining = this.docs.filter((doc) => !matchesQuery(doc, filter));
+    this.docs.splice(0, this.docs.length, ...remaining);
+    return { deletedCount: beforeCount - remaining.length };
+  }
 }
 
 class MockDb {
@@ -593,6 +600,8 @@ describe("feedback API route", () => {
         triageStatus: "resolved",
         fixThreadId: "thread-42",
         fixCommitSha: "abc123def",
+        title: "Updated login failure summary",
+        latestDescription: "Admins clarified the repro steps during triage.",
       },
     });
     const patchRes = createMockResponse();
@@ -605,12 +614,46 @@ describe("feedback API route", () => {
     expect(patchRes.body.workItem.status).toBe("resolved");
     expect(patchRes.body.workItem.fixThreadId).toBe("thread-42");
     expect(patchRes.body.workItem.fixCommitSha).toBe("abc123def");
+    expect(patchRes.body.workItem.title).toBe("Updated login failure summary");
+    expect(patchRes.body.workItem.latestDescription).toBe(
+      "Admins clarified the repro steps during triage."
+    );
 
     const linkedFeedback = db.feedbackDocs[0];
     expect(linkedFeedback.triageStatus).toBe("resolved");
     expect(linkedFeedback.status).toBe("resolved");
     expect(linkedFeedback.fixThreadId).toBe("thread-42");
     expect(linkedFeedback.fixCommitSha).toBe("abc123def");
+  });
+
+  it("deletes an entire work item and its linked feedback through DELETE", async () => {
+    const firstRes = createMockResponse();
+    await handler(
+      createMockRequest({ method: "POST", body: validBugPayload }),
+      firstRes as any
+    );
+
+    const secondRes = createMockResponse();
+    await handler(
+      createMockRequest({ method: "POST", body: validBugPayload }),
+      secondRes as any
+    );
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const deleteReq = createMockRequest({
+      method: "DELETE",
+      body: {
+        workItemId: firstRes.body.workItem._id.toString(),
+      },
+    });
+    const deleteRes = createMockResponse();
+
+    await handler(deleteReq, deleteRes as any);
+
+    expect(deleteRes.statusCode).toBe(200);
+    expect(deleteRes.body).toEqual({ success: true });
+    expect(db.feedbackDocs).toHaveLength(0);
+    expect(db.workItemDocs).toHaveLength(0);
   });
 
   it("deletes feedback and refreshes the remaining work item state", async () => {

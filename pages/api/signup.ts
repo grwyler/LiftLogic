@@ -1,11 +1,13 @@
 // pages/api/signup.ts
 import { connectToDatabase } from "../../utils/mongodb";
 import { hashPassword } from "../../utils/passwords";
+import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
     const username = String(req.body?.username ?? "").trim();
     const password = String(req.body?.password ?? "");
+    const landingCtaAt = req.body?.landingCtaAt;
 
     try {
       const db = await connectToDatabase();
@@ -21,6 +23,7 @@ export default async function handler(req, res) {
       }
 
       const passwordHash = await hashPassword(password);
+      const createdAt = new Date();
 
       const result = await collection.insertOne({
         username,
@@ -41,8 +44,17 @@ export default async function handler(req, res) {
         setupPromptSeen: false,
         setupCompleted: false,
         darkMode: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        betaFunnel: markBetaFunnelMilestone({
+          funnel: markBetaFunnelMilestone({
+            funnel: {},
+            key: "landingCtaAt",
+            occurredAt: landingCtaAt,
+          }),
+          key: "signupCompletedAt",
+          occurredAt: createdAt,
+        }),
+        createdAt,
+        updatedAt: createdAt,
       });
 
       if (result.insertedId) {

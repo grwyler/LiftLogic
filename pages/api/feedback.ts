@@ -888,11 +888,15 @@ export default async function handler(
         triageStatus,
         fixThreadId,
         fixCommitSha,
+        title,
+        latestDescription,
       } = req.body as {
         workItemId?: string;
         triageStatus?: FeedbackTriageStatus;
         fixThreadId?: string;
         fixCommitSha?: string;
+        title?: string;
+        latestDescription?: string;
       };
 
       const normalizedWorkItemId = sanitizeText(workItemId);
@@ -917,11 +921,16 @@ export default async function handler(
       const now = new Date();
       const normalizedFixThreadId = sanitizeText(fixThreadId) || undefined;
       const normalizedFixCommitSha = sanitizeText(fixCommitSha) || undefined;
+      const normalizedTitle = sanitizeText(title) || existing.title;
+      const normalizedDescription =
+        sanitizeText(latestDescription) || existing.latestDescription;
       const nextResolvedAt =
         normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
           ? existing.resolvedAt || now
           : undefined;
       const update: Partial<FeedbackWorkItemDoc> = {
+        title: normalizedTitle,
+        latestDescription: normalizedDescription,
         triageStatus: normalizedTriageStatus,
         status: getLegacyStatusFromTriage(normalizedTriageStatus),
         fixThreadId: normalizedFixThreadId,
@@ -967,8 +976,35 @@ export default async function handler(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const { feedbackId } = req.body as { feedbackId?: string };
+      const { feedbackId, workItemId } = req.body as {
+        feedbackId?: string;
+        workItemId?: string;
+      };
       const normalizedFeedbackId = sanitizeText(feedbackId);
+      const normalizedWorkItemId = sanitizeText(workItemId);
+
+      if (normalizedWorkItemId) {
+        if (!ObjectId.isValid(normalizedWorkItemId)) {
+          return res.status(400).json({ message: "Valid workItemId is required" });
+        }
+
+        const existingWorkItem = await workItemCollection.findOne({
+          _id: new ObjectId(normalizedWorkItemId),
+        });
+
+        if (!existingWorkItem) {
+          return res.status(404).json({ message: "Work item not found" });
+        }
+
+        await Promise.all([
+          feedbackCollection.deleteMany({ workItemId: normalizedWorkItemId }),
+          workItemCollection.deleteOne({
+            _id: new ObjectId(normalizedWorkItemId),
+          }),
+        ]);
+
+        return res.status(200).json({ success: true });
+      }
 
       if (!normalizedFeedbackId || !ObjectId.isValid(normalizedFeedbackId)) {
         return res.status(400).json({ message: "Valid feedbackId is required" });

@@ -778,11 +778,15 @@ export const updateFeedbackWorkItem = async ({
   triageStatus,
   fixThreadId,
   fixCommitSha,
+  title,
+  latestDescription,
 }: {
   workItemId: string;
   triageStatus: FeedbackTriageStatus;
   fixThreadId?: string;
   fixCommitSha?: string;
+  title?: string;
+  latestDescription?: string;
 }) => {
   emitDevBugRequest({
     label: `Update work item ${workItemId}`,
@@ -801,6 +805,8 @@ export const updateFeedbackWorkItem = async ({
       triageStatus,
       fixThreadId,
       fixCommitSha,
+      title,
+      latestDescription,
     }),
   });
 
@@ -819,6 +825,42 @@ export const updateFeedbackWorkItem = async ({
     label: `Updated work item ${workItemId}`,
     expected: "The feedback work item status is updated successfully.",
     actual: `Work item update completed with ${response.status}.`,
+    status: "success",
+  });
+
+  return response.json();
+};
+
+export const deleteFeedbackWorkItem = async (workItemId: string) => {
+  emitDevBugRequest({
+    label: "Delete feedback work item",
+    expected: "The selected work item and its linked reports are removed.",
+    actual: "Sending delete request for feedback work item.",
+    status: "info",
+  });
+  const response = await fetch("/api/feedback", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ workItemId }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    emitDevBugRequest({
+      label: "Delete feedback work item failed",
+      expected: "The selected work item and its linked reports are removed.",
+      actual: `Delete request failed with ${response.status}: ${message}`,
+      status: "failure",
+    });
+    throw new Error(`deleteFeedbackWorkItem ${response.status}: ${message}`);
+  }
+
+  emitDevBugRequest({
+    label: "Deleted feedback work item",
+    expected: "The selected work item and its linked reports are removed.",
+    actual: `Delete request completed with ${response.status}.`,
     status: "success",
   });
 
@@ -992,6 +1034,21 @@ export const generateWorkoutPlan = async (
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`generateWorkoutPlan ${response.status}: ${message}`);
+  }
+
+  return response.json();
+};
+
+export const clearWorkoutProgram = async (userId: string) => {
+  const response = await fetch("/api/program", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`clearWorkoutProgram ${response.status}: ${message}`);
   }
 
   return response.json();

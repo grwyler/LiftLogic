@@ -20,6 +20,10 @@ import FacebookIcon from "@mui/icons-material/Facebook";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import GoogleIcon from "@mui/icons-material/Google";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
+import {
+  clearPendingLandingCta,
+  readPendingLandingCta,
+} from "../utils/betaFunnelClient";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -51,7 +55,11 @@ const SignUp: React.FC = () => {
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          landingCtaAt: readPendingLandingCta(),
+        }),
       });
       const data = await response.json().catch(() => null);
 
@@ -101,6 +109,7 @@ const SignUp: React.FC = () => {
         actual: "Registration and automatic sign-in succeeded.",
         status: "success",
       });
+      clearPendingLandingCta();
       router.push("/routines");
     } catch (signupError) {
       setIsSigningIn(false);

@@ -2,6 +2,10 @@ import { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
 import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 import {
+  clearUpcomingProgramData,
+  saveRoutineDocument,
+} from "../../utils/programPersistence";
+import {
   buildWorkoutCoachResponse,
   buildFallbackWorkoutPlan,
   buildRoutineFromPlan,
@@ -68,12 +72,7 @@ const persistGeneratedPlan = async ({
 }) => {
   const db = await connectToDatabase();
   const recurringRuleCollection = db.collection("recurringRules");
-  const routineCollection = db.collection("routines");
-
-  await recurringRuleCollection.updateMany(
-    { userId, active: true },
-    { $set: { active: false, updatedAt: new Date() } }
-  );
+  await clearUpcomingProgramData({ db, userId });
 
   const rules = buildRecurringRules(userId, plan);
 
@@ -81,20 +80,7 @@ const persistGeneratedPlan = async ({
     await recurringRuleCollection.insertMany(rules);
   }
 
-  const existingRoutine = await routineCollection.findOne({ userId });
-  if (existingRoutine) {
-    await routineCollection.updateOne(
-      { userId },
-      { $set: { ...routine, updatedAt: new Date() } }
-    );
-    return;
-  }
-
-  await routineCollection.insertOne({
-    ...routine,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  await saveRoutineDocument({ db, userId, routine });
 };
 
 const isRetryableMongoWriteError = (error: unknown) => {
