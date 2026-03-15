@@ -175,21 +175,15 @@ const RoutinesPage = ({
     setSetupForm(normalizeSetupForm(user));
     setAssistantName(user.name || user.username || "");
 
-    const welcomeRequested = router.query.welcome === "1";
-    if (welcomeRequested || !user?.setupPromptSeen) {
+    if (!user?.setupPromptSeen) {
       setShowSetupDialog(true);
-      if (!user?.setupPromptSeen) {
-        const nextUser = { ...user, setupPromptSeen: true };
-        setUser(nextUser);
-        saveUser(nextUser).catch((error) => {
-          console.error("Error marking setup prompt as seen:", error);
-        });
-      }
-      if (welcomeRequested) {
-        router.replace("/routines", undefined, { shallow: true });
-      }
+      const nextUser = { ...user, setupPromptSeen: true };
+      setUser(nextUser);
+      saveUser(nextUser).catch((error) => {
+        console.error("Error marking setup prompt as seen:", error);
+      });
     }
-  }, [router, router.query.welcome, user]);
+  }, [user]);
 
   useEffect(() => {
     if (!showSetupDialog) {

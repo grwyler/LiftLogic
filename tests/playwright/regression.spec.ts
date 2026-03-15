@@ -10,6 +10,7 @@ import {
   planCoachBubble,
   reportFailedTestAsBug,
   saveUserProfile,
+  signInWithCredentials,
   signUp,
   submitFeatureFeedback,
 } from "./helpers";
@@ -226,6 +227,37 @@ test.describe("Lift Logic regression", () => {
     await expect(planCoachBubble(page)).toBeVisible();
     await expect(planCoachBubble(page).getByText("Feedback saved")).toBeVisible();
     await expect(planCoachBubble(page).locator("button").nth(0)).toBeDisabled();
+  });
+
+  test("completed users do not see assistant setup again after signing back in", async ({
+    page,
+  }) => {
+    const username = buildUsername("setup-once");
+    await signUp(page, username);
+    currentUserId = await getSessionUserId(page);
+
+    await page.getByLabel("Name").fill("Setup Once");
+    await page
+      .getByRole("button", { name: "No, I just want to track workouts" })
+      .click();
+    await page.getByRole("button", { name: "Continue to workouts" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Set up your workout assistant" })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
+    ).toBeVisible();
+
+    await page.context().clearCookies();
+    await signInWithCredentials(page, username);
+
+    await expect(
+      page.getByRole("heading", { name: "Set up your workout assistant" })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
+    ).toBeVisible();
   });
 
   test("coach can move a scheduled day from Saturday to Wednesday", async ({

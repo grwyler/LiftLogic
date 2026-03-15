@@ -101,7 +101,7 @@ const SignUp: React.FC = () => {
         actual: "Registration and automatic sign-in succeeded.",
         status: "success",
       });
-      router.push("/routines?welcome=1");
+      router.push("/routines");
     } catch (signupError) {
       setIsSigningIn(false);
       setError("Error during registration.");
@@ -121,7 +121,7 @@ const SignUp: React.FC = () => {
       status: "info",
     });
     try {
-      await signIn(provider, { callbackUrl: "/routines?welcome=1" });
+      await signIn(provider, { callbackUrl: "/routines" });
     } finally {
       setOauthLoading("");
     }

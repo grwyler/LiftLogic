@@ -145,6 +145,14 @@ export const signUp = async (page: Page, username: string) => {
   await page.waitForURL(/\/routines/);
 };
 
+export const signInWithCredentials = async (page: Page, username: string) => {
+  await page.goto("/signin");
+  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Open workouts" }).click();
+  await page.waitForURL(/\/routines/);
+};
+
 export const saveUserProfile = async (
   page: Page,
   user: Record<string, unknown>

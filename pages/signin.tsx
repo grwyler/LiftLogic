@@ -93,7 +93,7 @@ const SignIn = () => {
       status: "info",
     });
     try {
-      await signIn(provider, { callbackUrl: "/routines?welcome=1" });
+      await signIn(provider, { callbackUrl: "/routines" });
     } finally {
       setOauthLoading("");
     }
