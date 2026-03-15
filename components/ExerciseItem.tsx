@@ -22,14 +22,15 @@ import SetItem from "./SetItem";
 import ExerciseEditItem from "./ExerciseEditItem";
 import RepeatScheduleDialog from "./RepeatScheduleDialog";
 import CRUDMenuButton from "./CRUDMenuButton";
-import {
-  deleteWorkoutEntry,
-  fetchExerciseProgress,
-  formatTime,
-  saveRecurringRule,
-  saveWorkoutEntry,
-  toTitleCase,
-} from "../utils/helpers";
+  import {
+    deleteWorkoutEntry,
+    fetchExerciseProgress,
+    formatTime,
+    saveRecurringRule,
+    saveWorkoutEntry,
+    toLocalDateKey,
+    toTitleCase,
+  } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import DeleteDialog from "./DeleteDialog";
@@ -147,7 +148,7 @@ const ExerciseItem = ({
     );
     setRepeatEndDate(
       sourceExercise?.endDate
-        ? new Date(sourceExercise.endDate).toISOString().slice(0, 10)
+        ? toLocalDateKey(new Date(sourceExercise.endDate))
         : ""
     );
   };
@@ -705,7 +706,7 @@ const ExerciseItem = ({
         userId: currentUserId,
         exerciseId: currentExercise.exerciseId ?? currentExercise._id,
         routineName,
-        date: parsedDate.toISOString().slice(0, 10),
+        date: toLocalDateKey(parsedDate),
         rest: currentExercise.rest ?? 0,
         complete: currentExercise.complete ?? false,
         sets: currentExercise.sets,
@@ -816,7 +817,7 @@ const ExerciseItem = ({
             : [repeatDayOfWeek],
         dayOfMonth: repeatDayOfMonth,
         endDate: repeatEndDate || undefined,
-        date: parsedDate.toISOString().slice(0, 10),
+        date: toLocalDateKey(parsedDate),
       } as any);
 
       setShowRepeatDialog(false);

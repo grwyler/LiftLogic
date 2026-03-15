@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -38,6 +39,7 @@ import {
 } from "../utils/feedbackWorkflow";
 import {
   getFeedbackEvidenceForWorkItem,
+  buildCodexCopyText,
   summarizeBugReportEvidence,
 } from "../utils/feedbackDetails";
 
@@ -69,6 +71,13 @@ type WorkflowDraft = {
   fixThreadId: string;
   fixCommitSha: string;
 };
+
+type QueueSortMode =
+  | "workflow"
+  | "latest"
+  | "oldest"
+  | "reports"
+  | "severity";
 
 const triageLabel: Record<FeedbackTriageStatus, string> = {
   new: "New",
@@ -118,6 +127,65 @@ const serializeWorkItems = (items: FeedbackWorkItemDoc[]) =>
 const formatTimestamp = (value?: Date | string) =>
   value ? new Date(value).toLocaleString() : "Unknown";
 
+const triageSortOrder: Record<FeedbackTriageStatus, number> = {
+  fixing: 0,
+  queued: 1,
+  new: 2,
+  resolved: 3,
+  duplicate: 4,
+  verified: 5,
+};
+
+const severitySortOrder: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+const getItemActivityTimestamp = (item: FeedbackWorkItemDoc) =>
+  new Date(
+    item.lastReportedAt || item.updatedAt || item.createdAt || 0
+  ).getTime();
+
+const compareWorkItems = (
+  left: FeedbackWorkItemDoc,
+  right: FeedbackWorkItemDoc,
+  sortMode: QueueSortMode
+) => {
+  const byNewestActivity = getItemActivityTimestamp(right) - getItemActivityTimestamp(left);
+  const byTitle = String(left.title || "").localeCompare(String(right.title || ""));
+
+  switch (sortMode) {
+    case "latest":
+      return byNewestActivity || byTitle;
+    case "oldest":
+      return getItemActivityTimestamp(left) - getItemActivityTimestamp(right) || byTitle;
+    case "reports":
+      return (
+        (right.occurrenceCount || 0) - (left.occurrenceCount || 0) ||
+        byNewestActivity ||
+        byTitle
+      );
+    case "severity":
+      return (
+        (severitySortOrder[String(left.severity || "low")] ?? 3) -
+          (severitySortOrder[String(right.severity || "low")] ?? 3) ||
+        byNewestActivity ||
+        byTitle
+      );
+    case "workflow":
+    default:
+      return (
+        (triageSortOrder[left.triageStatus] ?? 99) -
+          (triageSortOrder[right.triageStatus] ?? 99) ||
+        (severitySortOrder[String(left.severity || "low")] ?? 3) -
+          (severitySortOrder[String(right.severity || "low")] ?? 3) ||
+        byNewestActivity ||
+        byTitle
+      );
+  }
+};
+
 const createDraftMap = (
   items: FeedbackWorkItemDoc[],
   previous: Record<string, WorkflowDraft>
@@ -157,6 +225,7 @@ const BugsPage = () => {
     Record<string, boolean>
   >({});
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
+  const [queueSortMode, setQueueSortMode] = useState<QueueSortMode>("workflow");
 
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
@@ -239,12 +308,18 @@ const BugsPage = () => {
   }, [isAdmin, session]);
 
   const bugItems = useMemo(
-    () => workItems.filter((item) => item.type === "bug"),
-    [workItems]
+    () =>
+      [...workItems]
+        .filter((item) => item.type === "bug")
+        .sort((left, right) => compareWorkItems(left, right, queueSortMode)),
+    [queueSortMode, workItems]
   );
   const featureItems = useMemo(
-    () => workItems.filter((item) => item.type === "feature"),
-    [workItems]
+    () =>
+      [...workItems]
+        .filter((item) => item.type === "feature")
+        .sort((left, right) => compareWorkItems(left, right, queueSortMode)),
+    [queueSortMode, workItems]
   );
   const selectedWorkItem = useMemo(
     () =>
@@ -367,6 +442,30 @@ const BugsPage = () => {
       toast.error("Couldn't update that work item.");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleCopyForCodex = async (item: FeedbackWorkItemDoc) => {
+    const evidence = getFeedbackEvidenceForWorkItem({
+      workItem: item,
+      feedbackItems,
+    });
+    const copyText = buildCodexCopyText({
+      workItem: item,
+      evidence,
+    });
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      toast.error("Clipboard copy is not available in this browser.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(copyText);
+      toast.success("Copied full bug details for Codex.");
+    } catch (error) {
+      console.error("Failed to copy work item details:", error);
+      toast.error("Couldn't copy the work item details.");
     }
   };
 
@@ -541,6 +640,13 @@ const BugsPage = () => {
                   onClick={() => setSelectedWorkItemId(workItemId)}
                 >
                   View Details
+                </Button>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => handleCopyForCodex(item)}
+                >
+                  Copy for Codex
                 </Button>
               </Stack>
 
@@ -737,13 +843,35 @@ const BugsPage = () => {
                 you can decide when to hand the issue to Codex.
               </Typography>
             </Box>
-            <Chip
-              icon={<BugReportOutlinedIcon />}
-              label={`${bugItems.length} work item${
-                bugItems.length === 1 ? "" : "s"
-              }`}
-              variant="outlined"
-            />
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ xs: "stretch", sm: "center" }}
+            >
+              <TextField
+                select
+                size="small"
+                label="Sort queue"
+                value={queueSortMode}
+                onChange={(event) =>
+                  setQueueSortMode(event.target.value as QueueSortMode)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 220 } }}
+              >
+                <MenuItem value="workflow">Workflow priority</MenuItem>
+                <MenuItem value="latest">Latest activity</MenuItem>
+                <MenuItem value="oldest">Oldest first</MenuItem>
+                <MenuItem value="reports">Most reports</MenuItem>
+                <MenuItem value="severity">Highest severity</MenuItem>
+              </TextField>
+              <Chip
+                icon={<BugReportOutlinedIcon />}
+                label={`${bugItems.length} work item${
+                  bugItems.length === 1 ? "" : "s"
+                }`}
+                variant="outlined"
+              />
+            </Stack>
           </Stack>
         </Paper>
 
@@ -826,9 +954,23 @@ const BugsPage = () => {
                   variant="outlined"
                   sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
                 >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    Work item summary
-                  </Typography>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    justifyContent="space-between"
+                    alignItems={{ xs: "flex-start", sm: "center" }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Work item summary
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleCopyForCodex(selectedWorkItem)}
+                    >
+                      Copy for Codex
+                    </Button>
+                  </Stack>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip
                       size="small"

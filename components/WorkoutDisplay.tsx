@@ -10,7 +10,7 @@ import RepeatIcon from "@mui/icons-material/Repeat";
 import ExerciseItem from "./ExerciseItem";
 import MuscleRecoveryMap from "./MuscleRecoveryMap";
 import RepeatScheduleDialog from "./RepeatScheduleDialog";
-import { saveRecurringRule, saveWorkoutEntry } from "../utils/helpers";
+import { saveRecurringRule, saveWorkoutEntry, toLocalDateKey } from "../utils/helpers";
 import { toast } from "react-toastify";
 
 const WorkoutDisplay = ({
@@ -184,7 +184,7 @@ const WorkoutDisplay = ({
               recurrenceType === "custom" ? repeatDaysOfWeek : [repeatDayOfWeek],
             dayOfMonth: repeatDayOfMonth,
             endDate: repeatEndDate || undefined,
-            date: currentDate.toISOString().slice(0, 10),
+            date: toLocalDateKey(currentDate),
           };
 
           await saveWorkoutEntry(updatedExercise as any);
@@ -239,7 +239,7 @@ const WorkoutDisplay = ({
             daysOfWeek: null,
             dayOfMonth: null,
             endDate: null,
-            date: currentDate.toISOString().slice(0, 10),
+            date: toLocalDateKey(currentDate),
           };
 
           await saveWorkoutEntry(updatedExercise as any);
@@ -338,7 +338,7 @@ const WorkoutDisplay = ({
           userId: exercise.userId ?? currentUserId,
           exerciseId: exercise.exerciseId ?? exercise._id ?? exercise.name,
           routineName,
-          date: currentDate.toISOString().slice(0, 10),
+          date: toLocalDateKey(currentDate),
         };
 
         if (exercise?.ruleId) {
