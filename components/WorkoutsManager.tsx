@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  buildDayWorkoutsFromEntriesAndRules,
   doesRecurringRuleMatchDate,
-  fetchDay,
-  fetchRecurringRules,
-  fetchWorkoutMonthEntries,
+  fetchWorkoutCalendarSummary,
+  fetchWorkoutEntriesForDay,
 } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
@@ -51,6 +51,12 @@ type CalendarStatusMap = Record<
   }
 >;
 
+type MonthSummaryCacheEntry = {
+  entries: WorkoutEntryDoc[];
+  rules: RecurringRuleDoc[];
+  statusMap: CalendarStatusMap;
+};
+
 const toLocalDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -86,6 +92,12 @@ const normalizeDayWorkout = (dayName: string | null, workouts: Workout[] = []) =
     exercises: mergedExercises,
   };
 };
+
+const getEntriesForDateKey = (entries: WorkoutEntryDoc[], dateISO: string) =>
+  entries.filter((entry) => {
+    const entryDate = new Date(entry.date);
+    return !Number.isNaN(entryDate.getTime()) && toLocalDateKey(entryDate) === dateISO;
+  });
 
 const WorkoutsManager: React.FC<{
   routine: any;
@@ -152,8 +164,9 @@ const WorkoutsManager: React.FC<{
           setIsAddingExercise={setIsAddingExercise}
           userId={sessionUserId}
           date={dateISO}
-          setRefetchExercises={setRefetchExercises}
+          setExercises={setExercises}
           refreshCalendarStatuses={refreshCalendarStatuses}
+          userProfile={userProfile}
         />
       ) : (
         <Box>
@@ -232,29 +245,56 @@ const useWorkoutsManagerState = (
   });
   const dateISO = toLocalDateKey(currentDate);
 
-  const [refetchExercises, setRefetchExercises] = useState<boolean>(false);
+  const [dayRefreshTick, setDayRefreshTick] = useState(0);
   const [calendarRefreshTick, setCalendarRefreshTick] = useState(0);
   const [calendarStatusMap, setCalendarStatusMap] = useState<CalendarStatusMap>(
     {}
   );
+  const [monthSummaryCache, setMonthSummaryCache] = useState<
+    Record<string, MonthSummaryCacheEntry>
+  >({});
   const sessionUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
+  const currentMonthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+  const visibleMonthKey = `${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth()}`;
+  const currentMonthSummary = monthSummaryCache[currentMonthKey];
 
   useEffect(() => {
     setCalendarViewDate(currentDate);
   }, [currentDate]);
 
   useEffect(() => {
-    if (!userId || !dateISO || !currentDate || !currentDay) {
+    if (!userId || !dateISO || !currentDate || !currentDay || !currentMonthSummary) {
       return;
     }
 
-    setRefetchExercises(false);
     setIsLoadingWorkout(true);
 
-    fetchDay(userId, dateISO)
-      .then((routines) => {
+    fetchWorkoutEntriesForDay(userId, dateISO)
+      .then((entries) => {
+        const routines = buildDayWorkoutsFromEntriesAndRules(
+          entries,
+          currentMonthSummary.rules,
+          dateISO
+        );
         const mergedExercises = routines.flatMap((dayWorkout) =>
+          Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
+        );
+        setExercises(mergedExercises);
+        reconcilePendingLogAttempt(mergedExercises);
+      })
+      .catch((error) => {
+        console.error("Error loading selected workout day:", error);
+        const fallbackEntries = getEntriesForDateKey(
+          currentMonthSummary.entries,
+          dateISO
+        );
+        const fallbackRoutines = buildDayWorkoutsFromEntriesAndRules(
+          fallbackEntries,
+          currentMonthSummary.rules,
+          dateISO
+        );
+        const mergedExercises = fallbackRoutines.flatMap((dayWorkout) =>
           Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
         );
         setExercises(mergedExercises);
@@ -263,7 +303,7 @@ const useWorkoutsManagerState = (
       .finally(() => {
         setIsLoadingWorkout(false);
       });
-  }, [userId, currentDate, currentDay, dateISO, refetchExercises]);
+  }, [userId, currentDate, currentDay, dateISO, dayRefreshTick, currentMonthSummary]);
 
   useEffect(() => {
     if (!userId) {
@@ -274,11 +314,17 @@ const useWorkoutsManagerState = (
     let isMounted = true;
 
     const loadCalendarStatus = async () => {
+      const cached = monthSummaryCache[visibleMonthKey];
+      if (cached) {
+        setCalendarStatusMap(cached.statusMap);
+        return;
+      }
+
       try {
-        const [entries, rules] = await Promise.all([
-          fetchWorkoutMonthEntries(userId, calendarViewDate),
-          fetchRecurringRules(userId),
-        ]);
+        const { entries, rules } = await fetchWorkoutCalendarSummary(
+          userId,
+          calendarViewDate
+        );
 
         if (!isMounted) {
           return;
@@ -312,37 +358,14 @@ const useWorkoutsManagerState = (
         });
 
         entriesByDate.forEach((dayEntries, key) => {
-          const latestEntriesByExercise = new Map<string, WorkoutEntryDoc>();
-
-          dayEntries.forEach((entry) => {
-            const dedupeKey = `${String(entry.exerciseId ?? "")}::${String(
-              entry.routineName ?? ""
-            )}`;
-            const existing = latestEntriesByExercise.get(dedupeKey);
-
-            if (!existing) {
-              latestEntriesByExercise.set(dedupeKey, entry);
-              return;
-            }
-
-            const existingUpdatedAt = new Date(
-              (existing.updatedAt ?? existing.createdAt ?? existing.date) as any
-            ).getTime();
-            const nextUpdatedAt = new Date(
-              (entry.updatedAt ?? entry.createdAt ?? entry.date) as any
-            ).getTime();
-
-            if (nextUpdatedAt >= existingUpdatedAt) {
-              latestEntriesByExercise.set(dedupeKey, entry);
-            }
-          });
-
-          const normalizedDayEntries = Array.from(latestEntriesByExercise.values());
+          const normalizedDayEntries = [...dayEntries];
           const exerciseKeys = new globalThis.Set(
-            normalizedDayEntries.map(
-              (entry) =>
-                `${String(entry.exerciseId ?? "")}::${String(entry.routineName ?? "")}`
-            )
+            normalizedDayEntries
+              .filter((entry) => Boolean(entry.ruleId))
+              .map(
+                (entry) =>
+                  `${String(entry.ruleId ?? "")}::${String(entry.routineName ?? "")}`
+              )
           );
           dayExerciseKeys.set(key, exerciseKeys);
           const hasPlannedEntries = normalizedDayEntries.some((entry) => {
@@ -386,7 +409,7 @@ const useWorkoutsManagerState = (
             }
 
             const key = toLocalDateKey(cursor);
-            const ruleExerciseKey = `${String(rule.exerciseId ?? "")}::${String(
+            const ruleExerciseKey = `${String(rule._id ?? rule.exerciseId ?? "")}::${String(
               rule.routineName ?? ""
             )}`;
             const existingExerciseKeys =
@@ -408,6 +431,14 @@ const useWorkoutsManagerState = (
           }
         });
 
+        setMonthSummaryCache((prev) => ({
+          ...prev,
+          [visibleMonthKey]: {
+            entries,
+            rules,
+            statusMap: nextMap,
+          },
+        }));
         setCalendarStatusMap(nextMap);
       } catch (error) {
         console.error("Error loading workout calendar data:", error);
@@ -419,7 +450,14 @@ const useWorkoutsManagerState = (
     return () => {
       isMounted = false;
     };
-  }, [userId, calendarViewDate, refetchExercises, calendarRefreshTick]);
+  }, [userId, calendarViewDate, visibleMonthKey, calendarRefreshTick, monthSummaryCache]);
+
+  useEffect(() => {
+    const cached = monthSummaryCache[visibleMonthKey];
+    if (cached) {
+      setCalendarStatusMap(cached.statusMap);
+    }
+  }, [monthSummaryCache, visibleMonthKey]);
 
   return {
     currentDay,
@@ -439,9 +477,15 @@ const useWorkoutsManagerState = (
     dateISO,
     exercises,
     setExercises,
-    refetchExercises,
-    setRefetchExercises,
-    refreshCalendarStatuses: () => setCalendarRefreshTick((prev) => prev + 1),
+    setRefetchExercises: () => setDayRefreshTick((prev) => prev + 1),
+    refreshCalendarStatuses: () => {
+      setMonthSummaryCache((prev) => {
+        const next = { ...prev };
+        delete next[currentMonthKey];
+        return next;
+      });
+      setCalendarRefreshTick((prev) => prev + 1);
+    },
     calendarStatusMap,
     sessionUserId,
   };

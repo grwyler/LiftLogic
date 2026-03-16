@@ -13,6 +13,11 @@ import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
 import { emitDevBugRequest } from "./devBugRecorder";
 import { SetupFormValues } from "./profileSetup";
+import { ensureExerciseSetIds } from "./exerciseSetIds";
+import {
+  calculatePlateBreakdown,
+  roundToWeightIncrement,
+} from "./weightUnits";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -116,6 +121,47 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
   return res.json();
 };
 
+export const createWorkoutEntryInstanceId = () => {
+  if (
+    typeof globalThis !== "undefined" &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `workout-entry-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+export const getWorkoutEntryInstanceId = (entry: any) =>
+  String(
+    entry?.entryInstanceId ??
+      entry?._id?.toString?.() ??
+      entry?._id ??
+      ""
+  ).trim();
+
+export const getWorkoutEntryIdentity = (entry: any, fallback?: string | number) => {
+  const entryInstanceId = getWorkoutEntryInstanceId(entry);
+  if (entryInstanceId) {
+    return entryInstanceId;
+  }
+
+  return String(
+    entry?.ruleId ??
+      entry?.exerciseId ??
+      entry?.name ??
+      fallback ??
+      ""
+  );
+};
+
+export const getRecurringWorkoutEntryInstanceId = (
+  ruleId: string,
+  dateISO: string,
+  routineName?: string
+) => `recurring-entry::${String(ruleId).trim()}::${dateISO}::${String(routineName ?? "").trim()}`;
+
 export const toLocalDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -185,6 +231,62 @@ export const fetchWorkoutEntriesRange = async (
 
   const data = (await res.json()) as { entries?: WorkoutEntryDoc[] };
   return Array.isArray(data.entries) ? data.entries : [];
+};
+
+export const fetchWorkoutEntriesForDay = async (
+  userId: string,
+  dateISO: string,
+  routineName?: string
+): Promise<WorkoutEntryDoc[]> => {
+  const qs = new URLSearchParams({ userId, date: dateISO });
+
+  if (routineName) {
+    qs.append("routineName", routineName);
+  }
+
+  const res = await fetch(`/api/workoutEntry?${qs.toString()}`);
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(`fetchWorkoutEntriesForDay ${res.status}: ${message}`);
+  }
+
+  const data = (await res.json()) as { entries?: WorkoutEntryDoc[] };
+  return Array.isArray(data.entries) ? data.entries : [];
+};
+
+export const fetchWorkoutCalendarSummary = async (
+  userId: string,
+  monthDate: Date,
+  routineName?: string
+): Promise<{
+  entries: WorkoutEntryDoc[];
+  rules: RecurringRuleDoc[];
+}> => {
+  const qs = new URLSearchParams({
+    userId,
+    monthStart: toLocalDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)),
+    monthEnd: toLocalDateKey(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)),
+  });
+
+  if (routineName) {
+    qs.append("routineName", routineName);
+  }
+
+  const res = await fetch(`/api/workoutCalendarSummary?${qs.toString()}`);
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(`fetchWorkoutCalendarSummary ${res.status}: ${message}`);
+  }
+
+  const data = (await res.json()) as {
+    entries?: WorkoutEntryDoc[];
+    rules?: RecurringRuleDoc[];
+  };
+
+  return {
+    entries: Array.isArray(data.entries) ? data.entries : [],
+    rules: Array.isArray(data.rules) ? data.rules : [],
+  };
 };
 
 const normalizeRuleDate = (value?: Date | string | null) => {
@@ -392,12 +494,6 @@ export const fetchDay = async (
           }`
       )
   );
-  const materializedExerciseKeys = new Set(
-    visibleEntries
-      .filter((e: any) => e.exerciseId)
-      .map((e: any) => `${e.exerciseId}::${e.routineName}`)
-  );
-
   console.debug("[fetchDay] recurringToday", recurringToday.length);
 
   /* ------------------------------------------------------------------ */
@@ -406,6 +502,7 @@ export const fetchDay = async (
   const all = [
     ...visibleEntries.map((e: any) => ({
       ...e,
+      sets: ensureExerciseSetIds(e?.sets),
       isRepeating: Boolean(e.isRepeating || e.ruleId),
       kind: "entry" as const,
     })),
@@ -414,14 +511,12 @@ export const fetchDay = async (
         const ruleId = r._id?.toString?.() ?? r._id ?? r.exerciseId;
         const key = `${ruleId}::${r.routineName}`;
         const materializedKey = `${ruleId}::${r.routineName}::${r.exerciseId ?? ""}`;
-        const exerciseKey = `${r.exerciseId ?? ""}::${r.routineName}`;
         return (
           !skippedKeys.has(key) &&
-          !materializedRecurringKeys.has(materializedKey) &&
-          !materializedExerciseKeys.has(exerciseKey)
+          !materializedRecurringKeys.has(materializedKey)
         );
       })
-      .map((r: any) => ruleToExercise(r)),
+      .map((r: any) => ruleToExercise(r, dateISO)),
   ];
 
   console.debug("[fetchDay] merged total", all.length);
@@ -456,6 +551,92 @@ export const fetchDay = async (
 
   console.log("[fetchDay] ✔ final return", result);
   return result;
+};
+
+export const buildDayWorkoutsFromEntriesAndRules = (
+  entries: WorkoutEntryDoc[],
+  rules: RecurringRuleDoc[],
+  dateISO: string,
+  routineName?: string
+) => {
+  const parseLocalISODate = (value: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    return new Date(value);
+  };
+
+  const targetDate = parseLocalISODate(dateISO);
+  const scopedRules = routineName
+    ? rules.filter((rule) => rule.routineName === routineName)
+    : rules;
+  const recurringToday = scopedRules.filter((rule) =>
+    doesRecurringRuleMatchDate(rule, targetDate)
+  );
+
+  const skippedKeys = new Set(
+    entries
+      .filter((entry: any) => entry.skipped)
+      .map((entry: any) => `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}`)
+  );
+
+  const visibleEntries = entries.filter((entry: any) => !entry.skipped);
+  const materializedRecurringKeys = new Set(
+    visibleEntries
+      .filter((entry: any) => entry.ruleId || entry.exerciseId)
+      .map(
+        (entry: any) =>
+          `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}::${
+            entry.exerciseId ?? ""
+          }`
+      )
+  );
+  const all = [
+    ...visibleEntries.map((entry: any) => ({
+      ...entry,
+      sets: ensureExerciseSetIds(entry?.sets),
+      isRepeating: Boolean(entry.isRepeating || entry.ruleId),
+      kind: "entry" as const,
+    })),
+    ...recurringToday
+      .filter((rule: any) => {
+        const ruleId = rule._id?.toString?.() ?? rule._id ?? rule.exerciseId;
+        const key = `${ruleId}::${rule.routineName}`;
+        const materializedKey = `${ruleId}::${rule.routineName}::${rule.exerciseId ?? ""}`;
+        return (
+          !skippedKeys.has(key) &&
+          !materializedRecurringKeys.has(materializedKey)
+        );
+      })
+      .map((rule: any) => ruleToExercise(rule, dateISO)),
+  ];
+
+  const grouped: Record<string, Exercise[]> = {};
+  all.forEach((exercise) => {
+    const key = exercise.routineName;
+    (grouped[key] ??= []).push(exercise);
+  });
+
+  Object.values(grouped).forEach((group) => {
+    group.sort((a: any, b: any) => {
+      const sortDelta =
+        Number(a?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        Number(b?.sortOrder ?? Number.MAX_SAFE_INTEGER);
+
+      if (sortDelta !== 0) {
+        return sortDelta;
+      }
+
+      return String(a?.name ?? "").localeCompare(String(b?.name ?? ""));
+    });
+  });
+
+  return Object.entries(grouped).map(([title, exercises]) => ({
+    title,
+    exercises,
+  }));
 };
 
 let cache: Record<string, ExerciseCatalogDoc> | null = null;
@@ -555,10 +736,11 @@ export const fetchRecurringRules = async (
  * If you already saved those in your existing docs, you’re done.
  * Otherwise see option B or C below.
  */
-export const ruleToExercise = (r: RecurringRuleDoc): Exercise => {
+export const ruleToExercise = (r: RecurringRuleDoc, dateISO?: string): Exercise => {
   const sets: ExerciseSet[] =
-    (r.templateSets ?? []).map((s, idx) => ({
+    ensureExerciseSetIds(r.templateSets ?? []).map((s, idx) => ({
       name: s.name ?? `Set ${idx + 1}`,
+      id: s.id,
       reps: s.reps,
       percentage: s.percentage,
       weight: s.weight,
@@ -574,6 +756,14 @@ export const ruleToExercise = (r: RecurringRuleDoc): Exercise => {
 
   return {
     _id: (r as any)._id?.toString?.() ?? (r as any)._id,
+    entryInstanceId:
+      dateISO && ((r as any)._id?.toString?.() ?? (r as any)._id)
+        ? getRecurringWorkoutEntryInstanceId(
+            String((r as any)._id?.toString?.() ?? (r as any)._id),
+            dateISO,
+            r.routineName
+          )
+        : undefined,
     /** the UI expects these 5 keys */
     name: (r as any).exerciseName ?? "Exercise",
     type: (r as any).exerciseType ?? "weight",
@@ -947,48 +1137,13 @@ export const deleteFeedback = async (feedbackId: string) => {
 };
 
 export const roundToNearestFive = (number) => {
-  return Math.round(number / 5) * 5;
+  return roundToWeightIncrement(number, "lb");
 };
 
 // local helpers
 
-export const calculateWeights = (totalWeight) => {
-  const barbellWeight = 45;
-  const availableWeights = {
-    "45": 6,
-    "35": 2,
-    "25": 2,
-    "10": 4,
-    "5": 2,
-    "2.5": 2,
-  };
-
-  let remainingWeight = (totalWeight - barbellWeight) / 2; // Divide by 2 for each side
-  const requiredWeights = [];
-  // Sort weights in descending order
-  const sortedWeights = Object.keys(availableWeights).sort(
-    (a, b) => parseInt(b) - parseInt(a)
-  );
-
-  for (const weight of sortedWeights) {
-    const plateWeight = parseFloat(weight);
-    let count = Math.min(
-      Math.floor(remainingWeight / plateWeight),
-      availableWeights[weight]
-    );
-
-    if (count > 0) {
-      requiredWeights.push(`${count}x ${weight} lbs.`);
-      remainingWeight -= count * plateWeight;
-    }
-  }
-
-  if (remainingWeight > 0) {
-    return "Cannot achieve the exact weight with the available plates.";
-  }
-
-  return requiredWeights.join(", ");
-};
+export const calculateWeights = (totalWeight, unit: "lb" | "kg" = "lb") =>
+  calculatePlateBreakdown(totalWeight, unit);
 
 export const formatTime = (totalSeconds) => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -1103,16 +1258,18 @@ export const askWorkoutCoach = async ({
   history,
   profile,
   coachResponse,
+  userId,
 }: {
   message: string;
   history: Array<{ role: "coach" | "user"; text: string }>;
   profile: SetupFormValues;
   coachResponse: any;
+  userId?: string;
 }) => {
   const response = await fetch("/api/workoutCoachChat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history, profile, coachResponse }),
+    body: JSON.stringify({ message, history, profile, coachResponse, userId }),
   });
 
   if (!response.ok) {

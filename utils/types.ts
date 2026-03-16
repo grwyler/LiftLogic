@@ -1,8 +1,15 @@
 import { ObjectId } from "mongodb";
 import { BetaFunnelAnalytics } from "./betaFunnel";
 
+export type WeightUnit = "lb" | "kg";
+
 export interface ExerciseSet {
+  id?: string;
   name: string;
+  weightUnit?: WeightUnit;
+  actualWeightUnit?: WeightUnit;
+  weightInLb?: number;
+  actualWeightInLb?: number;
   reps?: number;
   percentage?: number;
   weight?: number;
@@ -22,6 +29,7 @@ export interface ExerciseSet {
 export interface Exercise {
   name: string;
   type: "timed" | "weight";
+  weightUnit?: WeightUnit;
   max?: number;
   rest: number;
   complete: boolean;
@@ -87,8 +95,10 @@ export interface RecurringRuleDoc {
 
 export interface WorkoutEntryDoc {
   _id?: ObjectId;
+  entryInstanceId?: string;
   userId: string;
   exerciseId: ObjectId | string;
+  weightUnit?: WeightUnit;
   sortOrder?: number;
   name?: string;
   type?: "timed" | "weight";
@@ -107,7 +117,25 @@ export interface WorkoutEntryDoc {
   updatedAt?: Date;
 }
 
+export interface WorkoutEntryAuditDoc {
+  _id?: ObjectId;
+  workoutEntryId?: ObjectId | string;
+  entryInstanceId?: string;
+  userId: string;
+  actorUserId?: string;
+  actorUsername?: string;
+  actorEmail?: string;
+  action: "create" | "update" | "delete";
+  routineName?: string;
+  exerciseId?: ObjectId | string;
+  changedAt: Date | string;
+  isHistoricalMutation: boolean;
+  previousEntry?: Partial<WorkoutEntryDoc> | null;
+  nextEntry?: Partial<WorkoutEntryDoc> | null;
+}
+
 export type BillingPlan = "free" | "pro_beta";
+export type ProductPlan = "free" | "premium";
 export type BillingInterval = "month" | "year";
 export type BillingSubscriptionStatus =
   | "inactive"
@@ -124,6 +152,13 @@ export interface BillingPriceOption {
   interval: BillingInterval;
   label: string;
   checkoutEnabled: boolean;
+}
+
+export interface UserEntitlements {
+  assistantPlanGeneration: boolean;
+  assistantPlanRegeneration: boolean;
+  recurringWorkoutScheduling: boolean;
+  progressionRecommendations: boolean;
 }
 
 export interface BillingSummaryResponse {
@@ -149,7 +184,7 @@ export interface UserDoc {
   providerAccountId?: string;
   sex?: string;
   age?: string;
-  preferredUnits?: "lb" | "kg";
+  preferredUnits?: WeightUnit;
   height?: string;
   weight?: string;
   trainingGoal?: string;
@@ -167,6 +202,8 @@ export interface UserDoc {
   darkMode?: boolean;
   themePreference?: "light" | "dawn" | "night" | "evergreen";
   billingPlan?: BillingPlan;
+  productPlan?: ProductPlan;
+  entitlements?: UserEntitlements;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   stripePriceId?: string;

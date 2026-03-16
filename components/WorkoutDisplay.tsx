@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
@@ -10,8 +10,22 @@ import RepeatIcon from "@mui/icons-material/Repeat";
 import ExerciseItem from "./ExerciseItem";
 import MuscleRecoveryMap from "./MuscleRecoveryMap";
 import RepeatScheduleDialog from "./RepeatScheduleDialog";
-import { saveRecurringRule, saveWorkoutEntry, toLocalDateKey } from "../utils/helpers";
+import RestTimerOverlay from "./RestTimerOverlay";
+import {
+  fetchExerciseProgress,
+  getWorkoutEntryIdentity,
+  saveRecurringRule,
+  saveWorkoutEntry,
+  toLocalDateKey,
+} from "../utils/helpers";
 import { toast } from "react-toastify";
+import { hasEntitlement } from "../utils/entitlements";
+
+const routinesPanelRadius = {
+  shell: 3,
+  section: 2.5,
+  pill: 999,
+} as const;
 
 const WorkoutDisplay = ({
   exercises,
@@ -30,12 +44,123 @@ const WorkoutDisplay = ({
 }) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [showWorkoutRepeatDialog, setShowWorkoutRepeatDialog] = useState(false);
+  const [activeRestTimer, setActiveRestTimer] = useState<{
+    exerciseKey: string;
+    exerciseName: string;
+    seconds: number;
+    restSeconds: number;
+  } | null>(null);
+  const [exerciseProgressById, setExerciseProgressById] = useState<
+    Record<
+      string,
+      {
+        summary: any;
+        recommendation: any;
+      }
+    >
+  >({});
+  const [loadingProgressById, setLoadingProgressById] = useState<Record<string, boolean>>(
+    {}
+  );
   const { data: session } = useSession() as {
     data: (Session & { token?: { user?: { _id?: string } } }) | null;
   };
 
   const currentUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id ?? "";
+  const progressionRecommendationsEnabled = hasEntitlement(
+    userProfile as any,
+    "progressionRecommendations"
+  );
+  const recurringSchedulingEnabled = hasEntitlement(
+    userProfile as any,
+    "recurringWorkoutScheduling"
+  );
+  const getExerciseCacheKey = (exercise: any): string =>
+    String(exercise?.exerciseId ?? exercise?._id ?? "");
+  const getExerciseIdentity = (exercise: any, fallbackIndex = 0): string =>
+    getWorkoutEntryIdentity(exercise, fallbackIndex);
+
+  useEffect(() => {
+    if (!currentUserId || !progressionRecommendationsEnabled) {
+      return;
+    }
+
+    const nextExerciseIds: string[] = Array.from(
+      new Set(
+        exercises
+          .filter((exercise) => exercise?.type === "weight")
+          .map((exercise) => getExerciseCacheKey(exercise).trim())
+          .filter(Boolean)
+      )
+    );
+
+    const uncachedExerciseIds = nextExerciseIds.filter(
+      (exerciseId) =>
+        !exerciseProgressById[exerciseId] && !loadingProgressById[exerciseId]
+    );
+
+    if (uncachedExerciseIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    setLoadingProgressById((prev) => {
+      const next = { ...prev };
+      uncachedExerciseIds.forEach((exerciseId) => {
+        next[exerciseId] = true;
+      });
+      return next;
+    });
+
+    void Promise.all(
+      uncachedExerciseIds.map(async (exerciseId) => {
+        try {
+          const result = await fetchExerciseProgress(currentUserId, exerciseId);
+          if (cancelled) {
+            return;
+          }
+
+          setExerciseProgressById((prev) => ({
+            ...prev,
+            [exerciseId]: {
+              summary: result?.summary ?? null,
+              recommendation: result?.recommendation ?? null,
+            },
+          }));
+        } catch (error) {
+          console.error("Failed to load exercise recommendation", error);
+          if (!cancelled) {
+            setExerciseProgressById((prev) => ({
+              ...prev,
+              [exerciseId]: {
+                summary: null,
+                recommendation: null,
+              },
+            }));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingProgressById((prev) => ({
+              ...prev,
+              [exerciseId]: false,
+            }));
+          }
+        }
+      })
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentUserId,
+    exercises,
+    exerciseProgressById,
+    loadingProgressById,
+    progressionRecommendationsEnabled,
+  ]);
 
   const repeatingExercises = useMemo(
     () => exercises.filter((exercise) => Boolean(exercise?.isRepeating || exercise?.ruleId)),
@@ -115,6 +240,11 @@ const WorkoutDisplay = ({
     exercises.length > 0 && repeatingExercises.length === exercises.length;
 
   const openWorkoutRepeatDialog = () => {
+    if (!recurringSchedulingEnabled) {
+      toast.info("Pro Beta is required to schedule recurring workouts.");
+      return;
+    }
+
     const schedule = sharedWorkoutSchedule;
     setRecurrenceType(schedule?.recurrenceType ?? "weekly");
     setRepeatInterval(schedule?.interval ?? 1);
@@ -128,6 +258,11 @@ const WorkoutDisplay = ({
   const handleSaveWorkoutSchedule = async () => {
     if (!currentUserId) {
       toast.error("Couldn't save the workout schedule");
+      return;
+    }
+
+    if (!recurringSchedulingEnabled) {
+      toast.info("Pro Beta is required to schedule recurring workouts.");
       return;
     }
 
@@ -417,6 +552,82 @@ const WorkoutDisplay = ({
     }
   };
 
+  const handleOpenRestTimer = ({
+    exerciseKey,
+    exerciseName,
+    seconds,
+    restSeconds,
+  }: {
+    exerciseKey: string;
+    exerciseName: string;
+    seconds: number;
+    restSeconds: number;
+  }) => {
+    if (!seconds || seconds <= 0) {
+      setActiveRestTimer(null);
+      return;
+    }
+
+    setActiveRestTimer({
+      exerciseKey,
+      exerciseName,
+      seconds,
+      restSeconds,
+    });
+  };
+
+  const handleCloseRestTimer = () => {
+    setActiveRestTimer(null);
+  };
+
+  const handleSaveRestTimerValue = async (nextRest: number) => {
+    if (!activeRestTimer || !currentUserId) {
+      return;
+    }
+
+    const exerciseIndex = exercises.findIndex(
+      (exercise, index) =>
+        getExerciseIdentity(exercise, index) === activeRestTimer.exerciseKey
+    );
+
+    if (exerciseIndex === -1) {
+      return;
+    }
+
+    const exercise = exercises[exerciseIndex];
+    const updatedExercise = {
+      ...exercise,
+      userId: exercise.userId ?? currentUserId,
+      exerciseId: exercise.exerciseId ?? exercise._id ?? exercise.name,
+      routineName,
+      date: toLocalDateKey(currentDate),
+      rest: nextRest,
+    };
+
+    setExercises((prev: any[]) =>
+      (Array.isArray(prev) ? prev : []).map((currentExercise, index) =>
+        index === exerciseIndex
+          ? {
+              ...currentExercise,
+              rest: nextRest,
+            }
+          : currentExercise
+      )
+    );
+
+    await saveWorkoutEntry(updatedExercise as any);
+    setActiveRestTimer((prev) =>
+      prev
+        ? {
+            ...prev,
+            seconds: nextRest,
+            restSeconds: nextRest,
+          }
+        : prev
+    );
+    toast.success("Rest updated");
+  };
+
   const renderSection = (title: string, description: string, items: any[]) => {
     if (items.length === 0) {
       return null;
@@ -427,114 +638,163 @@ const WorkoutDisplay = ({
 
     return (
       <Box sx={{ mt: 2.25 }}>
-        <Box
+        <Paper
+          elevation={0}
           sx={{
-            mb: 1,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 1,
-            flexWrap: "wrap",
+            p: 1.75,
+            borderRadius: routinesPanelRadius.shell,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: darkMode
+              ? "rgba(17,24,39,0.78)"
+              : "rgba(255,255,255,0.88)",
           }}
         >
-          <Box>
-            <Typography
-              variant="overline"
-              sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-            >
-              {title}
-            </Typography>
-            {showSectionDescription ? (
-              <Typography sx={{ color: "text.secondary" }}>{description}</Typography>
-            ) : null}
+          <Box
+            sx={{
+              mb: 1.25,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 1,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+              >
+                {title}
+              </Typography>
+              {showSectionDescription ? (
+                <Typography sx={{ color: "text.secondary" }}>{description}</Typography>
+              ) : null}
+            </Box>
+            <Chip size="small" label={itemCountLabel} variant="outlined" />
           </Box>
-          <Chip
-            size="small"
-            label={itemCountLabel}
-            variant="outlined"
-          />
-        </Box>
 
-        {title === "Scheduled" ? (
-          <DragDropContext onDragEnd={handleExerciseDragEnd}>
-            <Droppable droppableId="scheduled-exercises">
-              {(provided) => (
-                <Box ref={provided.innerRef} {...provided.droppableProps}>
-                  {items.map((exercise, index) => {
-                    const exerciseIndex = exercises.findIndex((item) => item === exercise);
-                    const draggableId = String(
-                      exercise?.ruleId ??
-                        exercise?.exerciseId ??
-                        exercise?._id ??
-                        `${exercise?.name ?? "exercise"}-${exerciseIndex}`
-                    );
+          {title === "Scheduled" ? (
+            <DragDropContext onDragEnd={handleExerciseDragEnd}>
+              <Droppable droppableId="scheduled-exercises">
+                {(provided) => (
+                  <Box ref={provided.innerRef} {...provided.droppableProps}>
+                    {items.map((exercise, index) => {
+                      const exerciseIndex = exercises.findIndex((item) => item === exercise);
+                      const draggableId = String(
+                        getWorkoutEntryIdentity(
+                          exercise,
+                          `${exercise?.name ?? "exercise"}-${exerciseIndex}`
+                        )
+                      );
 
-                    return (
-                      <Draggable
-                        key={`exercise-item-${draggableId}`}
-                        draggableId={`exercise-${draggableId}`}
-                        index={index}
-                      >
-                        {(dragProvided) => (
-                          <Box
-                            ref={dragProvided.innerRef}
-                            {...dragProvided.draggableProps}
-                            {...dragProvided.dragHandleProps}
-                          >
-                            <ExerciseItem
-                              setRefetchExercises={setRefetchExercises}
-                              refreshCalendarStatuses={refreshCalendarStatuses}
-                              key={`exercise-item-${exerciseIndex}`}
-                              exercise={exercise}
-                              exerciseIndex={exerciseIndex}
-                              exercises={exercises}
-                              workout={currentWorkout}
-                              currentExerciseIndex={currentExerciseIndex}
-                              setCurrentExerciseIndex={setCurrentExerciseIndex}
-                              formattedDate={formattedDate}
-                              routineName={routineName}
-                              setExercises={setExercises}
-                              shownMenuIndex={shownMenuIndex}
-                              setShownMenuIndex={setShownMenuIndex}
-                              darkMode={darkMode}
-                              userProfile={userProfile}
-                            />
-                          </Box>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                </Box>
-              )}
-            </Droppable>
-          </DragDropContext>
-        ) : (
-          items.map((exercise) => {
-            const exerciseIndex = exercises.findIndex((item) => item === exercise);
-            return (
-              <ExerciseItem
-                setRefetchExercises={setRefetchExercises}
-                refreshCalendarStatuses={refreshCalendarStatuses}
-                key={`exercise-item-${exerciseIndex}`}
-                exercise={exercise}
-                exerciseIndex={exerciseIndex}
-                exercises={exercises}
-                workout={currentWorkout}
-                currentExerciseIndex={currentExerciseIndex}
-                setCurrentExerciseIndex={setCurrentExerciseIndex}
-                formattedDate={formattedDate}
-                routineName={routineName}
-                setExercises={setExercises}
-                shownMenuIndex={shownMenuIndex}
-                setShownMenuIndex={setShownMenuIndex}
-                darkMode={darkMode}
-                userProfile={userProfile}
-              />
-            );
-          })
-        )}
+                      return (
+                        <Draggable
+                          key={`exercise-item-${draggableId}`}
+                          draggableId={`exercise-${draggableId}`}
+                          index={index}
+                        >
+                          {(dragProvided) => (
+                            <Box
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              {...dragProvided.dragHandleProps}
+                            >
+                              <ExerciseItem
+                                setRefetchExercises={setRefetchExercises}
+                                refreshCalendarStatuses={refreshCalendarStatuses}
+                                key={`exercise-item-${exerciseIndex}`}
+                                exercise={exercise}
+                                exerciseIndex={exerciseIndex}
+                                exercises={exercises}
+                                workout={currentWorkout}
+                                isOpen={exerciseIndex === currentExerciseIndex}
+                                setCurrentExerciseIndex={setCurrentExerciseIndex}
+                                formattedDate={formattedDate}
+                                routineName={routineName}
+                                setExercises={setExercises}
+                                shownMenuIndex={shownMenuIndex}
+                                setShownMenuIndex={setShownMenuIndex}
+                                darkMode={darkMode}
+                                userProfile={userProfile}
+                                recommendation={
+                                  exerciseProgressById[getExerciseCacheKey(exercise)]
+                                    ?.recommendation ?? null
+                                }
+                                progressSummary={
+                                  exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ??
+                                  null
+                                }
+                                loadingRecommendation={
+                                  Boolean(loadingProgressById[getExerciseCacheKey(exercise)])
+                                }
+                                progressionRecommendationsEnabled={
+                                  progressionRecommendationsEnabled
+                                }
+                                recurringSchedulingEnabled={recurringSchedulingEnabled}
+                                isRestTimerBlocking={
+                                  activeRestTimer?.exerciseKey ===
+                                  getExerciseIdentity(exercise, exerciseIndex)
+                                }
+                                openRestTimer={handleOpenRestTimer}
+                              />
+                            </Box>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </Box>
+                )}
+              </Droppable>
+            </DragDropContext>
+          ) : (
+            items.map((exercise) => {
+              const exerciseIndex = exercises.findIndex((item) => item === exercise);
+              return (
+                <ExerciseItem
+                  setRefetchExercises={setRefetchExercises}
+                  refreshCalendarStatuses={refreshCalendarStatuses}
+                  key={`exercise-item-${exerciseIndex}`}
+                  exercise={exercise}
+                  exerciseIndex={exerciseIndex}
+                  exercises={exercises}
+                  workout={currentWorkout}
+                  isOpen={exerciseIndex === currentExerciseIndex}
+                  setCurrentExerciseIndex={setCurrentExerciseIndex}
+                  formattedDate={formattedDate}
+                  routineName={routineName}
+                  setExercises={setExercises}
+                  shownMenuIndex={shownMenuIndex}
+                  setShownMenuIndex={setShownMenuIndex}
+                  darkMode={darkMode}
+                  userProfile={userProfile}
+                  recommendation={
+                    exerciseProgressById[getExerciseCacheKey(exercise)]?.recommendation ??
+                    null
+                  }
+                  progressSummary={
+                    exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null
+                  }
+                  loadingRecommendation={
+                    Boolean(loadingProgressById[getExerciseCacheKey(exercise)])
+                  }
+                  progressionRecommendationsEnabled={
+                    progressionRecommendationsEnabled
+                  }
+                  recurringSchedulingEnabled={recurringSchedulingEnabled}
+                  isRestTimerBlocking={
+                    activeRestTimer?.exerciseKey ===
+                    getExerciseIdentity(exercise, exerciseIndex)
+                  }
+                  openRestTimer={handleOpenRestTimer}
+                />
+              );
+            })
+          )}
+        </Paper>
       </Box>
+
     );
   };
 
@@ -544,7 +804,7 @@ const WorkoutDisplay = ({
         elevation={0}
         sx={{
           p: 1.75,
-          borderRadius: 4,
+          borderRadius: routinesPanelRadius.shell,
           border: "1px solid",
           borderColor: "divider",
           backgroundColor: darkMode
@@ -581,11 +841,10 @@ const WorkoutDisplay = ({
           </Box>
 
           {shouldShowNextSummary ? (
-            <Paper
-              elevation={0}
+            <Box
               sx={{
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: routinesPanelRadius.section,
                 border: "1px solid",
                 borderColor: "divider",
                 backgroundColor: darkMode
@@ -623,13 +882,12 @@ const WorkoutDisplay = ({
                   Open Next Set
                 </Button>
               </Box>
-            </Paper>
+            </Box>
           ) : isWorkoutComplete ? (
-            <Paper
-              elevation={0}
+            <Box
               sx={{
                 p: 1.5,
-                borderRadius: 3,
+                borderRadius: routinesPanelRadius.section,
                 border: "1px solid",
                 borderColor: "divider",
                 backgroundColor: darkMode
@@ -663,7 +921,7 @@ const WorkoutDisplay = ({
                 </Box>
                 <CheckCircleOutlineIcon color="success" />
               </Box>
-            </Paper>
+            </Box>
           ) : null}
 
           {(completedExercises.length > 0 || isWorkoutComplete) && (
@@ -719,7 +977,7 @@ const WorkoutDisplay = ({
           sx={{
             mt: 2.25,
             p: 2.5,
-            borderRadius: 4,
+            borderRadius: routinesPanelRadius.shell,
             border: "1px solid",
             borderColor: "divider",
             textAlign: "center",
@@ -802,6 +1060,15 @@ const WorkoutDisplay = ({
         setEndDate={setRepeatEndDate}
         onSave={handleSaveWorkoutSchedule}
         onDisable={isWholeWorkoutRepeating ? handleRemoveWorkoutSchedule : undefined}
+      />
+      <RestTimerOverlay
+        open={Boolean(activeRestTimer)}
+        darkMode={darkMode}
+        exerciseName={activeRestTimer?.exerciseName ?? "Rest"}
+        initialSeconds={activeRestTimer?.seconds ?? 0}
+        defaultRestSeconds={activeRestTimer?.restSeconds ?? 0}
+        onClose={handleCloseRestTimer}
+        onSaveRest={handleSaveRestTimerValue}
       />
     </Box>
   );

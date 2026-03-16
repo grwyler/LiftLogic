@@ -365,6 +365,13 @@ describe("billing API routes", () => {
     expect(res.body).toEqual({ received: true });
     expect(db.userDocs[0]).toMatchObject({
       billingPlan: "pro_beta",
+      productPlan: "premium",
+      entitlements: {
+        assistantPlanGeneration: true,
+        assistantPlanRegeneration: true,
+        recurringWorkoutScheduling: true,
+        progressionRecommendations: true,
+      },
       stripeCustomerId: "cus_123",
       stripeSubscriptionId: "sub_123",
       stripePriceId: "price_month",

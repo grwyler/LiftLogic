@@ -389,7 +389,9 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
       }
     } catch (error) {
       console.error("Error generating workout plan:", error);
-      toast.error("Couldn't generate a workout plan");
+      toast.error(
+        "Your workout plan could not be generated right now. Try again, or save your preferences first and generate later."
+      );
     } finally {
       setGeneratingWorkout(false);
     }

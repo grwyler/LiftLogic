@@ -9,6 +9,12 @@ import {
 } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { WORKOUT_VALUE_LIMITS } from "../utils/workoutValidation";
+import {
+  formatWeightValue,
+  getWeightInputConfig,
+  normalizeWeightUnit,
+} from "../utils/weightUnits";
 
 const SetEditWeightItem = ({
   set,
@@ -17,8 +23,11 @@ const SetEditWeightItem = ({
   handleDeleteSet,
   isManualEdit,
   onChangeSet,
+  preferredUnits = "lb",
 }) => {
   const [mySet, setMySet] = useState(set);
+  const weightUnit = normalizeWeightUnit(preferredUnits);
+  const weightInputConfig = getWeightInputConfig(weightUnit);
 
   useEffect(() => {
     setMySet(set);
@@ -30,7 +39,7 @@ const SetEditWeightItem = ({
   };
 
   return (
-    <Draggable draggableId={`set-${index}`} index={index}>
+    <Draggable draggableId={`set-${set.id ?? index}`} index={index}>
       {(provided, snapshot) => (
         <Paper
           ref={provided.innerRef}
@@ -111,14 +120,20 @@ const SetEditWeightItem = ({
             >
               <TextField
                 fullWidth
-                label="Target weight (lb)"
+                label={`Target weight (${weightUnit})`}
                 size="small"
                 type="number"
                 disabled={!isManualEdit}
                 value={mySet.weight ?? ""}
                 onChange={(e) =>
-                  updateSet({ ...mySet, weight: e.target.value })
+                  updateSet({ ...mySet, weight: e.target.value, weightUnit })
                 }
+                inputProps={{
+                  min: weightInputConfig.min,
+                  max: weightInputConfig.max,
+                  step: weightInputConfig.step,
+                }}
+                helperText={`Use ${formatWeightValue(weightInputConfig.step)} ${weightUnit} increments, ${formatWeightValue(weightInputConfig.min)}-${formatWeightValue(weightInputConfig.max)} ${weightUnit}.`}
               />
 
               <TextField
@@ -131,6 +146,12 @@ const SetEditWeightItem = ({
                 onChange={(e) =>
                   updateSet({ ...mySet, reps: e.target.value })
                 }
+                inputProps={{
+                  min: WORKOUT_VALUE_LIMITS.reps.min,
+                  max: WORKOUT_VALUE_LIMITS.reps.max,
+                  step: 1,
+                }}
+                helperText={`Whole reps only, ${WORKOUT_VALUE_LIMITS.reps.min}-${WORKOUT_VALUE_LIMITS.reps.max}.`}
               />
             </Box>
           </Box>

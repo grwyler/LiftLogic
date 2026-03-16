@@ -6,6 +6,7 @@ import {
   BillingSummaryResponse,
   UserDoc,
 } from "../../utils/types";
+import { getEntitlementsForPlan } from "../../utils/entitlements";
 import { getBillingPriceOptions, StripeBillingConfig } from "./config";
 
 let billingIndexesReady = false;
@@ -249,6 +250,7 @@ export const syncStripeSubscription = async ({
       : item?.price?.product?.id;
   const status = normalizeBillingStatus(subscription.status);
   const billingPlan = getBillingPlanFromStatus(status);
+  const productPlan = billingPlan === "pro_beta" ? "premium" : "free";
   const billingEmail = sanitizeText(customerEmail).toLowerCase();
 
   const user = await findUserByIdentity({
@@ -267,6 +269,8 @@ export const syncStripeSubscription = async ({
     { _id: user._id },
     buildBillingUpdate({
       billingPlan,
+      productPlan,
+      entitlements: getEntitlementsForPlan(productPlan),
       stripeCustomerId: sanitizeText(customerId) || undefined,
       stripeSubscriptionId: sanitizeText(subscription.id) || undefined,
       stripePriceId: sanitizeText(item?.price?.id) || undefined,

@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { connectToDatabase } from "../../utils/mongodb";
 import { authOptions } from "./auth/[...nextauth]";
 import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
+import { resolveUserAccess } from "../../utils/entitlements";
 
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
@@ -168,7 +169,32 @@ export default async function handler(
           return res.status(404).json({ message: "User not found" });
         }
 
-        return res.status(200).json({ user: matchingUser });
+        const { productPlan, entitlements } = resolveUserAccess(matchingUser as any);
+        const needsAccessBackfill =
+          matchingUser.productPlan !== productPlan ||
+          JSON.stringify(matchingUser.entitlements ?? null) !==
+            JSON.stringify(entitlements);
+
+        if (needsAccessBackfill) {
+          await userCollection.updateOne(
+            { _id: new ObjectId(normalizedId) },
+            {
+              $set: {
+                productPlan,
+                entitlements,
+                updatedAt: new Date(),
+              },
+            }
+          );
+        }
+
+        return res.status(200).json({
+          user: {
+            ...matchingUser,
+            productPlan,
+            entitlements,
+          },
+        });
       }
 
       if (!admin) {

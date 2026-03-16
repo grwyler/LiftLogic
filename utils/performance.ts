@@ -1,4 +1,11 @@
-import { ExerciseSet, WorkoutEntryDoc } from "./types";
+import { ExerciseSet, WeightUnit, WorkoutEntryDoc } from "./types";
+import {
+  formatWeight,
+  formatWeightValue,
+  fromCanonicalWeightLb,
+  getCanonicalWeightFromSet,
+  normalizeWeightUnit,
+} from "./weightUnits";
 
 const coercePositiveNumber = (value: unknown): number | null => {
   if (typeof value === "number") {
@@ -67,14 +74,20 @@ const getNormalizedCompletedWeightSets = (
     .map((set) => {
       const actualWeight = coercePositiveNumber((set as any)?.actualWeight);
       const actualReps = coercePositiveNumber((set as any)?.actualReps);
+      const actualWeightInLb = getCanonicalWeightFromSet(set as ExerciseSet, "actual");
 
-      if (!(set as any)?.complete || actualWeight === null || actualReps === null) {
+      if (
+        !(set as any)?.complete ||
+        actualWeight === null ||
+        actualReps === null ||
+        actualWeightInLb === null
+      ) {
         return null;
       }
 
       return {
         ...set,
-        actualWeight,
+        actualWeight: actualWeightInLb,
         actualReps,
       } as NormalizedCompletedWeightSet;
     })
@@ -275,13 +288,15 @@ const buildUserIntro = (userName?: string | null) => {
   return `${firstName},`;
 };
 
-const formatLoad = (value: number | null, preferredUnits?: "lb" | "kg" | null) => {
+const formatLoad = (value: number | null, preferredUnits?: WeightUnit | null) => {
   if (value === null) {
     return null;
   }
 
-  const rounded = Number.isInteger(value) ? String(value) : String(roundToOneDecimal(value));
-  return `${rounded} ${preferredUnits || "lb"}`;
+  return formatWeight(
+    fromCanonicalWeightLb(value, normalizeWeightUnit(preferredUnits)),
+    normalizeWeightUnit(preferredUnits)
+  );
 };
 
 export const buildProgressCoachMessage = (
@@ -316,10 +331,14 @@ export const buildProgressCoachMessage = (
   }
 
   if (delta !== null && delta > 0) {
+    const normalizedUnit = normalizeWeightUnit(context.preferredUnits);
     const latest = formatLoad(latestEstimated1RM, context.preferredUnits);
     const previous = formatLoad(previousEstimated1RM, context.preferredUnits);
+    const convertedDelta = formatWeightValue(
+      fromCanonicalWeightLb(delta, normalizedUnit)
+    );
 
-    return `${intro} this was real progress on ${exerciseName}. Your estimated strength moved up by ${delta} ${context.preferredUnits || "lb"}${previous && latest ? `, from about ${previous} to ${latest}` : ""}. Those steady jumps are usually the ones that last.`;
+    return `${intro} this was real progress on ${exerciseName}. Your estimated strength moved up by ${convertedDelta} ${normalizedUnit}${previous && latest ? `, from about ${previous} to ${latest}` : ""}. Those steady jumps are usually the ones that last.`;
   }
 
   if (summary.bestRepPerformance) {

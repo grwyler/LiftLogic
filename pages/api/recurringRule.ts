@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 import { ObjectId } from "mongodb";
 import { RecurringRuleDoc } from "@/utils/types";
+import { getEntitlementMessage, hasEntitlement } from "@/utils/entitlements";
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,6 +10,7 @@ export default async function handler(
 ) {
   const db = await connectToDatabase();
   const col = db.collection<RecurringRuleDoc>("recurringRules");
+  const users = db.collection("users");
 
   try {
     switch (req.method) {
@@ -24,6 +26,17 @@ export default async function handler(
         if (!rule?.userId) {
           console.warn("[POST] userId missing");
           return res.status(400).json({ message: "userId required" });
+        }
+
+        const user =
+          ObjectId.isValid(String(rule.userId))
+            ? await users.findOne({ _id: new ObjectId(String(rule.userId)) })
+            : null;
+
+        if (!hasEntitlement(user as any, "recurringWorkoutScheduling")) {
+          return res.status(403).json({
+            message: getEntitlementMessage("recurringWorkoutScheduling"),
+          });
         }
 
         const exerciseId = String(rule.exerciseId ?? "").trim();
@@ -120,6 +133,20 @@ export default async function handler(
         }
 
         const objId = new ObjectId(ruleId);
+        const existingRule = await col.findOne({ _id: objId });
+        const user =
+          existingRule?.userId && ObjectId.isValid(String(existingRule.userId))
+            ? await users.findOne({
+                _id: new ObjectId(String(existingRule.userId)),
+              })
+            : null;
+
+        if (existingRule && !hasEntitlement(user as any, "recurringWorkoutScheduling")) {
+          return res.status(403).json({
+            message: getEntitlementMessage("recurringWorkoutScheduling"),
+          });
+        }
+
         const { modifiedCount } = await col.updateOne(
           { _id: objId, active: true },
           { $set: { active: false, updatedAt: new Date() } }

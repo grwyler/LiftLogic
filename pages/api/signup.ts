@@ -2,6 +2,7 @@
 import { connectToDatabase } from "../../utils/mongodb";
 import { hashPassword } from "../../utils/passwords";
 import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
+import { FREE_ENTITLEMENTS } from "../../utils/entitlements";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
@@ -45,6 +46,8 @@ export default async function handler(req, res) {
         setupCompleted: false,
         darkMode: false,
         billingPlan: "free",
+        productPlan: "free",
+        entitlements: FREE_ENTITLEMENTS,
         subscriptionStatus: "inactive",
         subscriptionCancelAtPeriodEnd: false,
         betaFunnel: markBetaFunnelMilestone({

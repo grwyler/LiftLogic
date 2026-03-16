@@ -890,7 +890,7 @@ const DevBugRecorder = () => {
                 disabled={!state.isRecording || submitting}
                 fullWidth
               >
-                {submitting ? "Saving..." : "Complete"}
+                {submitting ? "Saving..." : "Save Bug Report"}
               </Button>
               <Button
                 variant="text"

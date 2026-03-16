@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   calculateWeights,
   formatTime,
-  roundToNearestFive,
   saveWorkoutEntry,
 } from "../utils/helpers";
 import { adjustRemainingSetsAfterLoggedSet } from "../utils/progression";
@@ -22,6 +21,19 @@ import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import { toast } from "react-toastify";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
+import {
+  validateTimedSetInput,
+  validateWeightSetInput,
+  WORKOUT_VALUE_LIMITS,
+} from "../utils/workoutValidation";
+import {
+  formatWeight,
+  formatWeightValue,
+  getDisplayWeightFromSet,
+  getWeightInputConfig,
+  normalizeWeightUnit,
+  roundToWeightIncrement,
+} from "../utils/weightUnits";
 
 const DEFAULT_MAX_WEIGHT = 35; // fallback value if weight is missing
 
@@ -44,10 +56,13 @@ const SelectedSetItem = ({
   setRefetchExercises,
   refreshCalendarStatuses,
   isRestTimerBlocking,
+  preferredUnits = "lb",
   onLogSetAttempt,
   onLogSetPersisted,
   onLogSetFailed,
 }) => {
+  const weightUnit = normalizeWeightUnit(preferredUnits);
+  const weightInputConfig = getWeightInputConfig(weightUnit);
   const { sets } = currentExercise;
   const {
     weight,
@@ -61,10 +76,14 @@ const SelectedSetItem = ({
   } = set;
 
   // Compute an initial weight value.
-  // The following calculation (using calculateWeights and roundToNearestFive)
-  // is specifically for barbell exercises to simplify selecting the appropriate weight.
+  // The planning view rounds to the user's active unit increment so the
+  // initial value matches the labels shown elsewhere in the workout flow.
   const initialWeightValue =
-    actualWeight || roundToNearestFive(weight || DEFAULT_MAX_WEIGHT).toString();
+    formatWeightValue(
+      getDisplayWeightFromSet(set, "actual", weightUnit) ??
+        getDisplayWeightFromSet(set, "planned", weightUnit) ??
+        roundToWeightIncrement(DEFAULT_MAX_WEIGHT, weightUnit)
+    );
 
   // Initialize states
   const [hours, setHours] = useState(
@@ -98,6 +117,28 @@ const SelectedSetItem = ({
   );
   const [liveAdjustment, setLiveAdjustment] = useState<any>(null);
   const [shouldAutoFocusInput, setShouldAutoFocusInput] = useState(false);
+  const [loggingSet, setLoggingSet] = useState(false);
+  const [logSetError, setLogSetError] = useState<string | null>(null);
+  const weightValidationErrors =
+    currentExercise.type === "weight"
+      ? validateWeightSetInput({
+          weight: currentSetWeight,
+          reps: currentSetReps,
+          unit: weightUnit,
+          prefix: "Logged set",
+        })
+      : [];
+  const timedValidationErrors =
+    currentExercise.type === "timed"
+      ? validateTimedSetInput({
+          hours,
+          minutes,
+          seconds,
+          prefix: "Logged set",
+        })
+      : [];
+  const activeValidationMessage =
+    weightValidationErrors[0] ?? timedValidationErrors[0] ?? null;
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -120,7 +161,11 @@ const SelectedSetItem = ({
 
   useEffect(() => {
     const nextWeightValue =
-      actualWeight || roundToNearestFive(weight || DEFAULT_MAX_WEIGHT).toString();
+      formatWeightValue(
+        getDisplayWeightFromSet(set, "actual", weightUnit) ??
+          getDisplayWeightFromSet(set, "planned", weightUnit) ??
+          roundToWeightIncrement(weight || DEFAULT_MAX_WEIGHT, weightUnit)
+      );
 
     setSetName(name);
     setCurrentSetWeight(nextWeightValue);
@@ -150,6 +195,7 @@ const SelectedSetItem = ({
     set.minutes,
     set.seconds,
     weight,
+    weightUnit,
   ]);
 
   const handleInputChange = (
@@ -224,6 +270,16 @@ const SelectedSetItem = ({
   }, [countdown, totalSeconds, timerActive, initialTimerActive]);
 
   const handleLogSet = async () => {
+    if (loggingSet) {
+      return;
+    }
+
+    if (activeValidationMessage) {
+      setLogSetError(activeValidationMessage);
+      toast.error(activeValidationMessage);
+      return;
+    }
+
     const completedBefore =
       sets.filter((existingSet) => existingSet.complete).length ?? 0;
     const expectedCompletedCount = Math.min(completedBefore + 1, sets.length);
@@ -242,7 +298,7 @@ const SelectedSetItem = ({
           : "Timed set completes and moves to the next step.",
       actual:
         currentExercise.type === "weight"
-          ? `Submitting ${currentSetWeight || "?"} lbs for ${
+          ? `Submitting ${currentSetWeight || "?"} ${weightUnit} for ${
               currentSetReps || "?"
             } reps.`
           : `Submitting ${hours}h ${minutes}m ${seconds}s.`,
@@ -268,6 +324,7 @@ const SelectedSetItem = ({
         ...(currentExercise.type === "weight"
           ? {
               actualWeight: currentSetWeight,
+              actualWeightUnit: weightUnit,
               actualReps: currentSetReps,
             }
           : {
@@ -292,7 +349,6 @@ const SelectedSetItem = ({
           )
         : { sets: updatedSets, adjustment: null };
     const adjustedSets = adjustedResult.sets;
-    setLiveAdjustment(adjustedResult.adjustment);
 
     /* ------------------------------------------------------------------ */
     /* 2. Advance to next incomplete set (or stay at end if none)         */
@@ -318,7 +374,6 @@ const SelectedSetItem = ({
         completedDate: new Date(),
       }),
     };
-    setCurrentExercise(updatedExercise);
 
     /* ------------------------------------------------------------------ */
     /* 4. Splice the exercise back into the workout array                 */
@@ -327,38 +382,27 @@ const SelectedSetItem = ({
     updatedExercises[currentExerciseIndex] = updatedExercise;
 
     /* ------------------------------------------------------------------ */
-    /* 5. If the exercise is done, jump to the next incomplete exercise   */
-    /* ------------------------------------------------------------------ */
-    if (exerciseComplete) {
-      onStartRestTimer?.(0);
-      const nextExerciseIndex = updatedExercises.findIndex(
-        (ex, i) => i > currentExerciseIndex && !ex.complete
-      );
-
-      if (nextExerciseIndex !== -1) {
-        setCurrentExerciseIndex(nextExerciseIndex);
-
-        const firstOpenSet = updatedExercises[nextExerciseIndex].sets.findIndex(
-          (s) => !s.complete
-        );
-        setCurrentSetIndex(firstOpenSet === -1 ? 0 : firstOpenSet);
-      } else {
-        workout.complete = true; // whole routine finished
-      }
-    } else if (nextSetIndex !== -1) {
-      onStartRestTimer?.(currentExercise.rest ?? 0);
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* 6. Persist to the DB                                               */
+    /* 5. Persist to the DB before advancing local workout state          */
     /* ------------------------------------------------------------------ */
     try {
+      setLoggingSet(true);
+      setLogSetError(null);
+
       if (!currentUserId) {
         throw new Error("Missing userId while logging set");
       }
 
       await saveWorkoutEntry({
         // WorkoutEntryDoc shape
+        _id: updatedExercise._id,
+        weightUnit:
+          updatedExercise.weightUnit ??
+          updatedExercise.sets?.find((exerciseSet) => exerciseSet?.weightUnit)?.weightUnit ??
+          weightUnit,
+        entryInstanceId:
+          updatedExercise.entryInstanceId ??
+          updatedExercise._id?.toString?.() ??
+          updatedExercise._id,
         userId: currentUserId,
         exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
         name: updatedExercise.name,
@@ -371,15 +415,46 @@ const SelectedSetItem = ({
         sets: updatedExercise.sets,
         ruleId: updatedExercise.ruleId,
       });
+
+      setLiveAdjustment(adjustedResult.adjustment);
+      setCurrentExercise(updatedExercise);
       setExercises?.(updatedExercises);
+
+      if (exerciseComplete) {
+        onStartRestTimer?.(0);
+        const nextExerciseIndex = updatedExercises.findIndex(
+          (ex, i) => i > currentExerciseIndex && !ex.complete
+        );
+
+        if (nextExerciseIndex !== -1) {
+          setCurrentExerciseIndex(nextExerciseIndex);
+
+          const firstOpenSet = updatedExercises[nextExerciseIndex].sets.findIndex(
+            (s) => !s.complete
+          );
+          setCurrentSetIndex(firstOpenSet === -1 ? 0 : firstOpenSet);
+        } else {
+          workout.complete = true; // whole routine finished
+          setCurrentSetIndex(adjustedSets.length);
+        }
+      } else {
+        setCurrentSetIndex(nextSetIndex === -1 ? adjustedSets.length : nextSetIndex);
+        if (nextSetIndex !== -1) {
+          onStartRestTimer?.(currentExercise.rest ?? 0);
+        }
+      }
+
       refreshCalendarStatuses?.();
       onLogSetPersisted?.();
     } catch (error) {
       console.error("Failed to log set", error);
+      setLogSetError("This set was not saved. Check your connection and try again.");
       onLogSetFailed?.(
         error instanceof Error ? error.message : "The set did not save."
       );
-      toast.error("Couldn't log that set");
+      toast.error("This set was not saved. Check your connection and try again.");
+    } finally {
+      setLoggingSet(false);
     }
   };
 
@@ -420,12 +495,10 @@ const SelectedSetItem = ({
         <Box sx={{ display: "flex", gap: 0.75, alignItems: "center", flexWrap: "wrap" }}>
           <Button
             disabled={
+              loggingSet ||
               (!timerActive && currentExercise.type === "timed") ||
               (currentExercise.type === "timed" && initialTimerActive) ||
-              (currentExercise.type === "timed" &&
-                seconds === 0 &&
-                minutes === 0 &&
-                hours === 0) ||
+              Boolean(activeValidationMessage) ||
               (currentExercise.type === "weight" && isRestTimerBlocking) ||
               (currentExercise.type === "weight" && !currentSetReps) ||
               (currentExercise.type === "weight" && !currentSetWeight)
@@ -444,14 +517,30 @@ const SelectedSetItem = ({
               },
             }}
           >
-            {timerActive && currentExercise.type === "timed"
+            {loggingSet
+              ? "Saving..."
+              : timerActive && currentExercise.type === "timed"
               ? "Complete Set"
+              : logSetError
+              ? "Retry Log Set"
               : currentExercise.type === "weight"
               ? "Log Set"
               : "Complete Set"}
           </Button>
         </Box>
       </Box>
+
+      {logSetError ? (
+        <Typography
+          sx={{
+            mb: 1.25,
+            color: darkMode ? "#fca5a5" : "#b91c1c",
+            fontWeight: 600,
+          }}
+        >
+          {logSetError}
+        </Typography>
+      ) : null}
 
       {currentExercise.type === "weight" && isRestTimerBlocking ? (
         <Typography sx={{ mb: 1.25, color: "text.secondary" }}>
@@ -477,11 +566,14 @@ const SelectedSetItem = ({
               Planned Target
             </Typography>
             <Box sx={{ display: "flex", gap: 0.75, mt: 0.75, flexWrap: "wrap" }}>
-              <Chip label={`${roundToNearestFive(set.weight)} lbs`} variant="outlined" />
+              <Chip label={formatWeight(getDisplayWeightFromSet(set, "planned", weightUnit), weightUnit)} variant="outlined" />
               <Chip label={`${reps} reps`} variant="outlined" />
             </Box>
             <Typography sx={{ mt: 1, color: "text.secondary" }}>
-              {calculateWeights(roundToNearestFive(set.weight))}
+              {calculateWeights(
+                getDisplayWeightFromSet(set, "planned", weightUnit),
+                weightUnit
+              )}
             </Typography>
             {(set as any).adjustmentReason && (
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
@@ -490,7 +582,7 @@ const SelectedSetItem = ({
             )}
             {liveAdjustment && (
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Next sets updated to {liveAdjustment.weight} lbs x {liveAdjustment.reps}.
+                Next sets updated to {formatWeight(liveAdjustment.weight, weightUnit)} x {liveAdjustment.reps}.
               </Typography>
             )}
           </Paper>
@@ -522,6 +614,20 @@ const SelectedSetItem = ({
                 fullWidth
                 label="Weight"
                 autoFocus={shouldAutoFocusInput}
+                error={weightValidationErrors.some((message) =>
+                  message.toLowerCase().includes("weight")
+                )}
+                helperText={
+                  weightValidationErrors.find((message) =>
+                    message.toLowerCase().includes("weight")
+                  ) ??
+                  `Use ${formatWeightValue(weightInputConfig.step)} ${weightUnit} increments, ${formatWeightValue(weightInputConfig.min)}-${formatWeightValue(weightInputConfig.max)} ${weightUnit}.`
+                }
+                inputProps={{
+                  min: weightInputConfig.min,
+                  max: weightInputConfig.max,
+                  step: weightInputConfig.step,
+                }}
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 2.5,
@@ -542,7 +648,7 @@ const SelectedSetItem = ({
                   px: 1.25,
                 }}
               >
-                <Typography variant="button">lbs</Typography>
+                <Typography variant="button">{weightUnit}</Typography>
               </Box>
             </Box>
             <Box sx={{ display: "flex", gap: 1 }}>
@@ -556,6 +662,20 @@ const SelectedSetItem = ({
                 size="small"
                 fullWidth
                 label="Reps"
+                error={weightValidationErrors.some((message) =>
+                  message.toLowerCase().includes("reps")
+                )}
+                helperText={
+                  weightValidationErrors.find((message) =>
+                    message.toLowerCase().includes("reps")
+                  ) ??
+                  `Whole reps only, ${WORKOUT_VALUE_LIMITS.reps.min}-${WORKOUT_VALUE_LIMITS.reps.max}.`
+                }
+                inputProps={{
+                  min: WORKOUT_VALUE_LIMITS.reps.min,
+                  max: WORKOUT_VALUE_LIMITS.reps.max,
+                  step: 1,
+                }}
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 2.5,
@@ -592,7 +712,7 @@ const SelectedSetItem = ({
                 Timer Input
               </Typography>
               <Button
-                disabled={seconds === 0 && minutes === 0 && hours === 0}
+                disabled={Boolean(timedValidationErrors[0])}
                 variant="text"
                 color="primary"
                 onClick={handleStartTimer}
@@ -613,6 +733,15 @@ const SelectedSetItem = ({
               handleInputChange={handleInputChange}
               darkMode={darkMode}
             />
+            <Typography
+              sx={{
+                mt: 1,
+                color: timedValidationErrors[0] ? "error.main" : "text.secondary",
+              }}
+            >
+              {timedValidationErrors[0] ??
+                `Use ${WORKOUT_VALUE_LIMITS.hours.min}-${WORKOUT_VALUE_LIMITS.hours.max}h, ${WORKOUT_VALUE_LIMITS.minutes.min}-${WORKOUT_VALUE_LIMITS.minutes.max}m, and ${WORKOUT_VALUE_LIMITS.seconds.min}-${WORKOUT_VALUE_LIMITS.seconds.max}s. Total duration must be at least ${WORKOUT_VALUE_LIMITS.totalSeconds.min} second.`}
+            </Typography>
           </>
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>

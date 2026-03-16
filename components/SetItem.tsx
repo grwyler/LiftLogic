@@ -1,14 +1,20 @@
 import React, { Fragment } from "react";
-import { roundToNearestFive } from "../utils/helpers";
 import { Paper, Box, Typography, IconButton, Chip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import {
+  formatWeight,
+  getDisplayWeightFromSet,
+  normalizeWeightUnit,
+} from "../utils/weightUnits";
 
-const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
+const SetItem = ({ set, handleDeleteSet, type, darkMode, preferredUnits = "lb" }) => {
   const { weight, reps, seconds, minutes, hours } = set;
+  const unit = normalizeWeightUnit(preferredUnits);
+  const displayWeight = getDisplayWeightFromSet(set, "planned", unit);
 
   return (
     <Paper
-      key={`card-set-item-${set.name}`}
+      key={`card-set-item-${set.id ?? set.name}`}
       elevation={0}
       sx={{
         mx: 2,
@@ -38,7 +44,7 @@ const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
             <Box sx={{ mt: 0.6, display: "flex", gap: 0.75, flexWrap: "wrap" }}>
               <Chip
                 size="small"
-                label={`${roundToNearestFive(weight)} lbs`}
+                label={formatWeight(displayWeight, unit)}
                 color="primary"
                 variant="outlined"
               />
@@ -55,7 +61,7 @@ const SetItem = ({ set, handleDeleteSet, type, darkMode }) => {
         </Box>
         <IconButton
           size="small"
-          onClick={() => handleDeleteSet(set.name)}
+          onClick={() => handleDeleteSet(set.id)}
           sx={{ ml: 1, p: 0.25, color: "text.secondary" }}
         >
           <CloseIcon fontSize="small" />

@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "lift-logic",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "homepage": "https://vercel.com/grwyler/lift-logic/6dqx1URyU74n4gM9dLHkJgCaCRM2",
   "engines": {
     "node": "24.x"
@@ -15,7 +15,10 @@
     "test:fast": "npm run type-check && npm run test:unit",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test smoke.spec.ts",
-    "test:e2e:regression": "playwright test regression.spec.ts"
+    "test:e2e:regression": "playwright test regression.spec.ts",
+    "version:feature": "npm version major --no-git-tag-version",
+    "version:bugfix": "npm version minor --no-git-tag-version",
+    "version:auto": "node scripts/bump-version.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

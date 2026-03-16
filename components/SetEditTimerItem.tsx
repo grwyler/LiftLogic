@@ -5,6 +5,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import CloseIcon from "@mui/icons-material/Close";
 import TimerInput from "./TimerInput";
 import { emptyOrNullToZero } from "../utils/helpers";
+import { WORKOUT_VALUE_LIMITS } from "../utils/workoutValidation";
 
 const SetEditTimerItem = ({
   set,
@@ -49,7 +50,7 @@ const SetEditTimerItem = ({
   };
 
   return (
-    <Draggable draggableId={`set-${index}`} index={index}>
+    <Draggable draggableId={`set-${set.id ?? index}`} index={index}>
       {(provided, snapshot) => (
         <Paper
           {...provided.draggableProps}
@@ -143,6 +144,11 @@ const SetEditTimerItem = ({
                 handleInputChange={handleInputChange}
                 darkMode={darkMode}
               />
+              <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+                Use {WORKOUT_VALUE_LIMITS.hours.min}-{WORKOUT_VALUE_LIMITS.hours.max}h,{" "}
+                {WORKOUT_VALUE_LIMITS.minutes.min}-{WORKOUT_VALUE_LIMITS.minutes.max}m, and{" "}
+                {WORKOUT_VALUE_LIMITS.seconds.min}-{WORKOUT_VALUE_LIMITS.seconds.max}s.
+              </Typography>
             </Box>
           </Box>
         </Paper>

@@ -1,14 +1,20 @@
-import React, { Dispatch, SetStateAction, useState } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import ExerciseSelector from "./ExerciseSelector";
 import ExerciseEditItem from "./ExerciseEditItem";
 import {
+  createWorkoutEntryInstanceId,
   fetchExerciseProgress,
+  getWorkoutEntryIdentity,
   saveRecurringRule,
   saveWorkoutEntry,
 } from "../utils/helpers";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import { DEFAULT_MAX_WEIGHT, getExerciseProfile } from "../utils/exerciseDrafts";
+import { toast } from "react-toastify";
+import { createExerciseSetId } from "../utils/exerciseSetIds";
+import { normalizeWeightUnit } from "../utils/weightUnits";
+import { hasEntitlement } from "../utils/entitlements";
 
 interface ExerciseManagerProps {
   index: number;
@@ -16,10 +22,13 @@ interface ExerciseManagerProps {
   currentWorkoutTitle: string;
   currentExercises?: any[];
   setIsAddingExercise: (value: boolean) => void;
+  setExercises: (value: any) => void;
   userId: string;
   date: string;
-  setRefetchExercises: Dispatch<SetStateAction<boolean>>;
   refreshCalendarStatuses?: () => void;
+  userProfile?: {
+    preferredUnits?: "lb" | "kg";
+  } | null;
 }
 
 const DEFAULT_TIMED_SECONDS = 60;
@@ -99,17 +108,71 @@ const parseLocalDate = (value: string) => {
   return new Date(value);
 };
 
+const createWeightSets = ({
+  setCount,
+  reps,
+  weight,
+  weightUnit,
+}: {
+  setCount: number;
+  reps: number;
+  weight: number;
+  weightUnit: "lb" | "kg";
+}) =>
+  Array.from({ length: setCount }, (_, index) => ({
+    id: createExerciseSetId(),
+    name: `Working Set ${index + 1}`,
+    weightUnit,
+    reps,
+    weight,
+    actualWeight: "",
+    actualReps: "",
+    complete: false,
+  }));
+
+const createTimedSets = (timedProfile: {
+  sets: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}) =>
+  Array.from({ length: timedProfile.sets }, (_, index) => ({
+    id: createExerciseSetId(),
+    name: `Timed Set ${index + 1}`,
+    hours: timedProfile.hours,
+    minutes: timedProfile.minutes,
+    seconds: timedProfile.seconds,
+    totalSeconds:
+      timedProfile.hours * 3600 +
+      timedProfile.minutes * 60 +
+      timedProfile.seconds,
+    actualHours: "",
+    actualMinutes: "",
+    actualSeconds: "",
+    complete: false,
+  }));
+
 const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   index,
   darkMode,
   currentWorkoutTitle,
   currentExercises = [],
   setIsAddingExercise,
+  setExercises,
   userId,
   date,
-  setRefetchExercises,
   refreshCalendarStatuses,
+  userProfile,
 }) => {
+  const preferredUnits = normalizeWeightUnit(userProfile?.preferredUnits);
+  const progressionRecommendationsEnabled = hasEntitlement(
+    userProfile as any,
+    "progressionRecommendations"
+  );
+  const recurringSchedulingEnabled = hasEntitlement(
+    userProfile as any,
+    "recurringWorkoutScheduling"
+  );
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -146,72 +209,48 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     exercise.type === "timed" ? "timed" : "weight";
 
   const buildExerciseDraft = async (exercise: any) => {
+    const baseDraft = buildExerciseDraftFromDefaults(exercise);
     const exerciseType = resolveExerciseType(exercise);
+    if (exerciseType !== "weight" || !progressionRecommendationsEnabled) {
+      return {
+        ...baseDraft,
+        recommendationPending: false,
+      };
+    }
+
     const normalizedExerciseId = normalizeExerciseId(exercise);
     const progress = await fetchExerciseProgress(userId, normalizedExerciseId).catch(
       () => null
     );
     const recommendation = progress?.recommendation ?? null;
+    if (exerciseType !== "weight" || !recommendation) {
+      return {
+        ...baseDraft,
+        recommendationPending: false,
+      };
+    }
+
+    return applyRecommendationToDraft(baseDraft, recommendation);
+  };
+
+  const buildExerciseDraftFromDefaults = (exercise: any) => {
+    const exerciseType = resolveExerciseType(exercise);
+    const normalizedExerciseId = normalizeExerciseId(exercise);
     const profile = getExerciseProfile(exercise);
-    const recommendedSetCount =
-      recommendation?.recommendedSets ?? profile.sets ?? 3;
-    const recommendedReps =
-      recommendation?.recommendedReps ?? profile.reps ?? 8;
-    const recommendedWeight =
-      recommendation?.recommendedWeight ??
+    const timedProfile = getTimedExerciseProfile(exercise);
+    const baseWeight =
       profile.weight ??
       exercise.max ??
       exercise.defaultMax ??
       DEFAULT_MAX_WEIGHT;
-    const timedProfile = getTimedExerciseProfile(exercise);
 
-    const defaultSets = Array.from({ length: recommendedSetCount }, (_, index) => ({
-      ...(exerciseType === "timed"
-        ? {
-            name: `Timed Set ${index + 1}`,
-            hours: timedProfile.hours,
-            minutes: timedProfile.minutes,
-            seconds: timedProfile.seconds,
-            totalSeconds:
-              timedProfile.hours * 3600 +
-              timedProfile.minutes * 60 +
-              timedProfile.seconds,
-            actualHours: "",
-            actualMinutes: "",
-            actualSeconds: "",
-          }
-        : {
-            name: `Working Set ${index + 1}`,
-            reps: recommendedReps,
-            weight: recommendedWeight,
-            actualWeight: "",
-            actualReps: "",
-          }),
-      complete: false,
-    }));
-
-    const resolvedSets =
-      exerciseType === "timed" ? timedProfile.sets : recommendedSetCount;
-    const timedSets =
-      exerciseType === "timed"
-        ? Array.from({ length: resolvedSets }, (_, index) => ({
-            name: `Timed Set ${index + 1}`,
-            hours: timedProfile.hours,
-            minutes: timedProfile.minutes,
-            seconds: timedProfile.seconds,
-            totalSeconds:
-              timedProfile.hours * 3600 +
-              timedProfile.minutes * 60 +
-              timedProfile.seconds,
-            actualHours: "",
-            actualMinutes: "",
-            actualSeconds: "",
-            complete: false,
-          }))
-        : defaultSets;
-
-    const newExercise = {
+    return {
       ...exercise,
+      entryInstanceId:
+        exercise.entryInstanceId ??
+        exercise._id?.toString?.() ??
+        exercise._id ??
+        createWorkoutEntryInstanceId(),
       type: exerciseType,
       exerciseId: normalizedExerciseId,
       sortOrder: currentExercises.length,
@@ -230,52 +269,175 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         : undefined,
       dayOfMonth: isRecurring ? repeatDayOfMonth : undefined,
       endDate: isRecurring && repeatEndDate ? repeatEndDate : undefined,
-      max: exercise.max ?? exercise.defaultMax ?? recommendedWeight,
+      max: exercise.max ?? exercise.defaultMax ?? baseWeight,
+      weightUnit: preferredUnits,
       rest:
         exercise.rest ??
         exercise.defaultRest ??
         getDefaultRestSeconds(exercise),
-      sets: timedSets,
+      sets:
+        exerciseType === "timed"
+          ? createTimedSets(timedProfile)
+          : createWeightSets({
+              setCount: profile.sets ?? 3,
+              reps: profile.reps ?? 8,
+              weight: baseWeight,
+              weightUnit: preferredUnits,
+            }),
+      recommendationPending: exerciseType === "weight",
     };
+  };
 
-    return newExercise;
+  const applyRecommendationToDraft = (draft: any, recommendation: any) => {
+    if (draft.type !== "weight") {
+      return {
+        ...draft,
+        recommendationPending: false,
+      };
+    }
+
+    const recommendedSetCount = recommendation?.recommendedSets ?? draft.sets?.length ?? 3;
+    const recommendedReps =
+      recommendation?.recommendedReps ?? draft.sets?.[0]?.reps ?? 8;
+    const recommendedWeight =
+      recommendation?.recommendedWeight ??
+      draft.sets?.[0]?.weight ??
+      draft.max ??
+      DEFAULT_MAX_WEIGHT;
+
+    return {
+      ...draft,
+      max: draft.max ?? recommendedWeight,
+      weightUnit: recommendation?.weightUnit ?? preferredUnits,
+      sets: createWeightSets({
+        setCount: recommendedSetCount,
+        reps: recommendedReps,
+        weight: recommendedWeight,
+        weightUnit: recommendation?.weightUnit ?? preferredUnits,
+      }),
+      recommendationPending: false,
+    };
+  };
+
+  const canHydrateRecommendation = (currentExercise: any, baseExercise: any) => {
+    if (!currentExercise || currentExercise.type !== "weight") {
+      return false;
+    }
+
+    if (!currentExercise.recommendationPending) {
+      return false;
+    }
+
+    return JSON.stringify(currentExercise.sets ?? []) === JSON.stringify(baseExercise.sets ?? []);
+  };
+
+  const hydrateQuickAddRecommendation = async (baseExercise: any) => {
+    if (baseExercise.type !== "weight" || !progressionRecommendationsEnabled) {
+      return;
+    }
+
+    const progress = await fetchExerciseProgress(
+      userId,
+      normalizeExerciseId(baseExercise)
+    ).catch(() => null);
+    const recommendation = progress?.recommendation ?? null;
+
+    setExercises((prev: any[]) => {
+      const nextExercises = Array.isArray(prev) ? [...prev] : [];
+      const exerciseIndex = nextExercises.findIndex(
+        (exercise) =>
+          String(exercise?.clientDraftId ?? "") === String(baseExercise.clientDraftId ?? "")
+      );
+
+      if (exerciseIndex === -1 || !recommendation) {
+        return nextExercises.map((exercise, index) =>
+          index === exerciseIndex
+            ? { ...exercise, recommendationPending: false }
+            : exercise
+        );
+      }
+
+      const currentExercise = nextExercises[exerciseIndex];
+      if (!canHydrateRecommendation(currentExercise, baseExercise)) {
+        nextExercises[exerciseIndex] = {
+          ...currentExercise,
+          recommendationPending: false,
+        };
+        return nextExercises;
+      }
+
+      const hydratedExercise = applyRecommendationToDraft(currentExercise, recommendation);
+      nextExercises[exerciseIndex] = hydratedExercise;
+      void persistExercise(hydratedExercise).catch((error) => {
+        console.error("Failed to persist hydrated recommendation", error);
+      });
+      return nextExercises;
+    });
   };
 
   const persistExercise = async (updatedExercise: any) => {
+    const {
+      clientDraftId: _clientDraftId,
+      recommendationPending: _recommendationPending,
+      ...persistableExercise
+    } = updatedExercise;
+
     if (updatedExercise.isRecurring) {
-      const parsedDate = parseLocalDate(updatedExercise.date);
-      if (isNaN(parsedDate.getTime())) {
-        throw new Error(`Invalid recurring date: ${updatedExercise.date}`);
+      if (!recurringSchedulingEnabled) {
+        throw new Error("Pro Beta is required to schedule recurring workouts.");
       }
 
-      await saveRecurringRule({
-        userId: updatedExercise.userId,
-        exerciseId: normalizeExerciseId(updatedExercise),
-        exerciseName: updatedExercise.name,
-        exerciseType: resolveExerciseType(updatedExercise),
-        routineName: updatedExercise.routineName,
-        recurrenceType: updatedExercise.recurrenceType ?? recurrenceType,
-        interval: updatedExercise.interval ?? repeatInterval,
-        dayOfWeek: updatedExercise.dayOfWeek ?? repeatDayOfWeek,
+      const parsedDate = parseLocalDate(persistableExercise.date);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error(`Invalid recurring date: ${persistableExercise.date}`);
+      }
+
+      const savedRule = await saveRecurringRule({
+        userId: persistableExercise.userId,
+        exerciseId: normalizeExerciseId(persistableExercise),
+        exerciseName: persistableExercise.name,
+        exerciseType: resolveExerciseType(persistableExercise),
+        routineName: persistableExercise.routineName,
+        recurrenceType: persistableExercise.recurrenceType ?? recurrenceType,
+        interval: persistableExercise.interval ?? repeatInterval,
+        dayOfWeek: persistableExercise.dayOfWeek ?? repeatDayOfWeek,
         daysOfWeek:
-          updatedExercise.daysOfWeek ??
-          (updatedExercise.recurrenceType ?? recurrenceType) === "custom"
+          persistableExercise.daysOfWeek ??
+          (persistableExercise.recurrenceType ?? recurrenceType) === "custom"
             ? repeatDaysOfWeek
-            : [updatedExercise.dayOfWeek ?? repeatDayOfWeek],
-        dayOfMonth: updatedExercise.dayOfMonth ?? repeatDayOfMonth,
-        intervalWeeks: updatedExercise.intervalWeeks ?? updatedExercise.interval ?? repeatInterval,
+            : [persistableExercise.dayOfWeek ?? repeatDayOfWeek],
+        dayOfMonth: persistableExercise.dayOfMonth ?? repeatDayOfMonth,
+        intervalWeeks:
+          persistableExercise.intervalWeeks ??
+          persistableExercise.interval ??
+          repeatInterval,
         startDate: parsedDate,
-        endDate: updatedExercise.endDate ?? (repeatEndDate || undefined),
-        templateSets: updatedExercise.sets,
-        defaultMax: updatedExercise.max,
-        defaultRest: updatedExercise.rest,
+        endDate: persistableExercise.endDate ?? (repeatEndDate || undefined),
+        templateSets: persistableExercise.sets,
+        defaultMax: persistableExercise.max,
+        defaultRest: persistableExercise.rest,
         active: true,
       } as any);
+
+      return {
+        ...persistableExercise,
+        isRepeating: true,
+        ruleId: String(savedRule?._id ?? persistableExercise.ruleId ?? ""),
+      };
     } else {
-      await saveWorkoutEntry({
-        ...updatedExercise,
-        exerciseId: normalizeExerciseId(updatedExercise),
+      const savedEntry = await saveWorkoutEntry({
+        ...persistableExercise,
+        exerciseId: normalizeExerciseId(persistableExercise),
       });
+
+      return {
+        ...persistableExercise,
+        _id: savedEntry?.entryId ?? persistableExercise._id,
+        entryInstanceId:
+          savedEntry?.entryInstanceId ??
+          persistableExercise.entryInstanceId ??
+          persistableExercise._id,
+      };
     }
   };
 
@@ -303,11 +465,43 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       actual: `Building and saving ${exercise?.name || "exercise"}.`,
       status: "info",
     });
-    const newExercise = await buildExerciseDraft(exercise);
-    await persistExercise(newExercise);
-    setRefetchExercises((prev) => !prev);
-    refreshCalendarStatuses?.();
+    const clientDraftId = `${normalizeExerciseId(exercise)}-${Date.now()}`;
+    const baseExercise = {
+      ...buildExerciseDraftFromDefaults(exercise),
+      clientDraftId,
+    };
+
+    setExercises([...currentExercises, baseExercise]);
     setIsAddingExercise(false);
+
+    try {
+      const persistedExercise = await persistExercise(baseExercise);
+      setExercises((prev: any[]) =>
+        (Array.isArray(prev) ? prev : []).map((currentExercise) =>
+          String(currentExercise?.clientDraftId ?? "") === clientDraftId
+            ? {
+                ...persistedExercise,
+                clientDraftId,
+                recommendationPending: baseExercise.recommendationPending,
+              }
+            : currentExercise
+        )
+      );
+      refreshCalendarStatuses?.();
+      void hydrateQuickAddRecommendation({
+        ...persistedExercise,
+        clientDraftId,
+      });
+    } catch (error) {
+      setExercises((prev: any[]) =>
+        (Array.isArray(prev) ? prev : []).filter(
+          (currentExercise) =>
+            String(currentExercise?.clientDraftId ?? "") !== clientDraftId
+        )
+      );
+      console.error("Quick add failed", error);
+      toast.error("This exercise was not added. Try again.");
+    }
   };
 
   // When saving, call updateExercise so the parent can update the existing exercise.
@@ -320,8 +514,23 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       actual: `Saving ${updatedExercise?.name || "exercise"}.`,
       status: "info",
     });
-    await persistExercise(updatedExercise);
-    setRefetchExercises((prev) => !prev);
+    const persistedExercise = await persistExercise(updatedExercise);
+    setExercises((prev: any[]) => {
+      const nextExercises = Array.isArray(prev) ? [...prev] : [];
+      const existingIndex = nextExercises.findIndex(
+        (exercise) =>
+          String(exercise?.clientDraftId ?? "") ===
+            String(persistedExercise?.clientDraftId ?? "") ||
+          getWorkoutEntryIdentity(exercise) === getWorkoutEntryIdentity(persistedExercise)
+      );
+
+      if (existingIndex >= 0) {
+        nextExercises[existingIndex] = persistedExercise;
+        return nextExercises;
+      }
+
+      return [...nextExercises, persistedExercise];
+    });
     refreshCalendarStatuses?.();
     setOpenEditModal(false);
     setIsAddingExercise(false);
@@ -395,6 +604,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
               onCancel={handleCancelEdit}
               darkMode={darkMode}
               isValid={true}
+              preferredUnits={preferredUnits}
               autoFocusWeight={true} // instruct child to autofocus on first weight input
             />
           )}

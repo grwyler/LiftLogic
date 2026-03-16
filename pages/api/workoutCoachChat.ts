@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import { ObjectId } from "mongodb";
 import OpenAI from "openai";
+import { connectToDatabase } from "../../utils/mongodb";
 import {
   buildFallbackCoachReply,
   WorkoutCoachResponse,
@@ -18,6 +20,10 @@ import {
   isAffirmative,
   normalizeCoachAction,
 } from "../../utils/workoutCoachFallback";
+import {
+  getEntitlementMessage,
+  hasEntitlement,
+} from "../../utils/entitlements";
 
 const askCoachWithAI = async ({
   message,
@@ -103,11 +109,13 @@ export default async function handler(
       history = [],
       profile,
       coachResponse,
+      userId,
     } = req.body as {
       message?: string;
       history?: ChatTurn[];
       profile?: SetupFormValues;
       coachResponse?: WorkoutCoachResponse;
+      userId?: string;
     };
 
     if (!message?.trim() || !profile || !coachResponse) {
@@ -115,6 +123,35 @@ export default async function handler(
         .status(400)
         .json({ message: "message, profile, and coachResponse are required" });
     }
+
+    const db = await connectToDatabase();
+    const users = db.collection("users");
+    const user =
+      typeof userId === "string" && ObjectId.isValid(userId)
+        ? await users.findOne({ _id: new ObjectId(userId) })
+        : null;
+    const canRegeneratePlan = hasEntitlement(
+      user as any,
+      "assistantPlanRegeneration"
+    );
+    const canScheduleRecurring = hasEntitlement(
+      user as any,
+      "recurringWorkoutScheduling"
+    );
+
+    const buildUpsellReply = (messageText: string) => ({
+      reply: messageText,
+      suggestedReplies: [
+        "What can I still do on free?",
+        "Show me pricing",
+        "Help me track workouts instead",
+      ],
+      profilePatch: {},
+      shouldRegeneratePlan: false,
+      action: null,
+      source: "fallback",
+      sourceDetail: "rule_based",
+    });
 
     const hasAIConfig = Boolean(
       process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY
@@ -139,6 +176,14 @@ export default async function handler(
 
     const extracted = extractFallbackPatch(message, profile, coachResponse);
     if (extracted.unavailableDays) {
+      if (!canRegeneratePlan) {
+        return res
+          .status(200)
+          .json(
+            buildUpsellReply(getEntitlementMessage("assistantPlanRegeneration"))
+          );
+      }
+
       return res.status(200).json({
         reply: `Yeah, I removed ${extracted.unavailableDays.unavailableDays.join(
           " and "
@@ -157,6 +202,14 @@ export default async function handler(
     }
 
     if (extracted.preferredDaySwap) {
+      if (!canRegeneratePlan) {
+        return res
+          .status(200)
+          .json(
+            buildUpsellReply(getEntitlementMessage("assistantPlanRegeneration"))
+          );
+      }
+
       return res.status(200).json({
         reply: `Yeah, I switched that from ${extracted.preferredDaySwap.fromDay} to ${extracted.preferredDaySwap.toDay}.`,
         suggestedReplies: [
@@ -173,6 +226,14 @@ export default async function handler(
     }
 
     if (extracted.shouldRegeneratePlan && Object.keys(extracted.patch).length === 0) {
+      if (!canRegeneratePlan) {
+        return res
+          .status(200)
+          .json(
+            buildUpsellReply(getEntitlementMessage("assistantPlanRegeneration"))
+          );
+      }
+
       return res.status(200).json({
         reply:
           "I’m building that plan now and I’ll map it onto your current schedule so you have something concrete to start with.",
@@ -190,6 +251,14 @@ export default async function handler(
     }
 
     if (extracted.shouldRegeneratePlan && Object.keys(extracted.patch).length > 0) {
+      if (!canRegeneratePlan) {
+        return res
+          .status(200)
+          .json(
+            buildUpsellReply(getEntitlementMessage("assistantPlanRegeneration"))
+          );
+      }
+
       return res.status(200).json({
         reply:
           "I updated your setup from that request and I’m rebuilding the weekly plan so it actually matches what you asked for.",
@@ -243,6 +312,14 @@ export default async function handler(
     }
 
     if (directAction?.type === "create_recurring_exercise") {
+      if (!canScheduleRecurring) {
+        return res
+          .status(200)
+          .json(
+            buildUpsellReply(getEntitlementMessage("recurringWorkoutScheduling"))
+          );
+      }
+
       return res.status(200).json({
         reply: `I added ${directAction.exerciseName} to ${
           directAction.dayKey
@@ -291,6 +368,30 @@ export default async function handler(
       });
 
       if (aiReply?.reply) {
+          const normalizedAction = normalizeCoachAction(aiReply.action ?? null);
+          const actionRequiresRecurringScheduling =
+            normalizedAction?.type === "create_recurring_exercise";
+
+          if (aiReply.shouldRegeneratePlan && !canRegeneratePlan) {
+            return res
+              .status(200)
+              .json(
+                buildUpsellReply(
+                  getEntitlementMessage("assistantPlanRegeneration")
+                )
+              );
+          }
+
+          if (actionRequiresRecurringScheduling && !canScheduleRecurring) {
+            return res
+              .status(200)
+              .json(
+                buildUpsellReply(
+                  getEntitlementMessage("recurringWorkoutScheduling")
+                )
+              );
+          }
+
           return res.status(200).json({
             reply: aiReply.reply,
             suggestedReplies:
@@ -299,7 +400,7 @@ export default async function handler(
               : coachResponse.suggestedReplies,
             profilePatch: aiReply.profilePatch ?? {},
             shouldRegeneratePlan: Boolean(aiReply.shouldRegeneratePlan),
-            action: normalizeCoachAction(aiReply.action ?? null),
+            action: normalizedAction,
             source: "ai",
           });
       }

@@ -105,15 +105,18 @@ const SignIn = () => {
         minHeight: "100vh",
         px: { xs: 1.5, sm: 2.5 },
         py: { xs: 2, sm: 3 },
+        display: "flex",
+        alignItems: { xs: "flex-start", sm: "center" },
       }}
     >
       <Box
         sx={{
           maxWidth: 1080,
           mx: "auto",
+          width: "100%",
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "1.05fr 0.95fr" },
-          gap: 2,
+          gap: { xs: 1.5, sm: 2 },
           alignItems: "stretch",
         }}
       >
@@ -192,23 +195,30 @@ const SignIn = () => {
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2.5, sm: 3.5 },
+            p: { xs: 2.25, sm: 3.5 },
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: 4,
+            borderRadius: { xs: 4, sm: 4 },
+            maxWidth: { xs: 420, md: "none" },
+            width: "100%",
+            mx: "auto",
+            minHeight: { xs: "min(72vh, 540px)", sm: "auto" },
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
           }}
         >
           <Stack
             direction="row"
             spacing={1}
             alignItems="center"
-            sx={{ display: { xs: "flex", md: "none" }, mb: 2 }}
+            sx={{ display: { xs: "flex", md: "none" }, mb: 2.25 }}
           >
             <Box
               sx={{
                 width: 34,
                 height: 34,
-                borderRadius: 2,
+                borderRadius: 2.5,
                 display: "grid",
                 placeItems: "center",
                 backgroundColor: "text.primary",
@@ -225,14 +235,14 @@ const SignIn = () => {
           <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
             Sign In
           </Typography>
-          <Typography variant="h4" sx={{ mt: 1 }}>
+          <Typography variant="h4" sx={{ mt: 1, maxWidth: 320 }}>
             Welcome back
           </Typography>
-          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+          <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 360 }}>
             Sign in to open your workouts and keep your progression moving.
           </Typography>
 
-          <Box component="form" sx={{ mt: 3.5 }}>
+          <Box component="form" sx={{ mt: { xs: 3, sm: 3.5 } }}>
             <Stack spacing={1.5}>
               {(hasGoogleAuth || hasFacebookAuth) && (
                 <>
@@ -242,6 +252,7 @@ const SignIn = () => {
                       startIcon={<GoogleIcon />}
                       onClick={() => handleOAuthSignIn("google")}
                       disabled={Boolean(oauthLoading)}
+                      sx={{ minHeight: 48 }}
                     >
                       {oauthLoading === "google"
                         ? "Opening Google..."
@@ -255,6 +266,7 @@ const SignIn = () => {
                       startIcon={<FacebookIcon />}
                       onClick={() => handleOAuthSignIn("facebook")}
                       disabled={Boolean(oauthLoading)}
+                      sx={{ minHeight: 48 }}
                     >
                       {oauthLoading === "facebook"
                         ? "Opening Facebook..."
@@ -271,6 +283,11 @@ const SignIn = () => {
                 label="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    minHeight: 54,
+                  },
+                }}
               />
 
               <TextField
@@ -279,6 +296,11 @@ const SignIn = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    minHeight: 54,
+                  },
+                }}
               />
 
               <Button
@@ -293,13 +315,13 @@ const SignIn = () => {
                     <ArrowForwardIcon />
                   )
                 }
-                sx={{ mt: 0.5 }}
+                sx={{ mt: 0.5, minHeight: 48 }}
               >
                 {isSigningIn ? "Signing in" : "Open workouts"}
               </Button>
             </Stack>
 
-            <Typography sx={{ mt: 2.5, color: "text.secondary" }}>
+            <Typography sx={{ mt: 2.5, color: "text.secondary", textAlign: "left" }}>
               New here?{" "}
               <NextLink href="/signup" passHref legacyBehavior>
                 <Link component="a" underline="hover">

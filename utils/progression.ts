@@ -1,4 +1,10 @@
-import { ExerciseSet, WorkoutEntryDoc } from "./types";
+import { ExerciseSet, WeightUnit, WorkoutEntryDoc } from "./types";
+import {
+  fromCanonicalWeightLb,
+  getCanonicalWeightFromSet,
+  normalizeWeightUnit,
+  roundToWeightIncrement,
+} from "./weightUnits";
 
 type SupportedTrainingGoal =
   | "strength"
@@ -50,6 +56,7 @@ type EntryPerformanceSummary = {
 
 export type ExerciseRecommendation = {
   recommendedWeight: number | null;
+  weightUnit?: WeightUnit;
   recommendedReps: number | null;
   recommendedSets: number | null;
   reason: string;
@@ -187,17 +194,25 @@ const getDaysSince = (date: Date | null, now = new Date()) => {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const roundToNearestFive = (value: number) => Math.round(value / 5) * 5;
-
-const roundRecommendedWeight = (weight: number, profile: GoalProfile) => {
-  const roundedToFive = roundToNearestFive(weight);
-  if (roundedToFive > 0) {
-    return roundedToFive;
+const roundRecommendedWeight = (
+  weightInLb: number,
+  profile: GoalProfile,
+  preferredUnits: WeightUnit
+) => {
+  const convertedWeight = fromCanonicalWeightLb(weightInLb, preferredUnits);
+  const roundedWeight = roundToWeightIncrement(convertedWeight, preferredUnits);
+  if (roundedWeight > 0) {
+    return roundedWeight;
   }
 
-  return weight >= profile.lightIncrement
-    ? profile.lightIncrement
-    : Math.max(1, Math.round(weight));
+  const minimumIncrement =
+    preferredUnits === "kg"
+      ? fromCanonicalWeightLb(profile.lightIncrement, preferredUnits)
+      : profile.lightIncrement;
+
+  return convertedWeight >= minimumIncrement
+    ? minimumIncrement
+    : Math.max(preferredUnits === "kg" ? 0.5 : 1, Math.round(convertedWeight));
 };
 
 const estimateSetE1RM = (set: NormalizedPerformanceSet) =>
@@ -210,7 +225,7 @@ const getNormalizedCompletedWeightSets = (
 
   return sets
     .map((set) => {
-      const actualWeight = coercePositiveNumber((set as any)?.actualWeight);
+      const actualWeight = getCanonicalWeightFromSet(set as ExerciseSet, "actual");
       const actualReps = coercePositiveNumber((set as any)?.actualReps);
 
       if (!(set as any)?.complete || actualWeight === null || actualReps === null) {
@@ -220,7 +235,7 @@ const getNormalizedCompletedWeightSets = (
       return {
         actualWeight,
         actualReps,
-        plannedWeight: coercePositiveNumber((set as any)?.weight),
+        plannedWeight: getCanonicalWeightFromSet(set as ExerciseSet, "planned"),
         plannedReps: coercePositiveNumber((set as any)?.reps),
         complete: true,
       };
@@ -676,9 +691,11 @@ const applyDetrainingAdjustment = (
 
 export const buildNextExerciseRecommendation = (
   entries: WorkoutEntryDoc[],
-  trainingGoal?: SupportedTrainingGoal
+  trainingGoal?: SupportedTrainingGoal,
+  preferredUnits?: WeightUnit
 ): ExerciseRecommendation => {
   const profile = normalizeTrainingGoal(trainingGoal);
+  const normalizedPreferredUnits = normalizeWeightUnit(preferredUnits);
   const recentSummaries = getRecentEntrySummaries(entries);
   const latestSummary = recentSummaries[0] ?? null;
   const latestEntry = latestSummary?.entry ?? null;
@@ -686,6 +703,7 @@ export const buildNextExerciseRecommendation = (
   if (!latestEntry || !latestSummary) {
     return {
       recommendedWeight: null,
+      weightUnit: normalizedPreferredUnits,
       recommendedReps: null,
       recommendedSets: null,
       reason:
@@ -736,6 +754,7 @@ export const buildNextExerciseRecommendation = (
   ) {
     return {
       recommendedWeight: null,
+      weightUnit: normalizedPreferredUnits,
       recommendedReps: null,
       recommendedSets: null,
       reason:
@@ -765,7 +784,11 @@ export const buildNextExerciseRecommendation = (
       : completionSignal.status === "underperformed" && !isUnderperformanceConfirmed
       ? Math.max(uncappedWeight, baseWeight - profile.lightIncrement)
       : uncappedWeight;
-  const recommendedWeight = roundRecommendedWeight(cappedWeight, profile);
+  const recommendedWeight = roundRecommendedWeight(
+    cappedWeight,
+    profile,
+    normalizedPreferredUnits
+  );
   const latestRepBaseline = clamp(
     Math.round(baseReps),
     profile.minReps,
@@ -796,13 +819,25 @@ export const buildNextExerciseRecommendation = (
 
   return {
     recommendedWeight,
+    weightUnit: normalizedPreferredUnits,
     recommendedReps,
     recommendedSets,
-    reason: `Using a rolling ${baselineSummaries.length}-session baseline with ${representativeSet.actualWeight} x ${representativeSet.actualReps} from the latest completed workout, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}`,
+    reason: `Using a rolling ${baselineSummaries.length}-session baseline with ${Math.round(
+      fromCanonicalWeightLb(
+        representativeSet.actualWeight,
+        normalizedPreferredUnits
+      ) * 10
+    ) / 10} x ${representativeSet.actualReps} from the latest completed workout, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}`,
     basedOn: {
-      topSetWeight: representativeSet.actualWeight,
+      topSetWeight: fromCanonicalWeightLb(
+        representativeSet.actualWeight,
+        normalizedPreferredUnits
+      ),
       topSetReps: representativeSet.actualReps,
-      averageWeight: Math.round(averageWeight * 10) / 10,
+      averageWeight:
+        Math.round(
+          fromCanonicalWeightLb(averageWeight, normalizedPreferredUnits) * 10
+        ) / 10,
       averageReps: Math.round(averageReps * 10) / 10,
       setsCompleted: completedSets.length,
       date: toIsoDate(latestDate),
@@ -823,9 +858,12 @@ export const adjustRemainingSetsAfterLoggedSet = (
   const profile = normalizeTrainingGoal(trainingGoal);
   const strategy = getGoalAdjustmentStrategy(profile);
   const loggedSet = sets[setIndex];
-  const actualWeight = coercePositiveNumber((loggedSet as any)?.actualWeight);
+  const weightUnit = normalizeWeightUnit(
+    (loggedSet as any)?.actualWeightUnit ?? (loggedSet as any)?.weightUnit
+  );
+  const actualWeight = getCanonicalWeightFromSet(loggedSet as ExerciseSet, "actual");
   const actualReps = coercePositiveNumber((loggedSet as any)?.actualReps);
-  const plannedWeight = coercePositiveNumber((loggedSet as any)?.weight);
+  const plannedWeight = getCanonicalWeightFromSet(loggedSet as ExerciseSet, "planned");
   const plannedReps = coercePositiveNumber((loggedSet as any)?.reps);
 
   if (
@@ -845,9 +883,9 @@ export const adjustRemainingSetsAfterLoggedSet = (
     .slice(0, setIndex + 1)
     .filter((set) => (set as any)?.complete)
     .map((set) => ({
-      actualWeight: coercePositiveNumber((set as any)?.actualWeight),
+      actualWeight: getCanonicalWeightFromSet(set as ExerciseSet, "actual"),
       actualReps: coercePositiveNumber((set as any)?.actualReps),
-      plannedWeight: coercePositiveNumber((set as any)?.weight),
+      plannedWeight: getCanonicalWeightFromSet(set as ExerciseSet, "planned"),
       plannedReps: coercePositiveNumber((set as any)?.reps),
     }))
     .filter(
@@ -924,7 +962,7 @@ export const adjustRemainingSetsAfterLoggedSet = (
         : " Fatigue is building, so the app is protecting the quality of the remaining sets.";
   }
 
-  const normalizedWeight = roundRecommendedWeight(nextWeight, profile);
+  const normalizedWeight = roundRecommendedWeight(nextWeight, profile, weightUnit);
   const normalizedReps = clamp(Math.round(nextReps), profile.minReps, profile.maxReps);
 
   const adjustedSets = sets.map((set, index) => {
@@ -935,6 +973,7 @@ export const adjustRemainingSetsAfterLoggedSet = (
     return {
       ...set,
       weight: normalizedWeight,
+      weightUnit,
       reps: normalizedReps,
       adjustmentReason: reason,
     } as ExerciseSet;

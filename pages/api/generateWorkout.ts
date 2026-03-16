@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import { ObjectId } from "mongodb";
 import OpenAI from "openai";
 import { connectToDatabase, disconnectFromDatabase } from "../../utils/mongodb";
 import {
@@ -16,6 +17,11 @@ import {
   AIFallbackReason,
   inferAIFallbackReason,
 } from "../../utils/aiFallback";
+import {
+  getEntitlementMessage,
+  hasEntitlement,
+  withResolvedUserAccess,
+} from "../../utils/entitlements";
 import { SetupFormValues } from "../../utils/profileSetup";
 
 const dayToIndex: Record<string, number> = {
@@ -156,6 +162,20 @@ export default async function handler(
 
     if (!userId) {
       return res.status(400).json({ message: "userId required" });
+    }
+
+    const db = await connectToDatabase();
+    const userCollection = db.collection("users");
+    const user =
+      ObjectId.isValid(userId)
+        ? await userCollection.findOne({ _id: new ObjectId(userId) })
+        : null;
+
+    if (!hasEntitlement(user as any, "assistantPlanGeneration")) {
+      return res.status(403).json({
+        message: getEntitlementMessage("assistantPlanGeneration"),
+        user: withResolvedUserAccess(user as any),
+      });
     }
 
     if (!profile?.trainingGoal || !profile?.workoutDaysPerWeek) {

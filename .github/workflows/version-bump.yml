@@ -1,0 +1,75 @@
+name: Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_kind:
+        description: "Release kind to apply"
+        required: true
+        type: choice
+        options:
+          - feature
+          - bugfix
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Resolve release kind
+        id: release-kind
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_kind="${{ github.event.inputs.release_kind }}"
+          else
+            labels="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+            title="${{ github.event.pull_request.title }}"
+
+            if [[ "$labels" =~ (^|[[:space:]])(feature|enhancement|release:major)([[:space:]]|$) ]] || [[ "$title" =~ ^feat(\(.+\))?: ]]; then
+              release_kind="feature"
+            elif [[ "$labels" =~ (^|[[:space:]])(bug|bugfix|fix|release:minor)([[:space:]]|$) ]] || [[ "$title" =~ ^fix(\(.+\))?: ]]; then
+              release_kind="bugfix"
+            else
+              release_kind=""
+            fi
+          fi
+
+          echo "release_kind=$release_kind" >> "$GITHUB_OUTPUT"
+
+      - name: Stop when no release label is present
+        if: steps.release-kind.outputs.release_kind == ''
+        run: echo "No matching release label or PR title prefix found. Skipping version bump."
+
+      - name: Bump package version
+        if: steps.release-kind.outputs.release_kind != ''
+        run: npm run version:auto -- ${{ steps.release-kind.outputs.release_kind }}
+
+      - name: Commit bumped version
+        if: steps.release-kind.outputs.release_kind != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version for ${{ steps.release-kind.outputs.release_kind }} release" || echo "No version changes to commit."
+
+      - name: Push version bump
+        if: steps.release-kind.outputs.release_kind != ''
+        run: git push

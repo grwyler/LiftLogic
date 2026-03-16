@@ -5,6 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase } from "../../../utils/mongodb";
 import { verifyAndUpgradePassword } from "../../../utils/passwords";
 import { markBetaFunnelMilestone } from "../../../utils/betaFunnel";
+import { FREE_ENTITLEMENTS } from "../../../utils/entitlements";
 
 const createUsernameSlug = (value: string) =>
   value
@@ -110,6 +111,8 @@ const getOrCreateOAuthUser = async ({
     setupPromptSeen: false,
     setupCompleted: false,
     billingPlan: "free",
+    productPlan: "free",
+    entitlements: FREE_ENTITLEMENTS,
     subscriptionStatus: "inactive",
     subscriptionCancelAtPeriodEnd: false,
     betaFunnel: markBetaFunnelMilestone({

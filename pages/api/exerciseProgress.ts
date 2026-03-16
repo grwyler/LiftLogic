@@ -4,6 +4,10 @@ import { connectToDatabase } from "../../utils/mongodb";
 import { WorkoutEntryDoc } from "@/utils/types";
 import { buildExerciseProgressSummary } from "@/utils/performance";
 import { buildNextExerciseRecommendation } from "@/utils/progression";
+import {
+  hasEntitlement,
+  withResolvedUserAccess,
+} from "@/utils/entitlements";
 
 export default async function handler(
   req: NextApiRequest,
@@ -48,12 +52,23 @@ export default async function handler(
         : null;
 
     const summary = buildExerciseProgressSummary(entries);
-    const recommendation = buildNextExerciseRecommendation(
-      entries,
-      user?.trainingGoal
-    );
+    const recommendation = hasEntitlement(
+      user as any,
+      "progressionRecommendations"
+    )
+      ? buildNextExerciseRecommendation(
+          entries,
+          user?.trainingGoal,
+          user?.preferredUnits
+        )
+      : null;
 
-    return res.status(200).json({ summary, recommendation, entries });
+    return res.status(200).json({
+      summary,
+      recommendation,
+      entries,
+      user: withResolvedUserAccess(user as any),
+    });
   } catch (error) {
     console.error("exerciseProgress error:", error);
     return res.status(500).json({ message: "Internal Server Error" });

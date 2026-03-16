@@ -9,6 +9,12 @@ import {
   MuscleRegionId,
 } from "../utils/muscleRecovery";
 
+const musclePanelRadius = {
+  shell: 3,
+  section: 2.5,
+  row: 2,
+} as const;
+
 type RecoveryRegion = {
   region: MuscleRegionId;
   label: string;
@@ -98,11 +104,10 @@ const RegionRow = ({
   const tone = buildStatusTone(region.hoursAgo);
 
   return (
-    <Paper
-      elevation={0}
+    <Box
       sx={{
         p: 1.15,
-        borderRadius: 2.5,
+        borderRadius: musclePanelRadius.row,
         border: "1px solid",
         borderColor:
           tone.chipColor === "primary"
@@ -160,7 +165,7 @@ const RegionRow = ({
           }}
         />
       </Box>
-    </Paper>
+    </Box>
   );
 };
 
@@ -259,7 +264,7 @@ export default function MuscleRecoveryMap({
       sx={{
         mt: 2,
         p: 1.75,
-        borderRadius: 4,
+        borderRadius: musclePanelRadius.shell,
         border: "1px solid",
         borderColor: "divider",
         backgroundColor: darkMode
@@ -316,11 +321,10 @@ export default function MuscleRecoveryMap({
         <Collapse in={isOpen} timeout="auto" unmountOnExit>
           <Stack spacing={1.75}>
             {topRegions.length > 0 ? (
-              <Paper
-                elevation={0}
+              <Box
                 sx={{
                   p: 1.25,
-                  borderRadius: 3,
+                  borderRadius: musclePanelRadius.section,
                   border: "1px solid",
                   borderColor: "divider",
                   backgroundColor: darkMode
@@ -334,7 +338,7 @@ export default function MuscleRecoveryMap({
                 <Typography sx={{ mt: 0.55 }}>
                   {topRegions.join(", ")}
                 </Typography>
-              </Paper>
+              </Box>
             ) : null}
 
             <Box
@@ -343,17 +347,18 @@ export default function MuscleRecoveryMap({
                 gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
                 gap: 1.5,
               }}
-            >
+              >
               {groupedRegions.map((group) => (
-                <Paper
+                <Box
                   key={group.title}
-                  elevation={0}
                   sx={{
                     p: 1.25,
-                    borderRadius: 3,
+                    borderRadius: musclePanelRadius.section,
                     border: "1px solid",
                     borderColor: "divider",
-                    backgroundColor: "background.paper",
+                    backgroundColor: darkMode
+                      ? "rgba(255,255,255,0.02)"
+                      : "rgba(255,255,255,0.68)",
                   }}
                 >
                   <Typography
@@ -381,7 +386,7 @@ export default function MuscleRecoveryMap({
                       </Typography>
                     )}
                   </Stack>
-                </Paper>
+                </Box>
               ))}
             </Box>
           </Stack>

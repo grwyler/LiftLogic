@@ -3,6 +3,13 @@ import { formatTime } from "../utils/helpers";
 import { Box, Paper, Typography } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { estimateOneRepMax } from "../utils/performance";
+import {
+  formatWeight,
+  formatWeightValue,
+  fromCanonicalWeightLb,
+  getCanonicalWeightFromSet,
+  normalizeWeightUnit,
+} from "../utils/weightUnits";
 
 const completedSetRadius = {
   card: "20px",
@@ -15,33 +22,45 @@ const SetItem = ({
   setCurrentSetIndex,
   type,
   darkMode,
+  preferredUnits = "lb",
   interactive = true,
 }) => {
   const { actualReps, actualWeight, totalSeconds, actualHours, actualMinutes, actualSeconds } = set;
-  const plannedWeight =
-    typeof set.weight === "number" ? set.weight : Number(set.weight);
+  const unit = normalizeWeightUnit(preferredUnits);
+  const plannedWeightInLb = getCanonicalWeightFromSet(set, "planned");
   const plannedReps = typeof set.reps === "number" ? set.reps : Number(set.reps);
-  const numericActualWeight =
-    typeof actualWeight === "number" ? actualWeight : Number(actualWeight);
+  const numericActualWeightInLb = getCanonicalWeightFromSet(set, "actual");
   const numericActualReps =
     typeof actualReps === "number" ? actualReps : Number(actualReps);
   const hasNumericActualWeight =
-    Number.isFinite(numericActualWeight) && numericActualWeight > 0;
+    Number.isFinite(numericActualWeightInLb) && numericActualWeightInLb > 0;
   const hasNumericActualReps =
     Number.isFinite(numericActualReps) && numericActualReps > 0;
-  const hasPlannedWeight = Number.isFinite(plannedWeight) && plannedWeight > 0;
+  const hasPlannedWeight = Number.isFinite(plannedWeightInLb) && plannedWeightInLb > 0;
   const hasPlannedReps = Number.isFinite(plannedReps) && plannedReps > 0;
   const weightDelta =
     hasNumericActualWeight && hasPlannedWeight
-      ? Math.round((numericActualWeight - plannedWeight) * 10) / 10
+      ? Math.round(
+          (fromCanonicalWeightLb(numericActualWeightInLb, unit) -
+            fromCanonicalWeightLb(plannedWeightInLb, unit)) *
+            10
+        ) / 10
       : null;
   const repDelta =
     hasNumericActualReps && hasPlannedReps ? numericActualReps - plannedReps : null;
   const estimated1RM =
     hasNumericActualWeight && hasNumericActualReps
-      ? Math.round(estimateOneRepMax(numericActualWeight, numericActualReps) * 10) /
+      ? Math.round(
+          fromCanonicalWeightLb(
+            estimateOneRepMax(numericActualWeightInLb, numericActualReps),
+            unit
+          ) * 10
+        ) /
         10
       : null;
+  const displayActualWeight = hasNumericActualWeight
+    ? fromCanonicalWeightLb(numericActualWeightInLb, unit)
+    : null;
   const shouldRenderWeightMetrics =
     type === "weight" ||
     (actualWeight !== undefined &&
@@ -115,7 +134,7 @@ const SetItem = ({
         {shouldRenderWeightMetrics && (
           <Fragment>
             <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
-              {actualWeight} lbs
+              {formatWeight(displayActualWeight, unit)}
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
               {actualReps} reps
@@ -129,8 +148,8 @@ const SetItem = ({
               <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
                 vs plan{" "}
                 {weightDelta !== null
-                  ? `${weightDelta > 0 ? "+" : ""}${weightDelta} lbs`
-                  : "0 lbs"}
+                  ? `${weightDelta > 0 ? "+" : ""}${formatWeightValue(weightDelta)} ${unit}`
+                  : `0 ${unit}`}
                 {repDelta !== null ? `, ${repDelta > 0 ? "+" : ""}${repDelta} reps` : ""}
               </Typography>
             ) : null}

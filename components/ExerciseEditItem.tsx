@@ -22,7 +22,13 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import TimerInput from "./TimerInput";
 import SetEditTimerItem from "./SetEditTimerItem";
 import SetEditWeightItem from "./SetEditWeightItem";
-import { emptyOrNullToZero, roundToNearestFive } from "../utils/helpers";
+import { emptyOrNullToZero } from "../utils/helpers";
+import {
+  validateExerciseSetForEntry,
+  WORKOUT_VALUE_LIMITS,
+} from "../utils/workoutValidation";
+import { createExerciseSetId, ensureExerciseSetIds } from "../utils/exerciseSetIds";
+import { normalizeWeightUnit, roundToWeightIncrement } from "../utils/weightUnits";
 
 interface ExerciseEditItemProps {
   index: number;
@@ -32,6 +38,7 @@ interface ExerciseEditItemProps {
   darkMode: boolean;
   isValid: boolean;
   autoFocusWeight?: boolean;
+  preferredUnits?: "lb" | "kg";
 }
 
 type StrengthProfile = {
@@ -122,11 +129,13 @@ const buildGeneratedSets = ({
   effort,
   desiredSetCount,
   profile,
+  weightUnit,
 }: {
   oneRepMax: number;
   effort: number;
   desiredSetCount: number;
   profile: StrengthProfile;
+  weightUnit: "lb" | "kg";
 }) => {
   const normalizedEffort = clamp((effort - 45) / 45, 0, 1);
   const targetReps = Math.round(
@@ -146,10 +155,12 @@ const buildGeneratedSets = ({
       0.35,
       0.95
     );
-    const workingWeight = roundToNearestFive(oneRepMax * intensity);
+    const workingWeight = roundToWeightIncrement(oneRepMax * intensity, weightUnit);
 
     return {
+      id: createExerciseSetId(),
       name: `Working Set ${index + 1}`,
+      weightUnit,
       reps: clamp(targetReps, profile.repRange[0], profile.repRange[1]),
       percentage: Number(intensity.toFixed(2)),
       weight: workingWeight,
@@ -167,7 +178,9 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
   onCancel,
   darkMode,
   isValid,
+  preferredUnits = "lb",
 }) => {
+  const weightUnit = normalizeWeightUnit(preferredUnits);
   const {
     setMyOneRepMax,
     mySets,
@@ -192,6 +205,20 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
     String(Math.max(exercise.sets?.length || 3, 1))
   );
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const duplicateSetNameCount = mySets.reduce((count, currentSet) => {
+    const normalizedName = String(currentSet?.name ?? "").trim().toLowerCase();
+    if (!normalizedName) {
+      return count;
+    }
+
+    return mySets.filter(
+      (candidate) =>
+        String(candidate?.name ?? "").trim().toLowerCase() === normalizedName
+    ).length > 1
+      ? count + 1
+      : count;
+  }, 0);
 
   const handleUpdateOneRepMax = (oneRepMax: string) => {
     const numericValue = parseFloat(oneRepMax);
@@ -229,12 +256,15 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
   };
 
   const handleAddSet = () => {
+    setValidationMessage(null);
     const sets = [...mySets];
     if (sets.length === 0) {
       let defaultSet;
       if (exercise.type === "weight") {
         defaultSet = {
+          id: createExerciseSetId(),
           name: "Working Set 1",
+          weightUnit,
           reps: 10,
           weight: exercise.max || 0,
           actualWeight: "",
@@ -243,6 +273,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
         };
       } else {
         defaultSet = {
+          id: createExerciseSetId(),
           name: "Timed Set 1",
           hours: emptyOrNullToZero(exercise.hours),
           minutes: emptyOrNullToZero(exercise.minutes),
@@ -263,7 +294,9 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
       exercise.type === "weight"
         ? {
             ...lastSet,
-            weight: roundToNearestFive((lastSet.weight || 0) * 1.05),
+            id: createExerciseSetId(),
+            weight: roundToWeightIncrement((lastSet.weight || 0) * 1.05, weightUnit),
+            weightUnit,
             actualWeight: "",
             actualReps: "",
             complete: false,
@@ -271,6 +304,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
           }
         : {
             ...lastSet,
+            id: createExerciseSetId(),
             actualHours: "",
             actualMinutes: "",
             actualSeconds: "",
@@ -282,6 +316,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
   };
 
   const handleGenerateSets = () => {
+    setValidationMessage(null);
     if (!myOneRepMax || myOneRepMax <= 0) {
       setGenerationMessage("Enter a realistic 1RM first so we can estimate working sets.");
       return;
@@ -293,6 +328,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
       effort,
       desiredSetCount: safeSetCount,
       profile,
+      weightUnit,
     });
 
     setMySets(generatedSets);
@@ -304,12 +340,27 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
   };
 
   const handleSetChange = (setIndex: number, nextSet: any) => {
+    setValidationMessage(null);
     setMySets((prevSets) =>
       prevSets.map((set, index) => (index === setIndex ? nextSet : set))
     );
   };
 
   const handleSave = () => {
+    const validationErrors = mySets.flatMap((set, setIndex) =>
+      validateExerciseSetForEntry({
+        set,
+        type: exercise.type,
+        index: setIndex,
+      })
+    );
+
+    if (validationErrors.length > 0) {
+      setValidationMessage(validationErrors[0]);
+      return;
+    }
+
+    setValidationMessage(null);
     const updatedExercise = {
       ...exercise,
       sets: mySets,
@@ -460,8 +511,12 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                     onChange={(e) =>
                       setMyRest(Math.max(0, Number(e.target.value) || 0))
                     }
-                    inputProps={{ min: 0, step: 5 }}
-                    helperText="This controls the rest timer between sets."
+                    inputProps={{
+                      min: WORKOUT_VALUE_LIMITS.rest.min,
+                      max: WORKOUT_VALUE_LIMITS.rest.max,
+                      step: 5,
+                    }}
+                    helperText={`This controls the rest timer between sets. Use ${WORKOUT_VALUE_LIMITS.rest.min}-${WORKOUT_VALUE_LIMITS.rest.max} seconds.`}
                   />
 
                   <Box>
@@ -492,6 +547,11 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                       {generationMessage}
                     </Alert>
                   )}
+                  {duplicateSetNameCount > 0 ? (
+                    <Alert severity="warning" sx={{ borderRadius: 3 }}>
+                      Duplicate set labels are allowed, but they can be harder to scan during a workout.
+                    </Alert>
+                  ) : null}
                 </Stack>
               ) : (
                 <Alert severity="info" sx={{ borderRadius: 3 }}>
@@ -510,9 +570,19 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
               onChange={(e) =>
                 setMyRest(Math.max(0, Number(e.target.value) || 0))
               }
-              inputProps={{ min: 0, step: 5 }}
-              helperText="This controls the rest timer between sets."
+              inputProps={{
+                min: WORKOUT_VALUE_LIMITS.rest.min,
+                max: WORKOUT_VALUE_LIMITS.rest.max,
+                step: 5,
+              }}
+              helperText={`This controls the rest timer between sets. Use ${WORKOUT_VALUE_LIMITS.rest.min}-${WORKOUT_VALUE_LIMITS.rest.max} seconds.`}
             />
+          ) : null}
+
+          {validationMessage ? (
+            <Alert severity="error" sx={{ borderRadius: 3 }}>
+              {validationMessage}
+            </Alert>
           ) : null}
 
           <Divider />
@@ -545,25 +615,26 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
                   {mySets.map((set, setIndex) =>
                     exercise.type === "timed" ? (
                       <SetEditTimerItem
-                        key={`set-edit-timer-${set.name}-${setIndex}`}
+                        key={`set-edit-timer-${set.id ?? setIndex}`}
                         set={set}
                         index={setIndex}
                         darkMode={darkMode}
                         onChangeSet={(nextSet) => handleSetChange(setIndex, nextSet)}
                         handleDeleteSet={(setToRemove) =>
-                          setMySets(mySets.filter((s) => s.name !== setToRemove.name))
+                          setMySets(mySets.filter((s) => s.id !== setToRemove.id))
                         }
                       />
                     ) : (
                       <SetEditWeightItem
-                        key={`set-edit-weight-${set.name}-${setIndex}`}
+                        key={`set-edit-weight-${set.id ?? setIndex}`}
                         set={set}
                         index={setIndex}
                         isManualEdit={true}
                         darkMode={darkMode}
+                        preferredUnits={weightUnit}
                         onChangeSet={(nextSet) => handleSetChange(setIndex, nextSet)}
                         handleDeleteSet={(setToRemove) =>
-                          setMySets(mySets.filter((s) => s.name !== setToRemove.name))
+                          setMySets(mySets.filter((s) => s.id !== setToRemove.id))
                         }
                       />
                     )
@@ -605,7 +676,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
           >
             <Typography sx={{ color: "text.secondary" }}>
               {exercise.type === "weight"
-                ? `Rest timer: ${Number(myRest) || 0}s`
+                ? `Rest timer: ${Number(myRest) || 0}s • Weight unit ${weightUnit}`
                 : "Review your sets, then save."}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -634,7 +705,7 @@ const ExerciseEditItem: React.FC<ExerciseEditItemProps> = ({
 };
 
 const useExerciseEditItemState = (exercise: any) => {
-  const [mySets, setMySets] = useState<any[]>(exercise.sets);
+  const [mySets, setMySets] = useState<any[]>(ensureExerciseSetIds(exercise.sets));
   const [myOneRepMax, setMyOneRepMax] = useState(
     emptyOrNullToZero(exercise.oneRepMax || exercise.max)
   );

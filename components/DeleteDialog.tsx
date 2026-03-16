@@ -6,14 +6,13 @@ import {
   DialogActions,
   Button as MUIButton,
 } from "@mui/material";
-import { format, formatISO, isValid } from "date-fns";
+import { format, isValid } from "date-fns";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onDeleteToday: () => void;
   onDeleteAll: () => void;
-  /** The calendar day the user is viewing. Can be a Date or any parse‑able string. */
   targetDate: Date | string;
 };
 
@@ -24,15 +23,12 @@ const DeleteDialog: React.FC<Props> = ({
   onDeleteAll,
   targetDate,
 }) => {
-  /* -------------------------------------------------------------- */
-  /* Normalise + format dates                                       */
-  /* -------------------------------------------------------------- */
   const dateObj =
     targetDate instanceof Date ? targetDate : new Date(targetDate);
-
   const isDateValid = isValid(dateObj);
-  const fullDate = isDateValid ? format(dateObj, "PPP") : "this day"; // e.g. "Jul 22 2025"
-  const weekDay = isDateValid ? format(dateObj, "EEEE") : "this weekday"; // e.g. "Tuesday"
+  const fullDate = isDateValid ? format(dateObj, "PPP") : "this day";
+  const weekDay = isDateValid ? format(dateObj, "EEEE") : "this weekday";
+  const shortDate = isDateValid ? format(dateObj, "MMM d") : "this day";
 
   return (
     <Dialog open={open} onClose={onClose}>
@@ -40,17 +36,18 @@ const DeleteDialog: React.FC<Props> = ({
 
       <DialogContent>
         <p>
-          Do you want to remove it only from <b>{fullDate}</b> or from{" "}
-          <b>every {weekDay}</b>?
+          Remove this exercise only from <b>{fullDate}</b>, or stop scheduling
+          it on future <b>{weekDay}s</b>? Past logged history will stay the
+          same.
         </p>
       </DialogContent>
 
       <DialogActions>
         <MUIButton variant="outlined" onClick={onDeleteToday}>
-          Only {fullDate}
+          Remove only for {shortDate}
         </MUIButton>
         <MUIButton color="error" onClick={onDeleteAll}>
-          All {weekDay}s
+          Stop future {weekDay} repeats
         </MUIButton>
       </DialogActions>
     </Dialog>

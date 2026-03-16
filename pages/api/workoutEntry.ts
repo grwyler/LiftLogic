@@ -1,8 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
 import { ObjectId } from "mongodb";
-import { ExerciseSet, WorkoutEntryDoc } from "@/utils/types";
-import { applyWorkoutMilestones } from "../../utils/betaFunnel";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
+import { ExerciseSet, WorkoutEntryAuditDoc, WorkoutEntryDoc } from "@/utils/types";
+import { applyWorkoutMilestones, normalizeBetaFunnel } from "../../utils/betaFunnel";
+import { ensureExerciseSetIds } from "../../utils/exerciseSetIds";
+import { validateWorkoutEntry } from "../../utils/workoutValidation";
+import { DEFAULT_WEIGHT_UNIT, normalizeWeightUnit, normalizeWorkoutEntryWeights } from "../../utils/weightUnits";
+import { randomUUID } from "crypto";
 
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === "") {
@@ -48,15 +54,32 @@ const normalizeOptionalDate = (value: unknown) => {
 };
 
 const normalizeWorkoutEntrySets = (
-  sets: WorkoutEntryDoc["sets"]
+  sets: WorkoutEntryDoc["sets"],
+  weightUnit = DEFAULT_WEIGHT_UNIT
 ): ExerciseSet[] | undefined => {
   if (!Array.isArray(sets)) {
     return sets;
   }
 
-  return sets.map((set) => {
-    const normalizedSet: ExerciseSet = {
+  return ensureExerciseSetIds(sets).map((set) => {
+    const normalizedSet = normalizeWorkoutEntryWeights(
+      {
+        userId: "",
+        exerciseId: "",
+        routineName: "",
+        date: new Date(),
+        weightUnit,
+        sets: [set],
+      } as WorkoutEntryDoc,
+      weightUnit
+    ).sets?.[0];
+    return {
+      ...(normalizedSet ?? set),
       ...set,
+      weightUnit: normalizedSet?.weightUnit ?? normalizeWeightUnit((set as any)?.weightUnit ?? weightUnit),
+      actualWeightUnit: normalizedSet?.actualWeightUnit,
+      weightInLb: normalizedSet?.weightInLb,
+      actualWeightInLb: normalizedSet?.actualWeightInLb,
       reps: normalizeOptionalNumber(set?.reps) as number | undefined,
       percentage: normalizeOptionalNumber(set?.percentage) as
         | number
@@ -93,9 +116,7 @@ const normalizeWorkoutEntrySets = (
         | Date
         | string
         | undefined,
-    };
-
-    return normalizedSet;
+    } as ExerciseSet;
   });
 };
 
@@ -124,6 +145,155 @@ const parseWorkoutEntryDate = (rawDate: unknown) => {
   return isNaN(+fallback) ? null : fallback;
 };
 
+const getStringId = (value: unknown) => String(value ?? "").trim();
+
+const buildRecurringEntryInstanceId = (
+  ruleId: string,
+  parsedDate: Date,
+  routineName: string
+) => {
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+  return `recurring-entry::${ruleId}::${year}-${month}-${day}::${routineName}`;
+};
+
+const isHistoricalMutationDate = (value: Date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(value);
+  target.setHours(0, 0, 0, 0);
+  return target.getTime() < today.getTime();
+};
+
+const sanitizeEntryForAudit = (
+  entry?: WorkoutEntryDoc | null
+): Partial<WorkoutEntryDoc> | null => {
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    _id: entry._id,
+    entryInstanceId: entry.entryInstanceId,
+    userId: entry.userId,
+    exerciseId: entry.exerciseId,
+    routineName: entry.routineName,
+    date: entry.date,
+    complete: entry.complete,
+    skipped: entry.skipped,
+    ruleId: entry.ruleId,
+    sets: entry.sets,
+    updatedAt: entry.updatedAt,
+    createdAt: entry.createdAt,
+  };
+};
+
+const recomputeWorkoutDerivedState = async ({
+  db,
+  col,
+  userId,
+}: {
+  db: any;
+  col: any;
+  userId: string;
+}) => {
+  if (!ObjectId.isValid(userId)) {
+    return;
+  }
+
+  const users = db.collection("users");
+  const [user, completedEntries] = await Promise.all([
+    users.findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { createdAt: 1, betaFunnel: 1 } }
+    ),
+    col
+      .find(
+        {
+          userId,
+          complete: true,
+          skipped: { $ne: true },
+        },
+        { projection: { date: 1 } }
+      )
+      .sort({ date: 1 })
+      .toArray(),
+  ]);
+
+  if (!user) {
+    return;
+  }
+
+  const normalizedFunnel = normalizeBetaFunnel(user.betaFunnel);
+  const nextBetaFunnel = applyWorkoutMilestones({
+    funnel: {
+      landingCtaAt: normalizedFunnel.landingCtaAt,
+      signupCompletedAt: normalizedFunnel.signupCompletedAt,
+      setupCompletedAt: normalizedFunnel.setupCompletedAt,
+    },
+    signupCompletedAt:
+      normalizedFunnel.signupCompletedAt ?? user.createdAt ?? null,
+    workoutDates: completedEntries.map((completedEntry) => completedEntry.date),
+  });
+
+  await users.updateOne(
+    { _id: new ObjectId(userId) },
+    {
+      $set: {
+        betaFunnel: nextBetaFunnel,
+        updatedAt: new Date(),
+      },
+    }
+  );
+};
+
+const writeWorkoutEntryAudit = async ({
+  db,
+  actor,
+  action,
+  previousEntry,
+  nextEntry,
+}: {
+  db: any;
+  actor: { userId?: string; username?: string; email?: string };
+  action: WorkoutEntryAuditDoc["action"];
+  previousEntry?: WorkoutEntryDoc | null;
+  nextEntry?: WorkoutEntryDoc | null;
+}) => {
+  const referenceEntry = nextEntry ?? previousEntry;
+  if (!referenceEntry?.userId) {
+    return;
+  }
+
+  const changedDate =
+    nextEntry?.date instanceof Date
+      ? nextEntry.date
+      : previousEntry?.date instanceof Date
+      ? previousEntry.date
+      : parseWorkoutEntryDate(nextEntry?.date ?? previousEntry?.date ?? "");
+
+  await db.collection("workoutEntryAudits").insertOne({
+    workoutEntryId:
+      nextEntry?._id ??
+      previousEntry?._id?.toString?.() ??
+      previousEntry?._id,
+    entryInstanceId:
+      nextEntry?.entryInstanceId ?? previousEntry?.entryInstanceId,
+    userId: referenceEntry.userId,
+    actorUserId: actor.userId,
+    actorUsername: actor.username,
+    actorEmail: actor.email,
+    action,
+    routineName: referenceEntry.routineName,
+    exerciseId: referenceEntry.exerciseId,
+    changedAt: new Date(),
+    isHistoricalMutation: changedDate ? isHistoricalMutationDate(changedDate) : false,
+    previousEntry: sanitizeEntryForAudit(previousEntry),
+    nextEntry: sanitizeEntryForAudit(nextEntry),
+  });
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -132,6 +302,21 @@ export default async function handler(
 
   const db = await connectToDatabase();
   const col = db.collection<WorkoutEntryDoc>("workoutEntries");
+  const session = await getServerSession(req, res, authOptions);
+  const actor = {
+    userId:
+      (session as any)?.token?.user?._id ??
+      (session as any)?.user?._id ??
+      undefined,
+    username:
+      (session as any)?.token?.user?.username ??
+      (session as any)?.user?.username ??
+      undefined,
+    email:
+      (session as any)?.token?.user?.email ??
+      (session as any)?.user?.email ??
+      undefined,
+  };
 
   try {
     if (req.method === "POST") {
@@ -154,11 +339,33 @@ export default async function handler(
         return res.status(400).json({ message: "exerciseId required" });
       }
 
+      const userDoc =
+        ObjectId.isValid(entry.userId)
+          ? await db
+              .collection("users")
+              .findOne(
+                { _id: new ObjectId(entry.userId) },
+                { projection: { preferredUnits: 1 } }
+              )
+          : null;
+      const entryWeightUnit = normalizeWeightUnit(
+        entry.weightUnit ?? userDoc?.preferredUnits ?? DEFAULT_WEIGHT_UNIT
+      );
+
       const parsedDate = parseWorkoutEntryDate(entry.date);
       if (!parsedDate) {
         console.warn("[POST] Unparseable date", entry.date);
         return res.status(400).json({ message: "Bad date format" });
       }
+
+      const rawEntryId = getStringId(entry._id);
+      const rawRuleId = getStringId((entry as WorkoutEntryDoc & { ruleId?: string | null }).ruleId);
+      const resolvedEntryInstanceId =
+        getStringId(entry.entryInstanceId) ||
+        (rawEntryId && !ObjectId.isValid(rawEntryId) ? rawEntryId : "") ||
+        (rawRuleId
+          ? buildRecurringEntryInstanceId(rawRuleId, parsedDate, entry.routineName)
+          : randomUUID());
 
       const {
         _id: _discardId,
@@ -166,10 +373,26 @@ export default async function handler(
         updatedAt: _discardUpdatedAt,
         date: _discardDate,
         exerciseId: _discardExerciseId,
+        entryInstanceId: _discardEntryInstanceId,
         ...cleanEntry
       } = entry;
 
-      const normalizedSets = normalizeWorkoutEntrySets(cleanEntry.sets);
+      const normalizedSets = normalizeWorkoutEntrySets(cleanEntry.sets, entryWeightUnit);
+      const normalizedEntryForValidation = {
+        ...entry,
+        date: parsedDate,
+        exerciseId,
+        weightUnit: entryWeightUnit,
+        sets: normalizedSets,
+      } as WorkoutEntryDoc;
+      const validationErrors = validateWorkoutEntry(normalizedEntryForValidation);
+      if (validationErrors.length > 0) {
+        console.warn("[POST] Validation failed", validationErrors);
+        return res.status(400).json({
+          message: validationErrors[0],
+          errors: validationErrors,
+        });
+      }
       const shouldUnsetRuleId =
         Object.prototype.hasOwnProperty.call(cleanEntry, "ruleId") &&
         (cleanEntry as any).ruleId == null;
@@ -179,12 +402,13 @@ export default async function handler(
         ...settableEntry
       } = cleanEntry as WorkoutEntryDoc & { ruleId?: string | null };
 
-      const filter = {
-        userId: entry.userId,
-        exerciseId,
-        date: parsedDate,
-        routineName: entry.routineName,
-      };
+      const filter = ObjectId.isValid(rawEntryId)
+        ? { _id: new ObjectId(rawEntryId) }
+        : {
+            userId: entry.userId,
+            entryInstanceId: resolvedEntryInstanceId,
+          };
+      const existingEntry = await col.findOne(filter);
 
       const result = await col.updateOne(
         filter,
@@ -192,7 +416,9 @@ export default async function handler(
           $set: {
             ...settableEntry,
             ...(shouldUnsetRuleId ? {} : { ruleId: incomingRuleId }),
+            weightUnit: entryWeightUnit,
             sets: normalizedSets,
+            entryInstanceId: resolvedEntryInstanceId,
             exerciseId,
             date: parsedDate,
             updatedAt: new Date(),
@@ -206,50 +432,27 @@ export default async function handler(
       const mode = result.upsertedCount ? "Inserted" : "Updated";
       const docId = result.upsertedId ?? "(existing)";
       console.info(`[POST] ${mode} - id: ${docId}`);
-
-      if (entry.complete && !entry.skipped && ObjectId.isValid(entry.userId)) {
-        const users = db.collection("users");
-        const [user, completedEntries] = await Promise.all([
-          users.findOne(
-            { _id: new ObjectId(entry.userId) },
-            { projection: { createdAt: 1, betaFunnel: 1 } }
-          ),
-          col
-            .find(
-              {
-                userId: entry.userId,
-                complete: true,
-                skipped: { $ne: true },
-              },
-              { projection: { date: 1 } }
-            )
-            .sort({ date: 1 })
-            .toArray(),
-        ]);
-
-        if (user) {
-          const nextBetaFunnel = applyWorkoutMilestones({
-            funnel: user.betaFunnel,
-            signupCompletedAt:
-              user.betaFunnel?.signupCompletedAt ?? user.createdAt ?? null,
-            workoutDates: completedEntries.map((completedEntry) => completedEntry.date),
-          });
-
-          await users.updateOne(
-            { _id: new ObjectId(entry.userId) },
-            {
-              $set: {
-                betaFunnel: nextBetaFunnel,
-                updatedAt: new Date(),
-              },
-            }
-          );
-        }
-      }
+      const savedEntry = await col.findOne(filter);
+      await recomputeWorkoutDerivedState({
+        db,
+        col,
+        userId: entry.userId,
+      });
+      await writeWorkoutEntryAudit({
+        db,
+        actor,
+        action: existingEntry ? "update" : "create",
+        previousEntry: existingEntry,
+        nextEntry: savedEntry,
+      });
 
       return res
         .status(result.upsertedCount ? 201 : 200)
-        .json({ message: "Workout entry saved", entryId: docId });
+        .json({
+          message: "Workout entry saved",
+          entryId: String(savedEntry?._id ?? result.upsertedId ?? rawEntryId ?? ""),
+          entryInstanceId: savedEntry?.entryInstanceId ?? resolvedEntryInstanceId,
+        });
     }
 
     if (req.method === "GET") {
@@ -376,10 +579,27 @@ export default async function handler(
         return res.status(400).json({ message: "Bad entryId" });
       }
 
+      const existingEntry = await col.findOne({ _id: objId });
       const { deletedCount } = await col.deleteOne({ _id: objId });
       console.info(
         `[DELETE] ${deletedCount ? "Deleted" : "Not found"} - id: ${entryId}`
       );
+
+      if (deletedCount && existingEntry?.userId) {
+        await recomputeWorkoutDerivedState({
+          db,
+          col,
+          userId: existingEntry.userId,
+        });
+        await writeWorkoutEntryAudit({
+          db,
+          actor,
+          action: "delete",
+          previousEntry: existingEntry,
+          nextEntry: null,
+        });
+      }
+
       return res
         .status(deletedCount ? 200 : 404)
         .json({ message: deletedCount ? "Deleted" : "Not found" });

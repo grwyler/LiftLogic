@@ -349,6 +349,7 @@ export default function CoachChatPanel({
         })),
         profile,
         coachResponse,
+        userId: sessionUserId,
       })) as CoachReplyPayload;
 
       setAssistantSource(response.source);
@@ -424,7 +425,7 @@ export default function CoachChatPanel({
         {
           id: `coach-error-${Date.now()}`,
           role: "coach",
-          text: "I hit a snag answering that, but I can still help. Ask me about the split, exercise swaps, or how to start the week.",
+          text: "I couldn't answer that just now. Try asking again, or ask me to adjust your split, swap an exercise, or explain your first workout.",
           feedbackEnabled: false,
         },
       ]);
@@ -439,7 +440,7 @@ export default function CoachChatPanel({
     explanation?: string
   ) => {
     if (!sessionUserId) {
-      toast.error("You need to be signed in to send assistant feedback.");
+      toast.error("Sign in to save assistant feedback to your account.");
       return;
     }
 
@@ -487,7 +488,7 @@ export default function CoachChatPanel({
       );
     } catch (error) {
       console.error("Error submitting assistant feedback:", error);
-      toast.error("Couldn't save that assistant feedback.");
+      toast.error("Your feedback was not saved. Try again in a moment.");
     }
   };
 
@@ -567,8 +568,8 @@ export default function CoachChatPanel({
     >
       <Stack spacing={1.5}>
         <Alert severity="warning" sx={{ borderRadius: 2.5 }}>
-          The workout assistant is still in beta testing. It may be wrong,
-          incomplete, or behave unexpectedly while we keep improving it.
+          The workout assistant is still improving. Use it as a planning
+          partner, and double-check any changes before you train.
         </Alert>
 
         {fallbackNotice ? (

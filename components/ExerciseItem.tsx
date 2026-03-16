@@ -9,7 +9,6 @@ import {
   Dialog,
   AppBar,
   Toolbar,
-  TextField,
 } from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import CheckIcon from "@mui/icons-material/Check";
@@ -23,9 +22,8 @@ import ExerciseEditItem from "./ExerciseEditItem";
 import RepeatScheduleDialog from "./RepeatScheduleDialog";
 import CRUDMenuButton from "./CRUDMenuButton";
   import {
+    getWorkoutEntryIdentity,
     deleteWorkoutEntry,
-    fetchExerciseProgress,
-    formatTime,
     saveRecurringRule,
     saveWorkoutEntry,
     toLocalDateKey,
@@ -35,16 +33,20 @@ import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import DeleteDialog from "./DeleteDialog";
 import { toast } from "react-toastify";
-import PauseIcon from "@mui/icons-material/Pause";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import SkipNextIcon from "@mui/icons-material/SkipNext";
-import RemoveIcon from "@mui/icons-material/Remove";
 import {
   clearPendingLogAttempt,
   emitDevBugInteraction,
   markPendingLogAttemptPersisted,
   setPendingLogAttempt,
 } from "../utils/devBugRecorder";
+import { createExerciseSetId, ensureExerciseSetIds } from "../utils/exerciseSetIds";
+import {
+  formatWeight,
+  formatWeightValue,
+  fromCanonicalWeightLb,
+  getDisplayWeightFromSet,
+  normalizeWeightUnit,
+} from "../utils/weightUnits";
 
 const completedExerciseRadius = {
   panel: "28px",
@@ -57,8 +59,8 @@ const ExerciseItem = ({
   exerciseIndex,
   exercises,
   workout,
-  currentExerciseIndex,
   setCurrentExerciseIndex,
+  isOpen,
   formattedDate,
   routineName,
   setExercises,
@@ -68,6 +70,13 @@ const ExerciseItem = ({
   setRefetchExercises,
   refreshCalendarStatuses,
   userProfile,
+  recommendation,
+  progressSummary,
+  loadingRecommendation,
+  progressionRecommendationsEnabled = true,
+  recurringSchedulingEnabled = true,
+  isRestTimerBlocking,
+  openRestTimer,
 }) => {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(exercise);
@@ -75,6 +84,7 @@ const ExerciseItem = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRepeatDialog, setShowRepeatDialog] = useState(false);
   const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
+  const [applyingRecommendation, setApplyingRecommendation] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<
     "daily" | "weekly" | "custom" | "monthly"
   >("weekly");
@@ -83,15 +93,6 @@ const ExerciseItem = ({
   const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>([0]);
   const [repeatDayOfMonth, setRepeatDayOfMonth] = useState(1);
   const [repeatEndDate, setRepeatEndDate] = useState("");
-  const [recommendation, setRecommendation] = useState<any>(null);
-  const [progressSummary, setProgressSummary] = useState<any>(null);
-  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-  const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
-  const [isRestTimerActive, setIsRestTimerActive] = useState(false);
-  const [restEditorValue, setRestEditorValue] = useState(
-    String(exercise.rest ?? 0)
-  );
-  const appliedRecommendationRef = useRef<string | null>(null);
   const exerciseIdentityRef = useRef<string | null>(null);
   const { data: session } = useSession() as {
     data: (Session & { token: { user } }) | null;
@@ -102,9 +103,11 @@ const ExerciseItem = ({
     (session as any)?.user?._id ??
     currentExercise?.userId ??
     exercise?.userId;
-  const isOpen = exerciseIndex === currentExerciseIndex;
+  const preferredUnits = normalizeWeightUnit(
+    userProfile?.preferredUnits ?? currentExercise?.weightUnit ?? exercise?.weightUnit
+  );
   const exerciseIdentity = String(
-    exercise?.ruleId ?? exercise?.exerciseId ?? exercise?._id ?? exercise?.name ?? exerciseIndex
+    getWorkoutEntryIdentity(exercise, exerciseIndex)
   );
 
   const parseFormattedDate = (value: string): Date | null => {
@@ -169,151 +172,48 @@ const ExerciseItem = ({
   };
 
   useEffect(() => {
-    setCurrentExercise(exercise);
+    setCurrentExercise({
+      ...exercise,
+      sets: ensureExerciseSetIds(exercise?.sets),
+    });
     setIsRepeating(exercise.isRepeating);
-    setRestEditorValue(String(exercise.rest ?? 0));
     syncRepeatScheduleState(exercise as any);
 
     if (exerciseIdentityRef.current !== exerciseIdentity) {
       exerciseIdentityRef.current = exerciseIdentity;
-      appliedRecommendationRef.current = null;
-      setRestSecondsRemaining(0);
-      setIsRestTimerActive(false);
     }
   }, [exercise, exerciseIdentity]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setRestSecondsRemaining(0);
-      setIsRestTimerActive(false);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isRestTimerActive || restSecondsRemaining <= 0) {
-      if (restSecondsRemaining === 0) {
-        setIsRestTimerActive(false);
-      }
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setRestSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(interval);
-          setIsRestTimerActive(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [isRestTimerActive, restSecondsRemaining]);
-
-  useEffect(() => {
-    const exerciseId = currentExercise?.exerciseId ?? currentExercise?._id;
-
-    if (!currentUserId || !exerciseId || currentExercise?.type !== "weight") {
-      setRecommendation(null);
-      setProgressSummary(null);
-      setLoadingRecommendation(false);
-      return;
-    }
-
-    let active = true;
-    setLoadingRecommendation(true);
-
-    const timeout = setTimeout(async () => {
-      try {
-        const result = await fetchExerciseProgress(currentUserId, exerciseId);
-        if (!active) {
-          return;
-        }
-
-        setProgressSummary(result?.summary ?? null);
-        setRecommendation(result?.recommendation ?? null);
-      } catch (error) {
-        console.error("Failed to load exercise recommendation", error);
-        if (active) {
-          setProgressSummary(null);
-          setRecommendation(null);
-        }
-      } finally {
-        if (active) {
-          setLoadingRecommendation(false);
-        }
-      }
-    }, 250);
-
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [
-    currentUserId,
-    currentExercise?._id,
-    currentExercise?.exerciseId,
-    currentExercise?.type,
-    currentExercise?.complete,
-  ]);
-
-  useEffect(() => {
-    const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
-
-    if (
-      currentExercise?.type !== "weight" ||
-      currentExercise?.complete ||
-      completedSets.length > 0 ||
-      !recommendation?.recommendedWeight ||
-      !recommendation?.recommendedReps ||
-      !recommendation?.recommendedSets
-    ) {
-      return;
-    }
-
-    const recommendationKey = [
-      currentExercise?.exerciseId ?? currentExercise?._id,
-      formattedDate,
-      recommendation.recommendedWeight,
-      recommendation.recommendedReps,
-      recommendation.recommendedSets,
-    ].join("::");
-
-    if (appliedRecommendationRef.current === recommendationKey) {
-      return;
-    }
-
-    const incompleteTemplate =
-      (currentExercise?.sets ?? []).find((set) => !set.complete) ??
-      (currentExercise?.sets ?? [])[0] ?? {
-        name: "Working Set 1",
-        percentage: undefined,
-      };
-
-    const recommendedIncompleteSets = Array.from(
-      { length: recommendation.recommendedSets },
-      (_, index) => ({
-        ...incompleteTemplate,
-        name: `Working Set ${index + 1}`,
-        reps: recommendation.recommendedReps,
-        weight: recommendation.recommendedWeight,
-        actualWeight: "",
-        actualReps: "",
-        complete: false,
-      })
-    );
-
-    appliedRecommendationRef.current = recommendationKey;
-    setCurrentExercise((prev) => ({
-      ...prev,
-      sets: [...completedSets, ...recommendedIncompleteSets],
-    }));
-  }, [currentExercise, formattedDate, recommendation]);
 
   const renderCompletedPerformancePanel = () => {
     if (currentExercise.type !== "weight" || !currentExercise.complete) {
       return null;
+    }
+
+    if (!progressionRecommendationsEnabled) {
+      return (
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 1.5,
+            p: 1.5,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor: darkMode
+              ? "rgba(148,163,184,0.12)"
+              : "rgba(17,24,39,0.08)",
+            backgroundColor: darkMode
+              ? "rgba(17,24,39,0.72)"
+              : "rgba(249,250,251,0.92)",
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Performance
+          </Typography>
+          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+            Progress-based recommendations and analytics are part of Pro Beta.
+          </Typography>
+        </Paper>
+      );
     }
 
     const latestEstimated1RM = progressSummary?.latestEstimated1RM ?? null;
@@ -321,7 +221,11 @@ const ExerciseItem = ({
     const heaviestWeightEver = progressSummary?.heaviestWeightEver ?? null;
     const delta =
       latestEstimated1RM !== null && previousEstimated1RM !== null
-        ? Math.round((latestEstimated1RM - previousEstimated1RM) * 10) / 10
+        ? Math.round(
+            (fromCanonicalWeightLb(latestEstimated1RM, preferredUnits) -
+              fromCanonicalWeightLb(previousEstimated1RM, preferredUnits)) *
+              10
+          ) / 10
         : null;
     const hasPriorBenchmark = previousEstimated1RM !== null;
     const trendLabel =
@@ -386,7 +290,7 @@ const ExerciseItem = ({
           <>
             <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
               <Chip
-                label={`Est. 1RM ${latestEstimated1RM}`}
+                label={`Est. 1RM ${formatWeight(fromCanonicalWeightLb(latestEstimated1RM, preferredUnits), preferredUnits)}`}
                 variant="outlined"
                 sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
               />
@@ -399,7 +303,7 @@ const ExerciseItem = ({
               ) : null}
               {heaviestWeightEver ? (
                 <Chip
-                  label={`Best weight ${heaviestWeightEver}`}
+                  label={`Best weight ${formatWeight(fromCanonicalWeightLb(heaviestWeightEver, preferredUnits), preferredUnits)}`}
                   variant="outlined"
                   sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
                 />
@@ -408,7 +312,7 @@ const ExerciseItem = ({
 
             {progressSummary?.bestRepPerformance ? (
               <Typography sx={{ mt: 1, color: "text.secondary" }}>
-                Best logged set: {progressSummary.bestRepPerformance.weight} x{" "}
+                Best logged set: {formatWeight(fromCanonicalWeightLb(progressSummary.bestRepPerformance.weight, preferredUnits), preferredUnits)} x{" "}
                 {progressSummary.bestRepPerformance.reps}.
               </Typography>
             ) : null}
@@ -422,84 +326,187 @@ const ExerciseItem = ({
     );
   };
 
-  const startRestTimer = (seconds: number) => {
-    if (!seconds || seconds <= 0) {
-      setRestSecondsRemaining(0);
-      setIsRestTimerActive(false);
+  const buildRecommendedIncompleteSets = () => {
+    const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
+    const incompleteTemplate =
+      (currentExercise?.sets ?? []).find((set) => !set.complete) ??
+      (currentExercise?.sets ?? [])[0] ?? {
+        name: "Working Set 1",
+        percentage: undefined,
+      };
+
+    const recommendedIncompleteSets = Array.from(
+      { length: recommendation.recommendedSets },
+      (_, index) => ({
+        ...incompleteTemplate,
+        id: createExerciseSetId(),
+        name: `Working Set ${index + 1}`,
+        reps: recommendation.recommendedReps,
+        weight: recommendation.recommendedWeight,
+        weightUnit: recommendation.weightUnit ?? preferredUnits,
+        actualWeight: "",
+        actualReps: "",
+        complete: false,
+      })
+    );
+
+    return [...completedSets, ...recommendedIncompleteSets];
+  };
+
+  const handleApplyRecommendation = async () => {
+    if (
+      !recommendation?.recommendedWeight ||
+      !recommendation?.recommendedReps ||
+      !recommendation?.recommendedSets
+    ) {
       return;
     }
 
-    setRestSecondsRemaining(seconds);
-    setIsRestTimerActive(true);
-  };
-
-  const persistRestUpdate = async (nextRest: number) => {
-    const normalizedRest = Math.max(0, nextRest || 0);
-
-    setCurrentExercise((prev) => ({
-      ...prev,
-      rest: normalizedRest,
-    }));
-    setRestEditorValue(String(normalizedRest));
-    setRestSecondsRemaining((prev) => {
-      if (prev <= 0) {
-        return normalizedRest;
-      }
-
-      return Math.min(prev, normalizedRest) || normalizedRest;
-    });
-
-    await saveWorkoutEntry({
-      userId: currentUserId,
-      exerciseId: currentExercise.exerciseId ?? currentExercise._id,
-      name: currentExercise.name,
-      type: currentExercise.type,
-      max: currentExercise.max,
-      routineName,
-      date: formattedDate,
-      rest: normalizedRest,
-      complete: currentExercise.complete ?? false,
-      sets: currentExercise.sets,
-      ruleId: currentExercise.ruleId,
-    } as any);
-  };
-
-  const pauseRestTimer = () => {
-    setIsRestTimerActive(false);
-  };
-
-  const resumeRestTimer = () => {
-    if (restSecondsRemaining > 0) {
-      setIsRestTimerActive(true);
-    }
-  };
-
-  const skipRestTimer = () => {
-    setRestSecondsRemaining(0);
-    setIsRestTimerActive(false);
-  };
-
-  const adjustRestTimer = (delta: number) => {
-    setRestSecondsRemaining((prev) => Math.max(0, prev + delta));
-  };
-
-  const handleApplyRestEdit = async () => {
-    const nextRest = Math.max(0, Number(restEditorValue) || 0);
+    const nextSets = buildRecommendedIncompleteSets();
+    const nextExercise = {
+      ...currentExercise,
+      sets: nextSets,
+    };
 
     try {
-      await persistRestUpdate(nextRest);
-      if (nextRest > 0) {
-        setRestSecondsRemaining(nextRest);
-        setIsRestTimerActive(true);
-      } else {
-        setRestSecondsRemaining(0);
-        setIsRestTimerActive(false);
-      }
-      toast.success("Rest updated");
+      setApplyingRecommendation(true);
+      setCurrentExercise(nextExercise);
+      await saveWorkoutEntry({
+        _id: nextExercise._id,
+        entryInstanceId:
+          nextExercise.entryInstanceId ??
+          nextExercise._id?.toString?.() ??
+          nextExercise._id,
+        userId: currentUserId,
+        exerciseId: nextExercise.exerciseId ?? nextExercise._id,
+        name: nextExercise.name,
+        type: nextExercise.type,
+        max: nextExercise.max,
+        weightUnit: recommendation.weightUnit ?? preferredUnits,
+        routineName,
+        date: formattedDate,
+        rest: nextExercise.rest,
+        complete: nextExercise.complete ?? false,
+        sets: nextSets,
+        ruleId: nextExercise.ruleId,
+      } as any);
+      setExercises((prev: any[]) =>
+        (Array.isArray(prev) ? prev : []).map((exerciseItem, index) =>
+          index === exerciseIndex
+            ? {
+                ...exerciseItem,
+                weightUnit: recommendation.weightUnit ?? preferredUnits,
+                sets: nextSets,
+              }
+            : exerciseItem
+        )
+      );
+      toast.success("Recommendation applied to this session");
     } catch (error) {
-      console.error(error);
-      toast.error("Couldn't update rest");
+      console.error("Failed to apply recommendation", error);
+      toast.error("The recommendation was not applied. Try again.");
+    } finally {
+      setApplyingRecommendation(false);
     }
+  };
+
+  const renderRecommendationPanel = () => {
+    if (!progressionRecommendationsEnabled && currentExercise.type === "weight") {
+      return (
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 1.5,
+            p: 1.5,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor: darkMode
+              ? "rgba(148,163,184,0.12)"
+              : "rgba(17,24,39,0.08)",
+            backgroundColor: darkMode
+              ? "rgba(30,41,59,0.66)"
+              : "rgba(248,250,252,0.92)",
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Recommended targets
+          </Typography>
+          <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+            Adaptive recommendations are available on Pro Beta.
+          </Typography>
+        </Paper>
+      );
+    }
+
+    if (
+      currentExercise.type !== "weight" ||
+      currentExercise.complete ||
+      !recommendation?.recommendedWeight ||
+      !recommendation?.recommendedReps ||
+      !recommendation?.recommendedSets
+    ) {
+      return null;
+    }
+
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 1.5,
+          p: 1.5,
+          borderRadius: completedExerciseRadius.section,
+          border: "1px solid",
+          borderColor: darkMode
+            ? "rgba(148,163,184,0.12)"
+            : "rgba(17,24,39,0.08)",
+          backgroundColor: darkMode
+            ? "rgba(30,41,59,0.66)"
+            : "rgba(248,250,252,0.92)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 1,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Recommended targets
+            </Typography>
+            <Typography sx={{ mt: 0.4, color: "text.secondary" }}>
+              Your planned sets stay unchanged until you apply this recommendation.
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            onClick={handleApplyRecommendation}
+            disabled={applyingRecommendation}
+          >
+            {applyingRecommendation ? "Applying..." : "Apply recommendation"}
+          </Button>
+        </Box>
+        <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Chip
+            label={`${recommendation.recommendedSets} set${
+              recommendation.recommendedSets === 1 ? "" : "s"
+            }`}
+            variant="outlined"
+          />
+          <Chip
+            label={formatWeight(recommendation.recommendedWeight, recommendation.weightUnit ?? preferredUnits)}
+            variant="outlined"
+          />
+          <Chip
+            label={`${recommendation.recommendedReps} reps`}
+            variant="outlined"
+          />
+        </Box>
+      </Paper>
+    );
   };
 
   const handleWorkoutButtonClick = (index) => {
@@ -508,7 +515,7 @@ const ExerciseItem = ({
     const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);
     setCurrentSetIndex(nextSetIndex !== -1 ? nextSetIndex : 0);
 
-    if (index !== currentExerciseIndex) {
+    if (!isOpen) {
       emitDevBugInteraction({
         type: "click",
         kind: "semantic",
@@ -578,6 +585,7 @@ const ExerciseItem = ({
     const newSetNumber = sets.length + 1;
     const newSet = {
       ...lastSet,
+      id: createExerciseSetId(),
       weight: lastSet.weight + lastSet.weight * 0.05,
       actualWeight: "",
       actualReps: "",
@@ -587,11 +595,11 @@ const ExerciseItem = ({
     setCurrentExercise({ ...currentExercise, sets: [...sets, newSet] });
   };
 
-  const handleDeleteSet = (setName) => {
+  const handleDeleteSet = (setId) => {
     const sets = [...currentExercise.sets];
     setCurrentExercise({
       ...currentExercise,
-      sets: sets.filter((s) => s.name !== setName),
+      sets: sets.filter((s) => s.id !== setId),
     });
   };
 
@@ -603,6 +611,11 @@ const ExerciseItem = ({
 
       if (scope === "today" && currentExercise.ruleId) {
         await saveWorkoutEntry({
+          _id: currentExercise._id,
+          entryInstanceId:
+            currentExercise.entryInstanceId ??
+            currentExercise._id?.toString?.() ??
+            currentExercise._id,
           userId: currentUserId,
           exerciseId: currentExercise.exerciseId,
           routineName,
@@ -665,6 +678,12 @@ const ExerciseItem = ({
     setIsEditing(false);
     saveWorkoutEntry({
       ...updatedExercise,
+      _id: updatedExercise._id ?? currentExercise._id,
+      entryInstanceId:
+        updatedExercise.entryInstanceId ??
+        currentExercise.entryInstanceId ??
+        updatedExercise._id ??
+        currentExercise._id,
       name: updatedExercise.name ?? currentExercise.name,
       type: updatedExercise.type ?? currentExercise.type,
       max: updatedExercise.max ?? currentExercise.max,
@@ -692,6 +711,10 @@ const ExerciseItem = ({
 
   const openRepeatDialog = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!recurringSchedulingEnabled) {
+      toast.info("Pro Beta is required to schedule recurring workouts.");
+      return;
+    }
     syncRepeatScheduleState(currentExercise as any);
     setShowRepeatDialog(true);
   };
@@ -730,6 +753,11 @@ const ExerciseItem = ({
       setIsRepeating(false);
 
       await saveWorkoutEntry({
+        _id: currentExercise._id,
+        entryInstanceId:
+          currentExercise.entryInstanceId ??
+          currentExercise._id?.toString?.() ??
+          currentExercise._id,
         name: currentExercise.name,
         type: currentExercise.type,
         max: currentExercise.max,
@@ -770,6 +798,11 @@ const ExerciseItem = ({
     if (!currentUserId) {
       console.error("Missing userId for repeat toggle");
       toast.error("Couldn't save the schedule");
+      return;
+    }
+
+    if (!recurringSchedulingEnabled) {
+      toast.info("Pro Beta is required to schedule recurring workouts.");
       return;
     }
 
@@ -829,6 +862,11 @@ const ExerciseItem = ({
 
       await saveWorkoutEntry({
         ...currentExercise,
+        _id: currentExercise._id,
+        entryInstanceId:
+          currentExercise.entryInstanceId ??
+          currentExercise._id?.toString?.() ??
+          currentExercise._id,
         name: currentExercise.name,
         type: currentExercise.type,
         max: currentExercise.max,
@@ -920,6 +958,7 @@ const ExerciseItem = ({
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
               sx={{ borderRadius: "14px" }}
+              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon
                 color={isRepeating ? "primary" : "disabled"}
@@ -980,12 +1019,13 @@ const ExerciseItem = ({
 
         {currentExercise.sets?.filter((s) => s.complete).map((s, i) => (
           <CompletedSetItem
-            key={`completed-log-set-${i}`}
+            key={`completed-log-set-${s.id ?? i}`}
             set={s}
             setIndex={i}
             setCurrentSetIndex={setCurrentSetIndex}
             type={completedExerciseType}
             darkMode={darkMode}
+            preferredUnits={preferredUnits}
             interactive={false}
           />
         ))}
@@ -1034,8 +1074,8 @@ const ExerciseItem = ({
   const nextOpenSet =
     currentExercise.sets?.find((s) => !s.complete) ?? currentExercise.sets?.[0];
   const upcomingWeight =
-    currentExercise.type === "weight" && nextOpenSet?.weight
-      ? Math.round((Number(nextOpenSet.weight) || 0) / 5) * 5
+    currentExercise.type === "weight"
+      ? getDisplayWeightFromSet(nextOpenSet, "planned", preferredUnits)
       : null;
   const upcomingReps =
     currentExercise.type === "weight" ? nextOpenSet?.reps ?? null : null;
@@ -1099,6 +1139,7 @@ const ExerciseItem = ({
               onClick={openRepeatDialog}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
+              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon
                 color={isRepeating ? "primary" : "disabled"}
@@ -1140,6 +1181,14 @@ const ExerciseItem = ({
                     : "rgba(17,24,39,0.08)",
                 }}
               />
+              {currentExercise.recommendationPending ? (
+                <Chip
+                  size="small"
+                  label="Personalizing..."
+                  color="warning"
+                  variant="outlined"
+                />
+              ) : null}
               {currentExercise.type === "weight" && upcomingWeight && upcomingReps ? (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   Next up: {upcomingWeight} x {upcomingReps}
@@ -1162,7 +1211,7 @@ const ExerciseItem = ({
               fontWeight: 600,
             }}
           >
-            Open
+            Start Lift
           </Button>
         </Box>
       </Paper>
@@ -1178,172 +1227,6 @@ const ExerciseItem = ({
           },
         }}
       >
-        <Dialog
-          fullScreen
-          open={
-            isOpen &&
-            currentExercise.type === "weight" &&
-            (restSecondsRemaining > 0 || isRestTimerActive)
-          }
-          onClose={() => {}}
-          PaperProps={{
-            sx: {
-              backgroundColor: darkMode ? "#020617" : "#f8fafc",
-              color: darkMode ? "#f8fafc" : "#111827",
-              backgroundImage: darkMode
-                ? "radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 38%)"
-                : "radial-gradient(circle at top, rgba(37,99,235,0.1), transparent 34%)",
-            },
-          }}
-        >
-          <Box
-            sx={{
-              minHeight: "100vh",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              px: 2.5,
-              py: 4,
-              textAlign: "center",
-            }}
-          >
-            <Typography
-              variant="overline"
-              sx={{ color: "text.secondary", letterSpacing: "0.16em" }}
-            >
-              Rest Between Sets
-            </Typography>
-            <Typography
-              variant="h2"
-              sx={{
-                mt: 1,
-                fontWeight: 800,
-                letterSpacing: "-0.06em",
-                fontSize: { xs: "4rem", sm: "5.5rem" },
-              }}
-            >
-              {formatTime(restSecondsRemaining)}
-            </Typography>
-            <Typography
-              sx={{
-                mt: 1.25,
-                maxWidth: 420,
-                color: "text.secondary",
-                fontSize: { xs: "1rem", sm: "1.05rem" },
-              }}
-            >
-              Catch your breath before the next set. You can adjust the rest
-              target for this exercise right here.
-            </Typography>
-
-            <Box
-              sx={{
-                mt: 3.5,
-                width: "100%",
-                maxWidth: 420,
-                display: "flex",
-                flexDirection: "column",
-                gap: 1.5,
-              }}
-            >
-              <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<RemoveIcon />}
-                  onClick={() => adjustRestTimer(-15)}
-                  disabled={restSecondsRemaining <= 15}
-                >
-                  15s
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => adjustRestTimer(15)}
-                >
-                  15s
-                </Button>
-                {isRestTimerActive ? (
-                  <Button
-                    variant="outlined"
-                    startIcon={<PauseIcon />}
-                    onClick={pauseRestTimer}
-                  >
-                    Pause
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outlined"
-                    startIcon={<PlayArrowIcon />}
-                    onClick={resumeRestTimer}
-                    disabled={restSecondsRemaining <= 0}
-                  >
-                    Resume
-                  </Button>
-                )}
-              </Box>
-
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  borderRadius: 4,
-                  border: "1px solid",
-                  borderColor: darkMode
-                    ? "rgba(148,163,184,0.14)"
-                    : "rgba(17,24,39,0.08)",
-                  backgroundColor: darkMode
-                    ? "rgba(15,23,42,0.78)"
-                    : "rgba(255,255,255,0.88)",
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{ mb: 1, color: "text.secondary", fontWeight: 700 }}
-                >
-                  Rest setting for this exercise
-                </Typography>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
-                    gap: 1,
-                    alignItems: "center",
-                  }}
-                >
-                  <TextField
-                    type="number"
-                    label="Rest seconds"
-                    value={restEditorValue}
-                    onChange={(event) =>
-                      setRestEditorValue(
-                        String(Math.max(0, Number(event.target.value) || 0))
-                      )
-                    }
-                    inputProps={{ min: 0, step: 5 }}
-                  />
-                  <Button variant="contained" onClick={handleApplyRestEdit}>
-                    Apply
-                  </Button>
-                </Box>
-              </Paper>
-
-              <Box sx={{ display: "flex", gap: 1, justifyContent: "center", flexWrap: "wrap" }}>
-                <Button variant="text" startIcon={<SkipNextIcon />} onClick={skipRestTimer}>
-                  Skip Rest
-                </Button>
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={skipRestTimer}
-                >
-                  Continue to Next Set
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Dialog>
-
         <AppBar
           position="sticky"
           elevation={0}
@@ -1379,8 +1262,8 @@ const ExerciseItem = ({
               </Typography>
               <Typography sx={{ color: "text.secondary", mt: 0.25 }}>
                 {completedCount}/{totalCount} sets logged
-                {currentExercise.type === "weight" && upcomingWeight && upcomingReps
-                  ? ` | Next target ${upcomingWeight} x ${upcomingReps}`
+                {currentExercise.type === "weight" && upcomingWeight !== null && upcomingReps
+                  ? ` | Next target ${formatWeightValue(upcomingWeight)} ${preferredUnits} x ${upcomingReps}`
                   : ""}
               </Typography>
             </Box>
@@ -1388,6 +1271,7 @@ const ExerciseItem = ({
               onClick={openRepeatDialog}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               color="inherit"
+              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
             </IconButton>
@@ -1403,18 +1287,20 @@ const ExerciseItem = ({
             mx: "auto",
           }}
         >
+          {renderRecommendationPanel()}
+
           {currentExercise.sets &&
             currentExercise.sets.map((s, i) => {
               if (i === currentSetIndex) {
                 return (
                   <SelectedSetItem
-                    key={`selectedSetItem-${i}`}
+                    key={`selectedSetItem-${s.id ?? i}`}
                     routineName={routineName}
                     set={s}
                     currentExercise={currentExercise}
                     progressionStyle={recommendation?.progressionStyle}
                     setIndex={i}
-                    currentExerciseIndex={currentExerciseIndex}
+                    currentExerciseIndex={exerciseIndex}
                     setCurrentSetIndex={setCurrentSetIndex}
                     setCurrentExercise={setCurrentExercise}
                     formattedDate={formattedDate}
@@ -1423,13 +1309,18 @@ const ExerciseItem = ({
                   exercises={exercises}
                   setExercises={setExercises}
                   darkMode={darkMode}
-                  onStartRestTimer={startRestTimer}
+                  preferredUnits={preferredUnits}
+                  onStartRestTimer={(seconds: number) =>
+                    openRestTimer({
+                      exerciseKey: exerciseIdentity,
+                      exerciseName: toTitleCase(currentExercise.name),
+                      seconds,
+                      restSeconds: currentExercise.rest ?? 0,
+                    })
+                  }
                   setRefetchExercises={setRefetchExercises}
                   refreshCalendarStatuses={refreshCalendarStatuses}
-                  isRestTimerBlocking={
-                    currentExercise.type === "weight" &&
-                    restSecondsRemaining > 0
-                  }
+                  isRestTimerBlocking={isRestTimerBlocking}
                   onLogSetAttempt={handleLogSetAttempt}
                   onLogSetPersisted={handleLogSetPersisted}
                   onLogSetFailed={handleLogSetFailed}
@@ -1440,23 +1331,25 @@ const ExerciseItem = ({
               if (s.complete) {
                 return (
                   <CompletedSetItem
-                    key={`completedSetItem-${i}`}
+                    key={`completedSetItem-${s.id ?? i}`}
                     set={s}
                     setIndex={i}
                     setCurrentSetIndex={setCurrentSetIndex}
                     type={currentExercise.type}
                     darkMode={darkMode}
+                    preferredUnits={preferredUnits}
                   />
                 );
               }
 
               return (
                 <SetItem
-                  key={`setItem-${i}`}
+                  key={`setItem-${s.id ?? i}`}
                   set={s}
-                  handleDeleteSet={(setName) => handleDeleteSet(setName)}
+                  handleDeleteSet={(setId) => handleDeleteSet(setId)}
                   type={currentExercise.type}
                   darkMode={darkMode}
+                  preferredUnits={preferredUnits}
                 />
               );
             })}
@@ -1533,4 +1426,23 @@ const ExerciseItem = ({
   );
 };
 
-export default ExerciseItem;
+const areExerciseItemPropsEqual = (prevProps: any, nextProps: any) => {
+  const prevExerciseId = getWorkoutEntryIdentity(prevProps.exercise);
+  const nextExerciseId = getWorkoutEntryIdentity(nextProps.exercise);
+
+  return (
+    prevProps.exercise === nextProps.exercise &&
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.shownMenuIndex === nextProps.shownMenuIndex &&
+    prevProps.darkMode === nextProps.darkMode &&
+    prevProps.formattedDate === nextProps.formattedDate &&
+    prevProps.routineName === nextProps.routineName &&
+    prevExerciseId === nextExerciseId &&
+    prevProps.recommendation === nextProps.recommendation &&
+    prevProps.progressSummary === nextProps.progressSummary &&
+    prevProps.loadingRecommendation === nextProps.loadingRecommendation &&
+    prevProps.isRestTimerBlocking === nextProps.isRestTimerBlocking
+  );
+};
+
+export default React.memo(ExerciseItem, areExerciseItemPropsEqual);

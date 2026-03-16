@@ -20,6 +20,7 @@ import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
 import CoachChatPanel from "../components/CoachChatPanel";
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -36,6 +37,10 @@ import {
   Typography,
 } from "@mui/material";
 import { toast } from "react-toastify";
+import {
+  getEntitlementMessage,
+  resolveUserAccess,
+} from "../utils/entitlements";
 import {
   AIResponseSourceDetail,
   getAIFallbackNotice,
@@ -116,9 +121,18 @@ const RoutinesPage = ({
   );
   const [showPlanningDetails, setShowPlanningDetails] = useState(false);
   const [showClearProgramDialog, setShowClearProgramDialog] = useState(false);
+  const access = useMemo(() => resolveUserAccess(user), [user]);
+  const plannerGenerationEnabled = access.entitlements.assistantPlanGeneration;
+  const plannerRegenerationEnabled = access.entitlements.assistantPlanRegeneration;
+  const recurringSchedulingEnabled = access.entitlements.recurringWorkoutScheduling;
 
   const sessionUserId =
     session?.token?.user?._id || (session as any)?.user?._id || "";
+
+  const routeToPricing = (message: string) => {
+    toast.info(message);
+    void router.push("/pricing");
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -525,11 +539,11 @@ const RoutinesPage = ({
         setShowSetupDialog(false);
         toast.success("Profile setup saved");
       } else {
-        toast.error("Failed to save setup");
+        toast.error("Your setup was not saved. Check your connection and try again.");
       }
     } catch (error) {
       console.error("Error saving setup:", error);
-      toast.error("An error occurred while saving setup");
+      toast.error("We couldn't save your setup changes just now. Try again in a moment.");
     } finally {
       setSavingSetup(false);
     }
@@ -572,6 +586,11 @@ const RoutinesPage = ({
   const handleGenerateWorkoutFromSetup = async () => {
     if (!user) return;
 
+    if (!plannerGenerationEnabled) {
+      routeToPricing(getEntitlementMessage("assistantPlanGeneration"));
+      return;
+    }
+
     const nextUser = {
       ...user,
       name: assistantName.trim() || user.name || user.username,
@@ -608,13 +627,20 @@ const RoutinesPage = ({
       }
     } catch (error) {
       console.error("Error generating workout plan:", error);
-      toast.error("Couldn't generate a workout plan");
+      toast.error(
+        "Your workout plan could not be generated right now. Try again, or save your preferences first and generate later."
+      );
     } finally {
       setGeneratingWorkout(false);
     }
   };
 
   const handleOpenReplaceProgram = () => {
+    if (!plannerGenerationEnabled) {
+      routeToPricing(getEntitlementMessage("assistantPlanGeneration"));
+      return;
+    }
+
     setAssistantIntent("planner");
     setShowPlanningDetails(true);
     setShowSetupDialog(true);
@@ -622,7 +648,7 @@ const RoutinesPage = ({
 
   const handleClearProgram = async () => {
     if (!sessionUserId) {
-      toast.error("Couldn't clear the workout program");
+      toast.error("Your current program was not cleared. Try again in a moment.");
       return;
     }
 
@@ -638,7 +664,7 @@ const RoutinesPage = ({
       toast.success("Workout program cleared");
     } catch (error) {
       console.error("Error clearing workout program:", error);
-      toast.error("Couldn't clear the workout program");
+      toast.error("Your current program was not cleared. Try again in a moment.");
     } finally {
       setClearingProgram(false);
     }
@@ -646,6 +672,11 @@ const RoutinesPage = ({
 
   const applyCoachProfilePatch = async (patch: Record<string, any>) => {
     if (!user) return;
+
+    if (!plannerRegenerationEnabled) {
+      routeToPricing(getEntitlementMessage("assistantPlanRegeneration"));
+      return;
+    }
 
     const nextSetupForm = normalizeSetupForm({
       ...user,
@@ -776,6 +807,10 @@ const RoutinesPage = ({
     }
 
     if (action.type === "create_recurring_exercise" && action.exerciseName) {
+      if (!recurringSchedulingEnabled) {
+        return getEntitlementMessage("recurringWorkoutScheduling");
+      }
+
       const dayIndexLookup: Record<string, number> = {
         sunday: 0,
         monday: 1,
@@ -993,6 +1028,19 @@ const RoutinesPage = ({
                     adaptive layer for assistant-built plans, recurring schedules,
                     plan revisions, and progression recommendations.
                   </Typography>
+                  {!access.hasPremiumAccess ? (
+                    <Alert
+                      severity="info"
+                      sx={{
+                        mt: 1.25,
+                        maxWidth: 640,
+                        borderRadius: routinesRadius.card,
+                      }}
+                    >
+                      Free stays focused on logging. Upgrade to Pro Beta for assistant-built plans,
+                      recurring schedules, and adaptive progression.
+                    </Alert>
+                  ) : null}
                 </Box>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} useFlexGap flexWrap="wrap">
                   <Button
@@ -1016,7 +1064,11 @@ const RoutinesPage = ({
                     disabled={generatingWorkout || savingSetup}
                     sx={{ borderRadius: routinesRadius.button }}
                   >
-                    {hasProgramExercises ? "Replace program" : "Create program"}
+                    {plannerGenerationEnabled
+                      ? hasProgramExercises
+                        ? "Replace program"
+                        : "Create program"
+                      : "Upgrade for planning"}
                   </Button>
                 </Stack>
               </Stack>
@@ -1123,14 +1175,15 @@ const RoutinesPage = ({
                     Hi, I can help you get set up.
                   </Typography>
                   <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                    First I just need your name, age, and sex. Then I&apos;ll ask whether
-                    you want help building a workout plan or just want to use Lift Logic as a tracker.
+                    First, choose whether you want planning help or just want to
+                    start tracking workouts. If you want a personalized plan, you
+                    can add a little profile context before I generate it.
                   </Typography>
                 </Box>
 
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip label="1. Quick intro" color="primary" variant="filled" />
-                  <Chip label="2. Planning help if you want it" variant="outlined" />
+                  <Chip label="1. Choose your path" color="primary" variant="filled" />
+                  <Chip label="2. Add planning details if you want them" variant="outlined" />
                   <Chip label="3. Refine later in chat" variant="outlined" />
                 </Stack>
               </Stack>
@@ -1155,46 +1208,12 @@ const RoutinesPage = ({
               }}
             >
               <Stack spacing={1.5}>
-                <TextField
-                  label="Name"
-                  value={assistantName}
-                  onChange={(event) => setAssistantName(event.target.value)}
-                  fullWidth
-                />
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                  <TextField
-                    label="Age"
-                    value={setupForm.age}
-                    onChange={handleSetupFieldChange("age")}
-                    fullWidth
-                    type="number"
-                    inputProps={{ min: 0, max: 120 }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                      Biological sex
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {sexOptions.map((option) => (
-                        <Chip
-                          key={option.value}
-                          label={option.label}
-                          clickable
-                          color={setupForm.sex === option.value ? "primary" : "default"}
-                          variant={setupForm.sex === option.value ? "filled" : "outlined"}
-                          onClick={() =>
-                            setSetupForm((prev) => ({
-                              ...prev,
-                              sex: option.value,
-                            }))
-                          }
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                </Stack>
                 <Typography sx={{ fontWeight: 700 }}>
-                  Do you want help setting up a workout plan?
+                  What do you want to do first?
+                </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  Choose the fast path to start logging now, or get help building
+                  your first plan.
                 </Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                   <Button
@@ -1231,7 +1250,9 @@ const RoutinesPage = ({
                     Tracker mode
                   </Typography>
                   <Typography sx={{ color: "text.secondary" }}>
-                    You can use Lift Logic as a tracker without filling out a planning intake.
+                    You can start logging workouts right away without entering age
+                    or biological sex. You can always add profile details later if
+                    you want planning help.
                   </Typography>
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                     <Button
@@ -1251,6 +1272,71 @@ const RoutinesPage = ({
 
             {assistantIntent === "planner" ? (
               <>
+            {!plannerGenerationEnabled ? (
+              <Alert severity="info" sx={{ borderRadius: 3 }}>
+                Pro Beta is required to generate assistant-built workout plans. You can still save
+                your preferences here and keep using free workout tracking.
+              </Alert>
+            ) : null}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography sx={{ fontWeight: 700 }}>
+                  Planning profile
+                </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  Add the basics you want the assistant to use for planning. Age
+                  and biological sex are optional here and only help personalize
+                  the plan.
+                </Typography>
+                <TextField
+                  label="Name"
+                  value={assistantName}
+                  onChange={(event) => setAssistantName(event.target.value)}
+                  fullWidth
+                />
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="Age (optional)"
+                    value={setupForm.age}
+                    onChange={handleSetupFieldChange("age")}
+                    fullWidth
+                    type="number"
+                    inputProps={{ min: 0, max: 120 }}
+                  />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                      Biological sex (optional)
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {sexOptions.map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          clickable
+                          color={setupForm.sex === option.value ? "primary" : "default"}
+                          variant={setupForm.sex === option.value ? "filled" : "outlined"}
+                          onClick={() =>
+                            setSetupForm((prev) => ({
+                              ...prev,
+                              sex: option.value,
+                            }))
+                          }
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                </Stack>
+              </Stack>
+            </Paper>
 
             <Paper
               elevation={0}
@@ -1610,22 +1696,28 @@ const RoutinesPage = ({
                   Skip for now
                 </Button>
                 <Button
-                  variant="outlined"
-                  onClick={handleGenerateWorkoutFromSetup}
+                  variant="contained"
+                  onClick={
+                    plannerGenerationEnabled
+                      ? handleGenerateWorkoutFromSetup
+                      : () => routeToPricing(getEntitlementMessage("assistantPlanGeneration"))
+                  }
                   disabled={
                     generatingWorkout ||
                     savingSetup ||
                     !setupReadyToGenerate
                   }
                 >
-                  {generatingWorkout
-                    ? "Generating..."
-                    : hasProgramExercises
-                    ? "Replace with assistant"
-                    : "Generate with assistant"}
+                  {plannerGenerationEnabled
+                    ? generatingWorkout
+                      ? "Generating..."
+                      : hasProgramExercises
+                      ? "Generate and replace plan"
+                      : "Generate first workout"
+                    : "Upgrade for Pro Beta"}
                 </Button>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   onClick={handleSaveSetup}
                   disabled={
                     savingSetup ||
@@ -1633,7 +1725,7 @@ const RoutinesPage = ({
                     !setupReadyToGenerate
                   }
                 >
-                  {savingSetup ? "Saving..." : "Save assistant setup"}
+                  {savingSetup ? "Saving..." : "Save preferences only"}
                 </Button>
               </Stack>
             </Box>
