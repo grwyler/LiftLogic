@@ -9,7 +9,9 @@ describe("planner onboarding primary CTA", () => {
       "utf8"
     );
 
-    expect(source).toContain('variant="contained"\n                  onClick={handleGenerateWorkoutFromSetup}');
+    expect(source).toContain("plannerGenerationEnabled");
+    expect(source).toContain("? handleGenerateWorkoutFromSetup");
+    expect(source).toContain(': () => openUpgradePrompt("assistant_generation")');
     expect(source).toContain('? "Generate and replace plan"');
     expect(source).toContain(': "Generate first workout"');
     expect(source).toContain('variant="outlined"\n                  onClick={handleSaveSetup}');

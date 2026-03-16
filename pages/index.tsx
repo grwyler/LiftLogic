@@ -15,11 +15,9 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
-import { orchestrationNavigation } from "../orchestration-app/routes";
 import { rememberLandingCta } from "../utils/betaFunnelClient";
 
 const landingRadius = {
@@ -129,14 +127,6 @@ const HomePage: React.FC = () => {
             flexWrap="wrap"
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            <Button
-              component={NextLink}
-              href={orchestrationNavigation.primary.href}
-              variant="outlined"
-              fullWidth
-            >
-              {orchestrationNavigation.primary.label}
-            </Button>
             <Button component={NextLink} href="/pricing" variant="text" fullWidth>
               Pricing
             </Button>
@@ -249,16 +239,6 @@ const HomePage: React.FC = () => {
               spacing={1.25}
               sx={{ mt: 3 }}
             >
-              <Button
-                component={NextLink}
-                href={orchestrationNavigation.primary.href}
-                variant="outlined"
-                size="large"
-                startIcon={<Inventory2OutlinedIcon />}
-                sx={{ borderRadius: landingRadius.button }}
-              >
-                Explore {orchestrationNavigation.primary.label.toLowerCase()}
-              </Button>
               <Button
                 component={NextLink}
                 href="/signup"

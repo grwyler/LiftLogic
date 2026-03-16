@@ -166,6 +166,8 @@ export interface BillingSummaryResponse {
   portalEnabled: boolean;
   billingPlan: BillingPlan;
   subscriptionStatus: BillingSubscriptionStatus;
+  manualProBetaAccessActive?: boolean;
+  manualProBetaAccessExpiresAt?: string;
   subscriptionInterval?: BillingInterval;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
@@ -173,6 +175,22 @@ export interface BillingSummaryResponse {
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd?: string;
   prices: BillingPriceOption[];
+}
+
+export interface MonetizationSummaryResponse {
+  pricingPageViews: number;
+  upgradePromptViews: number;
+  checkoutStarts: number;
+  checkoutCompletions: number;
+  manualProGrants: number;
+  billingPortalOpens: number;
+  cancelRequests: number;
+  subscriptionCancellations: number;
+  activePaidUsers: number;
+  pricingToCheckoutStartRate: number;
+  pricingToPaidRate: number;
+  checkoutCompletionRate: number;
+  cancellationRate: number;
 }
 
 export interface UserDoc {
@@ -200,7 +218,16 @@ export interface UserDoc {
   setupPromptSeen?: boolean;
   setupCompleted?: boolean;
   darkMode?: boolean;
-  themePreference?: "light" | "dawn" | "night" | "evergreen";
+  themePreference?:
+    | "light"
+    | "dawn"
+    | "night"
+    | "evergreen"
+    | "graphite"
+    | "ember"
+    | "citrus";
+  appearanceDensity?: "comfortable" | "compact";
+  interfaceScale?: "normal" | "large";
   billingPlan?: BillingPlan;
   productPlan?: ProductPlan;
   entitlements?: UserEntitlements;
@@ -214,6 +241,16 @@ export interface UserDoc {
   subscriptionCancelAtPeriodEnd?: boolean;
   subscriptionCanceledAt?: Date;
   billingEmail?: string;
+  manualProBetaAccess?: {
+    grantedAt?: Date;
+    grantedByUserId?: string;
+    grantedByEmail?: string;
+    expiresAt?: Date;
+    revokedAt?: Date;
+    revokedByUserId?: string;
+    revokedByEmail?: string;
+    paymentCollectionNote?: string;
+  };
   betaFunnel?: BetaFunnelAnalytics;
   createdAt?: Date;
   updatedAt?: Date;

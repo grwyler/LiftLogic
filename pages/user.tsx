@@ -46,9 +46,19 @@ import {
   workoutLengthOptions,
 } from "../utils/profileSetup";
 import {
+  APPEARANCE_DENSITY_OPTIONS,
+  AppearanceDensity,
   getThemePreferenceDescription,
+  getAppearanceDensityDescription,
+  getAppearanceDensityLabel,
+  getInterfaceScaleDescription,
+  getInterfaceScaleLabel,
   getThemePreferenceLabel,
   getThemePreferenceMeta,
+  INTERFACE_SCALE_OPTIONS,
+  InterfaceScale,
+  isAppearanceDensity,
+  isInterfaceScale,
   isThemePreference,
   THEME_OPTIONS,
   ThemePreference,
@@ -56,6 +66,8 @@ import {
 
 interface UserPageProps {
   setThemePreference: React.Dispatch<React.SetStateAction<ThemePreference>>;
+  setAppearanceDensity: React.Dispatch<React.SetStateAction<AppearanceDensity>>;
+  setInterfaceScale: React.Dispatch<React.SetStateAction<InterfaceScale>>;
 }
 
 type GeneratedPlanPayload = {
@@ -69,6 +81,8 @@ type UserProfile = {
   username: string;
   darkMode?: boolean;
   themePreference?: ThemePreference;
+  appearanceDensity?: AppearanceDensity;
+  interfaceScale?: InterfaceScale;
   sex?: string;
   age?: string;
   preferredUnits?: "lb" | "kg";
@@ -90,6 +104,8 @@ type UserProfile = {
 
 const defaultForm = {
   themePreference: "light" as ThemePreference,
+  appearanceDensity: "comfortable" as AppearanceDensity,
+  interfaceScale: "normal" as InterfaceScale,
   sex: "",
   age: "",
   preferredUnits: "lb",
@@ -115,7 +131,18 @@ const getStoredThemePreference = (profile: Pick<UserProfile, "themePreference" |
   return profile.darkMode ? "night" : "light";
 };
 
-const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
+const getStoredAppearanceDensity = (
+  profile: Pick<UserProfile, "appearanceDensity">
+) => (isAppearanceDensity(profile.appearanceDensity) ? profile.appearanceDensity : "comfortable");
+
+const getStoredInterfaceScale = (profile: Pick<UserProfile, "interfaceScale">) =>
+  isInterfaceScale(profile.interfaceScale) ? profile.interfaceScale : "normal";
+
+const UserHomePage: React.FC<UserPageProps> = ({
+  setThemePreference,
+  setAppearanceDensity,
+  setInterfaceScale,
+}) => {
   const { data: session } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
   };
@@ -158,6 +185,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
 
     const nextForm = {
       themePreference: getStoredThemePreference(user),
+      appearanceDensity: getStoredAppearanceDensity(user),
+      interfaceScale: getStoredInterfaceScale(user),
       sex: user.sex || "",
       age: user.age || "",
       preferredUnits: user.preferredUnits || "lb",
@@ -179,13 +208,17 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
 
     setForm(nextForm);
     setThemePreference(nextForm.themePreference);
-  }, [setThemePreference, user]);
+    setAppearanceDensity(nextForm.appearanceDensity);
+    setInterfaceScale(nextForm.interfaceScale);
+  }, [setAppearanceDensity, setInterfaceScale, setThemePreference, user]);
 
   const hasChanges = useMemo(() => {
     if (!user) return false;
 
     return (
       getStoredThemePreference(user) !== form.themePreference ||
+      getStoredAppearanceDensity(user) !== form.appearanceDensity ||
+      getStoredInterfaceScale(user) !== form.interfaceScale ||
       (user.sex || "") !== form.sex ||
       (user.age || "") !== form.age ||
       (user.preferredUnits || "lb") !== form.preferredUnits ||
@@ -235,6 +268,16 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
     setThemePreference(nextThemePreference);
   };
 
+  const handleAppearanceDensityChange = (nextAppearanceDensity: AppearanceDensity) => {
+    setForm((prev) => ({ ...prev, appearanceDensity: nextAppearanceDensity }));
+    setAppearanceDensity(nextAppearanceDensity);
+  };
+
+  const handleInterfaceScaleChange = (nextInterfaceScale: InterfaceScale) => {
+    setForm((prev) => ({ ...prev, interfaceScale: nextInterfaceScale }));
+    setInterfaceScale(nextInterfaceScale);
+  };
+
   const handleReset = () => {
     if (!user) return;
 
@@ -249,6 +292,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
 
     setForm({
       themePreference: getStoredThemePreference(user),
+      appearanceDensity: getStoredAppearanceDensity(user),
+      interfaceScale: getStoredInterfaceScale(user),
       sex: user.sex || "",
       age: user.age || "",
       preferredUnits: user.preferredUnits || "lb",
@@ -268,6 +313,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
       notes: user.notes || "",
     });
     setThemePreference(getStoredThemePreference(user));
+    setAppearanceDensity(getStoredAppearanceDensity(user));
+    setInterfaceScale(getStoredInterfaceScale(user));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -279,6 +326,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
       ...user,
       darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
       themePreference: form.themePreference,
+      appearanceDensity: form.appearanceDensity,
+      interfaceScale: form.interfaceScale,
       sex: form.sex,
       age: form.age,
       preferredUnits: form.preferredUnits as "lb" | "kg",
@@ -345,6 +394,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
       ...user,
       darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
       themePreference: form.themePreference,
+      appearanceDensity: form.appearanceDensity,
+      interfaceScale: form.interfaceScale,
       sex: form.sex,
       age: form.age,
       preferredUnits: form.preferredUnits as "lb" | "kg",
@@ -410,6 +461,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
       ...nextForm,
       darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
       themePreference: form.themePreference,
+      appearanceDensity: form.appearanceDensity,
+      interfaceScale: form.interfaceScale,
       setupPromptSeen: true,
       setupCompleted: true,
     };
@@ -521,7 +574,15 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
         </Alert>
 
         <Box component="form" onSubmit={handleSubmit}>
-          <Stack spacing={2}>
+          <Stack
+            spacing={2}
+            sx={{
+              pb: {
+                xs: "calc(108px + env(safe-area-inset-bottom, 0px))",
+                sm: "calc(96px + env(safe-area-inset-bottom, 0px))",
+              },
+            }}
+          >
             <Paper
               elevation={0}
               sx={{
@@ -629,6 +690,100 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
                               }}
                             />
                           </Stack>
+                        </Button>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+
+                <Box>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Layout density
+                  </Typography>
+                  <Stack spacing={1.1}>
+                    {APPEARANCE_DENSITY_OPTIONS.map((option) => {
+                      const selected = form.appearanceDensity === option;
+
+                      return (
+                        <Button
+                          key={option}
+                          type="button"
+                          variant={selected ? "contained" : "outlined"}
+                          onClick={() => handleAppearanceDensityChange(option)}
+                          sx={{
+                            justifyContent: "space-between",
+                            alignItems: "stretch",
+                            textAlign: "left",
+                            px: 1.5,
+                            py: 1.2,
+                            borderRadius: "18px",
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 800 }}>
+                              {getAppearanceDensityLabel(option)}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                mt: 0.4,
+                                color: selected ? "inherit" : "text.secondary",
+                                maxWidth: 420,
+                              }}
+                            >
+                              {getAppearanceDensityDescription(option)}
+                            </Typography>
+                          </Box>
+                        </Button>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+
+                <Box>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Interface scale
+                  </Typography>
+                  <Stack spacing={1.1}>
+                    {INTERFACE_SCALE_OPTIONS.map((option) => {
+                      const selected = form.interfaceScale === option;
+
+                      return (
+                        <Button
+                          key={option}
+                          type="button"
+                          variant={selected ? "contained" : "outlined"}
+                          onClick={() => handleInterfaceScaleChange(option)}
+                          sx={{
+                            justifyContent: "space-between",
+                            alignItems: "stretch",
+                            textAlign: "left",
+                            px: 1.5,
+                            py: 1.2,
+                            borderRadius: "18px",
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 800 }}>
+                              {getInterfaceScaleLabel(option)}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                mt: 0.4,
+                                color: selected ? "inherit" : "text.secondary",
+                                maxWidth: 420,
+                              }}
+                            >
+                              {getInterfaceScaleDescription(option)}
+                            </Typography>
+                          </Box>
                         </Button>
                       );
                     })}
@@ -1038,32 +1193,49 @@ const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
               </Stack>
             </Paper>
 
-            <Box
+            <Paper
+              elevation={0}
               sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: { xs: "stretch", sm: "center" },
-                flexDirection: { xs: "column", sm: "row" },
-                gap: 1.25,
+                position: "sticky",
+                bottom: {
+                  xs: "calc(12px + env(safe-area-inset-bottom, 0px))",
+                  sm: 16,
+                },
+                zIndex: 20,
+                p: { xs: 1.25, sm: 1.5 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+                opacity: 0.96,
+                backdropFilter: "blur(14px)",
+                boxShadow: "0 14px 32px rgba(15,23,42,0.12)",
               }}
             >
-              <Typography sx={{ color: "text.secondary" }}>
-                Save only the information you want the app to actually use.
-              </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
-                <Button variant="outlined" onClick={handleReset} disabled={!hasChanges}>
-                  Reset
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  disabled={!hasChanges || saving || generatingWorkout}
-                >
-                  {saving ? "Saving..." : "Save changes"}
-                </Button>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.25}
+                justifyContent="space-between"
+                alignItems={{ xs: "stretch", sm: "center" }}
+              >
+                <Typography sx={{ color: "text.secondary" }}>
+                  Save only the information you want the app to actually use.
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                  <Button variant="outlined" onClick={handleReset} disabled={!hasChanges}>
+                    Reset
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    disabled={!hasChanges || saving || generatingWorkout}
+                  >
+                    {saving ? "Saving..." : "Save changes"}
+                  </Button>
+                </Stack>
               </Stack>
-            </Box>
+            </Paper>
           </Stack>
         </Box>
       </Box>

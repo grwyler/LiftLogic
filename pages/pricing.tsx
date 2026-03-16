@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
@@ -28,6 +28,7 @@ import {
   createBillingCheckoutSession,
   createBillingPortalSession,
   fetchBillingSummary,
+  trackBetaFunnelMilestone,
 } from "../utils/helpers";
 
 const pricingRadius = {
@@ -149,6 +150,7 @@ const PricingPage: React.FC = () => {
     ""
   );
   const [billingError, setBillingError] = useState("");
+  const pricingViewTrackedRef = useRef(false);
 
   const isAuthenticated = status === "authenticated";
 
@@ -179,6 +181,18 @@ const PricingPage: React.FC = () => {
 
   useEffect(() => {
     void loadBillingSummary();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || pricingViewTrackedRef.current) {
+      return;
+    }
+
+    pricingViewTrackedRef.current = true;
+    void trackBetaFunnelMilestone("pricing_page_viewed").catch((error) => {
+      pricingViewTrackedRef.current = false;
+      console.error("Error tracking pricing page view:", error);
+    });
   }, [isAuthenticated]);
 
   useEffect(() => {

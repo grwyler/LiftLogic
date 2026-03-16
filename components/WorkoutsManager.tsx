@@ -4,6 +4,7 @@ import {
   doesRecurringRuleMatchDate,
   fetchWorkoutCalendarSummary,
   fetchWorkoutEntriesForDay,
+  fetchWorkoutEntriesRange,
 } from "../utils/helpers";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
@@ -14,6 +15,7 @@ import { Box } from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
+import { buildMilestoneSummary } from "../utils/milestones";
 
 type Workout = {
   title: string;
@@ -51,10 +53,30 @@ type CalendarStatusMap = Record<
   }
 >;
 
+type CalendarDayStatus = CalendarStatusMap[string];
+
 type MonthSummaryCacheEntry = {
   entries: WorkoutEntryDoc[];
   rules: RecurringRuleDoc[];
   statusMap: CalendarStatusMap;
+};
+
+type WeeklyConsistencyState = {
+  target: number;
+  completedCount: number;
+  scheduledCount: number;
+  remainingScheduledCount: number;
+  state: "on_track" | "behind" | "goal_hit";
+  headline: string;
+  supportingCopy: string;
+};
+
+export type ComebackGuideState = {
+  state: "missed_sessions" | "returning_after_lapse" | "missed_sessions_and_lapse";
+  missedScheduledCount: number;
+  daysSinceLastLog: number | null;
+  headline: string;
+  supportingCopy: string;
 };
 
 const toLocalDateKey = (date: Date) => {
@@ -62,6 +84,93 @@ const toLocalDateKey = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const isScheduledDay = (dayStatus?: CalendarDayStatus | null) =>
+  Boolean(dayStatus && (dayStatus.hasRecurring || dayStatus.exerciseCount > 0));
+
+const isLoggedDay = (dayStatus?: CalendarDayStatus | null) =>
+  Boolean(dayStatus && (dayStatus.hasCompleted || dayStatus.hasLogged));
+
+export const buildComebackGuide = ({
+  statusMap,
+  currentDate,
+}: {
+  statusMap: CalendarStatusMap;
+  currentDate: Date;
+}): ComebackGuideState | null => {
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay());
+
+  let missedScheduledCount = 0;
+  for (const cursor = new Date(weekStart); cursor < today; cursor.setDate(cursor.getDate() + 1)) {
+    const dayStatus = statusMap[toLocalDateKey(cursor)];
+    if (isScheduledDay(dayStatus) && !isLoggedDay(dayStatus)) {
+      missedScheduledCount += 1;
+    }
+  }
+
+  const dateKeys = Object.keys(statusMap).sort().reverse();
+  let daysSinceLastLog: number | null = null;
+
+  for (const key of dateKeys) {
+    const dayStatus = statusMap[key];
+    if (!isLoggedDay(dayStatus)) {
+      continue;
+    }
+
+    const parsed = new Date(`${key}T00:00:00`);
+    if (Number.isNaN(parsed.getTime()) || parsed > today) {
+      continue;
+    }
+
+    daysSinceLastLog = Math.round((today.getTime() - parsed.getTime()) / 86400000);
+    break;
+  }
+
+  const hasMissedSessions = missedScheduledCount >= 2;
+  const hasMeaningfulLapse = daysSinceLastLog !== null && daysSinceLastLog >= 8;
+
+  if (!hasMissedSessions && !hasMeaningfulLapse) {
+    return null;
+  }
+
+  if (hasMissedSessions && hasMeaningfulLapse) {
+    return {
+      state: "missed_sessions_and_lapse",
+      missedScheduledCount,
+      daysSinceLastLog,
+      headline: "Fresh restart, no catching up required",
+      supportingCopy: `A few planned sessions slipped and it has been about ${daysSinceLastLog} day${
+        daysSinceLastLog === 1 ? "" : "s"
+      } since your last logged workout. You do not need to make anything up. Resume with one good session or reshape the rest of this week.`,
+    };
+  }
+
+  if (hasMeaningfulLapse) {
+    return {
+      state: "returning_after_lapse",
+      missedScheduledCount,
+      daysSinceLastLog,
+      headline: "Welcome back. Today still counts.",
+      supportingCopy: `It has been about ${daysSinceLastLog} day${
+        daysSinceLastLog === 1 ? "" : "s"
+      } since your last logged workout. The best move is a simple return session, not a perfect restart.`,
+    };
+  }
+
+  return {
+    state: "missed_sessions",
+    missedScheduledCount,
+    daysSinceLastLog,
+    headline: "A couple sessions slipped. That is recoverable.",
+    supportingCopy: `You missed ${missedScheduledCount} scheduled workout${
+      missedScheduledCount === 1 ? "" : "s"
+    } earlier this week. Treat today like a fresh win opportunity and adjust the rest of the week around what is realistic now.`,
+  };
 };
 
 const toDayWorkoutTitle = (dayName?: string) => {
@@ -109,8 +218,20 @@ const WorkoutsManager: React.FC<{
     sex?: string;
     age?: string;
     preferredUnits?: "lb" | "kg";
+    workoutDaysPerWeek?: string;
   } | null;
-}> = ({ routine, setRoutine, darkMode, userProfile }) => {
+  onRequestRecurringUpgradePrompt?: () => void;
+  onRequestProgressionUpgradePrompt?: () => void;
+  onWeeklyTargetChange?: (nextTarget: string) => Promise<void> | void;
+}> = ({
+  routine,
+  setRoutine,
+  darkMode,
+  userProfile,
+  onRequestRecurringUpgradePrompt,
+  onRequestProgressionUpgradePrompt,
+  onWeeklyTargetChange,
+}) => {
   const startDate = new Date();
   const {
     currentDay,
@@ -123,6 +244,8 @@ const WorkoutsManager: React.FC<{
     currentWorkout,
     currentExerciseIndex,
     setCurrentExerciseIndex,
+    lastQuickAddedExerciseIdentity,
+    setLastQuickAddedExerciseIdentity,
     isAddingExercise,
     setIsAddingExercise,
     isLoadingWorkout,
@@ -134,7 +257,10 @@ const WorkoutsManager: React.FC<{
     refreshCalendarStatuses,
     calendarStatusMap,
     sessionUserId,
-  } = useWorkoutsManagerState(startDate, routine, setRoutine);
+    weeklyConsistency,
+    comebackGuide,
+    milestoneSummary,
+  } = useWorkoutsManagerState(startDate, routine, setRoutine, userProfile);
 
   const handleCurrentDayChange = (change: number, isDateSelection: boolean) => {
     let newDate: Date;
@@ -162,6 +288,9 @@ const WorkoutsManager: React.FC<{
           currentWorkoutTitle={currentWorkout.title}
           currentExercises={exercises}
           setIsAddingExercise={setIsAddingExercise}
+          onQuickAddComplete={(exerciseIdentity) => {
+            setLastQuickAddedExerciseIdentity(exerciseIdentity);
+          }}
           userId={sessionUserId}
           date={dateISO}
           setExercises={setExercises}
@@ -197,6 +326,18 @@ const WorkoutsManager: React.FC<{
               setRefetchExercises={setRefetchExercises}
               refreshCalendarStatuses={refreshCalendarStatuses}
               userProfile={userProfile}
+              weeklyConsistency={weeklyConsistency}
+              comebackGuide={comebackGuide}
+              milestoneSummary={milestoneSummary}
+              onWeeklyTargetChange={onWeeklyTargetChange}
+              lastQuickAddedExerciseIdentity={lastQuickAddedExerciseIdentity}
+              clearLastQuickAddedExerciseIdentity={() =>
+                setLastQuickAddedExerciseIdentity(null)
+              }
+              onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
+              onRequestProgressionUpgradePrompt={
+                onRequestProgressionUpgradePrompt
+              }
             />
           )}
         </Box>
@@ -208,10 +349,15 @@ const WorkoutsManager: React.FC<{
 const useWorkoutsManagerState = (
   startDate: Date,
   routine: any,
-  setRoutine: any
+  setRoutine: any,
+  userProfile?: {
+    workoutDaysPerWeek?: string;
+  } | null
 ) => {
   const [currentDayIndex, setCurrentDayIndex] = useState(startDate.getDay());
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(-1);
+  const [lastQuickAddedExerciseIdentity, setLastQuickAddedExerciseIdentity] =
+    useState<string | null>(null);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [currentDate, setCurrentDate] = useState(startDate);
@@ -253,11 +399,16 @@ const useWorkoutsManagerState = (
   const [monthSummaryCache, setMonthSummaryCache] = useState<
     Record<string, MonthSummaryCacheEntry>
   >({});
+  const [historyEntries, setHistoryEntries] = useState<WorkoutEntryDoc[]>([]);
   const sessionUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
   const currentMonthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
   const visibleMonthKey = `${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth()}`;
   const currentMonthSummary = monthSummaryCache[currentMonthKey];
+  const previousMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+  const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+  const previousMonthKey = `${previousMonthDate.getFullYear()}-${previousMonthDate.getMonth()}`;
+  const nextMonthKey = `${nextMonthDate.getFullYear()}-${nextMonthDate.getMonth()}`;
 
   useEffect(() => {
     setCalendarViewDate(currentDate);
@@ -459,6 +610,173 @@ const useWorkoutsManagerState = (
     }
   }, [monthSummaryCache, visibleMonthKey]);
 
+  useEffect(() => {
+    if (!userId) {
+      setHistoryEntries([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchWorkoutEntriesRange(userId, new Date(2020, 0, 1), currentDate)
+      .then((entries) => {
+        if (!cancelled) {
+          setHistoryEntries(entries);
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading workout history for milestones:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDate, dayRefreshTick, userId]);
+
+  const weeklyConsistency = useMemo<WeeklyConsistencyState | null>(() => {
+    const target = Number(userProfile?.workoutDaysPerWeek || 0);
+    if (!target) {
+      return null;
+    }
+
+    const weekStart = new Date(currentDate);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const mergedStatusMap = [
+      monthSummaryCache[previousMonthKey],
+      monthSummaryCache[currentMonthKey],
+      monthSummaryCache[nextMonthKey],
+    ]
+      .filter(Boolean)
+      .reduce<CalendarStatusMap>(
+        (nextMap, summary) => ({
+          ...nextMap,
+          ...(summary as MonthSummaryCacheEntry).statusMap,
+        }),
+        {}
+      );
+
+    let completedCount = 0;
+    let scheduledCount = 0;
+
+    for (
+      const cursor = new Date(weekStart);
+      cursor <= weekEnd;
+      cursor.setDate(cursor.getDate() + 1)
+    ) {
+      const key = toLocalDateKey(cursor);
+      const dayStatus = mergedStatusMap[key];
+      if (!dayStatus) {
+        continue;
+      }
+
+      if (dayStatus.hasRecurring || dayStatus.exerciseCount > 0) {
+        scheduledCount += 1;
+      }
+
+      if (dayStatus.hasCompleted || dayStatus.hasLogged) {
+        completedCount += 1;
+      }
+    }
+
+    const remainingScheduledCount = Math.max(0, scheduledCount - completedCount);
+    const state: WeeklyConsistencyState["state"] =
+      completedCount >= target
+        ? "goal_hit"
+        : completedCount + remainingScheduledCount >= target
+        ? "on_track"
+        : "behind";
+
+    if (state === "goal_hit") {
+      return {
+        target,
+        completedCount,
+        scheduledCount,
+        remainingScheduledCount,
+        state,
+        headline: "Goal hit this week",
+        supportingCopy:
+          completedCount > target
+            ? `You already cleared your ${target}-workout target and still have room to keep going.`
+            : `You matched your ${target}-workout target for the week.`,
+      };
+    }
+
+    if (state === "behind") {
+      return {
+        target,
+        completedCount,
+        scheduledCount,
+        remainingScheduledCount,
+        state,
+        headline: "A little behind this week",
+        supportingCopy:
+          remainingScheduledCount > 0
+            ? `You have ${remainingScheduledCount} scheduled workout${
+                remainingScheduledCount === 1 ? "" : "s"
+              } left, but this week needs a small reset to hit ${target}.`
+            : `No scheduled sessions are left this week, so now is a good time to adjust your target or add another workout.`,
+      };
+    }
+
+    return {
+      target,
+      completedCount,
+      scheduledCount,
+      remainingScheduledCount,
+      state,
+      headline: "You are on track this week",
+      supportingCopy:
+        remainingScheduledCount > 0
+          ? `${completedCount} down, ${remainingScheduledCount} scheduled to go, and your ${target}-workout target is still in reach.`
+          : `You are still tracking toward ${target} workouts this week. Add another session if you want the plan to reflect that.`,
+    };
+  }, [
+    currentDate,
+    currentMonthKey,
+    monthSummaryCache,
+    nextMonthKey,
+    previousMonthKey,
+    userProfile?.workoutDaysPerWeek,
+  ]);
+
+  const mergedStatusMap = useMemo(
+    () =>
+      [monthSummaryCache[previousMonthKey], monthSummaryCache[currentMonthKey], monthSummaryCache[nextMonthKey]]
+        .filter(Boolean)
+        .reduce<CalendarStatusMap>(
+          (nextMap, summary) => ({
+            ...nextMap,
+            ...(summary as MonthSummaryCacheEntry).statusMap,
+          }),
+          {}
+        ),
+    [currentMonthKey, monthSummaryCache, nextMonthKey, previousMonthKey]
+  );
+
+  const comebackGuide = useMemo(
+    () =>
+      buildComebackGuide({
+        statusMap: mergedStatusMap,
+        currentDate,
+      }),
+    [currentDate, mergedStatusMap]
+  );
+
+  const milestoneSummary = useMemo(
+    () =>
+      buildMilestoneSummary({
+        entries: historyEntries,
+        currentDate,
+        weeklyTarget: Number(userProfile?.workoutDaysPerWeek || 0) || null,
+      }),
+    [currentDate, historyEntries, userProfile?.workoutDaysPerWeek]
+  );
+
   return {
     currentDay,
     currentDayIndex,
@@ -470,6 +788,8 @@ const useWorkoutsManagerState = (
     currentWorkout,
     currentExerciseIndex,
     setCurrentExerciseIndex,
+    lastQuickAddedExerciseIdentity,
+    setLastQuickAddedExerciseIdentity,
     isAddingExercise,
     setIsAddingExercise,
     isLoadingWorkout,
@@ -488,6 +808,9 @@ const useWorkoutsManagerState = (
     },
     calendarStatusMap,
     sessionUserId,
+    weeklyConsistency,
+    comebackGuide,
+    milestoneSummary,
   };
 };
 

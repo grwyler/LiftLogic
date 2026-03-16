@@ -6,6 +6,7 @@ import { connectToDatabase } from "../../../utils/mongodb";
 import { getAppUrl, getStripeBillingConfig } from "../../../server/billing/config";
 import { getStripeClient } from "../../../server/billing/stripe";
 import { ensureBillingUserIndexes } from "../../../server/billing/service";
+import { markBetaFunnelMilestone } from "../../../utils/betaFunnel";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
@@ -55,6 +56,19 @@ export default async function handler(
       customer: stripeCustomerId,
       return_url: `${getAppUrl(req)}/pricing?portal=returned`,
     });
+
+    await db.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          betaFunnel: markBetaFunnelMilestone({
+            funnel: user.betaFunnel,
+            key: "billingPortalOpenedAt",
+          }),
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     return res.status(200).json({ url: portalSession.url });
   } catch (error) {

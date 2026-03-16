@@ -40,6 +40,26 @@ export type RepPerformance = {
   reps: number;
 };
 
+export type PersonalRecordCategory =
+  | "estimated_1rm"
+  | "heaviest_weight"
+  | "rep_performance";
+
+export type PersonalRecordHighlight = {
+  category: PersonalRecordCategory;
+  label: string;
+  detail: string;
+};
+
+export type ProgressTrendStatus = "new" | "up" | "steady" | "down";
+
+export type ProgressTrendHighlight = {
+  status: ProgressTrendStatus;
+  label: string;
+  benchmark: string;
+  detail: string;
+};
+
 export type ExerciseProgressSummary = {
   latestEstimated1RM: number | null;
   previousEstimated1RM: number | null;
@@ -47,6 +67,9 @@ export type ExerciseProgressSummary = {
   heaviestWeightEver: number | null;
   bestRepPerformance: RepPerformance | null;
   latestWorkoutBrokePR: boolean;
+  latestWorkoutPRCategories: PersonalRecordCategory[];
+  previousHeaviestWeight: number | null;
+  previousBestRepPerformance: RepPerformance | null;
 };
 
 export type ProgressCoachContext = {
@@ -259,14 +282,32 @@ export const buildExerciseProgressSummary = (
       (((latestPRs?.bestEstimated1RM ?? null) !== null &&
         ((previousPRs.bestEstimated1RM ?? null) === null ||
           (latestPRs?.bestEstimated1RM ?? 0) > (previousPRs.bestEstimated1RM ?? 0))) ||
-      ((latestPRs?.heaviestWeight ?? null) !== null &&
-        ((previousPRs.heaviestWeight ?? null) === null ||
-          (latestPRs?.heaviestWeight ?? 0) > (previousPRs.heaviestWeight ?? 0))) ||
-      isBetterRepPerformance(
-        latestBestRepPerformance,
-        previousPRs.bestRepPerformance
-      ))
+        ((latestPRs?.heaviestWeight ?? null) !== null &&
+          ((previousPRs.heaviestWeight ?? null) === null ||
+            (latestPRs?.heaviestWeight ?? 0) > (previousPRs.heaviestWeight ?? 0))) ||
+        isBetterRepPerformance(latestBestRepPerformance, previousPRs.bestRepPerformance))
   );
+
+  const latestWorkoutPRCategories: PersonalRecordCategory[] = [];
+  if (
+    (latestPRs?.bestEstimated1RM ?? null) !== null &&
+    ((previousPRs.bestEstimated1RM ?? null) === null ||
+      (latestPRs?.bestEstimated1RM ?? 0) > (previousPRs.bestEstimated1RM ?? 0))
+  ) {
+    latestWorkoutPRCategories.push("estimated_1rm");
+  }
+
+  if (
+    (latestPRs?.heaviestWeight ?? null) !== null &&
+    ((previousPRs.heaviestWeight ?? null) === null ||
+      (latestPRs?.heaviestWeight ?? 0) > (previousPRs.heaviestWeight ?? 0))
+  ) {
+    latestWorkoutPRCategories.push("heaviest_weight");
+  }
+
+  if (isBetterRepPerformance(latestBestRepPerformance, previousPRs.bestRepPerformance)) {
+    latestWorkoutPRCategories.push("rep_performance");
+  }
 
   return {
     latestEstimated1RM,
@@ -275,6 +316,9 @@ export const buildExerciseProgressSummary = (
     heaviestWeightEver: historicalPRs.heaviestWeight,
     bestRepPerformance: historicalPRs.bestRepPerformance,
     latestWorkoutBrokePR,
+    latestWorkoutPRCategories,
+    previousHeaviestWeight: previousPRs.heaviestWeight,
+    previousBestRepPerformance: previousPRs.bestRepPerformance,
   };
 };
 
@@ -297,6 +341,131 @@ const formatLoad = (value: number | null, preferredUnits?: WeightUnit | null) =>
     fromCanonicalWeightLb(value, normalizeWeightUnit(preferredUnits)),
     normalizeWeightUnit(preferredUnits)
   );
+};
+
+export const getProgressTrendHighlight = (
+  summary: ExerciseProgressSummary | null | undefined,
+  preferredUnits?: WeightUnit | null
+): ProgressTrendHighlight | null => {
+  if (!summary) {
+    return null;
+  }
+
+  const latestEstimated1RM = summary.latestEstimated1RM;
+  const previousEstimated1RM = summary.previousEstimated1RM;
+
+  if (latestEstimated1RM === null) {
+    if (!summary.bestRepPerformance) {
+      return null;
+    }
+
+    return {
+      status: "new",
+      label: "Baseline logged",
+      benchmark: "Best set on file",
+      detail: "You have enough recent work logged to start comparing future sessions.",
+    };
+  }
+
+  const latest = formatLoad(latestEstimated1RM, preferredUnits);
+  const previous = formatLoad(previousEstimated1RM, preferredUnits);
+  const delta =
+    latestEstimated1RM !== null && previousEstimated1RM !== null
+      ? roundToOneDecimal(
+          fromCanonicalWeightLb(
+            latestEstimated1RM - previousEstimated1RM,
+            normalizeWeightUnit(preferredUnits)
+          )
+        )
+      : null;
+
+  if (previousEstimated1RM === null) {
+    return {
+      status: "new",
+      label: "First benchmark",
+      benchmark: latest ? `Current est. 1RM ${latest}` : "First benchmark logged",
+      detail: "This session sets the baseline. The next comparable workout will show the change.",
+    };
+  }
+
+  if (delta !== null && delta > 0) {
+    return {
+      status: "up",
+      label: "Trending up",
+      benchmark: latest ? `Up ${delta} vs last workout` : `Up ${delta} vs last workout`,
+      detail:
+        previous && latest
+          ? `Estimated strength moved from about ${previous} to ${latest}.`
+          : "Recent performance improved versus the last benchmark.",
+    };
+  }
+
+  if (delta !== null && delta < 0) {
+    return {
+      status: "down",
+      label: "Lighter than last time",
+      benchmark: `Down ${Math.abs(delta)} vs last workout`,
+      detail:
+        "That is feedback, not failure. A lighter day can still set up the next solid session.",
+    };
+  }
+
+  return {
+    status: "steady",
+    label: "Holding steady",
+    benchmark: latest ? `Holding around ${latest}` : "Holding steady",
+    detail: "No clear change versus the last workout yet. Keep stacking clean reps for a stronger signal.",
+  };
+};
+
+export const getPersonalRecordHighlights = (
+  summary: ExerciseProgressSummary | null | undefined,
+  preferredUnits?: WeightUnit | null
+): PersonalRecordHighlight[] => {
+  if (!summary || !summary.latestWorkoutPRCategories.length) {
+    return [];
+  }
+
+  const highlights: PersonalRecordHighlight[] = [];
+
+  for (const category of summary.latestWorkoutPRCategories) {
+    if (category === "estimated_1rm" && summary.latestEstimated1RM !== null) {
+      const latest = formatLoad(summary.latestEstimated1RM, preferredUnits);
+      if (latest) {
+        highlights.push({
+          category,
+          label: "Estimated 1RM PR",
+          detail: latest,
+        });
+      }
+      continue;
+    }
+
+    if (category === "heaviest_weight" && summary.heaviestWeightEver !== null) {
+      const heaviest = formatLoad(summary.heaviestWeightEver, preferredUnits);
+      if (heaviest) {
+        highlights.push({
+          category,
+          label: "Load PR",
+          detail: heaviest,
+        });
+      }
+      continue;
+    }
+
+    if (category === "rep_performance" && summary.bestRepPerformance) {
+      const repSetWeight = formatLoad(summary.bestRepPerformance.weight, preferredUnits);
+      if (repSetWeight) {
+        highlights.push({
+          category,
+          label: "Rep PR",
+          detail: `${repSetWeight} x ${summary.bestRepPerformance.reps}`,
+        });
+      }
+    }
+  }
+
+  return highlights;
 };
 
 export const buildProgressCoachMessage = (

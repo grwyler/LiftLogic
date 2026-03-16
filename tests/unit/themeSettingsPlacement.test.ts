@@ -21,7 +21,13 @@ describe("theme settings placement", () => {
     expect(headerSource).not.toContain(">Dark<");
     expect(userPageSource).toContain("Theme");
     expect(userPageSource).toContain("THEME_OPTIONS.map");
+    expect(userPageSource).toContain("APPEARANCE_DENSITY_OPTIONS.map");
+    expect(userPageSource).toContain("INTERFACE_SCALE_OPTIONS.map");
     expect(userPageSource).toContain("getThemePreferenceDescription");
+    expect(userPageSource).toContain("getAppearanceDensityDescription");
+    expect(userPageSource).toContain("getInterfaceScaleDescription");
     expect(appSource).toContain("setThemePreference");
+    expect(appSource).toContain("setAppearanceDensity");
+    expect(appSource).toContain("setInterfaceScale");
   });
 });

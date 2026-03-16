@@ -13,6 +13,7 @@ import {
   ensureBillingUserIndexes,
   hasActiveBillingAccess,
 } from "../../../server/billing/service";
+import { markBetaFunnelMilestone } from "../../../utils/betaFunnel";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
@@ -99,6 +100,21 @@ export default async function handler(
     if (!checkoutSession.url) {
       return res.status(500).json({ message: "Stripe did not return a checkout URL." });
     }
+
+    const nextBetaFunnel = markBetaFunnelMilestone({
+      funnel: user.betaFunnel,
+      key: "checkoutStartedAt",
+    });
+
+    await db.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          betaFunnel: nextBetaFunnel,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     return res.status(200).json({ url: checkoutSession.url });
   } catch (error) {

@@ -913,9 +913,12 @@ const DevBugRecorder = () => {
                 }}
               >
                 <Stack spacing={0.75}>
-                  {state.interactions.slice(-6).reverse().map((interaction) => (
+                  {state.interactions
+                    .slice(-6)
+                    .reverse()
+                    .map((interaction, index) => (
                     <Paper
-                  key={`${interaction.timestamp}-${interaction.type}-${interaction.target}`}
+                      key={`${interaction.timestamp}-${interaction.type}-${interaction.target}-${index}`}
                       variant="outlined"
                       sx={{ p: 1, borderRadius: 2 }}
                     >

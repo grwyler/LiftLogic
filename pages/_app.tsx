@@ -9,12 +9,18 @@ import "react-toastify/dist/ReactToastify.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import Head from "next/head";
+import { Instrument_Sans, Manrope } from "next/font/google";
 import { ToastContainer } from "react-toastify";
 import DevBugRecorder from "../components/DevBugRecorder";
 import AutomaticBugReporter from "../components/AutomaticBugReporter";
 import AppVersionBadge from "../components/AppVersionBadge";
 import {
+  AppearanceDensity,
+  InterfaceScale,
   getThemePreferenceMeta,
+  isAppearanceDensity,
+  isInterfaceScale,
   isThemePreference,
   ThemePreference,
 } from "../utils/themePreferences";
@@ -22,11 +28,28 @@ import {
 const DESKTOP_BACKGROUND_ATTACHMENT_MEDIA_QUERY =
   "@media (min-width:900px) and (pointer:fine)";
 const OVERLAY_KEYBOARD_OFFSET_CSS_VAR = "--liftlogic-keyboard-offset";
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-body",
+  weight: ["400", "500", "600", "700"],
+});
+const manrope = Manrope({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 function MyApp({ Component, pageProps }: AppProps) {
   const [themePreference, setThemePreference] = useState<ThemePreference>("light");
+  const [appearanceDensity, setAppearanceDensity] =
+    useState<AppearanceDensity>("comfortable");
+  const [interfaceScale, setInterfaceScale] = useState<InterfaceScale>("normal");
   const themeMeta = getThemePreferenceMeta(themePreference);
   const darkMode = themeMeta.mode === "dark";
+  const densityScale = appearanceDensity === "compact" ? 0.9 : 1;
+  const interfaceScaleFactor = interfaceScale === "large" ? 1.08 : 1;
   const surfaceBorder = darkMode
     ? "rgba(148, 163, 184, 0.18)"
     : "rgba(15, 23, 42, 0.08)";
@@ -58,6 +81,30 @@ function MyApp({ Component, pageProps }: AppProps) {
     [applyThemePreference, darkMode]
   );
 
+  const applyAppearanceDensity = useCallback(
+    (
+      value:
+        | AppearanceDensity
+        | ((previous: AppearanceDensity) => AppearanceDensity)
+    ) => {
+      setAppearanceDensity((previous) => {
+        const nextValue = typeof value === "function" ? value(previous) : value;
+        return isAppearanceDensity(nextValue) ? nextValue : previous;
+      });
+    },
+    []
+  );
+
+  const applyInterfaceScale = useCallback(
+    (value: InterfaceScale | ((previous: InterfaceScale) => InterfaceScale)) => {
+      setInterfaceScale((previous) => {
+        const nextValue = typeof value === "function" ? value(previous) : value;
+        return isInterfaceScale(nextValue) ? nextValue : previous;
+      });
+    },
+    []
+  );
+
   const theme = useMemo(
     () =>
       createTheme({
@@ -83,25 +130,26 @@ function MyApp({ Component, pageProps }: AppProps) {
         shape: {
           borderRadius: 18,
         },
-        typography: {
-          fontFamily: '"Instrument Sans", sans-serif',
-          h3: {
-            fontFamily: '"Manrope", sans-serif',
-            fontWeight: 800,
+          typography: {
+            fontFamily: 'var(--font-body), "Instrument Sans", sans-serif',
+            fontSize: 14 * interfaceScaleFactor,
+            h3: {
+              fontFamily: 'var(--font-display), "Manrope", sans-serif',
+              fontWeight: 800,
             letterSpacing: "-0.05em",
           },
           h4: {
-            fontFamily: '"Manrope", sans-serif',
+            fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 800,
             letterSpacing: "-0.04em",
           },
           h5: {
-            fontFamily: '"Manrope", sans-serif',
+            fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 800,
             letterSpacing: "-0.03em",
           },
           h6: {
-            fontFamily: '"Manrope", sans-serif',
+            fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 700,
             letterSpacing: "-0.02em",
           },
@@ -129,8 +177,8 @@ function MyApp({ Component, pageProps }: AppProps) {
             styleOverrides: {
               root: {
                 borderRadius: 16,
-                paddingInline: 14,
-                minHeight: 42,
+                paddingInline: 14 * interfaceScaleFactor,
+                minHeight: Math.round(42 * interfaceScaleFactor * densityScale),
                 fontWeight: 700,
               },
               contained: {
@@ -193,7 +241,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           MuiToggleButtonGroup: {
             styleOverrides: {
               root: {
-                padding: 4,
+                padding: 4 * densityScale,
                 borderRadius: 18,
                 border: `1px solid ${surfaceBorder}`,
                 backgroundColor: softSurface,
@@ -208,8 +256,8 @@ function MyApp({ Component, pageProps }: AppProps) {
             styleOverrides: {
               root: {
                 borderRadius: 14,
-                paddingInline: 16,
-                minHeight: 44,
+                paddingInline: 16 * interfaceScaleFactor,
+                minHeight: Math.round(44 * interfaceScaleFactor * densityScale),
                 color: darkMode ? "#cbd5e1" : "#334155",
                 "&.Mui-selected": {
                   color: darkMode ? "#f8fafc" : "#0f172a",
@@ -235,6 +283,7 @@ function MyApp({ Component, pageProps }: AppProps) {
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 16,
                   backgroundColor: softSurface,
+                  minHeight: Math.round(56 * interfaceScaleFactor * densityScale),
                   "& fieldset": {
                     borderColor: surfaceBorder,
                   },
@@ -252,7 +301,16 @@ function MyApp({ Component, pageProps }: AppProps) {
           },
         },
       }),
-    [darkMode, softShadow, softSurface, softSurfaceHover, surfaceBorder, themeMeta]
+    [
+      darkMode,
+      densityScale,
+      interfaceScaleFactor,
+      softShadow,
+      softSurface,
+      softSurfaceHover,
+      surfaceBorder,
+      themeMeta,
+    ]
   );
 
   useEffect(() => {
@@ -288,9 +346,51 @@ function MyApp({ Component, pageProps }: AppProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    if (process.env.NODE_ENV === "test") {
+      return;
+    }
+
+    const isSecureContextLike =
+      window.location.protocol === "https:" || window.location.hostname === "localhost";
+
+    if (!isSecureContextLike) {
+      return;
+    }
+
+    const registerServiceWorker = async () => {
+      try {
+        await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+        });
+      } catch (error) {
+        console.error("Service worker registration failed:", error);
+      }
+    };
+
+    void registerServiceWorker();
+  }, []);
+
   return (
     <SessionProvider session={pageProps.session}>
       <ThemeProvider theme={theme}>
+        <div className={`${instrumentSans.variable} ${manrope.variable}`}>
+        <Head>
+          <title>Lift Logic</title>
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+          />
+          <meta
+            name="description"
+            content="Adaptive workout planning and tracking with resilient Android home-screen support."
+          />
+          <meta name="theme-color" content={themeMeta.primaryMain} />
+        </Head>
         <CssBaseline />
         <Component
           {...pageProps}
@@ -298,6 +398,10 @@ function MyApp({ Component, pageProps }: AppProps) {
           setDarkMode={applyDarkMode}
           themePreference={themePreference}
           setThemePreference={applyThemePreference}
+          appearanceDensity={appearanceDensity}
+          setAppearanceDensity={applyAppearanceDensity}
+          interfaceScale={interfaceScale}
+          setInterfaceScale={applyInterfaceScale}
         />
         <AutomaticBugReporter />
         <AppVersionBadge />
@@ -307,6 +411,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           toastClassName="liftlogic-toast"
         />
         {process.env.NODE_ENV !== "production" ? <DevBugRecorder /> : null}
+        </div>
       </ThemeProvider>
     </SessionProvider>
   );

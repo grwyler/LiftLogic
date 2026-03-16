@@ -1275,10 +1275,9 @@ const ExerciseItem = ({
               show={shownMenuIndex === exerciseIndex}
             />
             <IconButton
-              onClick={openRepeatDialog}
+              onClick={handleOpenRepeatFlow}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
-              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon
                 color={isRepeating ? "primary" : "disabled"}

@@ -40,6 +40,33 @@ describe("premium entitlements", () => {
     });
   });
 
+  it("treats an active manual founding-beta grant as premium access", () => {
+    const activeGrant = {
+      manualProBetaAccess: {
+        grantedAt: new Date("2026-03-16T00:00:00.000Z"),
+        paymentCollectionNote: "Manual invoice",
+      },
+    };
+    const expiredGrant = {
+      manualProBetaAccess: {
+        grantedAt: new Date("2026-03-01T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-10T00:00:00.000Z"),
+      },
+    };
+
+    expect(resolveUserAccess(activeGrant as any)).toEqual({
+      productPlan: "premium",
+      entitlements: PREMIUM_ENTITLEMENTS,
+      hasPremiumAccess: true,
+    });
+
+    expect(resolveUserAccess(expiredGrant as any)).toEqual({
+      productPlan: "free",
+      entitlements: FREE_ENTITLEMENTS,
+      hasPremiumAccess: false,
+    });
+  });
+
   it("keeps premium gates enforced across the routines flow and API routes", () => {
     const generateWorkoutApi = fs.readFileSync(
       path.join(process.cwd(), "pages", "api", "generateWorkout.ts"),
@@ -51,6 +78,10 @@ describe("premium entitlements", () => {
     );
     const exerciseProgressApi = fs.readFileSync(
       path.join(process.cwd(), "pages", "api", "exerciseProgress.ts"),
+      "utf8"
+    );
+    const foundingBetaApi = fs.readFileSync(
+      path.join(process.cwd(), "pages", "api", "admin", "founding-beta.ts"),
       "utf8"
     );
     const coachChatApi = fs.readFileSync(
@@ -75,7 +106,12 @@ describe("premium entitlements", () => {
     expect(coachChatApi).toContain("create_recurring_exercise");
     expect(coachChatApi).toContain("buildUpsellReply");
 
+    expect(foundingBetaApi).toContain('operation?: "grant" | "revoke" | "update"');
+    expect(foundingBetaApi).toContain("manualProBetaAccess");
+    expect(foundingBetaApi).toContain("paymentCollectionNote");
+
     expect(routinesPage).toContain("Upgrade for planning");
-    expect(routinesPage).toContain("Pro Beta is required to generate assistant-built workout plans.");
+    expect(routinesPage).toContain('openUpgradePrompt("assistant_generation")');
+    expect(routinesPage).toContain("Generate a workout plan with the assistant");
   });
 });

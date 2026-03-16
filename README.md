@@ -23,3 +23,11 @@ $env:PORT=3000
 ```powershell
 vercel --prod
 ```
+
+## Android shell
+
+Lift Logic includes a Capacitor Android wrapper that targets the deployed web app. See [docs/android-capacitor-shell.md](/Users/Grwyl/VSCode%20Projects/lift-logic/docs/android-capacitor-shell.md) for the production target, local dev workflow, and Android Studio steps.
+
+## Android QA
+
+Use [docs/android-qa-checklist.md](/Users/Grwyl/VSCode%20Projects/lift-logic/docs/android-qa-checklist.md) for the repeatable Android smoke pass covering auth, routines, setup, recurring rules, coach flows, dialogs, and feedback capture.

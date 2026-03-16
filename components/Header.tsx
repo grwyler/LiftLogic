@@ -2,10 +2,8 @@ import React from "react";
 import { Button, Stack, Typography } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/router";
-import { orchestrationNavigation } from "../orchestration-app/routes";
 
 const routinesHeaderRadius = {
   button: "18px",
@@ -61,34 +59,22 @@ const Header = ({ user, darkMode }) => {
       </Stack>
       <Stack direction="column" spacing={1}>
         <Button
-          onClick={() => router.push(orchestrationNavigation.primary.href)}
+          onClick={() => router.push("/feedback")}
           variant="outlined"
-          startIcon={<Inventory2OutlinedIcon />}
+          startIcon={<CampaignOutlinedIcon />}
           sx={{
             color: "text.primary",
             justifyContent: "center",
             borderRadius: routinesHeaderRadius.button,
           }}
         >
-          {orchestrationNavigation.primary.label}
+          Feedback
         </Button>
-          <Button
-            onClick={() => router.push("/feedback")}
-            variant="outlined"
-            startIcon={<CampaignOutlinedIcon />}
-            sx={{
-              color: "text.primary",
-              justifyContent: "center",
-              borderRadius: routinesHeaderRadius.button,
-            }}
-          >
-            Feedback
-          </Button>
-          <Button
-            onClick={handleSignOut}
-            variant="contained"
-            startIcon={<LogoutIcon />}
-            sx={{ borderRadius: routinesHeaderRadius.button }}
+        <Button
+          onClick={handleSignOut}
+          variant="contained"
+          startIcon={<LogoutIcon />}
+          sx={{ borderRadius: routinesHeaderRadius.button }}
         >
           Sign Out
         </Button>

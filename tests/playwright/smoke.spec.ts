@@ -4,13 +4,10 @@ import {
   closeExerciseDetail,
   completeAssistantSetup,
   continueAsTracker,
-  fetchRecurringRulesForUser,
-  generatePlanForProfile,
   getSessionUserId,
   logFirstSetForFirstExercise,
   quickAddFirstExercise,
   reportFailedTestAsBug,
-  saveAndEditRepeatScheduleEndDate,
   signUp,
 } from "./helpers";
 
@@ -71,7 +68,7 @@ test.describe("Lift Logic smoke", () => {
     await logFirstSetForFirstExercise(page);
   });
 
-  test("critical /routines QA journey covers assistant setup, quick add, logging, and repeat schedules", async ({
+  test("critical /routines QA journey covers assistant setup, quick add, logging, and free-tier schedule gating", async ({
     page,
   }) => {
     const username = buildUsername("critical-routines");
@@ -86,56 +83,36 @@ test.describe("Lift Logic smoke", () => {
     await quickAddFirstExercise(page);
     await logFirstSetForFirstExercise(page);
     await closeExerciseDetail(page);
-    await saveAndEditRepeatScheduleEndDate(page, {
-      initialOffsetDays: 10,
-      updatedOffsetDays: 18,
-    });
+
+    await expect(
+      page.locator('[title="Repeat this exercise"]').first()
+    ).toBeDisabled();
+    await expect(page.getByText("Upgrade for planning")).toBeVisible();
   });
 
-  test("generated plans schedule recurring rules onto the routines calendar", async ({
+  test("free users see the Pro Beta gate before assistant plan generation", async ({
     page,
   }) => {
     const username = buildUsername("coach-plan");
     await signUp(page, username);
     currentUserId = await getSessionUserId(page);
 
-    const generated = await generatePlanForProfile(page, currentUserId, {
-      sex: "",
-      age: "",
-      preferredUnits: "lb",
-      trainingGoal: "strength",
-      currentFitnessLevel: "starting_out",
-      workoutDaysPerWeek: "4",
-      experienceLevel: "beginner",
-      workoutLength: "45",
-      equipmentAccess: ["Bodyweight only"],
-      maxDumbbellWeight: "",
-      preferredTrainingDays: ["Mon", "Tue", "Thu", "Sat"],
-      limitations: "",
-      notes: "Focus on progressive overload with practical compound lifts.",
-    });
+    await page
+      .getByRole("button", { name: "Yes, help me plan workouts" })
+      .click();
+    await page.getByLabel("Name").fill("Coach Gate");
+    await page.getByRole("button", { name: "Get stronger" }).click();
+    await page.getByRole("button", { name: "4 days" }).click();
 
-    expect(generated?.coachResponse?.planSnapshot?.length).toBe(4);
-
-    await expect
-      .poll(async () => {
-        const rules = await fetchRecurringRulesForUser(page, currentUserId);
-        const distinctDays = new Set(
-          rules.flatMap((rule) =>
-            Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.length > 0
-              ? rule.daysOfWeek
-              : typeof rule.dayOfWeek === "number"
-              ? [rule.dayOfWeek]
-              : []
-          )
-        );
-
-        return JSON.stringify({
-          ruleCount: rules.length,
-          distinctDayCount: distinctDays.size,
-        });
-      })
-      .toContain('"distinctDayCount":4');
+    await expect(
+      page.getByText("Pro Beta is required to generate assistant-built workout plans.")
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Upgrade for Pro Beta" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save preferences only" })
+    ).toBeVisible();
   });
 
   test("signed in user can submit bug feedback", async ({ page }) => {

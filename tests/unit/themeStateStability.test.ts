@@ -12,7 +12,11 @@ describe("theme state stability", () => {
     expect(appSource).toContain("useCallback");
     expect(appSource).toContain("const applyThemePreference = useCallback");
     expect(appSource).toContain("const applyDarkMode = useCallback");
+    expect(appSource).toContain("const applyAppearanceDensity = useCallback");
+    expect(appSource).toContain("const applyInterfaceScale = useCallback");
     expect(appSource).toContain("setThemePreference={applyThemePreference}");
     expect(appSource).toContain("setDarkMode={applyDarkMode}");
+    expect(appSource).toContain("setAppearanceDensity={applyAppearanceDensity}");
+    expect(appSource).toContain("setInterfaceScale={applyInterfaceScale}");
   });
 });

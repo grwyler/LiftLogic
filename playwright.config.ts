@@ -41,5 +41,11 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
       },
     },
+    {
+      name: "android-chrome",
+      use: {
+        ...devices["Pixel 7"],
+      },
+    },
   ],
 });

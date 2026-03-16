@@ -6,6 +6,7 @@ import {
   ExerciseSet,
   FeedbackItemDoc,
   BillingSummaryResponse,
+  MonetizationSummaryResponse,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
 } from "./types";
@@ -921,6 +922,91 @@ export const createBillingPortalSession = async () => {
   }
 
   return response.json() as Promise<{ url: string }>;
+};
+
+export const trackBetaFunnelMilestone = async (
+  milestone: string,
+  occurredAt?: string
+) => {
+  const response = await fetch("/api/funnel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      milestone,
+      ...(occurredAt ? { occurredAt } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`trackBetaFunnelMilestone ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ success: true }>;
+};
+
+export const fetchMonetizationSummary =
+  async (): Promise<MonetizationSummaryResponse> => {
+    const response = await fetch("/api/funnel?summary=monetization");
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`fetchMonetizationSummary ${response.status}: ${message}`);
+    }
+
+    return response.json();
+  };
+
+export const fetchFoundingBetaUsers = async (search = "") => {
+  const query = new URLSearchParams();
+  if (search.trim()) {
+    query.set("search", search.trim());
+  }
+
+  const response = await fetch(
+    `/api/admin/founding-beta${query.toString() ? `?${query.toString()}` : ""}`
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`fetchFoundingBetaUsers ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ users: any[] }>;
+};
+
+export const saveFoundingBetaAccess = async ({
+  userId,
+  operation,
+  expiresAt,
+  paymentCollectionNote,
+}: {
+  userId: string;
+  operation: "grant" | "revoke" | "update";
+  expiresAt?: string;
+  paymentCollectionNote?: string;
+}) => {
+  const response = await fetch("/api/admin/founding-beta", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId,
+      operation,
+      expiresAt: expiresAt || "",
+      paymentCollectionNote,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`saveFoundingBetaAccess ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ user: any }>;
 };
 
 export const submitFeedback = async (
