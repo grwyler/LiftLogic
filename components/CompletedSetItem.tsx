@@ -4,6 +4,11 @@ import { Box, Paper, Typography } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { estimateOneRepMax } from "../utils/performance";
 
+const completedSetRadius = {
+  card: "20px",
+  badge: "999px",
+} as const;
+
 const SetItem = ({
   set,
   setIndex,
@@ -63,40 +68,65 @@ const SetItem = ({
       elevation={0}
       onClick={handleClickCompletedSet}
       sx={{
-        mx: 2,
-        my: 1.25,
-        px: 1.75,
+        my: 1,
+        px: 1.5,
         py: 1.25,
-        borderRadius: 2.5,
+        borderRadius: completedSetRadius.card,
         border: "1px solid",
-        borderColor: darkMode ? "rgba(148,163,184,0.2)" : "rgba(148,163,184,0.3)",
-        backgroundColor: darkMode ? "rgba(15,23,42,0.64)" : "rgba(248,250,252,0.92)",
+        borderColor: darkMode ? "rgba(148,163,184,0.16)" : "rgba(15,23,42,0.1)",
+        backgroundColor: darkMode ? "rgba(15,23,42,0.54)" : "rgba(248,250,252,0.78)",
         cursor: interactive ? "pointer" : "default",
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.75 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 1,
+          mb: 0.85,
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
           {set.name}
         </Typography>
-        <CheckCircleOutlineIcon sx={{ fontSize: 18, color: "success.main" }} />
+        <Box
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.6,
+            px: 1,
+            py: 0.45,
+            borderRadius: completedSetRadius.badge,
+            backgroundColor: darkMode
+              ? "rgba(34,197,94,0.14)"
+              : "rgba(220,252,231,0.92)",
+            color: darkMode ? "#bbf7d0" : "#166534",
+          }}
+        >
+          <CheckCircleOutlineIcon sx={{ fontSize: 16 }} />
+          <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1 }}>
+            Logged
+          </Typography>
+        </Box>
       </Box>
 
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
         {shouldRenderWeightMetrics && (
           <Fragment>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
               {actualWeight} lbs
             </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
               {actualReps} reps
             </Typography>
             {estimated1RM ? (
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
                 Est. 1RM {estimated1RM}
               </Typography>
             ) : null}
             {weightDelta !== null || repDelta !== null ? (
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
                 vs plan{" "}
                 {weightDelta !== null
                   ? `${weightDelta > 0 ? "+" : ""}${weightDelta} lbs`
@@ -107,7 +137,7 @@ const SetItem = ({
           </Fragment>
         )}
         {type === "timed" && (
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
             {formatTime(loggedTimedSeconds)}
           </Typography>
         )}

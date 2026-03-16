@@ -1,4 +1,5 @@
 import packageJson from "../package.json";
+import { FeedbackDeviceType } from "./types";
 
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
@@ -7,6 +8,82 @@ const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
 const trimCommitSha = (value: string) => value.slice(0, 40);
+
+const FOLDABLE_USER_AGENT_PATTERN =
+  /\b(fold|pixel fold|sm-f9|surface duo|razr)\b/i;
+const TABLET_USER_AGENT_PATTERN =
+  /\b(ipad|tablet|nexus 7|nexus 9|sm-t|lenovo tab|kindle|silk)\b/i;
+
+const isLikelyTouchDevice = ({
+  touchPoints,
+  userAgent,
+}: {
+  touchPoints?: number;
+  userAgent?: string;
+}) =>
+  typeof touchPoints === "number"
+    ? touchPoints > 0
+    : /\b(android|iphone|ipad|mobile|tablet|touch)\b/i.test(userAgent || "");
+
+export const classifyClientDeviceType = ({
+  width,
+  userAgent,
+  touchPoints,
+}: {
+  width?: number;
+  userAgent?: string;
+  touchPoints?: number;
+}): FeedbackDeviceType => {
+  const normalizedUserAgent = sanitizeText(userAgent);
+  const normalizedWidth = Number.isFinite(width) ? Number(width) : 0;
+  const isTouchDevice = isLikelyTouchDevice({
+    touchPoints,
+    userAgent: normalizedUserAgent,
+  });
+  const isAndroidDevice = /\bandroid\b/i.test(normalizedUserAgent);
+
+  if (FOLDABLE_USER_AGENT_PATTERN.test(normalizedUserAgent)) {
+    return "foldable";
+  }
+
+  if (TABLET_USER_AGENT_PATTERN.test(normalizedUserAgent)) {
+    return "tablet";
+  }
+
+  if (
+    isAndroidDevice &&
+    isTouchDevice &&
+    normalizedWidth >= 600 &&
+    normalizedWidth < 1280
+  ) {
+    return "tablet";
+  }
+
+  if (
+    /\b(iphone|ipod|mobile)\b/i.test(normalizedUserAgent) ||
+    (isTouchDevice && normalizedWidth > 0 && normalizedWidth < 600)
+  ) {
+    return "mobile";
+  }
+
+  if (normalizedWidth >= 1280 && !isTouchDevice) {
+    return "desktop";
+  }
+
+  if (normalizedWidth >= 768 && isTouchDevice) {
+    return "tablet";
+  }
+
+  if (normalizedWidth >= 600) {
+    return "desktop";
+  }
+
+  if (normalizedWidth > 0) {
+    return "mobile";
+  }
+
+  return "unknown";
+};
 
 export const getReporterRole = ({
   username,
@@ -85,3 +162,11 @@ export const getClientRuntimeContext = (route?: string) => {
     online,
   };
 };
+
+export const getClientDeviceType = () =>
+  classifyClientDeviceType({
+    width: typeof window !== "undefined" ? window.innerWidth : undefined,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+    touchPoints:
+      typeof navigator !== "undefined" ? navigator.maxTouchPoints : undefined,
+  });

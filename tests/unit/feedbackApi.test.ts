@@ -451,6 +451,46 @@ describe("feedback API route", () => {
     expect(coachRes.body.feedback.notificationStatus).toBe("skipped");
   });
 
+  it("preserves expanded device classifications like tablet and foldable", async () => {
+    const tabletReq = createMockRequest({
+      method: "POST",
+      body: {
+        feedback: {
+          type: "bug",
+          title: "Tablet-specific layout issue",
+          description: "The tablet layout needs its own review.",
+          page: "/bugs",
+          deviceType: "tablet",
+        },
+      },
+    });
+    const tabletRes = createMockResponse();
+    await handler(tabletReq, tabletRes as any);
+
+    expect(tabletRes.statusCode).toBe(200);
+    expect(tabletRes.body.feedback.deviceType).toBe("tablet");
+    expect(tabletRes.body.workItem.deviceType).toBe("tablet");
+
+    const foldableReq = createMockRequest({
+      method: "POST",
+      body: {
+        feedback: {
+          type: "bug",
+          title: "Foldable-specific layout issue",
+          description: "The foldable layout needs its own review.",
+          page: "/bugs",
+          deviceType: "foldable",
+        },
+      },
+    });
+    const foldableRes = createMockResponse();
+    await handler(foldableReq, foldableRes as any);
+
+    expect(foldableRes.statusCode).toBe(200);
+    expect(foldableRes.body.feedback.deviceType).toBe("foldable");
+    expect(foldableRes.body.workItem.deviceType).toBe("foldable");
+  });
+
   it("merges duplicate bug reports into one work item and suppresses duplicate notifications", async () => {
     process.env.NEXT_PUBLIC_APP_VERSION = "1.0.2";
     process.env.NEXT_PUBLIC_COMMIT_SHA = "server-fallback-sha";

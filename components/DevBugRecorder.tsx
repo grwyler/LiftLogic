@@ -27,6 +27,7 @@ import { toast } from "react-toastify";
 import { submitFeedback } from "../utils/helpers";
 import { FeedbackItemDoc } from "../utils/types";
 import {
+  getClientDeviceType,
   getClientRuntimeContext,
   getReporterRole,
 } from "../utils/feedbackMetadata";
@@ -574,10 +575,7 @@ const DevBugRecorder = () => {
           ? window.location.pathname + window.location.search
           : currentPath;
 
-      const deviceType =
-        typeof window !== "undefined" && window.innerWidth < 900
-          ? "mobile"
-          : "desktop";
+      const deviceType = getClientDeviceType();
 
       const title =
         snapshot.title.trim() || `Recorded bug report from ${finalPath}`;
@@ -670,7 +668,10 @@ const DevBugRecorder = () => {
       sx={{
         position: "fixed",
         right: { xs: 12, sm: 18 },
-        bottom: { xs: 12, sm: 18 },
+        bottom: {
+          xs: "calc(12px + var(--liftlogic-overlay-bottom-offset, 0px))",
+          sm: "calc(18px + var(--liftlogic-overlay-bottom-offset, 0px))",
+        },
         zIndex: 1500,
       }}
     >

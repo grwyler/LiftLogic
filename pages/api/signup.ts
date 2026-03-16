@@ -44,6 +44,9 @@ export default async function handler(req, res) {
         setupPromptSeen: false,
         setupCompleted: false,
         darkMode: false,
+        billingPlan: "free",
+        subscriptionStatus: "inactive",
+        subscriptionCancelAtPeriodEnd: false,
         betaFunnel: markBetaFunnelMilestone({
           funnel: markBetaFunnelMilestone({
             funnel: {},

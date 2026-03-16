@@ -31,6 +31,23 @@ type GoalProfile = {
   heavyIncrement: number;
 };
 
+type CompletionStatus = "success" | "aggressive" | "underperformed";
+
+type EntryPerformanceSummary = {
+  entry: WorkoutEntryDoc;
+  date: Date | null;
+  sets: NormalizedPerformanceSet[];
+  representativeSet: NormalizedPerformanceSet | null;
+  averageWeight: number | null;
+  averageReps: number | null;
+  medianEstimated1RM: number | null;
+  signal: {
+    status: CompletionStatus;
+    reason: string;
+  };
+  removedOutlierSetCount: number;
+};
+
 export type ExerciseRecommendation = {
   recommendedWeight: number | null;
   recommendedReps: number | null;
@@ -55,6 +72,10 @@ export type InWorkoutAdjustment = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const RECENT_BASELINE_WINDOW = 5;
+const SIGNAL_CONFIRMATION_EXPOSURES = 2;
+const HIGH_OUTLIER_E1RM_FACTOR = 1.35;
+const LOW_OUTLIER_E1RM_FACTOR = 0.65;
 
 const GOAL_PROFILES: Record<"strength" | "hypertrophy" | "endurance", GoalProfile> =
   {
@@ -179,6 +200,9 @@ const roundRecommendedWeight = (weight: number, profile: GoalProfile) => {
     : Math.max(1, Math.round(weight));
 };
 
+const estimateSetE1RM = (set: NormalizedPerformanceSet) =>
+  set.actualWeight * (1 + set.actualReps / 30);
+
 const getNormalizedCompletedWeightSets = (
   entry: WorkoutEntryDoc
 ): NormalizedPerformanceSet[] => {
@@ -216,6 +240,52 @@ const getRepresentativeSet = (sets: NormalizedPerformanceSet[]) => {
 
     return best;
   }, null);
+};
+
+const getMedianEstimated1RM = (sets: NormalizedPerformanceSet[]) => {
+  const estimates = sets
+    .map((set) => estimateSetE1RM(set))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return getMedian(estimates);
+};
+
+const rejectOutlierSets = (sets: NormalizedPerformanceSet[]) => {
+  if (sets.length < 3) {
+    return {
+      cleanedSets: sets,
+      removedOutlierSetCount: 0,
+    };
+  }
+
+  const medianEstimated1RM = getMedianEstimated1RM(sets);
+
+  if (medianEstimated1RM === null) {
+    return {
+      cleanedSets: sets,
+      removedOutlierSetCount: 0,
+    };
+  }
+
+  const cleanedSets = sets.filter((set) => {
+    const estimate = estimateSetE1RM(set);
+    return (
+      estimate <= medianEstimated1RM * HIGH_OUTLIER_E1RM_FACTOR &&
+      estimate >= medianEstimated1RM * LOW_OUTLIER_E1RM_FACTOR
+    );
+  });
+
+  if (cleanedSets.length < Math.ceil(sets.length / 2)) {
+    return {
+      cleanedSets: sets,
+      removedOutlierSetCount: 0,
+    };
+  }
+
+  return {
+    cleanedSets,
+    removedOutlierSetCount: sets.length - cleanedSets.length,
+  };
 };
 
 const getGoalAdjustmentStrategy = (profile: GoalProfile) => {
@@ -292,6 +362,144 @@ const getLatestCompletedWeightEntry = (entries: WorkoutEntryDoc[]) => {
   );
 };
 
+const getPlannedSetCount = (entry: WorkoutEntryDoc) => {
+  const sets = Array.isArray(entry.sets) ? entry.sets : [];
+  return sets.length > 0 ? sets.length : null;
+};
+
+const hasIntentionalLowVolumeFlag = (entry: WorkoutEntryDoc) =>
+  Boolean(
+    (entry as WorkoutEntryDoc & {
+      intentionalLowVolume?: boolean;
+      reducedVolumeIntentional?: boolean;
+      volumeReductionIntentional?: boolean;
+    }).intentionalLowVolume ||
+      (entry as WorkoutEntryDoc & {
+        intentionalLowVolume?: boolean;
+        reducedVolumeIntentional?: boolean;
+        volumeReductionIntentional?: boolean;
+      }).reducedVolumeIntentional ||
+      (entry as WorkoutEntryDoc & {
+        intentionalLowVolume?: boolean;
+        reducedVolumeIntentional?: boolean;
+        volumeReductionIntentional?: boolean;
+      }).volumeReductionIntentional
+  );
+
+const getMedian = (values: number[]) => {
+  if (!values.length) {
+    return null;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 1) {
+    return sorted[middle];
+  }
+
+  return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+};
+
+const getSetCountBaselineFromEntry = (entry: WorkoutEntryDoc) => {
+  const plannedSetCount = getPlannedSetCount(entry);
+  const completedSetCount = getNormalizedCompletedWeightSets(entry).length;
+
+  if (hasIntentionalLowVolumeFlag(entry) && completedSetCount > 0) {
+    return completedSetCount;
+  }
+
+  if (plannedSetCount !== null) {
+    return plannedSetCount;
+  }
+
+  return completedSetCount > 0 ? completedSetCount : null;
+};
+
+const resolveRecommendedSetCount = ({
+  entries,
+  latestEntry,
+  completedSetCount,
+}: {
+  entries: WorkoutEntryDoc[];
+  latestEntry: WorkoutEntryDoc;
+  completedSetCount: number;
+}) => {
+  const plannedSetCount = getPlannedSetCount(latestEntry);
+  const latestEntryIsIntentionalLowVolume = hasIntentionalLowVolumeFlag(latestEntry);
+  const sortedEntries = [...entries].sort((a, b) => {
+    const aTime = parseEntryDate(a.date)?.getTime() ?? 0;
+    const bTime = parseEntryDate(b.date)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+  const recentMedianSetCount = getMedian(
+    sortedEntries
+      .filter((entry) => entry !== latestEntry)
+      .map(getSetCountBaselineFromEntry)
+      .filter((value): value is number => value !== null)
+      .slice(0, 5)
+  );
+
+  if (latestEntryIsIntentionalLowVolume && completedSetCount > 0) {
+    return {
+      recommendedSets: completedSetCount,
+      reason:
+        "the last workout was explicitly marked as intentionally reduced volume",
+    };
+  }
+
+  if (
+    plannedSetCount !== null &&
+    completedSetCount > 0 &&
+    completedSetCount < plannedSetCount
+  ) {
+    return {
+      recommendedSets: plannedSetCount,
+      reason:
+        "the last workout looks partially logged, so the set count stays anchored to the planned template",
+    };
+  }
+
+  if (
+    recentMedianSetCount !== null &&
+    plannedSetCount !== null &&
+    plannedSetCount <= 1 &&
+    recentMedianSetCount > plannedSetCount
+  ) {
+    return {
+      recommendedSets: recentMedianSetCount,
+      reason:
+        "the last workout's set count looks sparse compared with your recent baseline, so the app kept the recent median volume",
+    };
+  }
+
+  if (plannedSetCount !== null) {
+    return {
+      recommendedSets: plannedSetCount,
+      reason: "the planned template from your latest workout",
+    };
+  }
+
+  if (recentMedianSetCount !== null) {
+    return {
+      recommendedSets: recentMedianSetCount,
+      reason: "your recent median set count",
+    };
+  }
+
+  if (completedSetCount > 0) {
+    return {
+      recommendedSets: completedSetCount,
+      reason: "the number of completed sets in your latest workout",
+    };
+  }
+
+  return {
+    recommendedSets: null,
+    reason: "there was not enough reliable set-count history to estimate volume",
+  };
+};
+
 const getCompletionSignal = (sets: NormalizedPerformanceSet[]) => {
   const qualifyingWithTargets = sets.filter(
     (set) => set.plannedWeight !== null || set.plannedReps !== null
@@ -353,6 +561,60 @@ const getCompletionSignal = (sets: NormalizedPerformanceSet[]) => {
     status: "success" as const,
     reason: "your latest completed work is the best current baseline",
   };
+};
+
+const buildEntryPerformanceSummary = (
+  entry: WorkoutEntryDoc
+): EntryPerformanceSummary | null => {
+  const rawCompletedSets = getNormalizedCompletedWeightSets(entry);
+  const { cleanedSets, removedOutlierSetCount } = rejectOutlierSets(rawCompletedSets);
+
+  if (!cleanedSets.length) {
+    return null;
+  }
+
+  return {
+    entry,
+    date: parseEntryDate(entry.date),
+    sets: cleanedSets,
+    representativeSet: getRepresentativeSet(cleanedSets),
+    averageWeight: getAverageActualWeight(cleanedSets),
+    averageReps: getAverageActualReps(cleanedSets),
+    medianEstimated1RM: getMedianEstimated1RM(cleanedSets),
+    signal: getCompletionSignal(cleanedSets),
+    removedOutlierSetCount,
+  };
+};
+
+const getRecentEntrySummaries = (entries: WorkoutEntryDoc[]) =>
+  [...entries]
+    .sort((a, b) => {
+      const aTime = parseEntryDate(a.date)?.getTime() ?? 0;
+      const bTime = parseEntryDate(b.date)?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .filter((entry) => entry.complete)
+    .map(buildEntryPerformanceSummary)
+    .filter((summary): summary is EntryPerformanceSummary => summary !== null)
+    .slice(0, RECENT_BASELINE_WINDOW);
+
+const getConfirmedStatus = (
+  summaries: EntryPerformanceSummary[],
+  status: CompletionStatus
+) =>
+  summaries.length >= SIGNAL_CONFIRMATION_EXPOSURES &&
+  summaries
+    .slice(0, SIGNAL_CONFIRMATION_EXPOSURES)
+    .every((summary) => summary.signal.status === status);
+
+const getHistoricalBaselineSummaries = (summaries: EntryPerformanceSummary[]) => {
+  const historical = summaries.slice(1);
+
+  if (historical.length >= 2) {
+    return historical;
+  }
+
+  return summaries;
 };
 
 const applyBaseProgression = (
@@ -417,9 +679,11 @@ export const buildNextExerciseRecommendation = (
   trainingGoal?: SupportedTrainingGoal
 ): ExerciseRecommendation => {
   const profile = normalizeTrainingGoal(trainingGoal);
-  const latestEntry = getLatestCompletedWeightEntry(entries);
+  const recentSummaries = getRecentEntrySummaries(entries);
+  const latestSummary = recentSummaries[0] ?? null;
+  const latestEntry = latestSummary?.entry ?? null;
 
-  if (!latestEntry) {
+  if (!latestEntry || !latestSummary) {
     return {
       recommendedWeight: null,
       recommendedReps: null,
@@ -432,15 +696,44 @@ export const buildNextExerciseRecommendation = (
     };
   }
 
-  const completedSets = getNormalizedCompletedWeightSets(latestEntry);
-  const representativeSet = getRepresentativeSet(completedSets);
-  const averageWeight = getAverageActualWeight(completedSets);
-  const averageReps = getAverageActualReps(completedSets);
-  const latestDate = parseEntryDate(latestEntry.date);
+  const completedSets = latestSummary.sets;
+  const representativeSet = latestSummary.representativeSet;
+  const averageWeight = latestSummary.averageWeight;
+  const averageReps = latestSummary.averageReps;
+  const latestDate = latestSummary.date;
   const daysSinceLastWorkout = getDaysSince(latestDate);
-  const completionSignal = getCompletionSignal(completedSets);
+  const completionSignal = latestSummary.signal;
+  const setCountResolution = resolveRecommendedSetCount({
+    entries,
+    latestEntry,
+    completedSetCount: completedSets.length,
+  });
+  const baselineSummaries = getHistoricalBaselineSummaries(recentSummaries);
+  const baselineWeight =
+    getMedian(
+      baselineSummaries
+        .map((summary) => summary.averageWeight)
+        .filter((value): value is number => value !== null)
+    ) ?? averageWeight;
+  const baselineReps =
+    getMedian(
+      baselineSummaries
+        .map((summary) => summary.averageReps)
+        .filter((value): value is number => value !== null)
+    ) ?? averageReps;
+  const isAggressiveConfirmed = getConfirmedStatus(recentSummaries, "aggressive");
+  const isUnderperformanceConfirmed = getConfirmedStatus(
+    recentSummaries,
+    "underperformed"
+  );
 
-  if (!representativeSet || averageWeight === null || averageReps === null) {
+  if (
+    !representativeSet ||
+    averageWeight === null ||
+    averageReps === null ||
+    baselineWeight === null ||
+    baselineReps === null
+  ) {
     return {
       recommendedWeight: null,
       recommendedReps: null,
@@ -453,33 +746,59 @@ export const buildNextExerciseRecommendation = (
     };
   }
 
-  const baseWeight =
-    completionSignal.status === "aggressive"
-      ? representativeSet.actualWeight
-      : averageWeight;
-  const baseReps =
-    completionSignal.status === "aggressive"
-      ? representativeSet.actualReps
-      : averageReps;
+  const baseWeight = baselineWeight;
+  const baseReps = baselineReps;
+  const effectiveWeightStatus: CompletionStatus =
+    completionSignal.status === "aggressive" && !isAggressiveConfirmed
+      ? "success"
+      : completionSignal.status;
   const progressedWeight = applyBaseProgression(
     baseWeight,
-    completionSignal.status,
+    effectiveWeightStatus,
     profile
   );
   const detrained = applyDetrainingAdjustment(progressedWeight, daysSinceLastWorkout);
-  const recommendedWeight = roundRecommendedWeight(detrained.weight, profile);
-  const recommendedReps = clamp(
+  const uncappedWeight = detrained.weight;
+  const cappedWeight =
+    completionSignal.status === "aggressive" && !isAggressiveConfirmed
+      ? Math.min(uncappedWeight, baseWeight + profile.lightIncrement)
+      : completionSignal.status === "underperformed" && !isUnderperformanceConfirmed
+      ? Math.max(uncappedWeight, baseWeight - profile.lightIncrement)
+      : uncappedWeight;
+  const recommendedWeight = roundRecommendedWeight(cappedWeight, profile);
+  const latestRepBaseline = clamp(
     Math.round(baseReps),
     profile.minReps,
     profile.maxReps
   );
-  const recommendedSets = completedSets.length;
+  const repeatedUnderperformanceReps = clamp(
+    Math.round(Math.min(baseReps, averageReps)),
+    profile.minReps,
+    profile.maxReps
+  );
+  const recommendedReps =
+    completionSignal.status === "underperformed" && isUnderperformanceConfirmed
+      ? repeatedUnderperformanceReps
+      : latestRepBaseline;
+  const recommendedSets = setCountResolution.recommendedSets;
+  const outlierNote =
+    latestSummary.removedOutlierSetCount > 0
+      ? ` Outlier rejection ignored ${latestSummary.removedOutlierSetCount} noisy set${
+          latestSummary.removedOutlierSetCount === 1 ? "" : "s"
+        } in the latest session.`
+      : "";
+  const confirmationNote =
+    completionSignal.status === "aggressive" && !isAggressiveConfirmed
+      ? " A single strong session is capped to one increment until it repeats."
+      : completionSignal.status === "underperformed" && !isUnderperformanceConfirmed
+      ? " A single low day can trim load slightly, but reps stay steady until the miss repeats."
+      : "";
 
   return {
     recommendedWeight,
     recommendedReps,
     recommendedSets,
-    reason: `Using ${representativeSet.actualWeight} x ${representativeSet.actualReps} from your latest completed workout, ${completionSignal.reason}${detrained.note}.`,
+    reason: `Using a rolling ${baselineSummaries.length}-session baseline with ${representativeSet.actualWeight} x ${representativeSet.actualReps} from the latest completed workout, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}`,
     basedOn: {
       topSetWeight: representativeSet.actualWeight,
       topSetReps: representativeSet.actualReps,

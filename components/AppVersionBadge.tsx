@@ -19,8 +19,11 @@ const AppVersionBadge = () => {
       <Box
         sx={{
           position: "fixed",
-          left: { xs: 12, sm: 18 },
-          bottom: { xs: 12, sm: 18 },
+          right: { xs: 12, sm: 18 },
+          bottom: {
+            xs: "calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))",
+            sm: "calc(18px + var(--liftlogic-overlay-bottom-offset, 0px))",
+          },
           zIndex: 1300,
           px: 1.1,
           py: 0.7,

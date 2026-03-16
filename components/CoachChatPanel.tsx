@@ -32,6 +32,7 @@ import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import ThumbUpAltOutlinedIcon from "@mui/icons-material/ThumbUpAltOutlined";
 import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
 import { toast } from "react-toastify";
+import { getClientDeviceType } from "../utils/feedbackMetadata";
 
 type ChatMessage = {
   id: string;
@@ -250,8 +251,14 @@ export default function CoachChatPanel({
   );
   const minimizedLauncherBottom =
     process.env.NODE_ENV === "production"
-      ? { xs: 12, sm: 18 }
-      : { xs: 72, sm: 84 };
+      ? {
+          xs: "calc(12px + var(--liftlogic-overlay-bottom-offset, 0px))",
+          sm: "calc(18px + var(--liftlogic-overlay-bottom-offset, 0px))",
+        }
+      : {
+          xs: "calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))",
+          sm: "calc(84px + var(--liftlogic-overlay-bottom-offset, 0px))",
+        };
 
   useEffect(() => {
     setLoading(false);
@@ -457,10 +464,7 @@ export default function CoachChatPanel({
             : "A user marked this workout assistant response as unhelpful or incorrect.",
         severity: sentiment === "dislike" ? "medium" : "low",
         page: router.pathname || "/routines",
-        deviceType:
-          typeof window !== "undefined" && window.innerWidth < 768
-            ? "mobile"
-            : "desktop",
+        deviceType: getClientDeviceType(),
         coachFeedback: {
           sentiment,
           messageId: message.id,

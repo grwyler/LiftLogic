@@ -1,19 +1,22 @@
 import React from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Button, Stack, Typography } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
-import Brightness4Icon from "@mui/icons-material/Brightness4";
-import Brightness7Icon from "@mui/icons-material/Brightness7";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/router";
+import { orchestrationNavigation } from "../orchestration-app/routes";
 
-const Header = ({ user, setUser, setDarkMode, darkMode }) => {
+const routinesHeaderRadius = {
+  button: "18px",
+} as const;
+
+const Header = ({ user, darkMode }) => {
   const router = useRouter();
   const { username } = user;
 
   const handleSignOut = async () => {
     try {
-      setUser({ ...user, darkMode: false });
       await signOut({ redirect: true, callbackUrl: "/" });
     } catch (error) {
       console.error("Error signing out:", error);
@@ -21,21 +24,17 @@ const Header = ({ user, setUser, setDarkMode, darkMode }) => {
   };
 
   return (
-    <Box
+    <Stack
       sx={{
-        mt: 2.75,
-        display: "flex",
-        flexDirection: { xs: "column", sm: "row" },
-        justifyContent: "space-between",
-        alignItems: { xs: "stretch", sm: "center" },
-        gap: 1.5,
+        mt: 2.5,
+        gap: 1.15,
+        alignItems: "stretch",
       }}
     >
-      <Box
+      <Stack
+        spacing={0.45}
         sx={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 0.35,
+          px: { xs: 0.1, sm: 0.25 },
         }}
       >
         <Typography variant="body2" color="text.secondary">
@@ -59,37 +58,42 @@ const Header = ({ user, setUser, setDarkMode, darkMode }) => {
         >
           {username}
         </Button>
-      </Box>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+      </Stack>
+      <Stack direction="column" spacing={1}>
         <Button
-          onClick={() => router.push("/feedback")}
+          onClick={() => router.push(orchestrationNavigation.primary.href)}
           variant="outlined"
-          startIcon={<CampaignOutlinedIcon />}
+          startIcon={<Inventory2OutlinedIcon />}
           sx={{
             color: "text.primary",
+            justifyContent: "center",
+            borderRadius: routinesHeaderRadius.button,
           }}
         >
-          Feedback
+          {orchestrationNavigation.primary.label}
         </Button>
-        <Button
-          onClick={() => setDarkMode((prev) => !prev)}
-          variant="outlined"
-          startIcon={darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-          sx={{
-            color: "text.primary",
-          }}
-        >
-          {darkMode ? "Light" : "Dark"}
-        </Button>
-        <Button
-          onClick={handleSignOut}
-          variant="contained"
-          startIcon={<LogoutIcon />}
+          <Button
+            onClick={() => router.push("/feedback")}
+            variant="outlined"
+            startIcon={<CampaignOutlinedIcon />}
+            sx={{
+              color: "text.primary",
+              justifyContent: "center",
+              borderRadius: routinesHeaderRadius.button,
+            }}
+          >
+            Feedback
+          </Button>
+          <Button
+            onClick={handleSignOut}
+            variant="contained"
+            startIcon={<LogoutIcon />}
+            sx={{ borderRadius: routinesHeaderRadius.button }}
         >
           Sign Out
         </Button>
       </Stack>
-    </Box>
+    </Stack>
   );
 };
 

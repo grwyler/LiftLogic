@@ -46,6 +46,12 @@ import {
   setPendingLogAttempt,
 } from "../utils/devBugRecorder";
 
+const completedExerciseRadius = {
+  panel: "28px",
+  section: "22px",
+  pill: "999px",
+} as const;
+
 const ExerciseItem = ({
   exercise,
   exerciseIndex,
@@ -341,7 +347,7 @@ const ExerciseItem = ({
         sx={{
           mt: 1.5,
           p: 1.5,
-          borderRadius: 3,
+          borderRadius: completedExerciseRadius.section,
           border: "1px solid",
           borderColor: darkMode
             ? "rgba(148,163,184,0.12)"
@@ -363,7 +369,13 @@ const ExerciseItem = ({
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Performance
           </Typography>
-          <Chip size="small" label={trendLabel} color={trendColor as any} variant="outlined" />
+          <Chip
+            size="small"
+            label={trendLabel}
+            color={trendColor as any}
+            variant="outlined"
+            sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+          />
         </Box>
 
         {loadingRecommendation ? (
@@ -373,15 +385,24 @@ const ExerciseItem = ({
         ) : latestEstimated1RM ? (
           <>
             <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <Chip label={`Est. 1RM ${latestEstimated1RM}`} variant="outlined" />
+              <Chip
+                label={`Est. 1RM ${latestEstimated1RM}`}
+                variant="outlined"
+                sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+              />
               {delta !== null ? (
                 <Chip
                   label={`${delta > 0 ? "+" : ""}${delta} vs last`}
                   variant="outlined"
+                  sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
                 />
               ) : null}
               {heaviestWeightEver ? (
-                <Chip label={`Best weight ${heaviestWeightEver}`} variant="outlined" />
+                <Chip
+                  label={`Best weight ${heaviestWeightEver}`}
+                  variant="outlined"
+                  sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+                />
               ) : null}
             </Box>
 
@@ -853,9 +874,9 @@ const ExerciseItem = ({
         key={`exercise-log-${currentExercise.name}-${exerciseIndex}`}
         elevation={0}
         sx={{
-          p: 1.75,
+          p: 2,
           my: 1.25,
-          borderRadius: 3,
+          borderRadius: completedExerciseRadius.panel,
           border: "1px solid",
           borderColor: darkMode
             ? "rgba(148,163,184,0.12)"
@@ -865,7 +886,7 @@ const ExerciseItem = ({
             : "rgba(255,255,255,0.94)",
           boxShadow: darkMode
             ? "0 12px 28px rgba(0,0,0,0.16)"
-            : "0 10px 24px rgba(17,24,39,0.06)",
+            : "0 18px 38px rgba(17,24,39,0.08)",
         }}
       >
         <Box
@@ -898,6 +919,7 @@ const ExerciseItem = ({
               onClick={openRepeatDialog}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
+              sx={{ borderRadius: "14px" }}
             >
               <RepeatIcon
                 color={isRepeating ? "primary" : "disabled"}
@@ -907,8 +929,16 @@ const ExerciseItem = ({
           </Box>
 
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="h6">{completedExerciseName}</Typography>
-            <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
+            <Typography
+              variant="overline"
+              sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
+            >
+              Completed Lift
+            </Typography>
+            <Typography variant="h5" sx={{ mt: 0.2, lineHeight: 1.05 }}>
+              {completedExerciseName}
+            </Typography>
+            <Typography sx={{ color: "text.secondary", mt: 0.45 }}>
               Logged on {formattedDate}
             </Typography>
           </Box>
@@ -916,17 +946,21 @@ const ExerciseItem = ({
           <Chip
             label="Logged"
             color="success"
-            variant="outlined"
+            variant="filled"
             size="small"
-            sx={{ fontWeight: 700 }}
+            sx={{
+              fontWeight: 800,
+              borderRadius: completedExerciseRadius.pill,
+              alignSelf: "flex-start",
+            }}
           />
         </Box>
 
         <Box
           sx={{
-            mt: 1.75,
-            mb: 0.25,
-            px: 0.25,
+            mt: 1.9,
+            mb: 0.6,
+            px: 0.1,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -934,10 +968,10 @@ const ExerciseItem = ({
             flexWrap: "wrap",
           }}
         >
-          <Typography sx={{ color: "text.secondary" }}>
+          <Typography sx={{ color: "text.secondary", fontWeight: 500 }}>
             {completedSetCount} completed set{completedSetCount === 1 ? "" : "s"}
           </Typography>
-          <Typography sx={{ color: "text.secondary" }}>
+          <Typography sx={{ color: "text.secondary", fontWeight: 500 }}>
             {completedExerciseType === "weight"
               ? "Performance log"
               : "Completed timer log"}

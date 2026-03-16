@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 import { connectToDatabase } from "../../utils/mongodb";
 import {
   FeedbackItemDoc,
+  FeedbackDeviceType,
   FeedbackNotificationStatus,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
@@ -290,8 +291,12 @@ const sanitizeFeedbackSeverity = (value: unknown) =>
   value === "low" || value === "medium" || value === "high" ? value : undefined;
 
 const sanitizeDeviceType = (value: unknown) =>
-  value === "mobile" || value === "desktop" || value === "unknown"
-    ? value
+  value === "mobile" ||
+  value === "tablet" ||
+  value === "foldable" ||
+  value === "desktop" ||
+  value === "unknown"
+    ? (value as FeedbackDeviceType)
     : "unknown";
 
 const sanitizeTriageStatus = (

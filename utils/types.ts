@@ -100,8 +100,44 @@ export interface WorkoutEntryDoc {
   sets?: ExerciseSet[];
   ruleId?: string;
   skipped?: boolean;
+  intentionalLowVolume?: boolean;
+  reducedVolumeIntentional?: boolean;
+  volumeReductionIntentional?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export type BillingPlan = "free" | "pro_beta";
+export type BillingInterval = "month" | "year";
+export type BillingSubscriptionStatus =
+  | "inactive"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete"
+  | "incomplete_expired"
+  | "paused";
+
+export interface BillingPriceOption {
+  interval: BillingInterval;
+  label: string;
+  checkoutEnabled: boolean;
+}
+
+export interface BillingSummaryResponse {
+  configured: boolean;
+  portalEnabled: boolean;
+  billingPlan: BillingPlan;
+  subscriptionStatus: BillingSubscriptionStatus;
+  subscriptionInterval?: BillingInterval;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  billingEmail?: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd?: string;
+  prices: BillingPriceOption[];
 }
 
 export interface UserDoc {
@@ -129,6 +165,18 @@ export interface UserDoc {
   setupPromptSeen?: boolean;
   setupCompleted?: boolean;
   darkMode?: boolean;
+  themePreference?: "light" | "dawn" | "night" | "evergreen";
+  billingPlan?: BillingPlan;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  stripeProductId?: string;
+  subscriptionStatus?: BillingSubscriptionStatus;
+  subscriptionInterval?: BillingInterval;
+  subscriptionCurrentPeriodEnd?: Date;
+  subscriptionCancelAtPeriodEnd?: boolean;
+  subscriptionCanceledAt?: Date;
+  billingEmail?: string;
   betaFunnel?: BetaFunnelAnalytics;
   createdAt?: Date;
   updatedAt?: Date;
@@ -154,6 +202,13 @@ export type FeedbackNotificationStatus =
   | "sent"
   | "skipped"
   | "failed";
+
+export type FeedbackDeviceType =
+  | "mobile"
+  | "tablet"
+  | "foldable"
+  | "desktop"
+  | "unknown";
 
 export interface FeedbackRuntimeContext {
   appVersion?: string;
@@ -181,7 +236,7 @@ export interface FeedbackItemDoc {
   triageStatus?: FeedbackTriageStatus;
   severity?: "low" | "medium" | "high";
   page?: string;
-  deviceType?: "mobile" | "desktop" | "unknown";
+  deviceType?: FeedbackDeviceType;
   runtimeContext?: FeedbackRuntimeContext;
   fingerprint?: string;
   workItemId?: ObjectId | string;
@@ -242,7 +297,7 @@ export interface FeedbackWorkItemDoc {
   latestDescription: string;
   page?: string;
   severity?: "low" | "medium" | "high";
-  deviceType?: "mobile" | "desktop" | "unknown";
+  deviceType?: FeedbackDeviceType;
   latestRuntimeContext?: FeedbackRuntimeContext;
   fingerprint: string;
   occurrenceCount: number;

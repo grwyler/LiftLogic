@@ -29,16 +29,25 @@ test.describe("Lift Logic smoke", () => {
     });
   });
 
-  test("landing page exposes signup and signin entry points", async ({ page }) => {
+  test("landing page exposes pricing, signup, and signin entry points", async ({ page }) => {
     await page.goto("/");
 
     await expect(
       page.getByRole("heading", { name: /Plan smarter lifts/i })
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Pricing" }).first()).toBeVisible();
     await expect(page.getByText("Create account").first()).toBeVisible();
     await expect(page.getByText("I already have an account")).toBeVisible();
 
-    await page.getByText("Create account").first().click();
+    await page.getByRole("link", { name: "Pricing" }).first().click();
+    await page.waitForURL(/\/pricing/);
+    await expect(
+      page.getByRole("heading", {
+        name: /Tracking stays free\. Adaptive planning becomes Pro Beta\./i,
+      })
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: /Start free beta/i }).first().click();
     await page.waitForURL(/\/signup/);
   });
 

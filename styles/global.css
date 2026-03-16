@@ -11,6 +11,11 @@
   --app-muted: #667085;
   --app-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
   --app-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --liftlogic-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --liftlogic-keyboard-offset: 0px;
+  --liftlogic-overlay-bottom-offset: calc(
+    var(--liftlogic-safe-area-bottom) + var(--liftlogic-keyboard-offset)
+  );
 }
 
 html,
@@ -137,4 +142,11 @@ select {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   box-shadow: var(--app-shadow-soft);
+}
+
+.Toastify__toast-container--bottom-center {
+  bottom: calc(12px + var(--liftlogic-overlay-bottom-offset)) !important;
+  width: min(calc(100vw - 24px), 420px) !important;
+  left: 50% !important;
+  transform: translateX(-50%);
 }

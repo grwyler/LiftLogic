@@ -13,12 +13,10 @@ import {
   Button,
   Chip,
   FormControl,
-  FormControlLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
-  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -28,6 +26,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import TuneIcon from "@mui/icons-material/Tune";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import WorkspacePremiumOutlinedIcon from "@mui/icons-material/WorkspacePremiumOutlined";
 import { toast } from "react-toastify";
 import {
   AIResponseSourceDetail,
@@ -42,15 +41,21 @@ import {
   goalOptions,
   normalizeSetupForm,
   sexOptions,
-  unitOptions,
   weekdayOptions,
   workoutFrequencyOptions,
   workoutLengthOptions,
 } from "../utils/profileSetup";
+import {
+  getThemePreferenceDescription,
+  getThemePreferenceLabel,
+  getThemePreferenceMeta,
+  isThemePreference,
+  THEME_OPTIONS,
+  ThemePreference,
+} from "../utils/themePreferences";
 
 interface UserPageProps {
-  darkMode: boolean;
-  setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
+  setThemePreference: React.Dispatch<React.SetStateAction<ThemePreference>>;
 }
 
 type GeneratedPlanPayload = {
@@ -63,6 +68,7 @@ type UserProfile = {
   _id: string;
   username: string;
   darkMode?: boolean;
+  themePreference?: ThemePreference;
   sex?: string;
   age?: string;
   preferredUnits?: "lb" | "kg";
@@ -83,7 +89,7 @@ type UserProfile = {
 };
 
 const defaultForm = {
-  darkMode: false,
+  themePreference: "light" as ThemePreference,
   sex: "",
   age: "",
   preferredUnits: "lb",
@@ -101,7 +107,15 @@ const defaultForm = {
   notes: "",
 };
 
-const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
+const getStoredThemePreference = (profile: Pick<UserProfile, "themePreference" | "darkMode">) => {
+  if (isThemePreference(profile.themePreference)) {
+    return profile.themePreference;
+  }
+
+  return profile.darkMode ? "night" : "light";
+};
+
+const UserHomePage: React.FC<UserPageProps> = ({ setThemePreference }) => {
   const { data: session } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
   };
@@ -143,7 +157,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     if (!user) return;
 
     const nextForm = {
-      darkMode: Boolean(user.darkMode),
+      themePreference: getStoredThemePreference(user),
       sex: user.sex || "",
       age: user.age || "",
       preferredUnits: user.preferredUnits || "lb",
@@ -164,14 +178,14 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     };
 
     setForm(nextForm);
-    setDarkMode(nextForm.darkMode);
-  }, [user, setDarkMode]);
+    setThemePreference(nextForm.themePreference);
+  }, [setThemePreference, user]);
 
   const hasChanges = useMemo(() => {
     if (!user) return false;
 
     return (
-      Boolean(user.darkMode) !== form.darkMode ||
+      getStoredThemePreference(user) !== form.themePreference ||
       (user.sex || "") !== form.sex ||
       (user.age || "") !== form.age ||
       (user.preferredUnits || "lb") !== form.preferredUnits ||
@@ -216,12 +230,9 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
       });
     };
 
-  const handleDarkModeChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const checked = event.target.checked;
-    setForm((prev) => ({ ...prev, darkMode: checked }));
-    setDarkMode(checked);
+  const handleThemePreferenceChange = (nextThemePreference: ThemePreference) => {
+    setForm((prev) => ({ ...prev, themePreference: nextThemePreference }));
+    setThemePreference(nextThemePreference);
   };
 
   const handleReset = () => {
@@ -237,7 +248,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     });
 
     setForm({
-      darkMode: Boolean(user.darkMode),
+      themePreference: getStoredThemePreference(user),
       sex: user.sex || "",
       age: user.age || "",
       preferredUnits: user.preferredUnits || "lb",
@@ -256,7 +267,7 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
       limitations: user.limitations || "",
       notes: user.notes || "",
     });
-    setDarkMode(Boolean(user.darkMode));
+    setThemePreference(getStoredThemePreference(user));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -266,7 +277,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     setSaving(true);
     const nextUser = {
       ...user,
-      darkMode: form.darkMode,
+      darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
+      themePreference: form.themePreference,
       sex: form.sex,
       age: form.age,
       preferredUnits: form.preferredUnits as "lb" | "kg",
@@ -331,7 +343,8 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
 
     const nextUser = {
       ...user,
-      darkMode: form.darkMode,
+      darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
+      themePreference: form.themePreference,
       sex: form.sex,
       age: form.age,
       preferredUnits: form.preferredUnits as "lb" | "kg",
@@ -393,12 +406,17 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
     const nextUser = {
       ...user,
       ...nextForm,
-      darkMode: form.darkMode,
+      darkMode: getThemePreferenceMeta(form.themePreference).mode === "dark",
+      themePreference: form.themePreference,
       setupPromptSeen: true,
       setupCompleted: true,
     };
 
-    setForm((prev) => ({ ...prev, ...nextForm, darkMode: prev.darkMode }));
+    setForm((prev) => ({
+      ...prev,
+      ...nextForm,
+      themePreference: prev.themePreference,
+    }));
     await saveUser(nextUser);
     const generated = await generateWorkoutPlan(
       session.token.user._id,
@@ -526,15 +544,94 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
                   helperText="Usernames are read-only for now."
                 />
 
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={form.darkMode}
-                      onChange={handleDarkModeChange}
-                    />
-                  }
-                  label="Use dark mode"
-                />
+                <Box>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Theme
+                  </Typography>
+                  <Stack spacing={1.1}>
+                    {THEME_OPTIONS.map((option) => {
+                      const selected = form.themePreference === option;
+                      const optionMeta = getThemePreferenceMeta(option);
+
+                      return (
+                        <Button
+                          key={option}
+                          type="button"
+                          variant={selected ? "contained" : "outlined"}
+                          onClick={() => handleThemePreferenceChange(option)}
+                          sx={{
+                            justifyContent: "space-between",
+                            alignItems: "stretch",
+                            textAlign: "left",
+                            px: 1.5,
+                            py: 1.4,
+                            borderRadius: "20px",
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 800 }}>
+                              {getThemePreferenceLabel(option)}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                mt: 0.4,
+                                color: selected
+                                  ? "inherit"
+                                  : "text.secondary",
+                                maxWidth: 420,
+                              }}
+                            >
+                              {getThemePreferenceDescription(option)}
+                            </Typography>
+                          </Box>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            sx={{ ml: 1.5, alignSelf: "center" }}
+                          >
+                            <Box
+                              sx={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: "999px",
+                                border: "1px solid",
+                                borderColor: "divider",
+                                background:
+                                  optionMeta.mode === "dark"
+                                    ? optionMeta.backgroundDefault
+                                    : optionMeta.primaryMain,
+                              }}
+                            />
+                            <Box
+                              sx={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: "999px",
+                                border: "1px solid",
+                                borderColor: "divider",
+                                background: optionMeta.backgroundPaper,
+                              }}
+                            />
+                            <Box
+                              sx={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: "999px",
+                                border: "1px solid",
+                                borderColor: "divider",
+                                background: optionMeta.secondaryMain,
+                              }}
+                            />
+                          </Stack>
+                        </Button>
+                      );
+                    })}
+                  </Stack>
+                </Box>
 
                 <FormControl fullWidth>
                   <Typography
@@ -872,6 +969,40 @@ const UserHomePage: React.FC<UserPageProps> = ({ darkMode, setDarkMode }) => {
                 onCoachAction={handleCoachAction}
               />
             ) : null}
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <WorkspacePremiumOutlinedIcon color="primary" />
+                    <Typography variant="h6">Plans and pricing</Typography>
+                  </Box>
+                  <Typography sx={{ mt: 1, color: "text.secondary" }}>
+                    Free keeps workout logging and basic tracking open. Pro Beta
+                    is the adaptive planning layer with plan generation,
+                    assistant-led edits, recurring schedules, and progression
+                    recommendations.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" onClick={() => router.push("/pricing")}>
+                  View Pricing
+                </Button>
+              </Stack>
+            </Paper>
 
             <Paper
               elevation={0}

@@ -5,6 +5,7 @@ import {
   Exercise,
   ExerciseSet,
   FeedbackItemDoc,
+  BillingSummaryResponse,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
 } from "./types";
@@ -687,6 +688,49 @@ export const saveUser = async (user) => {
   } catch (error) {
     console.error("Error saving user inputs:", error);
   }
+};
+
+export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+  const response = await fetch("/api/billing/summary");
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`fetchBillingSummary ${response.status}: ${message}`);
+  }
+
+  return response.json();
+};
+
+export const createBillingCheckoutSession = async (
+  interval: "month" | "year"
+) => {
+  const response = await fetch("/api/billing/create-checkout-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ interval }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`createBillingCheckoutSession ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ url: string }>;
+};
+
+export const createBillingPortalSession = async () => {
+  const response = await fetch("/api/billing/create-portal-session", {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`createBillingPortalSession ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ url: string }>;
 };
 
 export const submitFeedback = async (

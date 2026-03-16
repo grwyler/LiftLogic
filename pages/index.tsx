@@ -15,10 +15,20 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
+import { orchestrationNavigation } from "../orchestration-app/routes";
 import { rememberLandingCta } from "../utils/betaFunnelClient";
+
+const landingRadius = {
+  panel: "28px",
+  card: "24px",
+  inset: "20px",
+  button: "18px",
+  chip: "999px",
+} as const;
 
 const featureCards = [
   {
@@ -93,7 +103,7 @@ const HomePage: React.FC = () => {
               sx={{
                 width: 40,
                 height: 40,
-                borderRadius: 2.5,
+                borderRadius: "14px",
                 display: "grid",
                 placeItems: "center",
                 backgroundColor: "text.primary",
@@ -112,8 +122,25 @@ const HomePage: React.FC = () => {
             </Box>
           </Stack>
 
-          <Stack direction="row" spacing={1}>
-            <Button component={NextLink} href="/signin" variant="text">
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
+            <Button
+              component={NextLink}
+              href={orchestrationNavigation.primary.href}
+              variant="outlined"
+              fullWidth
+            >
+              {orchestrationNavigation.primary.label}
+            </Button>
+            <Button component={NextLink} href="/pricing" variant="text" fullWidth>
+              Pricing
+            </Button>
+            <Button component={NextLink} href="/signin" variant="text" fullWidth>
               Sign in
             </Button>
             <Button
@@ -122,6 +149,7 @@ const HomePage: React.FC = () => {
               variant="contained"
               endIcon={<ArrowForwardIcon />}
               onClick={handleLandingCtaClick}
+              fullWidth
             >
               Start free beta
             </Button>
@@ -143,7 +171,7 @@ const HomePage: React.FC = () => {
               p: { xs: 2.5, sm: 3.5 },
               border: "1px solid",
               borderColor: "divider",
-              borderRadius: 5,
+              borderRadius: landingRadius.panel,
               overflow: "hidden",
               position: "relative",
             }}
@@ -165,7 +193,7 @@ const HomePage: React.FC = () => {
             <Chip
               label="Free while beta sharpens up"
               color="primary"
-              sx={{ alignSelf: "flex-start" }}
+              sx={{ alignSelf: "flex-start", borderRadius: landingRadius.chip }}
             />
 
             <Typography variant="h2" sx={{ mt: 2.5, maxWidth: 620, fontSize: { xs: "2.7rem", md: "4.2rem" }, lineHeight: 0.95 }}>
@@ -194,10 +222,26 @@ const HomePage: React.FC = () => {
               flexWrap="wrap"
               sx={{ mt: 2.5 }}
             >
-              <Chip label="Track-only mode" variant="outlined" />
-              <Chip label="AI workout setup" variant="outlined" />
-              <Chip label="Recurring schedules" variant="outlined" />
-              <Chip label="Progress-based recommendations" variant="outlined" />
+              <Chip
+                label="Track-only mode"
+                variant="outlined"
+                sx={{ borderRadius: landingRadius.chip }}
+              />
+              <Chip
+                label="AI workout setup"
+                variant="outlined"
+                sx={{ borderRadius: landingRadius.chip }}
+              />
+              <Chip
+                label="Recurring schedules"
+                variant="outlined"
+                sx={{ borderRadius: landingRadius.chip }}
+              />
+              <Chip
+                label="Progress-based recommendations"
+                variant="outlined"
+                sx={{ borderRadius: landingRadius.chip }}
+              />
             </Stack>
 
             <Stack
@@ -207,19 +251,40 @@ const HomePage: React.FC = () => {
             >
               <Button
                 component={NextLink}
+                href={orchestrationNavigation.primary.href}
+                variant="outlined"
+                size="large"
+                startIcon={<Inventory2OutlinedIcon />}
+                sx={{ borderRadius: landingRadius.button }}
+              >
+                Explore {orchestrationNavigation.primary.label.toLowerCase()}
+              </Button>
+              <Button
+                component={NextLink}
                 href="/signup"
                 variant="contained"
                 size="large"
                 endIcon={<ArrowForwardIcon />}
                 onClick={handleLandingCtaClick}
+                sx={{ borderRadius: landingRadius.button }}
               >
                 Create account
+              </Button>
+              <Button
+                component={NextLink}
+                href="/pricing"
+                variant="outlined"
+                size="large"
+                sx={{ borderRadius: landingRadius.button }}
+              >
+                Compare plans
               </Button>
               <Button
                 component={NextLink}
                 href="/signin"
                 variant="outlined"
                 size="large"
+                sx={{ borderRadius: landingRadius.button }}
               >
                 I already have an account
               </Button>
@@ -239,7 +304,7 @@ const HomePage: React.FC = () => {
                 p: 2.25,
                 border: "1px solid",
                 borderColor: "divider",
-                borderRadius: 5,
+                borderRadius: landingRadius.panel,
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,247,255,0.88) 100%)",
               }}
@@ -251,9 +316,21 @@ const HomePage: React.FC = () => {
                 Tuesday Upper Strength
               </Typography>
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-                <Chip label="3 exercises left" color="primary" />
-                <Chip label="1 set logged" variant="outlined" />
-                <Chip label="Repeat schedule active" variant="outlined" />
+                <Chip
+                  label="3 exercises left"
+                  color="primary"
+                  sx={{ borderRadius: landingRadius.chip }}
+                />
+                <Chip
+                  label="1 set logged"
+                  variant="outlined"
+                  sx={{ borderRadius: landingRadius.chip }}
+                />
+                <Chip
+                  label="Repeat schedule active"
+                  variant="outlined"
+                  sx={{ borderRadius: landingRadius.chip }}
+                />
               </Stack>
 
               <Paper
@@ -261,7 +338,7 @@ const HomePage: React.FC = () => {
                 sx={{
                   mt: 2,
                   p: 1.75,
-                  borderRadius: 3,
+                  borderRadius: landingRadius.inset,
                   border: "1px solid",
                   borderColor: "divider",
                   backgroundColor: "rgba(255,255,255,0.76)",
@@ -292,7 +369,7 @@ const HomePage: React.FC = () => {
                   p: 2.1,
                   border: "1px solid",
                   borderColor: "divider",
-                  borderRadius: 5,
+                  borderRadius: landingRadius.card,
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -302,8 +379,8 @@ const HomePage: React.FC = () => {
                   </Typography>
                 </Stack>
                 <Typography sx={{ mt: 1, fontWeight: 700 }}>
-                  “I kept this week around 45 minutes and used shoulder-friendlier
-                  pressing options.”
+                  "I kept this week around 45 minutes and used shoulder-friendlier
+                  pressing options."
                 </Typography>
                 <Typography sx={{ mt: 1, color: "text.secondary" }}>
                   Start from a draft, then ask for swaps, shorter days, or a
@@ -317,7 +394,7 @@ const HomePage: React.FC = () => {
                   p: 2.1,
                   border: "1px solid",
                   borderColor: "divider",
-                  borderRadius: 5,
+                  borderRadius: landingRadius.card,
                 }}
               >
                 <Stack spacing={1.2}>
@@ -346,7 +423,7 @@ const HomePage: React.FC = () => {
               p: { xs: 2.25, sm: 2.75 },
               border: "1px solid",
               borderColor: "divider",
-              borderRadius: 5,
+              borderRadius: landingRadius.panel,
             }}
           >
             <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
@@ -377,7 +454,7 @@ const HomePage: React.FC = () => {
                     p: 2,
                     border: "1px solid",
                     borderColor: "divider",
-                    borderRadius: 4,
+                    borderRadius: landingRadius.card,
                     backgroundColor: "rgba(255,255,255,0.46)",
                   }}
                 >
@@ -386,7 +463,7 @@ const HomePage: React.FC = () => {
                       sx={{
                         width: 34,
                         height: 34,
-                        borderRadius: 2,
+                        borderRadius: "12px",
                         display: "grid",
                         placeItems: "center",
                         backgroundColor: "text.primary",
@@ -420,7 +497,7 @@ const HomePage: React.FC = () => {
                   p: 2.5,
                   border: "1px solid",
                   borderColor: "divider",
-                  borderRadius: 5,
+                  borderRadius: landingRadius.card,
                   position: "relative",
                   overflow: "hidden",
                 }}
@@ -466,7 +543,7 @@ const HomePage: React.FC = () => {
               p: { xs: 2.5, sm: 3.25 },
               border: "1px solid",
               borderColor: "divider",
-              borderRadius: 5,
+              borderRadius: landingRadius.panel,
               background:
                 "linear-gradient(135deg, rgba(17,24,39,0.94) 0%, rgba(30,41,59,0.9) 100%)",
               color: "#f8fafc",
@@ -506,11 +583,29 @@ const HomePage: React.FC = () => {
                     "&:hover": {
                       backgroundColor: "#e2e8f0",
                     },
+                    borderRadius: landingRadius.button,
                   }}
                   endIcon={<ArrowForwardIcon />}
                   onClick={handleLandingCtaClick}
                 >
                   Start free beta
+                </Button>
+                <Button
+                  component={NextLink}
+                  href="/pricing"
+                  variant="outlined"
+                  sx={{
+                    borderColor: "rgba(248,250,252,0.22)",
+                    color: "#f8fafc",
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    "&:hover": {
+                      borderColor: "rgba(248,250,252,0.36)",
+                      backgroundColor: "rgba(255,255,255,0.08)",
+                    },
+                    borderRadius: landingRadius.button,
+                  }}
+                >
+                  See pricing
                 </Button>
                 <Button
                   component={NextLink}
@@ -524,6 +619,7 @@ const HomePage: React.FC = () => {
                       borderColor: "rgba(248,250,252,0.36)",
                       backgroundColor: "rgba(255,255,255,0.08)",
                     },
+                    borderRadius: landingRadius.button,
                   }}
                 >
                   Sign in

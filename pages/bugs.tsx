@@ -82,6 +82,12 @@ type QueueSortMode =
   | "reports"
   | "severity";
 
+const inactiveTriageStatuses: FeedbackTriageStatus[] = [
+  "resolved",
+  "duplicate",
+  "verified",
+];
+
 const triageLabel: Record<FeedbackTriageStatus, string> = {
   new: "New",
   duplicate: "Closed as Duplicate",
@@ -164,6 +170,9 @@ const compareWorkItems = (
   }
 };
 
+const isInactiveWorkItem = (item: FeedbackWorkItemDoc) =>
+  inactiveTriageStatuses.includes(item.triageStatus);
+
 const createDraftMap = (
   items: FeedbackWorkItemDoc[],
   previous: Record<string, WorkflowDraft>
@@ -206,6 +215,7 @@ const BugsPage = () => {
   >({});
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [queueSortMode, setQueueSortMode] = useState<QueueSortMode>("workflow");
+  const [showCompletedSection, setShowCompletedSection] = useState(false);
 
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
@@ -314,6 +324,22 @@ const BugsPage = () => {
         feedbackItems,
       }),
     [feedbackItems, selectedWorkItem]
+  );
+  const activeBugItems = useMemo(
+    () => bugItems.filter((item) => !isInactiveWorkItem(item)),
+    [bugItems]
+  );
+  const inactiveBugItems = useMemo(
+    () => bugItems.filter((item) => isInactiveWorkItem(item)),
+    [bugItems]
+  );
+  const activeFeatureItems = useMemo(
+    () => featureItems.filter((item) => !isInactiveWorkItem(item)),
+    [featureItems]
+  );
+  const inactiveFeatureItems = useMemo(
+    () => featureItems.filter((item) => isInactiveWorkItem(item)),
+    [featureItems]
   );
 
   const renderMetadataRows = (
@@ -887,8 +913,8 @@ const BugsPage = () => {
             <Box>
               <Typography variant="h6">Bug queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                One card per unique bug. Duplicates roll into the same card so
-                you can triage related reports together.
+                Only bugs that still need attention stay here. Fixed, closed,
+                and duplicate items live in the completed section below.
               </Typography>
             </Box>
             <Stack
@@ -914,11 +940,17 @@ const BugsPage = () => {
               </TextField>
               <Chip
                 icon={<BugReportOutlinedIcon />}
-                label={`${bugItems.length} work item${
-                  bugItems.length === 1 ? "" : "s"
+                label={`${activeBugItems.length} active${
+                  activeBugItems.length === 1 ? "" : "s"
                 }`}
                 variant="outlined"
               />
+              {inactiveBugItems.length > 0 ? (
+                <Chip
+                  label={`${inactiveBugItems.length} completed`}
+                  variant="outlined"
+                />
+              ) : null}
             </Stack>
           </Stack>
         </Paper>
@@ -933,8 +965,8 @@ const BugsPage = () => {
           }}
         >
           {renderWorkItems(
-            bugItems,
-            "No bug work items found.",
+            activeBugItems,
+            "No active bug work items found.",
             "Bug"
           )}
         </Paper>
@@ -957,16 +989,24 @@ const BugsPage = () => {
             <Box>
               <Typography variant="h6">Feature queue</Typography>
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Feature requests use the same workflow so you can manage them
-                alongside bugs without leaving this page.
+                Only active feature work stays here. Completed and closed
+                items are separated below with the finished bug history.
               </Typography>
             </Box>
-            <Chip
-              label={`${featureItems.length} work item${
-                featureItems.length === 1 ? "" : "s"
-              }`}
-              variant="outlined"
-            />
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={`${activeFeatureItems.length} active${
+                  activeFeatureItems.length === 1 ? "" : "s"
+                }`}
+                variant="outlined"
+              />
+              {inactiveFeatureItems.length > 0 ? (
+                <Chip
+                  label={`${inactiveFeatureItems.length} completed`}
+                  variant="outlined"
+                />
+              ) : null}
+            </Stack>
           </Stack>
         </Paper>
 
@@ -980,11 +1020,89 @@ const BugsPage = () => {
           }}
         >
           {renderWorkItems(
-            featureItems,
-            "No feature work items found.",
+            activeFeatureItems,
+            "No active feature work items found.",
             "Feature"
           )}
         </Paper>
+
+        {inactiveBugItems.length > 0 || inactiveFeatureItems.length > 0 ? (
+          <>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Typography variant="h6">Completed / Closed</Typography>
+                  <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                    Fixed, verified, and duplicate items live here so the main
+                    queue stays focused on active work.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label={`${inactiveBugItems.length + inactiveFeatureItems.length} total`}
+                    variant="outlined"
+                  />
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setShowCompletedSection((previous) => !previous)}
+                  >
+                    {showCompletedSection ? "Hide Completed" : "Show Completed"}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            {showCompletedSection ? (
+              <>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2, sm: 2.5 },
+                    borderRadius: 3,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  {renderWorkItems(
+                    inactiveBugItems,
+                    "No completed bug work items found.",
+                    "Bug"
+                  )}
+                </Paper>
+
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2, sm: 2.5 },
+                    borderRadius: 3,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  {renderWorkItems(
+                    inactiveFeatureItems,
+                    "No completed feature work items found.",
+                    "Feature"
+                  )}
+                </Paper>
+              </>
+            ) : null}
+          </>
+        ) : null}
 
         <Dialog
           open={Boolean(selectedWorkItem)}

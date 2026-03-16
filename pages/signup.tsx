@@ -185,18 +185,19 @@ const SignUp: React.FC = () => {
           </Stack>
 
           <Typography variant="h3" sx={{ mt: 3, maxWidth: 460 }}>
-            Set up your training profile in a minute.
+            Create your account to get started.
           </Typography>
           <Typography sx={{ mt: 1.5, color: "text.secondary", maxWidth: 480 }}>
-            Start simple. Create an account, pick your goal, and the app can
-            begin adapting weights from what you actually log.
+            After sign-up, you can set your goal, schedule, equipment, and
+            preferences before Lift Logic starts adapting your
+            recommendations.
           </Typography>
 
           <Stack spacing={1.25} sx={{ mt: 4 }}>
             {[
-              "Quick-add starts with smarter default weights.",
-              "Completed workouts feed progress and recommendation signals.",
-              "You can tune units, goal, and notes after sign-up.",
+              "Create your login now, then finish your training setup next.",
+              "After account creation, you can choose your goal, schedule, and equipment.",
+              "Once your profile is in place, completed workouts feed smarter recommendations.",
             ].map((item) => (
               <Box
                 key={item}
@@ -305,6 +306,12 @@ const SignUp: React.FC = () => {
             Already have an account?{" "}
             <NextLink href="/signin" passHref legacyBehavior>
               <Link underline="hover">Sign in</Link>
+            </NextLink>
+          </Typography>
+          <Typography sx={{ mt: 1, color: "text.secondary" }}>
+            Want to compare the plans first?{" "}
+            <NextLink href="/pricing" passHref legacyBehavior>
+              <Link underline="hover">See Free vs Pro Beta</Link>
             </NextLink>
           </Typography>
 

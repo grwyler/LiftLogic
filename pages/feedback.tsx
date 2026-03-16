@@ -25,6 +25,7 @@ import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { fetchFeedback, fetchUser, submitFeedback } from "../utils/helpers";
+import { getClientDeviceType } from "../utils/feedbackMetadata";
 import { FeedbackItemDoc } from "../utils/types";
 import { toast } from "react-toastify";
 
@@ -109,6 +110,34 @@ const FeedbackPage = () => {
       ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 64px rgba(2, 6, 23, 0.34)"
       : "inset 0 1px 0 rgba(255,255,255,0.85), 0 28px 64px rgba(148, 163, 184, 0.18)",
   } as const;
+  const glassControlSx = {
+    border: "1px solid",
+    borderColor: glassBorder,
+    background: isDarkMode
+      ? "linear-gradient(145deg, rgba(19, 28, 46, 0.72), rgba(10, 16, 29, 0.58))"
+      : "linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 252, 0.64))",
+    backdropFilter: "blur(24px) saturate(175%)",
+    boxShadow: isDarkMode
+      ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px rgba(2, 6, 23, 0.24)"
+      : "inset 0 1px 0 rgba(255,255,255,0.82), 0 18px 40px rgba(148, 163, 184, 0.14)",
+  } as const;
+  const glassTextFieldSx = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: feedbackCompactRadius,
+      ...glassControlSx,
+      "& fieldset": {
+        borderColor: glassBorder,
+      },
+      "&:hover fieldset": {
+        borderColor: isDarkMode
+          ? "rgba(255, 255, 255, 0.22)"
+          : "rgba(255, 255, 255, 0.86)",
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: isDarkMode ? "rgba(125, 211, 252, 0.82)" : "#60a5fa",
+      },
+    },
+  } as const;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -120,11 +149,6 @@ const FeedbackPage = () => {
     setSubmitting(true);
 
     try {
-      const deviceType =
-        typeof window !== "undefined" && window.innerWidth < 900
-          ? "mobile"
-          : "desktop";
-
       const response = await submitFeedback({
         userId: user._id,
         username: user.username,
@@ -134,7 +158,7 @@ const FeedbackPage = () => {
         description: description.trim(),
         severity: type === "bug" ? severity : undefined,
         page: router.asPath,
-        deviceType,
+        deviceType: getClientDeviceType(),
       });
 
       if (response?.feedback) {
@@ -232,6 +256,7 @@ const FeedbackPage = () => {
                   label="Glass-inspired refresh"
                   sx={{
                     borderRadius: feedbackCompactRadius,
+                    ...glassControlSx,
                     backgroundColor: alpha(theme.palette.primary.main, isDarkMode ? 0.16 : 0.08),
                     color: theme.palette.text.primary,
                   }}
@@ -240,6 +265,7 @@ const FeedbackPage = () => {
                   label={isDarkMode ? "Dark mode preserved" : "Light mode preserved"}
                   sx={{
                     borderRadius: feedbackCompactRadius,
+                    ...glassControlSx,
                     backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.4 : 0.7),
                     color: theme.palette.text.secondary,
                   }}
@@ -286,6 +312,7 @@ const FeedbackPage = () => {
               sx={{
                 px: 0.4,
                 borderRadius: feedbackCompactRadius,
+                ...glassControlSx,
                 backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.34 : 0.64),
                 color: theme.palette.text.secondary,
               }}
@@ -308,18 +335,29 @@ const FeedbackPage = () => {
                 gap: "8px",
                 borderRadius: feedbackRadius,
                 padding: "4px",
+                ...glassControlSx,
               }}
             >
               <ToggleButton
                 value="bug"
-                sx={{ borderRadius: feedbackCompactRadius, px: "14px" }}
+                sx={{
+                  borderRadius: feedbackCompactRadius,
+                  px: "14px",
+                  "&.Mui-selected": glassControlSx,
+                  "&.Mui-selected:hover": glassControlSx,
+                }}
               >
                 <BugReportOutlinedIcon sx={{ mr: 1 }} />
                 Report a bug
               </ToggleButton>
               <ToggleButton
                 value="feature"
-                sx={{ borderRadius: feedbackCompactRadius, px: "14px" }}
+                sx={{
+                  borderRadius: feedbackCompactRadius,
+                  px: "14px",
+                  "&.Mui-selected": glassControlSx,
+                  "&.Mui-selected:hover": glassControlSx,
+                }}
               >
                 <LightbulbOutlinedIcon sx={{ mr: 1 }} />
                 Request a feature
@@ -335,11 +373,7 @@ const FeedbackPage = () => {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               fullWidth
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: feedbackCompactRadius,
-                },
-              }}
+              sx={glassTextFieldSx}
             />
 
             <TextField
@@ -358,11 +392,7 @@ const FeedbackPage = () => {
                   ? "Example: I opened Bench Press, logged set 2, and the screen jumped back to the top on mobile."
                   : "Example: I want a simple weekly summary that shows completed workouts, volume, and PRs."
               }
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: feedbackCompactRadius,
-                },
-              }}
+              sx={glassTextFieldSx}
             />
 
             {type === "bug" && (
@@ -374,7 +404,7 @@ const FeedbackPage = () => {
                     color={severity === level ? "primary" : "default"}
                     variant={severity === level ? "filled" : "outlined"}
                     onClick={() => setSeverity(level)}
-                    sx={{ borderRadius: feedbackCompactRadius }}
+                    sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
                   />
                 ))}
               </Stack>
@@ -397,7 +427,7 @@ const FeedbackPage = () => {
                 variant="contained"
                 startIcon={<SendRoundedIcon />}
                 disabled={!canSubmit || submitting}
-                sx={{ borderRadius: feedbackCompactRadius }}
+                sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
               >
                 {submitting
                   ? "Sending..."
@@ -439,20 +469,20 @@ const FeedbackPage = () => {
                           label={item.type === "bug" ? "Bug" : "Feature"}
                           color={item.type === "bug" ? "warning" : "info"}
                           variant="outlined"
-                          sx={{ borderRadius: feedbackCompactRadius }}
+                          sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
                         />
                         <Chip
                           size="small"
                           label={item.status || "new"}
                           color={statusTone[item.status || "new"] || "default"}
-                          sx={{ borderRadius: feedbackCompactRadius }}
+                          sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
                         />
                         {item.severity && (
                           <Chip
                             size="small"
                             label={`${item.severity} severity`}
                             variant="outlined"
-                            sx={{ borderRadius: feedbackCompactRadius }}
+                            sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
                           />
                         )}
                       </Stack>

@@ -62,6 +62,7 @@ import {
   clearPendingLandingCta,
   readPendingLandingCta,
 } from "../utils/betaFunnelClient";
+import { isThemePreference, ThemePreference } from "../utils/themePreferences";
 
 type Routine = any;
 type GeneratedPlanPayload = {
@@ -71,12 +72,22 @@ type GeneratedPlanPayload = {
   sourceDetail?: AIResponseSourceDetail;
 };
 
+const routinesRadius = {
+  shell: "34px",
+  panel: "28px",
+  card: "24px",
+  button: "18px",
+  chip: "999px",
+} as const;
+
 const RoutinesPage = ({
   darkMode,
   setDarkMode,
+  setThemePreference,
 }: {
   darkMode: boolean;
   setDarkMode: (darkMode: boolean) => void;
+  setThemePreference: (themePreference: ThemePreference) => void;
 }) => {
   const router = useRouter();
   const { data: session, status } = useSession() as {
@@ -154,10 +165,15 @@ const RoutinesPage = ({
   }, [sessionUserId]);
 
   useEffect(() => {
+    if (user && isThemePreference(user.themePreference)) {
+      setThemePreference(user.themePreference);
+      return;
+    }
+
     if (user && typeof user.darkMode === "boolean") {
       setDarkMode(user.darkMode);
     }
-  }, [user, setDarkMode]);
+  }, [setDarkMode, setThemePreference, user]);
 
   useEffect(() => {
     if (!user || !routine || showSetupDialog) {
@@ -847,83 +863,150 @@ const RoutinesPage = ({
           <Box
             sx={{
               px: { xs: 2, sm: 3 },
-              pt: { xs: 2.5, sm: 3 },
-              pb: 2.25,
+              pt: { xs: 2.25, sm: 2.75 },
+              pb: 2.5,
               borderBottom: "1px solid",
               borderColor: "divider",
+              position: "relative",
+              overflow: "hidden",
               background: darkMode
-                ? "linear-gradient(180deg, rgba(59,130,246,0.12) 0%, rgba(255,255,255,0) 100%)"
-                : "linear-gradient(180deg, rgba(148,163,184,0.08) 0%, rgba(255,255,255,0) 100%)",
+                ? "linear-gradient(145deg, rgba(17,24,39,0.94), rgba(30,41,59,0.86))"
+                : "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(241,245,249,0.9))",
             }}
           >
-            <Typography
-              variant="overline"
+            <Box
               sx={{
-                color: "text.secondary",
-                letterSpacing: "0.14em",
-                fontWeight: 700,
+                position: "relative",
+                zIndex: 1,
               }}
             >
-              Workout Flow
-            </Typography>
-            <Typography
-              variant="h3"
-              sx={{
-                mt: 0.5,
-                fontFamily: '"Manrope", sans-serif',
-                letterSpacing: "-0.05em",
-              }}
-            >
-              Today&apos;s training
-            </Typography>
-            <Typography sx={{ mt: 1, color: "text.secondary" }}>
-              Pick the day, open the workout, and move through your sets
-              without extra clutter.
-            </Typography>
-            <Header
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: -80,
+                  right: -10,
+                  width: 250,
+                  height: 250,
+                  borderRadius: "50%",
+                  background: darkMode
+                    ? "radial-gradient(circle, rgba(59,130,246,0.16) 0%, rgba(59,130,246,0) 70%)"
+                    : "radial-gradient(circle, rgba(59,130,246,0.14) 0%, rgba(59,130,246,0) 70%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <Typography
+                variant="overline"
+                sx={{
+                  color: "text.secondary",
+                  letterSpacing: "0.14em",
+                  fontWeight: 700,
+                }}
+              >
+                Workout Flow
+              </Typography>
+              <Typography
+                variant="h2"
+                sx={{
+                  mt: 0.8,
+                  maxWidth: 560,
+                  fontFamily: '"Manrope", sans-serif',
+                  letterSpacing: "-0.06em",
+                  lineHeight: 0.98,
+                  fontSize: { xs: "2.8rem", sm: "3.6rem" },
+                }}
+              >
+                Today&apos;s training
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 1.35,
+                  maxWidth: 560,
+                  color: "text.secondary",
+                  fontSize: { xs: "1rem", sm: "1.05rem" },
+                  lineHeight: 1.7,
+                }}
+              >
+                Pick the day, open the workout, and move through your sets
+                without extra clutter.
+              </Typography>
+              <Header
               user={user}
-              setUser={setUser}
-              setDarkMode={setDarkMode}
               darkMode={darkMode}
             />
+            </Box>
           </Box>
           <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.75, sm: 2.25 } }}>
             <Paper
               elevation={0}
               sx={{
                 mb: 2,
-                p: { xs: 1.5, sm: 1.75 },
-                borderRadius: 3,
+                p: { xs: 1.75, sm: 2.1 },
+                borderRadius: routinesRadius.panel,
                 border: "1px solid",
                 borderColor: "divider",
+                overflow: "hidden",
+                position: "relative",
                 background: darkMode
-                  ? "linear-gradient(135deg, rgba(30,41,59,0.92), rgba(15,23,42,0.82))"
-                  : "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(241,245,249,0.9))",
+                  ? "linear-gradient(145deg, rgba(30,41,59,0.94), rgba(15,23,42,0.82))"
+                  : "linear-gradient(145deg, rgba(255,255,255,0.97), rgba(241,245,249,0.92))",
+                boxShadow: darkMode
+                  ? "0 22px 44px rgba(2,6,23,0.22)"
+                  : "0 20px 42px rgba(15,23,42,0.06)",
               }}
             >
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: "auto -10px -30px auto",
+                  width: 180,
+                  height: 180,
+                  borderRadius: "50%",
+                  background: darkMode
+                    ? "radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0) 72%)"
+                    : "radial-gradient(circle, rgba(148,163,184,0.14) 0%, rgba(148,163,184,0) 72%)",
+                  pointerEvents: "none",
+                }}
+              />
               <Stack
                 direction={{ xs: "column", md: "row" }}
-                spacing={1.5}
+                spacing={2}
                 justifyContent="space-between"
                 alignItems={{ xs: "flex-start", md: "center" }}
+                sx={{ position: "relative" }}
               >
-                <Box>
-                  <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                <Box sx={{ maxWidth: 700 }}>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+                  >
                     Program Management
                   </Typography>
-                  <Typography variant="h6" sx={{ mt: 0.25 }}>
+                  <Typography variant="h4" sx={{ mt: 0.55, maxWidth: 620 }}>
                     Replace or reset your workout plan in one step
                   </Typography>
-                  <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                  <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 640, lineHeight: 1.7 }}>
                     Generating a new plan now replaces your upcoming scheduled exercises from today
                     forward. You can also clear everything and start from a blank slate.
                   </Typography>
+                  <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 660, lineHeight: 1.7 }}>
+                    Free keeps logging and basic tracking open. Pro Beta is the
+                    adaptive layer for assistant-built plans, recurring schedules,
+                    plan revisions, and progression recommendations.
+                  </Typography>
                 </Box>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} useFlexGap flexWrap="wrap">
+                  <Button
+                    variant="text"
+                    onClick={() => router.push("/pricing")}
+                    sx={{ borderRadius: routinesRadius.button }}
+                  >
+                    View pricing
+                  </Button>
                   <Button
                     variant="outlined"
                     onClick={() => setShowClearProgramDialog(true)}
                     disabled={clearingProgram || generatingWorkout || !hasProgramExercises}
+                    sx={{ borderRadius: routinesRadius.button }}
                   >
                     {clearingProgram ? "Clearing..." : "Start blank"}
                   </Button>
@@ -931,6 +1014,7 @@ const RoutinesPage = ({
                     variant="contained"
                     onClick={handleOpenReplaceProgram}
                     disabled={generatingWorkout || savingSetup}
+                    sx={{ borderRadius: routinesRadius.button }}
                   >
                     {hasProgramExercises ? "Replace program" : "Create program"}
                   </Button>
@@ -944,7 +1028,7 @@ const RoutinesPage = ({
                   coachSource={generatedCoachSource}
                   coachSourceDetail={generatedCoachSourceDetail}
                   profile={setupForm}
-                  defaultMinimized
+                  defaultMinimized={false}
                   minimizedStorageKey="lift-logic:routines:assistant-minimized"
                   onDismiss={() => {
                     setGeneratedCoachResponse(null);
@@ -1603,7 +1687,10 @@ const RoutinesPage = ({
           sx={{
             position: "fixed",
             right: { xs: 12, sm: 24 },
-            bottom: { xs: 12, sm: 24 },
+            bottom: {
+              xs: "calc(12px + var(--liftlogic-overlay-bottom-offset, 0px))",
+              sm: "calc(24px + var(--liftlogic-overlay-bottom-offset, 0px))",
+            },
             width: { xs: "calc(100% - 24px)", sm: 360 },
             p: 1.75,
             borderRadius: 3,

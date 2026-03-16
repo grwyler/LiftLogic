@@ -21,6 +21,16 @@ const sanitizeStringArray = (value: unknown) => {
   ).slice(0, 32);
 };
 
+const sanitizeThemePreference = (value: unknown) => {
+  const normalized = sanitizeText(value).toLowerCase();
+  return ["light", "dawn", "night", "evergreen"].includes(normalized)
+    ? normalized
+    : "";
+};
+
+const isDarkThemePreference = (value: string) =>
+  value === "night" || value === "evergreen";
+
 const isAdminSession = (session: any) => {
   const username = sanitizeText(
     session?.user?.username || session?.token?.user?.username
@@ -89,6 +99,14 @@ const buildUserUpdate = (user: Record<string, unknown>) => {
 
   if ("darkMode" in user) {
     update.darkMode = Boolean(user.darkMode);
+  }
+
+  if ("themePreference" in user) {
+    const themePreference = sanitizeThemePreference(user.themePreference);
+    if (themePreference) {
+      update.themePreference = themePreference;
+      update.darkMode = isDarkThemePreference(themePreference);
+    }
   }
 
   if ("setupPromptSeen" in user) {

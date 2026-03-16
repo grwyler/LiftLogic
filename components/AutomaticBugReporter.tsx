@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
 import { submitFeedback } from "../utils/helpers";
 import {
+  getClientDeviceType,
   getClientRuntimeContext,
   getReporterRole,
 } from "../utils/feedbackMetadata";
@@ -156,7 +157,7 @@ export default function AutomaticBugReporter({
           description,
           severity,
           page: router.asPath || window.location.pathname,
-          deviceType: window.innerWidth < 900 ? "mobile" : "desktop",
+          deviceType: getClientDeviceType(),
           runtimeContext,
         });
       } catch (error) {

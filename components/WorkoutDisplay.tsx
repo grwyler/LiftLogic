@@ -290,7 +290,7 @@ const WorkoutDisplay = ({
 
   const hasExercises = exercises.length > 0;
   const isWorkoutComplete = hasExercises && !nextExercise;
-  const shouldShowNextSummary = plannedExercises.length > 1;
+  const shouldShowNextSummary = Boolean(nextExercise);
   const remainingExerciseCount = plannedExercises.length;
   const statusChip = !hasExercises
     ? { label: "No exercises scheduled", color: "default" as const }
@@ -580,7 +580,7 @@ const WorkoutDisplay = ({
             ) : null}
           </Box>
 
-          {nextExercise && shouldShowNextSummary ? (
+          {shouldShowNextSummary ? (
             <Paper
               elevation={0}
               sx={{

@@ -109,6 +109,9 @@ const getOrCreateOAuthUser = async ({
     notes: "",
     setupPromptSeen: false,
     setupCompleted: false,
+    billingPlan: "free",
+    subscriptionStatus: "inactive",
+    subscriptionCancelAtPeriodEnd: false,
     betaFunnel: markBetaFunnelMilestone({
       funnel: {},
       key: "signupCompletedAt",
