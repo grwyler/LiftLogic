@@ -8,21 +8,28 @@ import {
 } from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import SkipNextOutlinedIcon from "@mui/icons-material/SkipNextOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 type ExerciseMenuProps = {
   darkMode: boolean;
   handleDelete: () => void;
+  handleSkipToday?: () => void;
   handleUpdate: () => void;
+  deleteLabel?: string;
   onClickMenuButton?: () => void;
+  skipLabel?: string;
   show?: boolean;
 };
 
 const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
   darkMode,
   handleDelete,
+  handleSkipToday,
   handleUpdate,
+  deleteLabel = "Delete exercise",
   onClickMenuButton,
+  skipLabel = "Skip for today",
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -48,6 +55,12 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
     event.stopPropagation();
     handleClose();
     handleDelete();
+  };
+
+  const handleSkipClick = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    handleClose();
+    handleSkipToday?.();
   };
 
   return (
@@ -108,6 +121,15 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
           <ListItemText>Edit exercise</ListItemText>
         </MenuItem>
 
+        {handleSkipToday ? (
+          <MenuItem onClick={handleSkipClick}>
+            <ListItemIcon>
+              <SkipNextOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>{skipLabel}</ListItemText>
+          </MenuItem>
+        ) : null}
+
         <MenuItem
           onClick={handleDeleteClick}
           sx={{ color: "error.main" }}
@@ -115,7 +137,7 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
           <ListItemIcon sx={{ color: "error.main" }}>
             <DeleteOutlineIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Delete exercise</ListItemText>
+          <ListItemText>{deleteLabel}</ListItemText>
         </MenuItem>
       </Menu>
     </>

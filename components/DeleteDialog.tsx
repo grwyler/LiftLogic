@@ -11,7 +11,6 @@ import { format, isValid } from "date-fns";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onDeleteToday: () => void;
   onDeleteAll: () => void;
   targetDate: Date | string;
 };
@@ -19,7 +18,6 @@ type Props = {
 const DeleteDialog: React.FC<Props> = ({
   open,
   onClose,
-  onDeleteToday,
   onDeleteAll,
   targetDate,
 }) => {
@@ -32,22 +30,22 @@ const DeleteDialog: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Remove this exercise?</DialogTitle>
+      <DialogTitle>Delete this recurring schedule?</DialogTitle>
 
       <DialogContent>
         <p>
-          Remove this exercise only from <b>{fullDate}</b>, or stop scheduling
-          it on future <b>{weekDay}s</b>? Past logged history will stay the
-          same.
+          This will stop scheduling this exercise on future <b>{weekDay}s</b>.
+          If you only want to skip <b>{fullDate}</b>, use the dedicated skip
+          action instead. Past logged history will stay the same.
         </p>
       </DialogContent>
 
       <DialogActions>
-        <MUIButton variant="outlined" onClick={onDeleteToday}>
-          Remove only for {shortDate}
+        <MUIButton variant="outlined" onClick={onClose}>
+          Keep schedule
         </MUIButton>
         <MUIButton color="error" onClick={onDeleteAll}>
-          Stop future {weekDay} repeats
+          Delete future {weekDay} repeats
         </MUIButton>
       </DialogActions>
     </Dialog>
