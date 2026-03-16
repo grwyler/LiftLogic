@@ -28,6 +28,51 @@ import {
 const DESKTOP_BACKGROUND_ATTACHMENT_MEDIA_QUERY =
   "@media (min-width:900px) and (pointer:fine)";
 const OVERLAY_KEYBOARD_OFFSET_CSS_VAR = "--liftlogic-keyboard-offset";
+const STALE_ASSET_RECOVERY_KEY = "liftlogic-stale-asset-recovery-at";
+const STALE_ASSET_RECOVERY_WINDOW_MS = 30_000;
+
+const isStaleAssetLoadError = (value: unknown) => {
+  if (!value) {
+    return false;
+  }
+
+  const message =
+    typeof value === "string"
+      ? value
+      : value instanceof Error
+      ? value.message
+      : typeof value === "object" && "message" in value
+      ? String((value as { message?: unknown }).message ?? "")
+      : "";
+
+  const name =
+    value instanceof Error
+      ? value.name
+      : typeof value === "object" && value && "name" in value
+      ? String((value as { name?: unknown }).name ?? "")
+      : "";
+
+  return (
+    name === "ChunkLoadError" ||
+    message.includes("Loading chunk") ||
+    message.includes("Failed to fetch dynamically imported module") ||
+    message.includes("/_next/static/")
+  );
+};
+
+const clearLiftLogicCaches = async () => {
+  if (typeof window === "undefined" || !("caches" in window)) {
+    return;
+  }
+
+  const cacheKeys = await window.caches.keys();
+  await Promise.all(
+    cacheKeys
+      .filter((key) => key.startsWith("lift-logic-"))
+      .map((key) => window.caches.delete(key))
+  );
+};
+
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
   display: "swap",
@@ -373,6 +418,74 @@ function MyApp({ Component, pageProps }: AppProps) {
     };
 
     void registerServiceWorker();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let cleanupTimer: number | null = window.setTimeout(() => {
+      window.sessionStorage.removeItem(STALE_ASSET_RECOVERY_KEY);
+    }, STALE_ASSET_RECOVERY_WINDOW_MS);
+
+    const recoverFromStaleAssets = async () => {
+      const previousAttempt = Number(
+        window.sessionStorage.getItem(STALE_ASSET_RECOVERY_KEY) ?? "0"
+      );
+      const now = Date.now();
+
+      if (Number.isFinite(previousAttempt) && now - previousAttempt < STALE_ASSET_RECOVERY_WINDOW_MS) {
+        return;
+      }
+
+      window.sessionStorage.setItem(STALE_ASSET_RECOVERY_KEY, String(now));
+
+      try {
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.update()));
+        }
+
+        await clearLiftLogicCaches();
+      } catch (error) {
+        console.error("Failed to prepare stale-asset recovery:", error);
+      }
+
+      window.location.reload();
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isStaleAssetLoadError(event.reason)) {
+        event.preventDefault();
+        void recoverFromStaleAssets();
+      }
+    };
+
+    const handleResourceLoadError = (event: Event) => {
+      const target = event.target;
+
+      if (
+        target instanceof HTMLScriptElement &&
+        typeof target.src === "string" &&
+        target.src.includes("/_next/static/")
+      ) {
+        void recoverFromStaleAssets();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleResourceLoadError, true);
+
+    return () => {
+      if (cleanupTimer) {
+        window.clearTimeout(cleanupTimer);
+        cleanupTimer = null;
+      }
+
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener("error", handleResourceLoadError, true);
+    };
   }, []);
 
   return (
