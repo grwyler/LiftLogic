@@ -10,6 +10,7 @@ const APP_SHELL_URLS = [
   "/icons/icon-maskable-512.png",
   "/icons/apple-touch-icon.png",
 ];
+const NEXT_ASSET_PREFIX = "/_next/static/";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -39,7 +40,8 @@ self.addEventListener("activate", (event) => {
 const isCacheableRequest = (requestUrl, request) =>
   request.method === "GET" &&
   requestUrl.origin === self.location.origin &&
-  !requestUrl.pathname.startsWith("/api/");
+  !requestUrl.pathname.startsWith("/api/") &&
+  !requestUrl.pathname.startsWith(NEXT_ASSET_PREFIX);
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
