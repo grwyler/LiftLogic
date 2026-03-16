@@ -7,7 +7,52 @@ export interface BetaFunnelAnalytics {
   secondWorkoutWithin7DaysAt?: Date | string;
   retainedWeek2At?: Date | string;
   retainedWeek4At?: Date | string;
+  pricingPageViewedAt?: Date | string;
+  upgradePromptViewedAt?: Date | string;
+  checkoutStartedAt?: Date | string;
+  checkoutCompletedAt?: Date | string;
+  manualProGrantAppliedAt?: Date | string;
+  billingPortalOpenedAt?: Date | string;
+  cancelRequestedAt?: Date | string;
+  subscriptionCanceledAt?: Date | string;
 }
+
+export const betaFunnelMilestoneMap = {
+  landing_cta: "landingCtaAt",
+  signup_completed: "signupCompletedAt",
+  setup_completed: "setupCompletedAt",
+  first_workout_logged: "firstWorkoutLoggedAt",
+  second_workout_logged: "secondWorkoutLoggedAt",
+  second_workout_within_7_days: "secondWorkoutWithin7DaysAt",
+  retained_week_2: "retainedWeek2At",
+  retained_week_4: "retainedWeek4At",
+  pricing_page_viewed: "pricingPageViewedAt",
+  upgrade_prompt_viewed: "upgradePromptViewedAt",
+  checkout_started: "checkoutStartedAt",
+  checkout_completed: "checkoutCompletedAt",
+  manual_pro_grant_applied: "manualProGrantAppliedAt",
+  billing_portal_opened: "billingPortalOpenedAt",
+  cancel_requested: "cancelRequestedAt",
+  subscription_canceled: "subscriptionCanceledAt",
+} as const;
+
+export type BetaFunnelMilestoneName = keyof typeof betaFunnelMilestoneMap;
+
+export type MonetizationSummary = {
+  pricingPageViews: number;
+  upgradePromptViews: number;
+  checkoutStarts: number;
+  checkoutCompletions: number;
+  manualProGrants: number;
+  billingPortalOpens: number;
+  cancelRequests: number;
+  subscriptionCancellations: number;
+  activePaidUsers: number;
+  pricingToCheckoutStartRate: number;
+  pricingToPaidRate: number;
+  checkoutCompletionRate: number;
+  cancellationRate: number;
+};
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -63,6 +108,14 @@ export const normalizeBetaFunnel = (
       "secondWorkoutWithin7DaysAt",
       "retainedWeek2At",
       "retainedWeek4At",
+      "pricingPageViewedAt",
+      "upgradePromptViewedAt",
+      "checkoutStartedAt",
+      "checkoutCompletedAt",
+      "manualProGrantAppliedAt",
+      "billingPortalOpenedAt",
+      "cancelRequestedAt",
+      "subscriptionCanceledAt",
     ] as Array<keyof BetaFunnelAnalytics>
   ).forEach((key) => {
     const parsed = toValidDate(candidate[key]);
@@ -87,6 +140,11 @@ export const markBetaFunnelMilestone = ({
   setMilestoneIfMissing(next, key, toValidDate(occurredAt ?? new Date()));
   return next;
 };
+
+export const resolveBetaFunnelMilestoneKey = (
+  milestone: string
+): keyof BetaFunnelAnalytics | null =>
+  betaFunnelMilestoneMap[milestone as BetaFunnelMilestoneName] ?? null;
 
 export const getDistinctWorkoutDates = (dates: Array<Date | string>) => {
   const unique = new Map<string, Date>();
@@ -155,4 +213,51 @@ export const applyWorkoutMilestones = ({
   }
 
   return next;
+};
+
+const countUsersWithMilestone = (
+  funnels: BetaFunnelAnalytics[],
+  key: keyof BetaFunnelAnalytics
+) => funnels.filter((funnel) => Boolean(funnel[key])).length;
+
+const toRate = (numerator: number, denominator: number) =>
+  denominator > 0 ? Number((numerator / denominator).toFixed(3)) : 0;
+
+export const summarizeMonetizationFunnel = ({
+  users,
+  hasPaidAccess,
+}: {
+  users: Array<{ betaFunnel?: unknown }>;
+  hasPaidAccess: (user: { betaFunnel?: unknown }) => boolean;
+}): MonetizationSummary => {
+  const funnels = users.map((user) => normalizeBetaFunnel(user.betaFunnel));
+  const pricingPageViews = countUsersWithMilestone(funnels, "pricingPageViewedAt");
+  const upgradePromptViews = countUsersWithMilestone(funnels, "upgradePromptViewedAt");
+  const checkoutStarts = countUsersWithMilestone(funnels, "checkoutStartedAt");
+  const checkoutCompletions = countUsersWithMilestone(funnels, "checkoutCompletedAt");
+  const manualProGrants = countUsersWithMilestone(funnels, "manualProGrantAppliedAt");
+  const billingPortalOpens = countUsersWithMilestone(funnels, "billingPortalOpenedAt");
+  const cancelRequests = countUsersWithMilestone(funnels, "cancelRequestedAt");
+  const subscriptionCancellations = countUsersWithMilestone(
+    funnels,
+    "subscriptionCanceledAt"
+  );
+  const activePaidUsers = users.filter((user) => hasPaidAccess(user)).length;
+  const paidActivations = checkoutCompletions + manualProGrants;
+
+  return {
+    pricingPageViews,
+    upgradePromptViews,
+    checkoutStarts,
+    checkoutCompletions,
+    manualProGrants,
+    billingPortalOpens,
+    cancelRequests,
+    subscriptionCancellations,
+    activePaidUsers,
+    pricingToCheckoutStartRate: toRate(checkoutStarts, pricingPageViews),
+    pricingToPaidRate: toRate(paidActivations, pricingPageViews),
+    checkoutCompletionRate: toRate(checkoutCompletions, checkoutStarts),
+    cancellationRate: toRate(subscriptionCancellations, paidActivations),
+  };
 };

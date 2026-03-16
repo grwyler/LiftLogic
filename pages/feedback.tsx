@@ -62,22 +62,28 @@ const FeedbackPage = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
+  const sessionUserId =
+    session?.token?.user?._id || (session?.user as { _id?: string } | undefined)?._id || "";
+
+  const loadFeedbackPageData = async (userId: string) => {
+    const [userData, feedbackData] = await Promise.all([
+      fetchUser(userId),
+      fetchFeedback(userId),
+    ]);
+
+    setUser(userData);
+    setFeedbackItems(feedbackData);
+  };
 
   useEffect(() => {
-    if (!session?.token?.user?._id) {
+    if (!sessionUserId) {
       setLoading(false);
       return;
     }
 
     const load = async () => {
       try {
-        const [userData, feedbackData] = await Promise.all([
-          fetchUser(session.token.user._id),
-          fetchFeedback(session.token.user._id),
-        ]);
-
-        setUser(userData);
-        setFeedbackItems(feedbackData);
+        await loadFeedbackPageData(sessionUserId);
       } catch (error) {
         console.error("Error loading feedback page:", error);
       } finally {
@@ -86,7 +92,7 @@ const FeedbackPage = () => {
     };
 
     load();
-  }, [session]);
+  }, [sessionUserId]);
 
   const canSubmit = useMemo(
     () => title.trim().length > 2 && description.trim().length > 9,
@@ -164,6 +170,9 @@ const FeedbackPage = () => {
       if (response?.feedback) {
         setFeedbackItems((prev) => [response.feedback, ...prev]);
       }
+
+      const latestFeedback = await fetchFeedback(user._id);
+      setFeedbackItems(latestFeedback);
 
       setTitle("");
       setDescription("");

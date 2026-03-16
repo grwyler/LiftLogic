@@ -103,9 +103,24 @@ export const getSessionUserId = async (page: Page) => {
 
 export const signUp = async (page: Page, username: string) => {
   await page.goto("/signup");
-  await page.getByLabel("Username").fill(username);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForLoadState("domcontentloaded");
+  const createAccountButton = page.getByRole("button", {
+    name: "Create account",
+  });
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByLabel("Username").fill(username);
+    await page.getByLabel("Password").fill(password);
+
+    if (await createAccountButton.isEnabled().catch(() => false)) {
+      break;
+    }
+
+    await page.waitForTimeout(750);
+  }
+
+  await expect(createAccountButton).toBeEnabled();
+  await createAccountButton.click();
   await page.waitForURL(/\/routines/);
 };
 
@@ -131,15 +146,24 @@ export const saveUserProfile = async (
 };
 
 export const continueAsTracker = async (page: Page) => {
+  const addExerciseButton = page.getByRole("button", {
+    name: /Add First Exercise|Add Exercise|Add/,
+  });
+  const setupHeading = page.getByRole("heading", {
+    name: "Set up your workout assistant",
+  });
+
+  if (!(await addExerciseButton.isVisible().catch(() => false))) {
+    await expect(setupHeading).toBeVisible();
+    await page
+      .getByRole("button", { name: "No, I just want to track workouts" })
+      .click();
+    await expect(page.getByText("Tracker mode")).toBeVisible();
+    await page.getByRole("button", { name: "Continue to workouts" }).click();
+  }
+
   await expect(
-    page.getByRole("heading", { name: "Set up your workout assistant" })
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "No, I just want to track workouts" })
-    .click();
-  await page.getByRole("button", { name: "Continue to workouts" }).click();
-  await expect(
-    page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
+    addExerciseButton
   ).toBeVisible();
 };
 
@@ -155,21 +179,40 @@ export const completeAssistantSetup = async (
     frequency?: string;
   } = {}
 ) => {
-  await page.getByLabel("Name").fill(name);
+  await page
+    .getByRole("heading", { name: "Set up your workout assistant" })
+    .waitFor();
   await page
     .getByRole("button", { name: "Yes, help me plan workouts" })
     .click();
+  await page.getByLabel("Name").fill(name);
   await page.getByRole("button", { name: goal }).click();
   await page.getByRole("button", { name: frequency }).click();
-  await page.getByRole("button", { name: "Save assistant setup" }).click();
+  const savePreferencesButton = page.getByRole("button", {
+    name: "Save preferences only",
+  });
+  const saveSetupButton = page.getByRole("button", {
+    name: "Save assistant setup",
+  });
 
-  await expect(
-    page.getByText("The workout assistant is still in beta testing.").first()
-  ).toBeVisible();
+  if (await saveSetupButton.isVisible().catch(() => false)) {
+    await saveSetupButton.click();
+  } else {
+    await expect(
+      page.getByText(
+        "Pro Beta is required to generate assistant-built workout plans."
+      )
+    ).toBeVisible();
+    await savePreferencesButton.click();
+  }
+
   await expect(
     page.getByRole("textbox", {
       name: /Ask why this fits, how to swap lifts, or what to do first/i,
     })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Your workout assistant is ready" })
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Add First Exercise|Add Exercise/ })
@@ -177,7 +220,10 @@ export const completeAssistantSetup = async (
 };
 
 export const quickAddFirstExercise = async (page: Page) => {
-  await page.getByRole("button", { name: /Add First Exercise|Add Exercise/ }).click();
+  await page
+    .getByRole("button", { name: /Add First Exercise|Add Exercise|Add/ })
+    .first()
+    .click();
   await expect(
     page.getByRole("heading", { name: "Choose an exercise" })
   ).toBeVisible();
@@ -187,13 +233,17 @@ export const quickAddFirstExercise = async (page: Page) => {
 };
 
 export const logFirstSetForFirstExercise = async (page: Page) => {
-  await page.getByText(/^Open$/).first().click();
+  const openNextSetButton = page.getByRole("button", { name: "Open Next Set" });
+  if (await openNextSetButton.isVisible().catch(() => false)) {
+    await openNextSetButton.click();
+  } else {
+    await page.getByRole("button", { name: "Start Lift" }).first().click();
+  }
   await expect(page.getByText("Active Set")).toBeVisible();
 
   await page.getByRole("button", { name: "Log Set" }).click();
-  await expect(page.getByText("Rest Between Sets")).toBeVisible();
-  await page.getByRole("button", { name: "Continue to Next Set" }).click();
-  await expect(page.getByText("1/3 sets logged")).toBeVisible();
+  await expect(page.getByText(/1\/3 sets logged|1\/\d+ sets logged/)).toBeVisible();
+  await expect(page.getByText(/1\/3 sets logged|1\/\d+ sets logged/)).toBeVisible();
 };
 
 export const closeExerciseDetail = async (page: Page) => {

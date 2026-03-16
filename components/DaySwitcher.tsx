@@ -223,7 +223,7 @@ const DaySwitcher = ({
                             justifyContent: "center",
                           },
                           "& input": {
-                            fontFamily: '"Manrope", sans-serif',
+                            fontFamily: 'var(--font-display), "Manrope", sans-serif',
                             fontSize: { xs: "1rem", sm: "1.1rem" },
                             fontWeight: 800,
                             textAlign: "center",

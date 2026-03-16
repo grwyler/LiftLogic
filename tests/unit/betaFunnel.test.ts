@@ -3,6 +3,7 @@ import {
   applyWorkoutMilestones,
   getDistinctWorkoutDates,
   markBetaFunnelMilestone,
+  summarizeMonetizationFunnel,
 } from "../../utils/betaFunnel";
 
 describe("beta funnel analytics", () => {
@@ -69,5 +70,52 @@ describe("beta funnel analytics", () => {
     expect(new Date(String(funnel.retainedWeek4At)).toISOString()).toBe(
       "2026-03-24T12:00:00.000Z"
     );
+  });
+
+  it("summarizes monetization conversion counts and rates", () => {
+    const summary = summarizeMonetizationFunnel({
+      users: [
+        {
+          betaFunnel: {
+            pricingPageViewedAt: "2026-03-10T00:00:00.000Z",
+            checkoutStartedAt: "2026-03-10T00:05:00.000Z",
+            checkoutCompletedAt: "2026-03-10T00:10:00.000Z",
+          },
+          paid: true,
+        },
+        {
+          betaFunnel: {
+            pricingPageViewedAt: "2026-03-11T00:00:00.000Z",
+            upgradePromptViewedAt: "2026-03-11T00:01:00.000Z",
+            manualProGrantAppliedAt: "2026-03-11T00:02:00.000Z",
+            cancelRequestedAt: "2026-03-14T00:00:00.000Z",
+          },
+          paid: true,
+        },
+        {
+          betaFunnel: {
+            subscriptionCanceledAt: "2026-03-20T00:00:00.000Z",
+          },
+          paid: false,
+        },
+      ] as Array<{ betaFunnel?: unknown; paid: boolean }>,
+      hasPaidAccess: (user) => Boolean((user as any).paid),
+    });
+
+    expect(summary).toEqual({
+      pricingPageViews: 2,
+      upgradePromptViews: 1,
+      checkoutStarts: 1,
+      checkoutCompletions: 1,
+      manualProGrants: 1,
+      billingPortalOpens: 0,
+      cancelRequests: 1,
+      subscriptionCancellations: 1,
+      activePaidUsers: 2,
+      pricingToCheckoutStartRate: 0.5,
+      pricingToPaidRate: 1,
+      checkoutCompletionRate: 1,
+      cancellationRate: 0.5,
+    });
   });
 });

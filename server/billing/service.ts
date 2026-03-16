@@ -6,7 +6,11 @@ import {
   BillingSummaryResponse,
   UserDoc,
 } from "../../utils/types";
-import { getEntitlementsForPlan } from "../../utils/entitlements";
+import {
+  getEntitlementsForPlan,
+  hasActiveManualProBetaAccess,
+} from "../../utils/entitlements";
+import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
 import { getBillingPriceOptions, StripeBillingConfig } from "./config";
 
 let billingIndexesReady = false;
@@ -47,6 +51,47 @@ const toObjectId = (value?: string) =>
   value && ObjectId.isValid(value) ? new ObjectId(value) : null;
 
 const getUserCollection = (db: Db) => db.collection<UserDoc>("users");
+
+const markUserBetaFunnelMilestone = async ({
+  db,
+  userId,
+  key,
+  occurredAt,
+}: {
+  db: Db;
+  userId?: string;
+  key: keyof NonNullable<UserDoc["betaFunnel"]>;
+  occurredAt?: Date | string | null;
+}) => {
+  const objectId = toObjectId(sanitizeText(userId));
+  if (!objectId) {
+    return;
+  }
+
+  const users = getUserCollection(db);
+  const user = await users.findOne(
+    { _id: objectId },
+    { projection: { betaFunnel: 1 } }
+  );
+
+  if (!user) {
+    return;
+  }
+
+  await users.updateOne(
+    { _id: objectId },
+    {
+      $set: {
+        betaFunnel: markBetaFunnelMilestone({
+          funnel: user.betaFunnel,
+          key,
+          occurredAt,
+        }),
+        updatedAt: new Date(),
+      },
+    }
+  );
+};
 
 const buildBillingUpdate = (update: Partial<UserDoc>) => {
   const setFields: Record<string, unknown> = {};
@@ -95,13 +140,22 @@ export const buildBillingSummary = ({
   config: StripeBillingConfig;
 }): BillingSummaryResponse => {
   const subscriptionStatus = normalizeBillingStatus(user?.subscriptionStatus);
-  const billingPlan = user?.billingPlan || getBillingPlanFromStatus(subscriptionStatus);
+  const manualProBetaAccessActive = hasActiveManualProBetaAccess(user);
+  const billingPlan =
+    manualProBetaAccessActive
+      ? "pro_beta"
+      : user?.billingPlan || getBillingPlanFromStatus(subscriptionStatus);
+  const manualProBetaAccessExpiresAt = user?.manualProBetaAccess?.expiresAt
+    ? new Date(user.manualProBetaAccess.expiresAt).toISOString()
+    : undefined;
 
   return {
     configured: config.checkoutEnabled,
     portalEnabled: Boolean(config.secretKey && user?.stripeCustomerId),
     billingPlan,
     subscriptionStatus,
+    manualProBetaAccessActive,
+    manualProBetaAccessExpiresAt,
     subscriptionInterval: user?.subscriptionInterval,
     stripeCustomerId: user?.stripeCustomerId,
     stripeSubscriptionId: user?.stripeSubscriptionId,
@@ -289,6 +343,26 @@ export const syncStripeSubscription = async ({
     })
   );
 
+  if (Boolean(subscription.cancel_at_period_end)) {
+    await markUserBetaFunnelMilestone({
+      db,
+      userId: String(user._id),
+      key: "cancelRequestedAt",
+      occurredAt: new Date(),
+    });
+  }
+
+  if (status === "canceled") {
+    await markUserBetaFunnelMilestone({
+      db,
+      userId: String(user._id),
+      key: "subscriptionCanceledAt",
+      occurredAt: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000)
+        : new Date(),
+    });
+  }
+
   return String(user._id);
 };
 
@@ -317,12 +391,21 @@ export const syncStripeCheckoutSession = async ({
 
   if (subscriptionId) {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    return syncStripeSubscription({
+    const syncedUserId = await syncStripeSubscription({
       db,
       subscription,
       fallbackUserId,
       customerEmail,
     });
+
+    await markUserBetaFunnelMilestone({
+      db,
+      userId: syncedUserId || fallbackUserId,
+      key: "checkoutCompletedAt",
+      occurredAt: new Date(),
+    });
+
+    return syncedUserId;
   }
 
   const user = await findUserByIdentity({
@@ -344,6 +427,13 @@ export const syncStripeCheckoutSession = async ({
       updatedAt: new Date(),
     })
   );
+
+  await markUserBetaFunnelMilestone({
+    db,
+    userId: String(user._id),
+    key: "checkoutCompletedAt",
+    occurredAt: new Date(),
+  });
 
   return String(user._id);
 };

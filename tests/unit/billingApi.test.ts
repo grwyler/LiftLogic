@@ -247,6 +247,27 @@ describe("billing API routes", () => {
     });
   });
 
+  it("reports pro beta in billing summary when manual founding-beta access is active", async () => {
+    db.userDocs[0].manualProBetaAccess = {
+      grantedAt: new Date("2026-03-16T00:00:00.000Z"),
+      paymentCollectionNote: "Manual Venmo payment",
+      expiresAt: new Date("2026-04-16T00:00:00.000Z"),
+    };
+
+    const req = createMockRequest({ method: "GET" });
+    const res = createMockResponse();
+
+    await summaryHandler(req, res as any);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.billingPlan).toBe("pro_beta");
+    expect(res.body.manualProBetaAccessActive).toBe(true);
+    expect(res.body.manualProBetaAccessExpiresAt).toBe(
+      new Date("2026-04-16T00:00:00.000Z").toISOString()
+    );
+    expect(res.body.portalEnabled).toBe(false);
+  });
+
   it("creates a Stripe checkout session for a valid self-serve upgrade", async () => {
     stripeMock.checkout.sessions.create.mockResolvedValue({
       url: "https://checkout.stripe.com/session_123",
@@ -282,6 +303,7 @@ describe("billing API routes", () => {
         }),
       })
     );
+    expect(db.userDocs[0].betaFunnel.checkoutStartedAt).toBeInstanceOf(Date);
   });
 
   it("creates a billing portal session for an existing Stripe customer", async () => {
@@ -305,6 +327,7 @@ describe("billing API routes", () => {
       customer: "cus_123",
       return_url: "https://liftlogic.test/pricing?portal=returned",
     });
+    expect(db.userDocs[0].betaFunnel.billingPortalOpenedAt).toBeInstanceOf(Date);
   });
 
   it("syncs Stripe checkout completion through the webhook route", async () => {
@@ -382,5 +405,86 @@ describe("billing API routes", () => {
       billingEmail: "athlete@example.com",
     });
     expect(db.userDocs[0].subscriptionCurrentPeriodEnd).toBeInstanceOf(Date);
+    expect(db.userDocs[0].betaFunnel.checkoutCompletedAt).toBeInstanceOf(Date);
+  });
+
+  it("tracks cancel requested and subscription canceled milestones from Stripe webhooks", async () => {
+    stripeMock.webhooks.constructEvent
+      .mockReturnValueOnce({
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_123",
+            customer: "cus_123",
+            status: "active",
+            metadata: {
+              userId: userId.toString(),
+            },
+            current_period_end: 1_781_776_800,
+            cancel_at_period_end: true,
+            canceled_at: null,
+            items: {
+              data: [
+                {
+                  price: {
+                    id: "price_month",
+                    product: "prod_123",
+                    recurring: {
+                      interval: "month",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      })
+      .mockReturnValueOnce({
+        type: "customer.subscription.deleted",
+        data: {
+          object: {
+            id: "sub_123",
+            customer: "cus_123",
+            status: "canceled",
+            metadata: {
+              userId: userId.toString(),
+            },
+            current_period_end: 1_781_776_800,
+            cancel_at_period_end: true,
+            canceled_at: 1_781_700_000,
+            items: {
+              data: [
+                {
+                  price: {
+                    id: "price_month",
+                    product: "prod_123",
+                    recurring: {
+                      interval: "month",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+    const req = createMockRequest({
+      method: "POST",
+      headers: {
+        "stripe-signature": "sig_test_123",
+      },
+    });
+
+    const firstRes = createMockResponse();
+    await webhookHandler(req, firstRes as any);
+
+    const secondRes = createMockResponse();
+    await webhookHandler(req, secondRes as any);
+
+    expect(firstRes.statusCode).toBe(200);
+    expect(secondRes.statusCode).toBe(200);
+    expect(db.userDocs[0].betaFunnel.cancelRequestedAt).toBeInstanceOf(Date);
+    expect(db.userDocs[0].betaFunnel.subscriptionCanceledAt).toBeInstanceOf(Date);
   });
 });

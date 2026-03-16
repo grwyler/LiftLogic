@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "lift-logic",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://vercel.com/grwyler/lift-logic/6dqx1URyU74n4gM9dLHkJgCaCRM2",
   "engines": {
     "node": "24.x"
@@ -10,10 +10,14 @@
     "dev": "next",
     "build": "next build",
     "start": "next start",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npx cap run android",
     "type-check": "tsc",
     "test:unit": "vitest run",
     "test:fast": "npm run type-check && npm run test:unit",
     "test:e2e": "playwright test",
+    "test:e2e:android": "playwright test --project=android-chrome",
     "test:e2e:smoke": "playwright test smoke.spec.ts",
     "test:e2e:regression": "playwright test regression.spec.ts",
     "version:feature": "npm version minor --no-git-tag-version",
@@ -21,6 +25,9 @@
     "version:auto": "node scripts/bump-version.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@hello-pangea/dnd": "^18.0.1",

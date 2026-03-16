@@ -24,13 +24,17 @@ import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import LoadingIndicator from "../components/LoadingIndicator";
 import {
   deleteFeedbackWorkItem,
+  fetchMonetizationSummary,
+  fetchFoundingBetaUsers,
   fetchFeedbackWorkflow,
+  saveFoundingBetaAccess,
   updateFeedbackWorkItem,
 } from "../utils/helpers";
 import {
   FeedbackItemDoc,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
+  MonetizationSummaryResponse,
 } from "../utils/types";
 import { toast } from "react-toastify";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
@@ -82,6 +86,31 @@ type QueueSortMode =
   | "reports"
   | "severity";
 
+type FoundingBetaUserRecord = {
+  _id: string;
+  username: string;
+  name?: string;
+  email?: string;
+  createdAt?: Date | string;
+  billingPlan?: string;
+  subscriptionStatus?: string;
+  productPlan?: string;
+  manualProBetaAccess?: {
+    grantedAt?: Date | string;
+    grantedByEmail?: string;
+    expiresAt?: Date | string;
+    revokedAt?: Date | string;
+    revokedByEmail?: string;
+    paymentCollectionNote?: string;
+    active?: boolean;
+  } | null;
+};
+
+type FoundingBetaDraft = {
+  expiresAt: string;
+  paymentCollectionNote: string;
+};
+
 const inactiveTriageStatuses: FeedbackTriageStatus[] = [
   "resolved",
   "duplicate",
@@ -110,6 +139,8 @@ const serializeWorkItems = (items: FeedbackWorkItemDoc[]) =>
 
 const formatTimestamp = (value?: Date | string) =>
   value ? new Date(value).toLocaleString() : "Unknown";
+
+const formatRate = (value?: number) => `${Math.round((value || 0) * 100)}%`;
 
 const triageSortOrder: Record<FeedbackTriageStatus, number> = {
   fixing: 0,
@@ -216,6 +247,16 @@ const BugsPage = () => {
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [queueSortMode, setQueueSortMode] = useState<QueueSortMode>("workflow");
   const [showCompletedSection, setShowCompletedSection] = useState(false);
+  const [foundingBetaUsers, setFoundingBetaUsers] = useState<FoundingBetaUserRecord[]>([]);
+  const [foundingBetaDrafts, setFoundingBetaDrafts] = useState<
+    Record<string, FoundingBetaDraft>
+  >({});
+  const [foundingBetaSearch, setFoundingBetaSearch] = useState("");
+  const [foundingBetaLoading, setFoundingBetaLoading] = useState(false);
+  const [foundingBetaSavingId, setFoundingBetaSavingId] = useState<string | null>(null);
+  const [monetizationSummary, setMonetizationSummary] =
+    useState<MonetizationSummaryResponse | null>(null);
+  const [monetizationLoading, setMonetizationLoading] = useState(false);
 
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
@@ -294,6 +335,85 @@ const BugsPage = () => {
     return () => {
       active = false;
       window.clearInterval(interval);
+    };
+  }, [isAdmin, session]);
+
+  useEffect(() => {
+    if (!isAdmin || !session?.token?.user?._id) {
+      return;
+    }
+
+    let active = true;
+
+    const loadFoundingBetaUsers = async () => {
+      try {
+        setFoundingBetaLoading(true);
+        const response = await fetchFoundingBetaUsers("");
+        if (!active) {
+          return;
+        }
+
+        setFoundingBetaUsers(response.users || []);
+        setFoundingBetaDrafts((previous) => {
+          const next = { ...previous };
+          (response.users || []).forEach((user) => {
+            next[user._id] = {
+              expiresAt: user?.manualProBetaAccess?.expiresAt
+                ? String(user.manualProBetaAccess.expiresAt).slice(0, 10)
+                : "",
+              paymentCollectionNote:
+                user?.manualProBetaAccess?.paymentCollectionNote || "",
+            };
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error("Error loading founding beta users:", error);
+        toast.error("Couldn't load founding beta access controls.");
+      } finally {
+        if (active) {
+          setFoundingBetaLoading(false);
+        }
+      }
+    };
+
+    void loadFoundingBetaUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, session]);
+
+  useEffect(() => {
+    if (!isAdmin || !session?.token?.user?._id) {
+      return;
+    }
+
+    let active = true;
+
+    const loadMonetizationSummary = async () => {
+      try {
+        setMonetizationLoading(true);
+        const summary = await fetchMonetizationSummary();
+        if (!active) {
+          return;
+        }
+
+        setMonetizationSummary(summary);
+      } catch (error) {
+        console.error("Error loading monetization summary:", error);
+        toast.error("Couldn't load the monetization summary.");
+      } finally {
+        if (active) {
+          setMonetizationLoading(false);
+        }
+      }
+    };
+
+    void loadMonetizationSummary();
+
+    return () => {
+      active = false;
     };
   }, [isAdmin, session]);
 
@@ -536,6 +656,112 @@ const BugsPage = () => {
     } catch (error) {
       console.error("Failed to copy work item details:", error);
       toast.error("Couldn't copy the work item details.");
+    }
+  };
+
+  const handleFoundingBetaDraftChange = (
+    userId: string,
+    key: keyof FoundingBetaDraft,
+    value: string
+  ) => {
+    setFoundingBetaDrafts((previous) => ({
+      ...previous,
+      [userId]: {
+        expiresAt: previous[userId]?.expiresAt || "",
+        paymentCollectionNote: previous[userId]?.paymentCollectionNote || "",
+        [key]: value,
+      },
+    }));
+  };
+
+  const refreshFoundingBetaUsers = async (search: string) => {
+    setFoundingBetaLoading(true);
+    try {
+      const response = await fetchFoundingBetaUsers(search);
+      setFoundingBetaUsers(response.users || []);
+      setFoundingBetaDrafts((previous) => {
+        const next = { ...previous };
+        (response.users || []).forEach((user) => {
+          next[user._id] = {
+            expiresAt: user?.manualProBetaAccess?.expiresAt
+              ? String(user.manualProBetaAccess.expiresAt).slice(0, 10)
+              : previous[user._id]?.expiresAt || "",
+            paymentCollectionNote:
+              previous[user._id]?.paymentCollectionNote ||
+              user?.manualProBetaAccess?.paymentCollectionNote ||
+              "",
+          };
+        });
+        return next;
+      });
+    } catch (error) {
+      console.error("Error refreshing founding beta users:", error);
+      toast.error("Couldn't refresh founding beta users.");
+    } finally {
+      setFoundingBetaLoading(false);
+    }
+  };
+
+  const refreshMonetizationSummary = async () => {
+    setMonetizationLoading(true);
+    try {
+      const summary = await fetchMonetizationSummary();
+      setMonetizationSummary(summary);
+    } catch (error) {
+      console.error("Error refreshing monetization summary:", error);
+      toast.error("Couldn't refresh the monetization summary.");
+    } finally {
+      setMonetizationLoading(false);
+    }
+  };
+
+  const handleFoundingBetaAccessSave = async (
+    user: FoundingBetaUserRecord,
+    operation: "grant" | "revoke" | "update"
+  ) => {
+    const draft = foundingBetaDrafts[user._id] || {
+      expiresAt: "",
+      paymentCollectionNote: "",
+    };
+
+    setFoundingBetaSavingId(user._id);
+    try {
+      const response = await saveFoundingBetaAccess({
+        userId: user._id,
+        operation,
+        expiresAt: draft.expiresAt,
+        paymentCollectionNote: draft.paymentCollectionNote,
+      });
+
+      if (response.user) {
+        setFoundingBetaUsers((previous) =>
+          previous.map((entry) => (entry._id === user._id ? response.user : entry))
+        );
+        setFoundingBetaDrafts((previous) => ({
+          ...previous,
+          [user._id]: {
+            expiresAt: response.user?.manualProBetaAccess?.expiresAt
+              ? String(response.user.manualProBetaAccess.expiresAt).slice(0, 10)
+              : "",
+            paymentCollectionNote:
+              response.user?.manualProBetaAccess?.paymentCollectionNote || "",
+          },
+        }));
+      }
+
+      toast.success(
+        operation === "grant"
+          ? "Founding beta access granted."
+          : operation === "revoke"
+          ? "Founding beta access revoked."
+          : "Founding beta access updated."
+      );
+      void refreshMonetizationSummary();
+    } catch (error) {
+      console.error("Error saving founding beta access:", error);
+      toast.error("Couldn't save founding beta access.");
+    } finally {
+      setFoundingBetaSavingId(null);
     }
   };
 
@@ -894,6 +1120,270 @@ const BugsPage = () => {
             Back to Workouts
           </Button>
         </Box>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2.5 }}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Typography variant="h6">Monetization summary</Typography>
+                  <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                    Measure pricing intent, paid conversion, and cancellation pressure without
+                    relying on anecdotes.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  onClick={() => void refreshMonetizationSummary()}
+                  disabled={monetizationLoading}
+                >
+                  {monetizationLoading ? "Refreshing..." : "Refresh summary"}
+                </Button>
+              </Stack>
+
+              {monetizationSummary ? (
+                <Box
+                  sx={{
+                    mt: 2,
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                    gap: 1.25,
+                  }}
+                >
+                  {[
+                    ["Pricing page viewed", monetizationSummary.pricingPageViews],
+                    ["Upgrade prompt viewed", monetizationSummary.upgradePromptViews],
+                    ["Checkout started", monetizationSummary.checkoutStarts],
+                    ["Checkout completed", monetizationSummary.checkoutCompletions],
+                    ["Manual Pro grant applied", monetizationSummary.manualProGrants],
+                    ["Billing portal opened", monetizationSummary.billingPortalOpens],
+                    ["Cancel requested", monetizationSummary.cancelRequests],
+                    ["Subscription canceled", monetizationSummary.subscriptionCancellations],
+                    ["Active paid users", monetizationSummary.activePaidUsers],
+                    [
+                      "Pricing to checkout rate",
+                      formatRate(monetizationSummary.pricingToCheckoutStartRate),
+                    ],
+                    [
+                      "Pricing to paid rate",
+                      formatRate(monetizationSummary.pricingToPaidRate),
+                    ],
+                    [
+                      "Checkout completion rate",
+                      formatRate(monetizationSummary.checkoutCompletionRate),
+                    ],
+                    [
+                      "Cancellation rate",
+                      formatRate(monetizationSummary.cancellationRate),
+                    ],
+                  ].map(([label, value]) => (
+                    <Paper
+                      key={String(label)}
+                      variant="outlined"
+                      sx={{ p: 1.5, borderRadius: 2 }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        {label}
+                      </Typography>
+                      <Typography variant="h6" sx={{ mt: 0.4 }}>
+                        {String(value)}
+                      </Typography>
+                    </Paper>
+                  ))}
+                </Box>
+              ) : (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  {monetizationLoading
+                    ? "Loading monetization summary..."
+                    : "Monetization summary is not available yet."}
+                </Alert>
+              )}
+            </Paper>
+
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Box>
+                <Typography variant="h6">Founding beta access</Typography>
+                <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                  Grant or revoke manual Pro Beta access for the first paid cohort,
+                  set an expiration date, and record how payment was collected.
+                </Typography>
+              </Box>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  size="small"
+                  label="Find user"
+                  value={foundingBetaSearch}
+                  onChange={(event) => setFoundingBetaSearch(event.target.value)}
+                  placeholder="username, name, or email"
+                  sx={{ minWidth: { xs: "100%", sm: 260 } }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={() => void refreshFoundingBetaUsers(foundingBetaSearch)}
+                  disabled={foundingBetaLoading}
+                >
+                  {foundingBetaLoading ? "Searching..." : "Search"}
+                </Button>
+              </Stack>
+            </Stack>
+
+            {foundingBetaUsers.length === 0 ? (
+              <Alert severity="info">
+                {foundingBetaLoading
+                  ? "Loading founding beta users..."
+                  : "No matching users found yet."}
+              </Alert>
+            ) : (
+              <Stack spacing={1.5}>
+                {foundingBetaUsers.map((user) => {
+                  const draft = foundingBetaDrafts[user._id] || {
+                    expiresAt: "",
+                    paymentCollectionNote: "",
+                  };
+                  const manualAccess = user.manualProBetaAccess;
+                  const accessActive = Boolean(manualAccess?.active);
+                  const saving = foundingBetaSavingId === user._id;
+
+                  return (
+                    <Paper
+                      key={user._id}
+                      variant="outlined"
+                      sx={{ p: 1.5, borderRadius: 2.5 }}
+                    >
+                      <Stack spacing={1.25}>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          justifyContent="space-between"
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {user.name || user.username}
+                            </Typography>
+                            <Typography sx={{ color: "text.secondary" }}>
+                              @{user.username}
+                              {user.email ? ` • ${user.email}` : ""}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Chip
+                              label={accessActive ? "Founding beta active" : "No manual grant"}
+                              color={accessActive ? "success" : "default"}
+                              variant={accessActive ? "filled" : "outlined"}
+                            />
+                            <Chip
+                              label={`Resolved plan: ${user.productPlan || "free"}`}
+                              variant="outlined"
+                            />
+                            <Chip
+                              label={`Billing: ${user.billingPlan || "free"} / ${
+                                user.subscriptionStatus || "inactive"
+                              }`}
+                              variant="outlined"
+                            />
+                          </Stack>
+                        </Stack>
+
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                          <TextField
+                            label="Expires on"
+                            type="date"
+                            size="small"
+                            value={draft.expiresAt}
+                            onChange={(event) =>
+                              handleFoundingBetaDraftChange(
+                                user._id,
+                                "expiresAt",
+                                event.target.value
+                              )
+                            }
+                            InputLabelProps={{ shrink: true }}
+                            sx={{ width: { xs: "100%", sm: 180 } }}
+                          />
+                          <TextField
+                            label="Payment collection note"
+                            size="small"
+                            value={draft.paymentCollectionNote}
+                            onChange={(event) =>
+                              handleFoundingBetaDraftChange(
+                                user._id,
+                                "paymentCollectionNote",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Cash, Venmo, in-person card, invoice..."
+                            fullWidth
+                          />
+                        </Stack>
+
+                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                          {manualAccess?.grantedAt
+                            ? `Granted ${formatTimestamp(manualAccess.grantedAt)}${
+                                manualAccess.grantedByEmail
+                                  ? ` by ${manualAccess.grantedByEmail}`
+                                  : ""
+                              }`
+                            : "No manual grant recorded yet."}
+                          {manualAccess?.revokedAt
+                            ? ` Revoked ${formatTimestamp(manualAccess.revokedAt)}${
+                                manualAccess.revokedByEmail
+                                  ? ` by ${manualAccess.revokedByEmail}`
+                                  : ""
+                              }.`
+                            : ""}
+                        </Typography>
+
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <Button
+                            variant="contained"
+                            onClick={() => void handleFoundingBetaAccessSave(user, "grant")}
+                            disabled={saving}
+                          >
+                            {saving && !accessActive ? "Saving..." : "Grant access"}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={() => void handleFoundingBetaAccessSave(user, "update")}
+                            disabled={saving || !manualAccess}
+                          >
+                            {saving && accessActive ? "Saving..." : "Save expiration/note"}
+                          </Button>
+                          <Button
+                            variant="text"
+                            color="error"
+                            onClick={() => void handleFoundingBetaAccessSave(user, "revoke")}
+                            disabled={saving || !manualAccess}
+                          >
+                            Revoke
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            )}
+          </Stack>
+        </Paper>
 
         <Paper
           elevation={0}

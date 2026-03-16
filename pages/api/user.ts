@@ -24,13 +24,23 @@ const sanitizeStringArray = (value: unknown) => {
 
 const sanitizeThemePreference = (value: unknown) => {
   const normalized = sanitizeText(value).toLowerCase();
-  return ["light", "dawn", "night", "evergreen"].includes(normalized)
+  return ["light", "dawn", "night", "evergreen", "graphite", "ember", "citrus"].includes(normalized)
     ? normalized
     : "";
 };
 
+const sanitizeAppearanceDensity = (value: unknown) => {
+  const normalized = sanitizeText(value).toLowerCase();
+  return ["comfortable", "compact"].includes(normalized) ? normalized : "";
+};
+
+const sanitizeInterfaceScale = (value: unknown) => {
+  const normalized = sanitizeText(value).toLowerCase();
+  return ["normal", "large"].includes(normalized) ? normalized : "";
+};
+
 const isDarkThemePreference = (value: string) =>
-  value === "night" || value === "evergreen";
+  value === "night" || value === "evergreen" || value === "graphite" || value === "ember";
 
 const isAdminSession = (session: any) => {
   const username = sanitizeText(
@@ -107,6 +117,20 @@ const buildUserUpdate = (user: Record<string, unknown>) => {
     if (themePreference) {
       update.themePreference = themePreference;
       update.darkMode = isDarkThemePreference(themePreference);
+    }
+  }
+
+  if ("appearanceDensity" in user) {
+    const appearanceDensity = sanitizeAppearanceDensity(user.appearanceDensity);
+    if (appearanceDensity) {
+      update.appearanceDensity = appearanceDensity;
+    }
+  }
+
+  if ("interfaceScale" in user) {
+    const interfaceScale = sanitizeInterfaceScale(user.interfaceScale);
+    if (interfaceScale) {
+      update.interfaceScale = interfaceScale;
     }
   }
 

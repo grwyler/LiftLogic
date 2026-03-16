@@ -25,6 +25,7 @@ interface ExerciseManagerProps {
   setExercises: (value: any) => void;
   userId: string;
   date: string;
+  onQuickAddComplete?: (exerciseIdentity: string) => void;
   refreshCalendarStatuses?: () => void;
   userProfile?: {
     preferredUnits?: "lb" | "kg";
@@ -161,6 +162,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   setExercises,
   userId,
   date,
+  onQuickAddComplete,
   refreshCalendarStatuses,
   userProfile,
 }) => {
@@ -472,21 +474,31 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     };
 
     setExercises([...currentExercises, baseExercise]);
-    setIsAddingExercise(false);
 
     try {
       const persistedExercise = await persistExercise(baseExercise);
+      let nextExerciseIdentity = "";
       setExercises((prev: any[]) =>
-        (Array.isArray(prev) ? prev : []).map((currentExercise) =>
-          String(currentExercise?.clientDraftId ?? "") === clientDraftId
-            ? {
-                ...persistedExercise,
-                clientDraftId,
-                recommendationPending: baseExercise.recommendationPending,
-              }
-            : currentExercise
-        )
+        (Array.isArray(prev) ? prev : []).map((currentExercise) => {
+          if (
+            String(currentExercise?.clientDraftId ?? "") === clientDraftId
+          ) {
+            const nextExercise = {
+              ...persistedExercise,
+              clientDraftId,
+              recommendationPending: baseExercise.recommendationPending,
+            };
+            nextExerciseIdentity = String(getWorkoutEntryIdentity(nextExercise));
+            return nextExercise;
+          }
+
+          return currentExercise;
+        })
       );
+      setIsAddingExercise(false);
+      if (nextExerciseIdentity) {
+        onQuickAddComplete?.(nextExerciseIdentity);
+      }
       refreshCalendarStatuses?.();
       void hydrateQuickAddRecommendation({
         ...persistedExercise,

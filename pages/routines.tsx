@@ -13,12 +13,14 @@ import {
   saveRecurringRule,
   saveExercise,
   saveUser,
+  trackBetaFunnelMilestone,
 } from "../utils/helpers";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
 import CoachChatPanel from "../components/CoachChatPanel";
+import UpgradePromptDialog from "../components/UpgradePromptDialog";
 import {
   Alert,
   Box,
@@ -37,10 +39,7 @@ import {
   Typography,
 } from "@mui/material";
 import { toast } from "react-toastify";
-import {
-  getEntitlementMessage,
-  resolveUserAccess,
-} from "../utils/entitlements";
+import { resolveUserAccess } from "../utils/entitlements";
 import {
   AIResponseSourceDetail,
   getAIFallbackNotice,
@@ -67,7 +66,14 @@ import {
   clearPendingLandingCta,
   readPendingLandingCta,
 } from "../utils/betaFunnelClient";
-import { isThemePreference, ThemePreference } from "../utils/themePreferences";
+import {
+  AppearanceDensity,
+  InterfaceScale,
+  isAppearanceDensity,
+  isInterfaceScale,
+  isThemePreference,
+  ThemePreference,
+} from "../utils/themePreferences";
 
 type Routine = any;
 type GeneratedPlanPayload = {
@@ -75,6 +81,20 @@ type GeneratedPlanPayload = {
   coachResponse?: any;
   source?: "ai" | "fallback";
   sourceDetail?: AIResponseSourceDetail;
+};
+
+type UpgradePromptKey =
+  | "assistant_generation"
+  | "coach_regeneration"
+  | "recurring_schedule"
+  | "progression_recommendation";
+
+type UpgradePromptConfig = {
+  title: string;
+  description: string;
+  benefits: string[];
+  continueLabel: string;
+  upgradeLabel: string;
 };
 
 const routinesRadius = {
@@ -89,10 +109,14 @@ const RoutinesPage = ({
   darkMode,
   setDarkMode,
   setThemePreference,
+  setAppearanceDensity,
+  setInterfaceScale,
 }: {
   darkMode: boolean;
   setDarkMode: (darkMode: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
+  setAppearanceDensity: (density: AppearanceDensity) => void;
+  setInterfaceScale: (scale: InterfaceScale) => void;
 }) => {
   const router = useRouter();
   const { data: session, status } = useSession() as {
@@ -121,6 +145,7 @@ const RoutinesPage = ({
   );
   const [showPlanningDetails, setShowPlanningDetails] = useState(false);
   const [showClearProgramDialog, setShowClearProgramDialog] = useState(false);
+  const [upgradePrompt, setUpgradePrompt] = useState<UpgradePromptConfig | null>(null);
   const access = useMemo(() => resolveUserAccess(user), [user]);
   const plannerGenerationEnabled = access.entitlements.assistantPlanGeneration;
   const plannerRegenerationEnabled = access.entitlements.assistantPlanRegeneration;
@@ -132,6 +157,93 @@ const RoutinesPage = ({
   const routeToPricing = (message: string) => {
     toast.info(message);
     void router.push("/pricing");
+  };
+
+  const handleWeeklyTargetChange = async (nextTarget: string) => {
+    if (!user?._id) {
+      throw new Error("User not loaded");
+    }
+
+    await saveUser({
+      _id: user._id,
+      workoutDaysPerWeek: nextTarget,
+    });
+
+    setUser((previous: any) =>
+      previous
+        ? {
+            ...previous,
+            workoutDaysPerWeek: nextTarget,
+          }
+        : previous
+    );
+    setSetupForm((previous) => ({
+      ...previous,
+      workoutDaysPerWeek: nextTarget,
+    }));
+  };
+
+  const openUpgradePrompt = (key: UpgradePromptKey) => {
+    switch (key) {
+      case "assistant_generation":
+        setUpgradePrompt({
+          title: "Generate a workout plan with the assistant",
+          description:
+            "Pro Beta is the planning layer that drafts a program around your goal, schedule, and available equipment. You can still keep using Lift Logic for free tracking if you skip this.",
+          benefits: [
+            "Generate a first plan instead of building each day manually.",
+            "Replace or rebuild your week when your constraints change.",
+            "Keep free logging, set tracking, and manual workout edits either way.",
+          ],
+          continueLabel: "Keep tracking free",
+          upgradeLabel: "View Pro Beta plans",
+        });
+        return;
+      case "coach_regeneration":
+        setUpgradePrompt({
+          title: "Let the coach revise your plan",
+          description:
+            "Pro Beta unlocks assistant-led rebuilds when your schedule, equipment, or training assumptions change. If you skip it, you can still track workouts and use chat for guidance.",
+          benefits: [
+            "Rebuild the split around updated training days or constraints.",
+            "Adjust plan structure without losing your free tracking flow.",
+            "Keep chatting with the coach and logging manually if you stay on Free.",
+          ],
+          continueLabel: "Keep chatting on Free",
+          upgradeLabel: "Upgrade for plan edits",
+        });
+        return;
+      case "recurring_schedule":
+        setUpgradePrompt({
+          title: "Turn this into a recurring schedule",
+          description:
+            "Recurring workout scheduling is part of Pro Beta. If you skip it, this workout stays available for free one-off logging and manual repeats.",
+          benefits: [
+            "Repeat a lift or whole workout on a weekly schedule.",
+            "Let upcoming workout days populate automatically.",
+            "Keep free day-by-day tracking even if you decline.",
+          ],
+          continueLabel: "Keep this one-time",
+          upgradeLabel: "Upgrade for schedules",
+        });
+        return;
+      case "progression_recommendation":
+        setUpgradePrompt({
+          title: "Unlock progression recommendations",
+          description:
+            "Your recent logs are enough to start generating next-session guidance. Pro Beta turns that logged performance into adaptive targets, while Free keeps the underlying tracking open.",
+          benefits: [
+            "See next-session sets, reps, and load recommendations from your logs.",
+            "Review performance trends as your completed data grows.",
+            "Keep logging every session for free if you want to wait.",
+          ],
+          continueLabel: "Keep logging free",
+          upgradeLabel: "Upgrade for recommendations",
+        });
+        return;
+      default:
+        return;
+    }
   };
 
   useEffect(() => {
@@ -181,13 +293,24 @@ const RoutinesPage = ({
   useEffect(() => {
     if (user && isThemePreference(user.themePreference)) {
       setThemePreference(user.themePreference);
-      return;
-    }
-
-    if (user && typeof user.darkMode === "boolean") {
+    } else if (user && typeof user.darkMode === "boolean") {
       setDarkMode(user.darkMode);
     }
-  }, [setDarkMode, setThemePreference, user]);
+
+    if (user && isAppearanceDensity(user.appearanceDensity)) {
+      setAppearanceDensity(user.appearanceDensity);
+    }
+
+    if (user && isInterfaceScale(user.interfaceScale)) {
+      setInterfaceScale(user.interfaceScale);
+    }
+  }, [
+    setAppearanceDensity,
+    setDarkMode,
+    setInterfaceScale,
+    setThemePreference,
+    user,
+  ]);
 
   useEffect(() => {
     if (!user || !routine || showSetupDialog) {
@@ -587,7 +710,7 @@ const RoutinesPage = ({
     if (!user) return;
 
     if (!plannerGenerationEnabled) {
-      routeToPricing(getEntitlementMessage("assistantPlanGeneration"));
+      openUpgradePrompt("assistant_generation");
       return;
     }
 
@@ -637,7 +760,7 @@ const RoutinesPage = ({
 
   const handleOpenReplaceProgram = () => {
     if (!plannerGenerationEnabled) {
-      routeToPricing(getEntitlementMessage("assistantPlanGeneration"));
+      openUpgradePrompt("assistant_generation");
       return;
     }
 
@@ -674,8 +797,12 @@ const RoutinesPage = ({
     if (!user) return;
 
     if (!plannerRegenerationEnabled) {
-      routeToPricing(getEntitlementMessage("assistantPlanRegeneration"));
-      return;
+      openUpgradePrompt("coach_regeneration");
+      return {
+        applied: false,
+        blockedReason:
+          "I can still help you think through the change here, but rebuilding the plan automatically is part of Pro Beta. Free tracking and manual edits still stay available.",
+      };
     }
 
     const nextSetupForm = normalizeSetupForm({
@@ -712,6 +839,7 @@ const RoutinesPage = ({
       toast.info(fallbackNotice);
     }
     setRoutineViewKey((prev) => prev + 1);
+    return { applied: true };
   };
 
   const handleCoachAction = async (action: any) => {
@@ -808,7 +936,8 @@ const RoutinesPage = ({
 
     if (action.type === "create_recurring_exercise" && action.exerciseName) {
       if (!recurringSchedulingEnabled) {
-        return getEntitlementMessage("recurringWorkoutScheduling");
+        openUpgradePrompt("recurring_schedule");
+        return "I can still help you plan this in chat, and you can keep logging it manually on Free. Upgrade any time if you want me to schedule it automatically.";
       }
 
       const dayIndexLookup: Record<string, number> = {
@@ -944,7 +1073,7 @@ const RoutinesPage = ({
                 sx={{
                   mt: 0.8,
                   maxWidth: 560,
-                  fontFamily: '"Manrope", sans-serif',
+                  fontFamily: 'var(--font-display), "Manrope", sans-serif',
                   letterSpacing: "-0.06em",
                   lineHeight: 0.98,
                   fontSize: { xs: "2.8rem", sm: "3.6rem" },
@@ -1042,11 +1171,26 @@ const RoutinesPage = ({
                     </Alert>
                   ) : null}
                 </Box>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} useFlexGap flexWrap="wrap">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  useFlexGap
+                  flexWrap="wrap"
+                  sx={{
+                    width: { xs: "100%", md: "auto" },
+                    position: { xs: "sticky", md: "static" },
+                    bottom: { xs: 0, md: "auto" },
+                    alignSelf: { xs: "stretch", md: "auto" },
+                  }}
+                >
                   <Button
                     variant="text"
                     onClick={() => router.push("/pricing")}
-                    sx={{ borderRadius: routinesRadius.button }}
+                    fullWidth
+                    sx={{
+                      borderRadius: routinesRadius.button,
+                      justifyContent: { xs: "center", md: "center" },
+                    }}
                   >
                     View pricing
                   </Button>
@@ -1054,6 +1198,7 @@ const RoutinesPage = ({
                     variant="outlined"
                     onClick={() => setShowClearProgramDialog(true)}
                     disabled={clearingProgram || generatingWorkout || !hasProgramExercises}
+                    fullWidth
                     sx={{ borderRadius: routinesRadius.button }}
                   >
                     {clearingProgram ? "Clearing..." : "Start blank"}
@@ -1062,6 +1207,7 @@ const RoutinesPage = ({
                     variant="contained"
                     onClick={handleOpenReplaceProgram}
                     disabled={generatingWorkout || savingSetup}
+                    fullWidth
                     sx={{ borderRadius: routinesRadius.button }}
                   >
                     {plannerGenerationEnabled
@@ -1098,6 +1244,13 @@ const RoutinesPage = ({
               setRoutine={setRoutine}
               darkMode={darkMode}
               userProfile={user}
+              onWeeklyTargetChange={handleWeeklyTargetChange}
+              onRequestRecurringUpgradePrompt={() =>
+                openUpgradePrompt("recurring_schedule")
+              }
+              onRequestProgressionUpgradePrompt={() =>
+                openUpgradePrompt("progression_recommendation")
+              }
             />
           </Box>
         </>
@@ -1700,7 +1853,7 @@ const RoutinesPage = ({
                   onClick={
                     plannerGenerationEnabled
                       ? handleGenerateWorkoutFromSetup
-                      : () => routeToPricing(getEntitlementMessage("assistantPlanGeneration"))
+                      : () => openUpgradePrompt("assistant_generation")
                   }
                   disabled={
                     generatingWorkout ||
@@ -1772,6 +1925,25 @@ const RoutinesPage = ({
           </Stack>
         </DialogContent>
       </Dialog>
+
+      <UpgradePromptDialog
+        open={Boolean(upgradePrompt)}
+        title={upgradePrompt?.title || ""}
+        description={upgradePrompt?.description || ""}
+        benefits={upgradePrompt?.benefits || []}
+        continueLabel={upgradePrompt?.continueLabel}
+        upgradeLabel={upgradePrompt?.upgradeLabel}
+        onView={() => {
+          void trackBetaFunnelMilestone("upgrade_prompt_viewed").catch((error) => {
+            console.error("Error tracking upgrade prompt view:", error);
+          });
+        }}
+        onClose={() => setUpgradePrompt(null)}
+        onUpgrade={() => {
+          setUpgradePrompt(null);
+          routeToPricing("Explore Pro Beta plans and pricing.");
+        }}
+      />
 
       {user && !user?.setupCompleted && !showSetupDialog ? (
         <Paper

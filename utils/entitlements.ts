@@ -55,7 +55,42 @@ const normalizeBillingStatus = (value: unknown): BillingSubscriptionStatus | nul
     : null;
 };
 
+const normalizeDate = (value: unknown) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value as string | number | Date);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const hasActiveManualProBetaAccess = (
+  user?: Partial<UserDoc> | null,
+  now = new Date()
+) => {
+  const manualAccess = user?.manualProBetaAccess;
+  if (!manualAccess?.grantedAt) {
+    return false;
+  }
+
+  const revokedAt = normalizeDate(manualAccess.revokedAt);
+  if (revokedAt) {
+    return false;
+  }
+
+  const expiresAt = normalizeDate(manualAccess.expiresAt);
+  if (expiresAt && expiresAt.getTime() < now.getTime()) {
+    return false;
+  }
+
+  return true;
+};
+
 export const getProductPlanFromUser = (user?: Partial<UserDoc> | null): ProductPlan => {
+  if (hasActiveManualProBetaAccess(user)) {
+    return "premium";
+  }
+
   const storedProductPlan = normalizeProductPlan(user?.productPlan);
   if (storedProductPlan) {
     return storedProductPlan;

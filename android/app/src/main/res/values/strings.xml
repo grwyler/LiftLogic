@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lift Logic</string>
+    <string name="title_activity_main">Lift Logic</string>
+    <string name="package_name">com.liftlogic.app</string>
+    <string name="custom_url_scheme">com.liftlogic.app</string>
+</resources>

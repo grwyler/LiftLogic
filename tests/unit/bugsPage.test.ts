@@ -12,5 +12,14 @@ describe("bugs page workflow actions", () => {
     expect(source).not.toContain("getPrimaryAction(");
     expect(source).toContain('label="Status"');
     expect(source).toContain("handleWorkflowUpdate(item, {");
+    expect(source).toContain("Founding beta access");
+    expect(source).toContain("Monetization summary");
+    expect(source).toContain("fetchMonetizationSummary");
+    expect(source).toContain("Refresh summary");
+    expect(source).toContain("fetchFoundingBetaUsers");
+    expect(source).toContain("saveFoundingBetaAccess");
+    expect(source).toContain("Grant access");
+    expect(source).toContain("Save expiration/note");
+    expect(source).toContain("Revoke");
   });
 });

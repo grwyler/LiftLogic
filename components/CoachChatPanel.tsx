@@ -73,6 +73,11 @@ type CoachReplyPayload = {
   sourceDetail?: AIResponseSourceDetail;
 };
 
+type ProfilePatchResult = {
+  applied?: boolean;
+  blockedReason?: string;
+};
+
 const MAX_REACTION_STORAGE_ENTRIES = 24;
 
 const normalizeReactionText = (value: string) =>
@@ -197,7 +202,7 @@ export default function CoachChatPanel({
   onPrimaryAction?: () => void;
   onApplyProfilePatch?: (
     patch: Partial<SetupFormValues>
-  ) => Promise<void> | void;
+  ) => Promise<ProfilePatchResult | void> | ProfilePatchResult | void;
   onCoachAction?: (action: any) => Promise<string | void> | string | void;
   defaultMinimized?: boolean;
   minimizedStorageKey?: string;
@@ -384,20 +389,34 @@ export default function CoachChatPanel({
         response.profilePatch &&
         onApplyProfilePatch
       ) {
-        await onApplyProfilePatch(response.profilePatch);
-        const patchKeys = Object.keys(response.profilePatch);
-        const regenerationMessage = patchKeys.includes("preferredTrainingDays")
-          ? "I updated your training days and rebuilt the plan around that schedule change."
-          : "I updated your setup based on that and rebuilt the plan so the prescriptions line up better.";
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `coach-plan-${Date.now()}`,
-            role: "coach",
-            text: regenerationMessage,
-            feedbackEnabled: false,
-          },
-        ]);
+        const patchResult = await onApplyProfilePatch(response.profilePatch);
+        if (patchResult && patchResult.applied === false) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `coach-upgrade-${Date.now()}`,
+              role: "coach",
+              text:
+                patchResult.blockedReason ||
+                "I can still help you think through the change here, but rebuilding the plan is part of Pro Beta.",
+              feedbackEnabled: false,
+            },
+          ]);
+        } else {
+          const patchKeys = Object.keys(response.profilePatch);
+          const regenerationMessage = patchKeys.includes("preferredTrainingDays")
+            ? "I updated your training days and rebuilt the plan around that schedule change."
+            : "I updated your setup based on that and rebuilt the plan so the prescriptions line up better.";
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `coach-plan-${Date.now()}`,
+              role: "coach",
+              text: regenerationMessage,
+              feedbackEnabled: false,
+            },
+          ]);
+        }
       }
 
       if (response.action && onCoachAction) {

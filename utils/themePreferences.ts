@@ -1,13 +1,88 @@
-export const THEME_OPTIONS = ["light", "dawn", "night", "evergreen"] as const;
+export const THEME_OPTIONS = [
+  "light",
+  "dawn",
+  "night",
+  "evergreen",
+  "graphite",
+  "ember",
+  "citrus",
+] as const;
+
+export const APPEARANCE_DENSITY_OPTIONS = ["comfortable", "compact"] as const;
+export const INTERFACE_SCALE_OPTIONS = ["normal", "large"] as const;
 
 export type ThemePreference = (typeof THEME_OPTIONS)[number];
+export type AppearanceDensity = (typeof APPEARANCE_DENSITY_OPTIONS)[number];
+export type InterfaceScale = (typeof INTERFACE_SCALE_OPTIONS)[number];
 
 export const isThemePreference = (value: unknown): value is ThemePreference =>
   typeof value === "string" &&
   (THEME_OPTIONS as readonly string[]).includes(value);
 
+export const isAppearanceDensity = (value: unknown): value is AppearanceDensity =>
+  typeof value === "string" &&
+  (APPEARANCE_DENSITY_OPTIONS as readonly string[]).includes(value);
+
+export const isInterfaceScale = (value: unknown): value is InterfaceScale =>
+  typeof value === "string" &&
+  (INTERFACE_SCALE_OPTIONS as readonly string[]).includes(value);
+
 export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
   switch (themePreference) {
+    case "graphite":
+      return {
+        mode: "dark" as const,
+        primaryMain: "#f5f7fb",
+        primaryContrastText: "#111827",
+        secondaryMain: "#c084fc",
+        backgroundDefault: "#111318",
+        backgroundPaper: "rgba(20, 23, 31, 0.94)",
+        textPrimary: "#f5f7fb",
+        textSecondary: "#aab4c5",
+        divider: "rgba(170, 180, 197, 0.14)",
+        bodyBackground:
+          "radial-gradient(circle at top left, rgba(192, 132, 252, 0.16), transparent 24%), radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 22%), linear-gradient(180deg, #0d1016 0%, #181c25 100%)",
+        containedBackground:
+          "linear-gradient(135deg, rgba(245, 247, 251, 0.98), rgba(203, 213, 225, 0.94))",
+        containedHoverBackground:
+          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(203, 213, 225, 0.96))",
+      };
+    case "ember":
+      return {
+        mode: "dark" as const,
+        primaryMain: "#fff7ed",
+        primaryContrastText: "#431407",
+        secondaryMain: "#fb7185",
+        backgroundDefault: "#1a0f0a",
+        backgroundPaper: "rgba(32, 19, 14, 0.93)",
+        textPrimary: "#fff7ed",
+        textSecondary: "#fdba74",
+        divider: "rgba(251, 146, 60, 0.14)",
+        bodyBackground:
+          "radial-gradient(circle at top left, rgba(251, 146, 60, 0.2), transparent 24%), radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 24%), linear-gradient(180deg, #120804 0%, #25130b 100%)",
+        containedBackground:
+          "linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(254, 215, 170, 0.94))",
+        containedHoverBackground:
+          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(254, 215, 170, 0.96))",
+      };
+    case "citrus":
+      return {
+        mode: "light" as const,
+        primaryMain: "#365314",
+        primaryContrastText: "#f7fee7",
+        secondaryMain: "#65a30d",
+        backgroundDefault: "#f8fde8",
+        backgroundPaper: "rgba(251, 255, 240, 0.94)",
+        textPrimary: "#1f2937",
+        textSecondary: "#5f6b53",
+        divider: "rgba(101, 163, 13, 0.14)",
+        bodyBackground:
+          "radial-gradient(circle at top left, rgba(163, 230, 53, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 26%), linear-gradient(180deg, #fbffe9 0%, #eef7d8 100%)",
+        containedBackground:
+          "linear-gradient(135deg, rgba(54, 83, 20, 0.96), rgba(101, 163, 13, 0.92))",
+        containedHoverBackground:
+          "linear-gradient(135deg, rgba(63, 98, 18, 0.98), rgba(77, 124, 15, 0.94))",
+      };
     case "dawn":
       return {
         mode: "light" as const,
@@ -88,6 +163,12 @@ export const getThemePreferenceLabel = (themePreference: ThemePreference) => {
   switch (themePreference) {
     case "dawn":
       return "Dawn";
+    case "graphite":
+      return "Graphite";
+    case "ember":
+      return "Ember";
+    case "citrus":
+      return "Citrus";
     case "night":
       return "Night";
     case "evergreen":
@@ -104,6 +185,12 @@ export const getThemePreferenceDescription = (
   switch (themePreference) {
     case "dawn":
       return "Warm glass highlights with a softer sunrise palette.";
+    case "graphite":
+      return "A darker steel palette with cool neon edges and high contrast.";
+    case "ember":
+      return "A warm dark mode with firelit surfaces and stronger orange depth.";
+    case "citrus":
+      return "A brighter energetic theme with lime accents and softer daylight surfaces.";
     case "night":
       return "High-contrast dark surfaces with cool landing-page depth.";
     case "evergreen":
@@ -113,3 +200,19 @@ export const getThemePreferenceDescription = (
       return "The clean bright default with subtle sky-blue lift.";
   }
 };
+
+export const getAppearanceDensityLabel = (density: AppearanceDensity) =>
+  density === "compact" ? "Compact" : "Comfortable";
+
+export const getAppearanceDensityDescription = (density: AppearanceDensity) =>
+  density === "compact"
+    ? "Tighter spacing so more of each workout fits on screen."
+    : "Roomier spacing for easier scanning and less visual pressure.";
+
+export const getInterfaceScaleLabel = (scale: InterfaceScale) =>
+  scale === "large" ? "Large text" : "Standard text";
+
+export const getInterfaceScaleDescription = (scale: InterfaceScale) =>
+  scale === "large"
+    ? "Slightly larger text and controls for easier reading during workouts."
+    : "The default balance of information density and readability.";
