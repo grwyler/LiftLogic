@@ -43,9 +43,9 @@ jobs:
             labels="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
             title="${{ github.event.pull_request.title }}"
 
-            if [[ "$labels" =~ (^|[[:space:]])(feature|enhancement|release:major)([[:space:]]|$) ]] || [[ "$title" =~ ^feat(\(.+\))?: ]]; then
+            if [[ "$labels" =~ (^|[[:space:]])(feature|enhancement|release:minor)([[:space:]]|$) ]] || [[ "$title" =~ ^feat(\(.+\))?: ]]; then
               release_kind="feature"
-            elif [[ "$labels" =~ (^|[[:space:]])(bug|bugfix|fix|release:minor)([[:space:]]|$) ]] || [[ "$title" =~ ^fix(\(.+\))?: ]]; then
+            elif [[ "$labels" =~ (^|[[:space:]])(bug|bugfix|fix|release:patch)([[:space:]]|$) ]] || [[ "$title" =~ ^fix(\(.+\))?: ]]; then
               release_kind="bugfix"
             else
               release_kind=""

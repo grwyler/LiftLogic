@@ -7,18 +7,18 @@ const requestedKind = String(process.argv[2] ?? process.env.RELEASE_KIND ?? "")
   .toLowerCase();
 
 const normalizedKind =
-  requestedKind === "feature" || requestedKind === "major"
-    ? "major"
+  requestedKind === "feature" || requestedKind === "minor"
+    ? "minor"
     : requestedKind === "bug" ||
         requestedKind === "bugfix" ||
         requestedKind === "fix" ||
-        requestedKind === "minor"
-      ? "minor"
+        requestedKind === "patch"
+      ? "patch"
       : "";
 
 if (!normalizedKind) {
   console.error(
-    'Usage: node scripts/bump-version.mjs <feature|bugfix|major|minor>'
+    'Usage: node scripts/bump-version.mjs <feature|bugfix|minor|patch>'
   );
   process.exit(1);
 }

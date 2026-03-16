@@ -10,9 +10,9 @@ import {
 } from "../utils/muscleRecovery";
 
 const musclePanelRadius = {
-  shell: 3,
-  section: 2.5,
-  row: 2,
+  shell: 2.25,
+  section: 1.25,
+  row: 1.1,
 } as const;
 
 type RecoveryRegion = {
@@ -323,13 +323,10 @@ export default function MuscleRecoveryMap({
             {topRegions.length > 0 ? (
               <Box
                 sx={{
-                  p: 1.25,
-                  borderRadius: musclePanelRadius.section,
-                  border: "1px solid",
+                  pt: 0.35,
+                  pb: 1,
+                  borderBottom: "1px solid",
                   borderColor: "divider",
-                  backgroundColor: darkMode
-                    ? "rgba(255,255,255,0.03)"
-                    : "rgba(248,250,252,0.92)",
                 }}
               >
                 <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.1em" }}>
@@ -352,24 +349,27 @@ export default function MuscleRecoveryMap({
                 <Box
                   key={group.title}
                   sx={{
-                    p: 1.25,
-                    borderRadius: musclePanelRadius.section,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    backgroundColor: darkMode
-                      ? "rgba(255,255,255,0.02)"
-                      : "rgba(255,255,255,0.68)",
+                    p: 0,
                   }}
                 >
-                  <Typography
-                    variant="overline"
-                    sx={{ color: "text.secondary", letterSpacing: "0.1em" }}
+                  <Box
+                    sx={{
+                      pb: 0.9,
+                      mb: 1,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                    }}
                   >
-                    {group.title}
-                  </Typography>
-                  <Typography sx={{ mt: 0.35, mb: 1.15, color: "text.secondary" }}>
-                    {group.description}
-                  </Typography>
+                    <Typography
+                      variant="overline"
+                      sx={{ color: "text.secondary", letterSpacing: "0.1em" }}
+                    >
+                      {group.title}
+                    </Typography>
+                    <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                      {group.description}
+                    </Typography>
+                  </Box>
 
                   <Stack spacing={1}>
                     {group.regions.length > 0 ? (

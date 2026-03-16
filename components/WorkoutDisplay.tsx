@@ -22,8 +22,8 @@ import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
 
 const routinesPanelRadius = {
-  shell: 3,
-  section: 2.5,
+  shell: 2.25,
+  section: 1.5,
   pill: 999,
 } as const;
 
@@ -843,13 +843,11 @@ const WorkoutDisplay = ({
           {shouldShowNextSummary ? (
             <Box
               sx={{
-                p: 1.5,
-                borderRadius: routinesPanelRadius.section,
-                border: "1px solid",
+                py: 1.1,
+                px: 0.1,
+                borderTop: "1px solid",
+                borderBottom: "1px solid",
                 borderColor: "divider",
-                backgroundColor: darkMode
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(248,250,252,0.92)",
               }}
             >
               <Box
@@ -886,13 +884,11 @@ const WorkoutDisplay = ({
           ) : isWorkoutComplete ? (
             <Box
               sx={{
-                p: 1.5,
-                borderRadius: routinesPanelRadius.section,
-                border: "1px solid",
+                py: 1.1,
+                px: 0.1,
+                borderTop: "1px solid",
+                borderBottom: "1px solid",
                 borderColor: "divider",
-                backgroundColor: darkMode
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(248,250,252,0.92)",
               }}
             >
               <Box

@@ -662,8 +662,23 @@ const PricingPage: React.FC = () => {
             background:
               "linear-gradient(135deg, rgba(17,24,39,0.94) 0%, rgba(30,41,59,0.9) 100%)",
             color: "#f8fafc",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
+          <Box
+            sx={{
+              position: "absolute",
+              right: { xs: -60, md: -30 },
+              top: { xs: -40, md: -20 },
+              width: { xs: 180, md: 260 },
+              height: { xs: 180, md: 260 },
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(96,165,250,0.16) 0%, rgba(96,165,250,0) 72%)",
+              pointerEvents: "none",
+            }}
+          />
           <Box
             sx={{
               display: "flex",
@@ -671,6 +686,8 @@ const PricingPage: React.FC = () => {
               alignItems: { xs: "flex-start", md: "center" },
               gap: 2,
               flexDirection: { xs: "column", md: "row" },
+              position: "relative",
+              zIndex: 1,
             }}
           >
             <Box>
@@ -697,17 +714,33 @@ const PricingPage: React.FC = () => {
               </Typography>
             </Box>
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.25}
+              sx={{
+                width: { xs: "100%", md: "auto" },
+                alignItems: "stretch",
+                justifyContent: { md: "flex-end" },
+              }}
+            >
               {isAuthenticated && portalEnabled ? (
                 <Button
                   variant="contained"
                   startIcon={<ManageAccountsOutlinedIcon />}
                   onClick={handleManageBilling}
                   sx={{
-                    backgroundColor: "#f8fafc",
+                    minHeight: 52,
+                    minWidth: { sm: 190 },
+                    px: 2.5,
+                    background:
+                      "linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%)",
                     color: "#0f172a",
+                    boxShadow: "0 14px 34px rgba(15,23,42,0.22)",
+                    fontWeight: 800,
                     "&:hover": {
-                      backgroundColor: "#e2e8f0",
+                      background:
+                        "linear-gradient(135deg, #ffffff 0%, #bfdbfe 100%)",
+                      boxShadow: "0 18px 36px rgba(15,23,42,0.28)",
                     },
                     borderRadius: pricingRadius.inset,
                   }}
@@ -722,10 +755,18 @@ const PricingPage: React.FC = () => {
                   variant="contained"
                   endIcon={<ArrowForwardIcon />}
                   sx={{
-                    backgroundColor: "#f8fafc",
+                    minHeight: 52,
+                    minWidth: { sm: 190 },
+                    px: 2.5,
+                    background:
+                      "linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%)",
                     color: "#0f172a",
+                    boxShadow: "0 14px 34px rgba(15,23,42,0.22)",
+                    fontWeight: 800,
                     "&:hover": {
-                      backgroundColor: "#e2e8f0",
+                      background:
+                        "linear-gradient(135deg, #ffffff 0%, #bfdbfe 100%)",
+                      boxShadow: "0 18px 36px rgba(15,23,42,0.28)",
                     },
                     borderRadius: pricingRadius.inset,
                   }}
@@ -738,12 +779,16 @@ const PricingPage: React.FC = () => {
                 href="/feedback"
                 variant="outlined"
                 sx={{
-                  borderColor: "rgba(248,250,252,0.22)",
+                  minHeight: 52,
+                  minWidth: { sm: 170 },
+                  px: 2.25,
+                  borderColor: "rgba(248,250,252,0.28)",
                   color: "#f8fafc",
-                  backgroundColor: "rgba(255,255,255,0.04)",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  fontWeight: 700,
                   "&:hover": {
-                    borderColor: "rgba(248,250,252,0.36)",
-                    backgroundColor: "rgba(255,255,255,0.08)",
+                    borderColor: "rgba(248,250,252,0.48)",
+                    backgroundColor: "rgba(255,255,255,0.14)",
                   },
                   borderRadius: pricingRadius.inset,
                 }}

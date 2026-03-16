@@ -6,6 +6,10 @@ const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || packageJson.version ||
 const commitSha = process.env.NEXT_PUBLIC_COMMIT_SHA || "";
 const environment = process.env.NEXT_PUBLIC_ENV || "development";
 const shortCommitSha = commitSha ? commitSha.slice(0, 7) : "";
+const mobileBottomOffset =
+  process.env.NODE_ENV === "production"
+    ? "calc(12px + var(--liftlogic-overlay-bottom-offset, 0px))"
+    : "calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))";
 
 const AppVersionBadge = () => {
   const detail = [`Version ${appVersion}`, environment];
@@ -21,7 +25,7 @@ const AppVersionBadge = () => {
           position: "fixed",
           right: { xs: 12, sm: 18 },
           bottom: {
-            xs: "calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))",
+            xs: mobileBottomOffset,
             sm: "calc(18px + var(--liftlogic-overlay-bottom-offset, 0px))",
           },
           zIndex: 1300,
