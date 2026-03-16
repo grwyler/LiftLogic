@@ -3,23 +3,20 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 describe("recurring delete dialog copy", () => {
-  it("clarifies one-day removal versus stopping future repeats", () => {
+  it("keeps recurring deletion focused on future schedule removal", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "components", "DeleteDialog.tsx"),
       "utf8"
     );
 
     expect(source).toContain(
-      "Remove this exercise only from <b>{fullDate}</b>, or stop scheduling"
+      "This will stop scheduling this exercise on future <b>{weekDay}s</b>."
     );
     expect(source).toContain(
-      "it on future <b>{weekDay}s</b>? Past logged history will stay the"
+      "If you only want to skip <b>{fullDate}</b>, use the dedicated skip"
     );
-    expect(source).toContain("Remove only for {shortDate}");
-    expect(source).toContain("Stop future {weekDay} repeats");
-    expect(source).not.toContain(
-      "Do you want to remove it only from <b>{fullDate}</b> or from"
-    );
-    expect(source).not.toContain("All {weekDay}s");
+    expect(source).toContain("Keep schedule");
+    expect(source).toContain("Delete future {weekDay} repeats");
+    expect(source).not.toContain("Remove only for {shortDate}");
   });
 });

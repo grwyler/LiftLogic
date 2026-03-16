@@ -9,6 +9,7 @@ import {
   Dialog,
   AppBar,
   Toolbar,
+  Stack,
 } from "@mui/material";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import CheckIcon from "@mui/icons-material/Check";
@@ -32,6 +33,7 @@ import CRUDMenuButton from "./CRUDMenuButton";
 import { useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import DeleteDialog from "./DeleteDialog";
+import SkipTodayDialog from "./SkipTodayDialog";
 import { toast } from "react-toastify";
 import {
   clearPendingLogAttempt,
@@ -47,6 +49,7 @@ import {
   getDisplayWeightFromSet,
   normalizeWeightUnit,
 } from "../utils/weightUnits";
+import { getPersonalRecordHighlights } from "../utils/performance";
 
 const completedExerciseRadius = {
   panel: "28px",
@@ -75,6 +78,8 @@ const ExerciseItem = ({
   loadingRecommendation,
   progressionRecommendationsEnabled = true,
   recurringSchedulingEnabled = true,
+  onRequestRecurringUpgradePrompt,
+  onRequestProgressionUpgradePrompt,
   isRestTimerBlocking,
   openRestTimer,
 }) => {
@@ -82,6 +87,7 @@ const ExerciseItem = ({
   const [currentExercise, setCurrentExercise] = useState(exercise);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSkipTodayDialog, setShowSkipTodayDialog] = useState(false);
   const [showRepeatDialog, setShowRepeatDialog] = useState(false);
   const [isRepeating, setIsRepeating] = useState(exercise.isRepeating);
   const [applyingRecommendation, setApplyingRecommendation] = useState(false);
@@ -108,6 +114,13 @@ const ExerciseItem = ({
   );
   const exerciseIdentity = String(
     getWorkoutEntryIdentity(exercise, exerciseIndex)
+  );
+  const hasUnlockedProgressionRecommendation = Boolean(
+    recommendation?.recommendedWeight ||
+      recommendation?.recommendedReps ||
+      recommendation?.recommendedSets ||
+      progressSummary?.bestRepPerformance ||
+      typeof progressSummary?.latestEstimated1RM === "number"
   );
 
   const parseFormattedDate = (value: string): Date | null => {
@@ -184,6 +197,16 @@ const ExerciseItem = ({
     }
   }, [exercise, exerciseIdentity]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const nextSetIndex =
+      (currentExercise?.sets ?? []).findIndex((set) => !set.complete) ?? -1;
+    setCurrentSetIndex(nextSetIndex >= 0 ? nextSetIndex : 0);
+  }, [currentExercise?.sets, isOpen]);
+
   const renderCompletedPerformancePanel = () => {
     if (currentExercise.type !== "weight" || !currentExercise.complete) {
       return null;
@@ -210,8 +233,20 @@ const ExerciseItem = ({
             Performance
           </Typography>
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
-            Progress-based recommendations and analytics are part of Pro Beta.
+            {hasUnlockedProgressionRecommendation
+              ? "You unlocked performance trends and next-step recommendations from your recent logs."
+              : "Keep logging clean weight sessions and Pro Beta will unlock performance trends and next-step recommendations here."}
           </Typography>
+          {hasUnlockedProgressionRecommendation ? (
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ mt: 1.25 }}
+              onClick={() => onRequestProgressionUpgradePrompt?.()}
+            >
+              See Pro Beta insights
+            </Button>
+          ) : null}
         </Paper>
       );
     }
@@ -228,6 +263,10 @@ const ExerciseItem = ({
           ) / 10
         : null;
     const hasPriorBenchmark = previousEstimated1RM !== null;
+    const personalRecordHighlights = getPersonalRecordHighlights(
+      progressSummary,
+      preferredUnits
+    );
     const trendLabel =
       progressSummary?.latestWorkoutBrokePR && hasPriorBenchmark
         ? "PR"
@@ -281,6 +320,64 @@ const ExerciseItem = ({
             sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
           />
         </Box>
+
+        {personalRecordHighlights.length > 0 ? (
+          <Paper
+            elevation={0}
+            sx={{
+              mt: 1,
+              p: 1.25,
+              borderRadius: completedExerciseRadius.section,
+              border: "1px solid",
+              borderColor: darkMode
+                ? "rgba(74,222,128,0.25)"
+                : "rgba(22,163,74,0.18)",
+              backgroundColor: darkMode
+                ? "rgba(20,83,45,0.3)"
+                : "rgba(240,253,244,0.9)",
+            }}
+          >
+            <Stack spacing={0.85}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  New personal record
+                </Typography>
+                <Chip
+                  size="small"
+                  color="success"
+                  variant="filled"
+                  label={`+${personalRecordHighlights.length} PR${
+                    personalRecordHighlights.length === 1 ? "" : "s"
+                  }`}
+                  sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+                />
+              </Box>
+              <Typography sx={{ color: "text.secondary" }}>
+                You beat a prior benchmark on this lift. Lock it in while the effort is still
+                fresh.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                {personalRecordHighlights.map((highlight) => (
+                  <Chip
+                    key={`${highlight.category}-${highlight.detail}`}
+                    label={`${highlight.label}: ${highlight.detail}`}
+                    color="success"
+                    variant="outlined"
+                    sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+                  />
+                ))}
+              </Box>
+            </Stack>
+          </Paper>
+        ) : null}
 
         {loadingRecommendation ? (
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
@@ -432,8 +529,20 @@ const ExerciseItem = ({
             Recommended targets
           </Typography>
           <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-            Adaptive recommendations are available on Pro Beta.
+            {hasUnlockedProgressionRecommendation
+              ? "You unlocked a next-session recommendation from your recent logs."
+              : "Finish a fully logged weight session for this lift to unlock a data-driven recommendation."}
           </Typography>
+          {hasUnlockedProgressionRecommendation ? (
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ mt: 1.25 }}
+              onClick={() => onRequestProgressionUpgradePrompt?.()}
+            >
+              See Pro Beta recommendation
+            </Button>
+          ) : null}
         </Paper>
       );
     }
@@ -507,6 +616,17 @@ const ExerciseItem = ({
         </Box>
       </Paper>
     );
+  };
+
+  const handleOpenRepeatFlow = (event?: React.MouseEvent<HTMLElement>) => {
+    event?.stopPropagation();
+
+    if (!recurringSchedulingEnabled) {
+      onRequestRecurringUpgradePrompt?.();
+      return;
+    }
+
+    openRepeatDialog();
   };
 
   const handleWorkoutButtonClick = (index) => {
@@ -603,30 +723,43 @@ const ExerciseItem = ({
     });
   };
 
+  const handleSkipToday = async () => {
+    try {
+      await saveWorkoutEntry({
+        _id: currentExercise._id,
+        entryInstanceId:
+          currentExercise.entryInstanceId ??
+          currentExercise._id?.toString?.() ??
+          currentExercise._id,
+        userId: currentUserId,
+        exerciseId: currentExercise.exerciseId ?? currentExercise._id,
+        name: currentExercise.name,
+        type: currentExercise.type,
+        max: currentExercise.max,
+        routineName,
+        date: formattedDate,
+        rest: currentExercise.rest ?? 0,
+        complete: false,
+        sets: [],
+        ruleId: currentExercise.ruleId,
+        skipped: true,
+      });
+
+      setShowSkipTodayDialog(false);
+      setRefetchExercises((prev) => !prev);
+      refreshCalendarStatuses?.();
+      toast.success("Skipped for today");
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't skip this exercise");
+    }
+  };
+
   const handleDelete = async (scope: "today" | "all") => {
     try {
       const recurringRuleId = String(
         currentExercise.ruleId ?? currentExercise._id ?? ""
       ).trim();
-
-      if (scope === "today" && currentExercise.ruleId) {
-        await saveWorkoutEntry({
-          _id: currentExercise._id,
-          entryInstanceId:
-            currentExercise.entryInstanceId ??
-            currentExercise._id?.toString?.() ??
-            currentExercise._id,
-          userId: currentUserId,
-          exerciseId: currentExercise.exerciseId,
-          routineName,
-          date: formattedDate,
-          rest: currentExercise.rest ?? 0,
-          complete: false,
-          sets: [],
-          ruleId: currentExercise.ruleId,
-          skipped: true,
-        });
-      }
 
       if (scope === "all" && isRepeating) {
         if (!recurringRuleId) {
@@ -709,10 +842,10 @@ const ExerciseItem = ({
     );
   }
 
-  const openRepeatDialog = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openRepeatDialog = (event?: React.MouseEvent<HTMLElement>) => {
+    event?.stopPropagation();
     if (!recurringSchedulingEnabled) {
-      toast.info("Pro Beta is required to schedule recurring workouts.");
+      onRequestRecurringUpgradePrompt?.();
       return;
     }
     syncRepeatScheduleState(currentExercise as any);
@@ -945,7 +1078,9 @@ const ExerciseItem = ({
                   handleDelete("today");
                 }
               }}
+              handleSkipToday={currentExercise.complete ? undefined : () => setShowSkipTodayDialog(true)}
               handleUpdate={handleUpdate}
+              deleteLabel={isRepeating ? "Delete recurring schedule" : "Delete exercise"}
               onClickMenuButton={() =>
                 setShownMenuIndex(
                   shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
@@ -954,11 +1089,10 @@ const ExerciseItem = ({
               show={shownMenuIndex === exerciseIndex}
             />
             <IconButton
-              onClick={openRepeatDialog}
+              onClick={handleOpenRepeatFlow}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               size="small"
               sx={{ borderRadius: "14px" }}
-              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon
                 color={isRepeating ? "primary" : "disabled"}
@@ -1035,15 +1169,18 @@ const ExerciseItem = ({
         <DeleteDialog
           open={showDeleteDialog}
           onClose={() => setShowDeleteDialog(false)}
-          onDeleteToday={() => {
-            handleDelete("today");
-            setShowDeleteDialog(false);
-          }}
           onDeleteAll={() => {
             handleDelete("all");
             setShowDeleteDialog(false);
           }}
           targetDate={formattedDate}
+        />
+        <SkipTodayDialog
+          open={showSkipTodayDialog}
+          onClose={() => setShowSkipTodayDialog(false)}
+          onSkipToday={handleSkipToday}
+          targetDate={formattedDate}
+          isRepeating={isRepeating}
         />
         <RepeatScheduleDialog
           open={showRepeatDialog}
@@ -1127,7 +1264,9 @@ const ExerciseItem = ({
                   handleDelete("today");
                 }
               }}
+              handleSkipToday={() => setShowSkipTodayDialog(true)}
               handleUpdate={handleUpdate}
+              deleteLabel={isRepeating ? "Delete recurring schedule" : "Delete exercise"}
               onClickMenuButton={() =>
                 setShownMenuIndex(
                   shownMenuIndex === exerciseIndex ? -1 : exerciseIndex
@@ -1268,10 +1407,9 @@ const ExerciseItem = ({
               </Typography>
             </Box>
             <IconButton
-              onClick={openRepeatDialog}
+              onClick={handleOpenRepeatFlow}
               title={isRepeating ? "Edit repeating schedule" : "Repeat this exercise"}
               color="inherit"
-              disabled={!recurringSchedulingEnabled}
             >
               <RepeatIcon color={isRepeating ? "primary" : "disabled"} />
             </IconButton>
@@ -1387,21 +1525,71 @@ const ExerciseItem = ({
           >
             Add Set
           </Button>
+          <Box sx={{ height: { xs: 88, sm: 0 } }} />
+        </Box>
+
+        <Box
+          sx={{
+            display: { xs: "block", sm: "none" },
+            position: "sticky",
+            bottom: 0,
+            px: 1,
+            pb: "calc(12px + env(safe-area-inset-bottom, 0px))",
+            pt: 1,
+            borderTop: "1px solid",
+            borderColor: darkMode
+              ? "rgba(148,163,184,0.12)"
+              : "rgba(17,24,39,0.08)",
+            backdropFilter: "blur(18px)",
+            backgroundColor: darkMode
+              ? "rgba(15,23,32,0.9)"
+              : "rgba(248,250,252,0.94)",
+          }}
+        >
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              onClick={() => setCurrentExerciseIndex(-1)}
+              startIcon={<CloseIcon />}
+              sx={{
+                flex: 1,
+                minHeight: 52,
+                borderRadius: 10,
+              }}
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleAddSet}
+              startIcon={<AddIcon />}
+              sx={{
+                flex: 1.2,
+                minHeight: 52,
+                borderRadius: 10,
+              }}
+            >
+              Add Set
+            </Button>
+          </Stack>
         </Box>
       </Dialog>
 
       <DeleteDialog
         open={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
-        onDeleteToday={() => {
-          handleDelete("today");
-          setShowDeleteDialog(false);
-        }}
         onDeleteAll={() => {
           handleDelete("all");
           setShowDeleteDialog(false);
         }}
         targetDate={formattedDate}
+      />
+      <SkipTodayDialog
+        open={showSkipTodayDialog}
+        onClose={() => setShowSkipTodayDialog(false)}
+        onSkipToday={handleSkipToday}
+        targetDate={formattedDate}
+        isRepeating={isRepeating}
       />
       <RepeatScheduleDialog
         open={showRepeatDialog}
