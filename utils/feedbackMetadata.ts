@@ -1,3 +1,5 @@
+import packageJson from "../package.json";
+
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
 
@@ -31,7 +33,9 @@ export const getReporterRole = ({
 };
 
 export const getAppBuildMetadata = () => {
-  const appVersion = sanitizeText(process.env.NEXT_PUBLIC_APP_VERSION);
+  const appVersion =
+    sanitizeText(process.env.NEXT_PUBLIC_APP_VERSION) ||
+    sanitizeText(packageJson.version);
   const commitSha = trimCommitSha(
     sanitizeText(
       process.env.NEXT_PUBLIC_COMMIT_SHA ||

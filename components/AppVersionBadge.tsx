@@ -1,7 +1,8 @@
 import React from "react";
 import { Box, Tooltip, Typography } from "@mui/material";
+import packageJson from "../package.json";
 
-const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "0.0.0";
+const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || packageJson.version || "0.0.0";
 const commitSha = process.env.NEXT_PUBLIC_COMMIT_SHA || "";
 const environment = process.env.NEXT_PUBLIC_ENV || "development";
 const shortCommitSha = commitSha ? commitSha.slice(0, 7) : "";
