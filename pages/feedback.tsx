@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  alpha,
   Box,
   Button,
   Chip,
@@ -16,6 +17,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useTheme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
@@ -45,6 +47,8 @@ const FeedbackPage = () => {
     data: (Session & { token: { user: { _id: string } } }) | null;
   };
   const router = useRouter();
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === "dark";
   const [user, setUser] = useState<FeedbackPageUser | null>(null);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItemDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +87,24 @@ const FeedbackPage = () => {
     () => title.trim().length > 2 && description.trim().length > 9,
     [title, description]
   );
+  const glassBorder = isDarkMode
+    ? "rgba(255, 255, 255, 0.12)"
+    : "rgba(255, 255, 255, 0.72)";
+  const glassPanelSx = {
+    position: "relative",
+    overflow: "hidden",
+    p: { xs: 2, sm: 2.75 },
+    borderRadius: 6,
+    border: "1px solid",
+    borderColor: glassBorder,
+    background: isDarkMode
+      ? "linear-gradient(145deg, rgba(19, 28, 46, 0.86), rgba(10, 16, 29, 0.72))"
+      : "linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(244, 248, 252, 0.52))",
+    backdropFilter: "blur(28px) saturate(180%)",
+    boxShadow: isDarkMode
+      ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 64px rgba(2, 6, 23, 0.34)"
+      : "inset 0 1px 0 rgba(255,255,255,0.85), 0 28px 64px rgba(148, 163, 184, 0.18)",
+  } as const;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -151,49 +173,106 @@ const FeedbackPage = () => {
         minHeight: "100vh",
         px: { xs: 1.5, sm: 2.5 },
         py: { xs: 2, sm: 3 },
+        position: "relative",
+        overflow: "hidden",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          background: isDarkMode
+            ? "radial-gradient(circle at 12% 18%, rgba(125, 211, 252, 0.14), transparent 22%), radial-gradient(circle at 88% 14%, rgba(129, 140, 248, 0.14), transparent 24%)"
+            : "radial-gradient(circle at 12% 18%, rgba(125, 211, 252, 0.2), transparent 22%), radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.92), transparent 26%)",
+          pointerEvents: "none",
+        },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: "auto", display: "grid", gap: 2 }}>
+      <Box sx={{ maxWidth: 900, mx: "auto", display: "grid", gap: 2, position: "relative" }}>
+        <Paper elevation={0} sx={glassPanelSx}>
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background: isDarkMode
+                ? "linear-gradient(180deg, rgba(255,255,255,0.08), transparent 36%)"
+                : "linear-gradient(180deg, rgba(255,255,255,0.88), transparent 34%)",
+            }}
+          />
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 1.5,
+              position: "relative",
+            }}
+          >
+            <Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                <Chip
+                  label="Glass-inspired refresh"
+                  sx={{
+                    backgroundColor: alpha(theme.palette.primary.main, isDarkMode ? 0.16 : 0.08),
+                    color: theme.palette.text.primary,
+                  }}
+                />
+                <Chip
+                  label={isDarkMode ? "Dark mode preserved" : "Light mode preserved"}
+                  sx={{
+                    backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.4 : 0.7),
+                    color: theme.palette.text.secondary,
+                  }}
+                />
+              </Stack>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.18em" }}
+              >
+                Feedback
+              </Typography>
+              <Typography variant="h4">Help improve Lift Logic</Typography>
+              <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 640 }}>
+                Report bugs when something breaks, or request changes when a flow
+                feels rough. This page now leans into a softer glass treatment while
+                keeping the existing light and dark theme identities.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => router.push("/routines")}
+            >
+              Back to Workouts
+            </Button>
+          </Box>
+        </Paper>
+
         <Box
           sx={{
             display: "flex",
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", sm: "center" },
-            flexDirection: { xs: "column", sm: "row" },
             gap: 1.5,
+            flexWrap: "wrap",
           }}
         >
-          <Box>
-            <Typography
-              variant="overline"
-              sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
-            >
-              Feedback
-            </Typography>
-            <Typography variant="h4">Help improve Lift Logic</Typography>
-            <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 640 }}>
-              Report bugs when something breaks, or request changes when a flow
-              feels rough. Keep it short and concrete so it is easy to act on.
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push("/routines")}
-          >
-            Back to Workouts
-          </Button>
+          {[
+            "Polished glass panels",
+            "Subtle depth for forms",
+            "Consistent in both modes",
+          ].map((label) => (
+            <Chip
+              key={label}
+              label={label}
+              sx={{
+                px: 0.4,
+                backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.34 : 0.64),
+                color: theme.palette.text.secondary,
+              }}
+            />
+          ))}
         </Box>
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
+        <Paper elevation={0} sx={glassPanelSx}>
           <Stack component="form" spacing={2} onSubmit={handleSubmit}>
             <ToggleButtonGroup
               exclusive
@@ -286,15 +365,7 @@ const FeedbackPage = () => {
           </Stack>
         </Paper>
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
+        <Paper elevation={0} sx={glassPanelSx}>
           <Stack spacing={2}>
             <Box>
               <Typography variant="h6">Your recent submissions</Typography>
