@@ -61,6 +61,8 @@ type MonthSummaryCacheEntry = {
   statusMap: CalendarStatusMap;
 };
 
+const HISTORY_START_DATE = new Date(2020, 0, 1);
+
 type WeeklyConsistencyState = {
   target: number;
   completedCount: number;
@@ -207,6 +209,25 @@ const getEntriesForDateKey = (entries: WorkoutEntryDoc[], dateISO: string) =>
     const entryDate = new Date(entry.date);
     return !Number.isNaN(entryDate.getTime()) && toLocalDateKey(entryDate) === dateISO;
   });
+
+const mergeHistoryEntriesForDateKey = ({
+  existingEntries,
+  replacementEntries,
+  dateKey,
+}: {
+  existingEntries: WorkoutEntryDoc[];
+  replacementEntries: WorkoutEntryDoc[];
+  dateKey: string;
+}) => {
+  const retainedEntries = existingEntries.filter((entry) => {
+    const entryDate = new Date(entry.date);
+    return Number.isNaN(entryDate.getTime()) || toLocalDateKey(entryDate) !== dateKey;
+  });
+
+  return [...retainedEntries, ...replacementEntries].sort(
+    (left, right) => +new Date(left.date) - +new Date(right.date)
+  );
+};
 
 const WorkoutsManager: React.FC<{
   routine: any;
@@ -400,6 +421,7 @@ const useWorkoutsManagerState = (
     Record<string, MonthSummaryCacheEntry>
   >({});
   const [historyEntries, setHistoryEntries] = useState<WorkoutEntryDoc[]>([]);
+  const [historyLoadedThroughKey, setHistoryLoadedThroughKey] = useState<string | null>(null);
   const sessionUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
   const currentMonthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
@@ -432,6 +454,13 @@ const useWorkoutsManagerState = (
           Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
         );
         setExercises(mergedExercises);
+        setHistoryEntries((previousEntries) =>
+          mergeHistoryEntriesForDateKey({
+            existingEntries: previousEntries,
+            replacementEntries: entries,
+            dateKey: dateISO,
+          })
+        );
         reconcilePendingLogAttempt(mergedExercises);
       })
       .catch((error) => {
@@ -449,6 +478,13 @@ const useWorkoutsManagerState = (
           Array.isArray(dayWorkout?.exercises) ? dayWorkout.exercises : []
         );
         setExercises(mergedExercises);
+        setHistoryEntries((previousEntries) =>
+          mergeHistoryEntriesForDateKey({
+            existingEntries: previousEntries,
+            replacementEntries: fallbackEntries,
+            dateKey: dateISO,
+          })
+        );
         reconcilePendingLogAttempt(mergedExercises);
       })
       .finally(() => {
@@ -613,15 +649,35 @@ const useWorkoutsManagerState = (
   useEffect(() => {
     if (!userId) {
       setHistoryEntries([]);
+      setHistoryLoadedThroughKey(null);
+      return;
+    }
+
+    if (historyLoadedThroughKey && currentDate <= new Date(`${historyLoadedThroughKey}T23:59:59`)) {
       return;
     }
 
     let cancelled = false;
+    const nextLoadedThroughKey = toLocalDateKey(currentDate);
+    const fetchStartDate = historyLoadedThroughKey
+      ? new Date(`${historyLoadedThroughKey}T00:00:00`)
+      : HISTORY_START_DATE;
 
-    void fetchWorkoutEntriesRange(userId, new Date(2020, 0, 1), currentDate)
+    if (historyLoadedThroughKey) {
+      fetchStartDate.setDate(fetchStartDate.getDate() + 1);
+    }
+
+    void fetchWorkoutEntriesRange(userId, fetchStartDate, currentDate)
       .then((entries) => {
         if (!cancelled) {
-          setHistoryEntries(entries);
+          setHistoryEntries((previousEntries) =>
+            historyLoadedThroughKey
+              ? [...previousEntries, ...entries].sort(
+                  (left, right) => +new Date(left.date) - +new Date(right.date)
+                )
+              : entries
+          );
+          setHistoryLoadedThroughKey(nextLoadedThroughKey);
         }
       })
       .catch((error) => {
@@ -631,7 +687,7 @@ const useWorkoutsManagerState = (
     return () => {
       cancelled = true;
     };
-  }, [currentDate, dayRefreshTick, userId]);
+  }, [currentDate, historyLoadedThroughKey, userId]);
 
   const weeklyConsistency = useMemo<WeeklyConsistencyState | null>(() => {
     const target = Number(userProfile?.workoutDaysPerWeek || 0);
