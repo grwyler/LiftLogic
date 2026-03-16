@@ -42,6 +42,10 @@ const statusTone: Record<string, "default" | "success" | "warning" | "info"> = {
   closed: "default",
 };
 
+const feedbackRadius = "6px";
+const feedbackCompactRadius = "5px";
+const feedbackPanelPadding = { xs: "20px", sm: "24px" } as const;
+
 const FeedbackPage = () => {
   const { data: session } = useSession() as {
     data: (Session & { token: { user: { _id: string } } }) | null;
@@ -93,8 +97,8 @@ const FeedbackPage = () => {
   const glassPanelSx = {
     position: "relative",
     overflow: "hidden",
-    p: { xs: 2, sm: 2.75 },
-    borderRadius: 6,
+    p: feedbackPanelPadding,
+    borderRadius: feedbackRadius,
     border: "1px solid",
     borderColor: glassBorder,
     background: isDarkMode
@@ -171,8 +175,8 @@ const FeedbackPage = () => {
     <Box
       sx={{
         minHeight: "100vh",
-        px: { xs: 1.5, sm: 2.5 },
-        py: { xs: 2, sm: 3 },
+        px: { xs: "16px", sm: "24px" },
+        py: { xs: "20px", sm: "24px" },
         position: "relative",
         overflow: "hidden",
         "&::before": {
@@ -186,7 +190,15 @@ const FeedbackPage = () => {
         },
       }}
     >
-      <Box sx={{ maxWidth: 900, mx: "auto", display: "grid", gap: 2, position: "relative" }}>
+      <Box
+        sx={{
+          maxWidth: 900,
+          mx: "auto",
+          display: "grid",
+          gap: { xs: "20px", sm: "24px" },
+          position: "relative",
+        }}
+      >
         <Paper elevation={0} sx={glassPanelSx}>
           <Box
             sx={{
@@ -204,15 +216,22 @@ const FeedbackPage = () => {
               justifyContent: "space-between",
               alignItems: { xs: "flex-start", sm: "center" },
               flexDirection: { xs: "column", sm: "row" },
-              gap: 1.5,
+              gap: { xs: "16px", sm: "20px" },
               position: "relative",
             }}
           >
             <Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mb: "16px" }}
+              >
                 <Chip
                   label="Glass-inspired refresh"
                   sx={{
+                    borderRadius: feedbackCompactRadius,
                     backgroundColor: alpha(theme.palette.primary.main, isDarkMode ? 0.16 : 0.08),
                     color: theme.palette.text.primary,
                   }}
@@ -220,6 +239,7 @@ const FeedbackPage = () => {
                 <Chip
                   label={isDarkMode ? "Dark mode preserved" : "Light mode preserved"}
                   sx={{
+                    borderRadius: feedbackCompactRadius,
                     backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.4 : 0.7),
                     color: theme.palette.text.secondary,
                   }}
@@ -251,7 +271,7 @@ const FeedbackPage = () => {
         <Box
           sx={{
             display: "flex",
-            gap: 1.5,
+            gap: "12px",
             flexWrap: "wrap",
           }}
         >
@@ -265,6 +285,7 @@ const FeedbackPage = () => {
               label={label}
               sx={{
                 px: 0.4,
+                borderRadius: feedbackCompactRadius,
                 backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.34 : 0.64),
                 color: theme.palette.text.secondary,
               }}
@@ -282,13 +303,24 @@ const FeedbackPage = () => {
                   setType(nextValue);
                 }
               }}
-              sx={{ flexWrap: "wrap", gap: 1 }}
+              sx={{
+                flexWrap: "wrap",
+                gap: "8px",
+                borderRadius: feedbackRadius,
+                padding: "4px",
+              }}
             >
-              <ToggleButton value="bug">
+              <ToggleButton
+                value="bug"
+                sx={{ borderRadius: feedbackCompactRadius, px: "14px" }}
+              >
                 <BugReportOutlinedIcon sx={{ mr: 1 }} />
                 Report a bug
               </ToggleButton>
-              <ToggleButton value="feature">
+              <ToggleButton
+                value="feature"
+                sx={{ borderRadius: feedbackCompactRadius, px: "14px" }}
+              >
                 <LightbulbOutlinedIcon sx={{ mr: 1 }} />
                 Request a feature
               </ToggleButton>
@@ -303,6 +335,11 @@ const FeedbackPage = () => {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               fullWidth
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: feedbackCompactRadius,
+                },
+              }}
             />
 
             <TextField
@@ -321,6 +358,11 @@ const FeedbackPage = () => {
                   ? "Example: I opened Bench Press, logged set 2, and the screen jumped back to the top on mobile."
                   : "Example: I want a simple weekly summary that shows completed workouts, volume, and PRs."
               }
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: feedbackCompactRadius,
+                },
+              }}
             />
 
             {type === "bug" && (
@@ -332,6 +374,7 @@ const FeedbackPage = () => {
                     color={severity === level ? "primary" : "default"}
                     variant={severity === level ? "filled" : "outlined"}
                     onClick={() => setSeverity(level)}
+                    sx={{ borderRadius: feedbackCompactRadius }}
                   />
                 ))}
               </Stack>
@@ -343,7 +386,7 @@ const FeedbackPage = () => {
                 justifyContent: "space-between",
                 alignItems: { xs: "stretch", sm: "center" },
                 flexDirection: { xs: "column", sm: "row" },
-                gap: 1.25,
+                gap: { xs: "12px", sm: "16px" },
               }}
             >
               <Typography sx={{ color: "text.secondary" }}>
@@ -354,6 +397,7 @@ const FeedbackPage = () => {
                 variant="contained"
                 startIcon={<SendRoundedIcon />}
                 disabled={!canSubmit || submitting}
+                sx={{ borderRadius: feedbackCompactRadius }}
               >
                 {submitting
                   ? "Sending..."
@@ -395,17 +439,20 @@ const FeedbackPage = () => {
                           label={item.type === "bug" ? "Bug" : "Feature"}
                           color={item.type === "bug" ? "warning" : "info"}
                           variant="outlined"
+                          sx={{ borderRadius: feedbackCompactRadius }}
                         />
                         <Chip
                           size="small"
                           label={item.status || "new"}
                           color={statusTone[item.status || "new"] || "default"}
+                          sx={{ borderRadius: feedbackCompactRadius }}
                         />
                         {item.severity && (
                           <Chip
                             size="small"
                             label={`${item.severity} severity`}
                             variant="outlined"
+                            sx={{ borderRadius: feedbackCompactRadius }}
                           />
                         )}
                       </Stack>
