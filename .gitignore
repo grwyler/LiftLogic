@@ -11,6 +11,8 @@
 /coverage
 /playwright-report
 /test-results
+/android/.gradle/
+/android/app/build/
 
 # Local environment files
 .env
