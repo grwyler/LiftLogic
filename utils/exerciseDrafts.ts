@@ -1,4 +1,4 @@
-const DEFAULT_MAX_WEIGHT = 35;
+const DEFAULT_MAX_WEIGHT = null;
 
 export const getExerciseProfile = (exercise: any) => {
   const name = String(exercise?.name ?? "").toLowerCase();
@@ -7,31 +7,31 @@ export const getExerciseProfile = (exercise: any) => {
     : String(exercise?.equipment ?? "").toLowerCase();
 
   if (/deadlift/.test(name)) {
-    return { sets: 3, reps: 5, weight: 135 };
+    return { sets: 3, reps: 5, weight: null };
   }
 
   if (/squat|leg press/.test(name)) {
-    return { sets: 3, reps: 6, weight: 135 };
+    return { sets: 3, reps: 6, weight: null };
   }
 
   if (/bench/.test(name)) {
-    return { sets: 3, reps: 6, weight: 95 };
+    return { sets: 3, reps: 6, weight: null };
   }
 
   if (/overhead press|shoulder press/.test(name)) {
-    return { sets: 3, reps: 6, weight: 65 };
+    return { sets: 3, reps: 6, weight: null };
   }
 
   if (/assisted pull-up|assisted pull up/.test(name)) {
-    return { sets: 3, reps: 8, weight: 90 };
+    return { sets: 3, reps: 8, weight: null };
   }
 
   if (/row|pull down|pulldown/.test(name)) {
-    return { sets: 3, reps: 8, weight: 90 };
+    return { sets: 3, reps: 8, weight: null };
   }
 
   if (/curl|raise|tricep|fly|extension/.test(name)) {
-    return { sets: 3, reps: 10, weight: 25 };
+    return { sets: 3, reps: 10, weight: null };
   }
 
   if (/bodyweight/.test(equipment) || /pull-up|push-up|dip|plank/.test(name)) {
@@ -39,7 +39,7 @@ export const getExerciseProfile = (exercise: any) => {
   }
 
   if (/dumbbell/.test(equipment)) {
-    return { sets: 3, reps: 8, weight: 35 };
+    return { sets: 3, reps: 8, weight: null };
   }
 
   return {

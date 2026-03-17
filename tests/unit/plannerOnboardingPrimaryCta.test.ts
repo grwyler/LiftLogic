@@ -12,11 +12,13 @@ describe("planner onboarding primary CTA", () => {
     expect(source).toContain("plannerGenerationEnabled");
     expect(source).toContain("? handleGenerateWorkoutFromSetup");
     expect(source).toContain(': () => openUpgradePrompt("assistant_generation")');
-    expect(source).toContain('? "Generate and replace plan"');
-    expect(source).toContain(': "Generate first workout"');
+    expect(source).toContain('? "Build and replace plan"');
+    expect(source).toContain(': "Build my first plan"');
     expect(source).toContain('variant="outlined"\n                  onClick={handleSaveSetup}');
     expect(source).toContain('{savingSetup ? "Saving..." : "Save preferences only"}');
-    expect(source).not.toContain(': "Generate with assistant"}');
+    expect(source).toContain("Plan draft readiness");
+    expect(source).toContain("Close setup for now");
+    expect(source).not.toContain(': "Generate first workout"}');
     expect(source).not.toContain('{savingSetup ? "Saving..." : "Save assistant setup"}');
   });
 });

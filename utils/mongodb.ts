@@ -73,6 +73,16 @@ export async function connectToDatabase(): Promise<Db> {
   return globalCache.db;
 }
 
+export async function connectToMongoClient(): Promise<MongoClient> {
+  await connectToDatabase();
+
+  if (!globalCache.client) {
+    throw new Error("Mongo client unavailable");
+  }
+
+  return globalCache.client;
+}
+
 export async function disconnectFromDatabase(): Promise<void> {
   try {
     if (globalCache.client) {

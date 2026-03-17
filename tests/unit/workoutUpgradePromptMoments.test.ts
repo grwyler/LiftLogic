@@ -8,8 +8,12 @@ describe("workout upgrade prompt moments", () => {
       path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
       "utf8"
     );
-    const exerciseItemSource = fs.readFileSync(
-      path.join(process.cwd(), "components", "ExerciseItem.tsx"),
+    const scheduleHookSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "workout-display", "useWorkoutScheduleActions.ts"),
+      "utf8"
+    );
+    const feedbackPanelsSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "exercise-item", "ExerciseFeedbackPanels.tsx"),
       "utf8"
     );
     const coachPanelSource = fs.readFileSync(
@@ -21,14 +25,13 @@ describe("workout upgrade prompt moments", () => {
     expect(workoutDisplaySource).toContain(
       "onRequestProgressionUpgradePrompt={"
     );
-    expect(workoutDisplaySource).toContain("if (!currentUserId) {");
+    expect(scheduleHookSource).toContain("if (!currentUserId) {");
 
-    expect(exerciseItemSource).toContain(
+    expect(feedbackPanelsSource).toContain(
       "You unlocked a next-session recommendation from your recent logs."
     );
-    expect(exerciseItemSource).toContain("See Pro Beta recommendation");
-    expect(exerciseItemSource).toContain("See Pro Beta insights");
-    expect(exerciseItemSource).toContain("const handleOpenRepeatFlow");
+    expect(feedbackPanelsSource).toContain("See Pro Beta recommendation");
+    expect(feedbackPanelsSource).toContain("See Pro Beta insights");
 
     expect(coachPanelSource).toContain("patchResult && patchResult.applied === false");
     expect(coachPanelSource).toContain("coach-upgrade-");

@@ -13,7 +13,11 @@ describe("stale asset recovery", () => {
     expect(appSource).toContain('name === "ChunkLoadError"');
     expect(appSource).toContain('message.includes("Loading chunk")');
     expect(appSource).toContain('message.includes("Failed to fetch dynamically imported module")');
-    expect(appSource).toContain('target.src.includes("/_next/static/")');
+    expect(appSource).toContain('message.includes("Failed to load resource")');
+    expect(appSource).toContain('source.includes("/_next/static/")');
+    expect(appSource).toContain('candidate.currentSrc ??');
+    expect(appSource).toContain('["SCRIPT", "LINK"].includes(');
+    expect(appSource).toContain('assetSource.includes("/_next/static/")');
     expect(appSource).toContain('window.location.reload()');
   });
 

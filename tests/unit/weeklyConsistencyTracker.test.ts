@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 describe("weekly consistency tracker", () => {
   it("shows the weekly target, completion progress, and supportive status states in the workout flow", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
       "utf8"
     );
 

@@ -8,13 +8,23 @@ describe("workout action copy", () => {
       path.join(process.cwd(), "components", "ExerciseItem.tsx"),
       "utf8"
     );
+    const loggingDialogSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "exercise-item", "ExerciseLoggingDialog.tsx"),
+      "utf8"
+    );
+    const restTimerOverlaySource = fs.readFileSync(
+      path.join(process.cwd(), "components", "RestTimerOverlay.tsx"),
+      "utf8"
+    );
     const bugRecorderSource = fs.readFileSync(
       path.join(process.cwd(), "components", "DevBugRecorder.tsx"),
       "utf8"
     );
 
     expect(exerciseItemSource).toContain("Start Lift");
-    expect(exerciseItemSource).toContain("Save Rest Time");
+    expect(exerciseItemSource).toContain("Edit repeat");
+    expect(loggingDialogSource).toContain("Repeat Lift");
+    expect(restTimerOverlaySource).toContain("Save Rest Time");
     expect(exerciseItemSource).not.toContain(">Open<");
     expect(exerciseItemSource).not.toContain(">Apply<");
     expect(bugRecorderSource).toContain('submitting ? "Saving..." : "Save Bug Report"');

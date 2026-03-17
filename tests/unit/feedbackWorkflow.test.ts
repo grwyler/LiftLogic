@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FEEDBACK_TRIAGE_STATUSES,
   buildWorkItemUrl,
   createFeedbackFingerprint,
   formatFingerprintLabel,
@@ -334,6 +335,7 @@ describe("feedback workflow auto-queue gating", () => {
 describe("feedback workflow formatting helpers", () => {
   it("maps triage status to legacy status", () => {
     expect(getLegacyStatusFromTriage("new")).toBe("new");
+    expect(getLegacyStatusFromTriage("details copied")).toBe("planned");
     expect(getLegacyStatusFromTriage("queued")).toBe("planned");
     expect(getLegacyStatusFromTriage("fixing")).toBe("reviewing");
     expect(getLegacyStatusFromTriage("resolved")).toBe("resolved");
@@ -353,5 +355,9 @@ describe("feedback workflow formatting helpers", () => {
       "wrk_1234567890abcd"
     );
     expect(formatFingerprintLabel()).toBe("unknown");
+  });
+
+  it("includes the copied-details handoff status in the supported workflow states", () => {
+    expect(FEEDBACK_TRIAGE_STATUSES).toContain("details copied");
   });
 });

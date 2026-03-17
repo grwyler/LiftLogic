@@ -16,4 +16,15 @@ describe("workouts manager derived state wiring", () => {
     expect(source).toContain("comebackGuide={comebackGuide}");
     expect(source).toContain("milestoneSummary={milestoneSummary}");
   });
+
+  it("shows a lightweight loading veil instead of replacing the current workout during day switches", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "components", "WorkoutsManager.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("<WorkoutDisplay");
+    expect(source).toContain("Loading next day...");
+    expect(source).toContain('position: "absolute"');
+  });
 });

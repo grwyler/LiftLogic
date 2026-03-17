@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getExerciseProfile } from "../../utils/exerciseDrafts";
 
 describe("exerciseDrafts", () => {
-  it("treats assisted pull-ups like a loaded machine pull instead of bodyweight", () => {
+  it("keeps assisted pull-ups load-agnostic until the user logs real performance", () => {
     const profile = getExerciseProfile({
       name: "Assisted Pull-Up",
       equipment: ["Assisted Pull-Up Machine"],
@@ -11,7 +11,7 @@ describe("exerciseDrafts", () => {
     expect(profile).toMatchObject({
       sets: 3,
       reps: 8,
-      weight: 90,
+      weight: null,
     });
   });
 

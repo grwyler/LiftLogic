@@ -891,6 +891,7 @@ export default async function handler(
       const {
         workItemId,
         triageStatus,
+        severity,
         fixThreadId,
         fixCommitSha,
         title,
@@ -898,6 +899,7 @@ export default async function handler(
       } = req.body as {
         workItemId?: string;
         triageStatus?: FeedbackTriageStatus;
+        severity?: "low" | "medium" | "high";
         fixThreadId?: string;
         fixCommitSha?: string;
         title?: string;
@@ -923,6 +925,7 @@ export default async function handler(
         return res.status(404).json({ message: "Work item not found" });
       }
 
+      const normalizedSeverity = sanitizeFeedbackSeverity(severity) || existing.severity;
       const now = new Date();
       const normalizedFixThreadId = sanitizeText(fixThreadId) || undefined;
       const normalizedFixCommitSha = sanitizeText(fixCommitSha) || undefined;
@@ -936,6 +939,7 @@ export default async function handler(
       const update: Partial<FeedbackWorkItemDoc> = {
         title: normalizedTitle,
         latestDescription: normalizedDescription,
+        severity: normalizedSeverity,
         triageStatus: normalizedTriageStatus,
         status: getLegacyStatusFromTriage(normalizedTriageStatus),
         fixThreadId: normalizedFixThreadId,
@@ -957,6 +961,7 @@ export default async function handler(
             $set: {
               triageStatus: update.triageStatus,
               status: update.status,
+              severity: update.severity,
               fixThreadId: update.fixThreadId,
               fixCommitSha: update.fixCommitSha,
               resolvedAt: update.resolvedAt,

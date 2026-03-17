@@ -19,6 +19,7 @@ type Props = {
   onClose: () => void;
   onSave: () => void;
   onDisable?: () => void;
+  isSaving?: boolean;
   isRepeating: boolean;
   title?: string;
   description?: string;
@@ -52,6 +53,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
   onClose,
   onSave,
   onDisable,
+  isSaving = false,
   isRepeating,
   title,
   description,
@@ -78,7 +80,12 @@ const RepeatScheduleDialog: React.FC<Props> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={isSaving ? undefined : onClose}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle>
         {title || (isRepeating ? "Edit repeating schedule" : "Repeat this exercise")}
       </DialogTitle>
@@ -94,6 +101,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
           label="Repeats"
           value={recurrenceType}
           onChange={(event) => setRecurrenceType(event.target.value as RecurrenceType)}
+          disabled={isSaving}
           fullWidth
         >
           <MenuItem value="daily">Daily</MenuItem>
@@ -115,6 +123,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
           onChange={(event) =>
             setInterval(Math.max(1, Number(event.target.value) || 1))
           }
+          disabled={isSaving}
           inputProps={{ min: 1, max: 52 }}
           fullWidth
         />
@@ -125,6 +134,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
             label="On"
             value={dayOfWeek}
             onChange={(event) => setDayOfWeek(Number(event.target.value))}
+            disabled={isSaving}
             fullWidth
           >
             {WEEKDAY_OPTIONS.map((option) => (
@@ -147,7 +157,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
                   label={option.label}
                   color={daysOfWeek.includes(option.value) ? "primary" : "default"}
                   variant={daysOfWeek.includes(option.value) ? "filled" : "outlined"}
-                  onClick={() => toggleWeekday(option.value)}
+                  onClick={isSaving ? undefined : () => toggleWeekday(option.value)}
                 />
               ))}
             </Box>
@@ -164,6 +174,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
                 Math.max(1, Math.min(31, Number(event.target.value) || 1))
               )
             }
+            disabled={isSaving}
             inputProps={{ min: 1, max: 31 }}
             fullWidth
           />
@@ -174,6 +185,7 @@ const RepeatScheduleDialog: React.FC<Props> = ({
           label="Ends on (optional)"
           value={endDate}
           onChange={(event) => setEndDate(event.target.value)}
+          disabled={isSaving}
           InputLabelProps={{ shrink: true }}
           fullWidth
         />
@@ -181,13 +193,15 @@ const RepeatScheduleDialog: React.FC<Props> = ({
 
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 0.5 }}>
         {isRepeating && onDisable ? (
-          <Button color="error" onClick={onDisable}>
+          <Button color="error" onClick={onDisable} disabled={isSaving}>
             {disableLabel || "Remove schedule"}
           </Button>
         ) : null}
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={onSave}>
-          Save schedule
+        <Button onClick={onClose} disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button variant="contained" onClick={onSave} disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save schedule"}
         </Button>
       </DialogActions>
     </Dialog>

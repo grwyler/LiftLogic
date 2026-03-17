@@ -19,6 +19,10 @@ import {
   calculatePlateBreakdown,
   roundToWeightIncrement,
 } from "./weightUnits";
+import {
+  deactivateRecurringRule as deactivateRecurringRuleClient,
+  saveRecurringRule as saveRecurringRuleClient,
+} from "./recurringRuleService";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -660,19 +664,7 @@ export async function getCatalogMap(): Promise<
    Upserts (create / update) a rule. Pass a RecurringRuleDoc object.
    ---------------------------------------------------------------- */
 // utils/recurringRuleClient.ts
-export const saveRecurringRule = async (rule: RecurringRuleDoc) => {
-  const res = await fetch("/api/recurringRule", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rule }),
-  });
-
-  if (!res.ok) throw new Error(`saveRecurringRule ${res.status}`);
-
-  // API route should `return res.json({ rule: savedDoc })`
-  const { rule: saved } = await res.json();
-  return saved as RecurringRuleDoc; // contains _id
-};
+export const saveRecurringRule = saveRecurringRuleClient;
 
 /* ----------------------------------------------------------------
    deactivateRecurringRule
@@ -680,14 +672,11 @@ export const saveRecurringRule = async (rule: RecurringRuleDoc) => {
    ---------------------------------------------------------------- */
 export const deactivateRecurringRule = async (ruleId: string) => {
   try {
-    const res = await fetch("/api/recurringRule", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ruleId }),
-    });
+    await deactivateRecurringRuleClient(ruleId);
+    const res = { status: 200 } as const;
+    const msg = "";
+    if (false) {
 
-    if (!res.ok) {
-      const msg = await res.text();
       console.error("[deactivateRecurringRule] ❌", res.status, msg);
     } else {
       console.info("[deactivateRecurringRule] ✅");
@@ -866,8 +855,10 @@ export const saveUser = async (user) => {
         actual: `User update request completed with ${response.status}.`,
         status: "success",
       });
-      return data; // ✅ Return the response data
+      return data;
     } else {
+      const data = { success: false };
+      return data; // ✅ Return the response data
       emitDevBugRequest({
         label: "User profile save failed",
         expected: "Profile changes persist successfully.",
@@ -1096,6 +1087,7 @@ export const fetchFeedbackWorkflow = async () => {
 export const updateFeedbackWorkItem = async ({
   workItemId,
   triageStatus,
+  severity,
   fixThreadId,
   fixCommitSha,
   title,
@@ -1103,6 +1095,7 @@ export const updateFeedbackWorkItem = async ({
 }: {
   workItemId: string;
   triageStatus: FeedbackTriageStatus;
+  severity?: "low" | "medium" | "high";
   fixThreadId?: string;
   fixCommitSha?: string;
   title?: string;
@@ -1123,6 +1116,7 @@ export const updateFeedbackWorkItem = async ({
     body: JSON.stringify({
       workItemId,
       triageStatus,
+      severity,
       fixThreadId,
       fixCommitSha,
       title,

@@ -1,5 +1,5 @@
-import React, { Fragment } from "react";
-import { Paper, Box, Typography, IconButton, Chip } from "@mui/material";
+import React from "react";
+import { Paper, Box, Typography, Button, Chip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import {
   formatWeight,
@@ -59,13 +59,22 @@ const SetItem = ({ set, handleDeleteSet, type, darkMode, preferredUnits = "lb" }
             </Box>
           )}
         </Box>
-        <IconButton
-          size="small"
+        <Button
+          variant="text"
           onClick={() => handleDeleteSet(set.id)}
-          sx={{ ml: 1, p: 0.25, color: "text.secondary" }}
+          startIcon={<CloseIcon fontSize="small" />}
+          sx={{
+            ml: 1,
+            minWidth: 44,
+            minHeight: 44,
+            px: 1.25,
+            borderRadius: 999,
+            color: "error.main",
+            flexShrink: 0,
+          }}
         >
-          <CloseIcon fontSize="small" />
-        </IconButton>
+          Delete set
+        </Button>
       </Box>
     </Paper>
   );
