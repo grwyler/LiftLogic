@@ -1,0 +1,21 @@
+{
+	"appId": "com.liftlogic.app",
+	"appName": "Lift Logic",
+	"webDir": "public/capacitor-shell",
+	"android": {
+		"path": "android"
+	},
+	"server": {
+		"url": "https://liftlogic.vercel.app",
+		"androidScheme": "https",
+		"cleartext": false,
+		"allowNavigation": [
+			"liftlogic.vercel.app",
+			"*.vercel.app",
+			"localhost",
+			"10.*",
+			"172.*",
+			"192.168.*"
+		]
+	}
+}
