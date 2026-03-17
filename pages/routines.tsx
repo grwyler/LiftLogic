@@ -74,6 +74,11 @@ import {
   isThemePreference,
   ThemePreference,
 } from "../utils/themePreferences";
+import {
+  buildRoutineSemanticButtonSx,
+  buildRoutineSemanticPanelSx,
+  buildRoutineSemanticSelectableChipSx,
+} from "../utils/routinesSemanticStyles";
 
 type Routine = any;
 type GeneratedPlanPayload = {
@@ -1364,6 +1369,7 @@ const RoutinesPage = ({
                 border: "1px solid",
                 borderColor: "divider",
                 backgroundColor: "background.paper",
+                ...buildRoutineSemanticPanelSx("premium", darkMode),
               }}
             >
               <Stack spacing={1.5}>
@@ -1591,7 +1597,14 @@ const RoutinesPage = ({
                 }}
               >
                 {workoutFrequencyOptions.map((days) => (
-                  <ToggleButton key={days} value={days}>
+                  <ToggleButton
+                    key={days}
+                    value={days}
+                    sx={buildRoutineSemanticSelectableChipSx(
+                      setupForm.workoutDaysPerWeek === days,
+                      darkMode
+                    )}
+                  >
                     {days} days
                   </ToggleButton>
                 ))}
@@ -1856,6 +1869,11 @@ const RoutinesPage = ({
                 </Button>
                 <Button
                   variant="contained"
+                  sx={buildRoutineSemanticButtonSx(
+                    plannerGenerationEnabled ? "primaryAction" : "premium",
+                    "contained",
+                    darkMode
+                  )}
                   onClick={
                     plannerGenerationEnabled
                       ? handleGenerateWorkoutFromSetup

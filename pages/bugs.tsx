@@ -59,6 +59,11 @@ import {
   getWorkItemClosureWarnings,
   getWorkflowDraftResolution,
 } from "../utils/bugsWorkflow";
+import {
+  buildImplementationContext,
+  buildVerificationPack,
+} from "../utils/feedbackWorkItemContext";
+import { parseMultilineList, serializeMultilineList } from "../utils/feedbackResolution";
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -269,11 +274,65 @@ const createDraftMap = (
 
   items.forEach((item) => {
     const id = String(item._id);
-    const implementationContext = buildImplementationContext(item);
-    const verificationPack = buildVerificationPack(item);
     if (!next[id]) {
       next[id] = createWorkflowDraft(item);
+      return;
     }
+
+    const implementationContext = buildImplementationContext(item);
+    const verificationPack = buildVerificationPack(item);
+    next[id] = {
+      ...next[id],
+      title: next[id].title || item.title || "",
+      latestDescription: next[id].latestDescription || item.latestDescription || "",
+      labels: next[id].labels || formatLabelsInput(item.labels),
+      actualBehavior:
+        next[id].actualBehavior || item.structuredRepro?.actualBehavior || "",
+      expectedBehavior:
+        next[id].expectedBehavior || item.structuredRepro?.expectedBehavior || "",
+      reproSteps:
+        next[id].reproSteps ||
+        serializeMultilineList(item.structuredRepro?.reproSteps),
+      affectedFlow: next[id].affectedFlow || item.structuredRepro?.affectedFlow || "",
+      triggerConditions:
+        next[id].triggerConditions || item.structuredRepro?.triggerConditions || "",
+      regressionRisks:
+        next[id].regressionRisks || item.structuredRepro?.regressionRisks || "",
+      implementationSummary:
+        next[id].implementationSummary || implementationContext.summary || "",
+      implementationConfirmed:
+        next[id].implementationConfirmed ||
+        formatLinks(implementationContext.confirmed),
+      implementationInferred:
+        next[id].implementationInferred || formatLinks(implementationContext.inferred),
+      verificationSummary:
+        next[id].verificationSummary || verificationPack.summary || "",
+      verificationCommands:
+        next[id].verificationCommands ||
+        serializeMultilineList(
+          (verificationPack.items || [])
+            .filter((entry) => entry.kind === "command")
+            .map((entry) => entry.command || entry.label)
+        ),
+      verificationManualChecks:
+        next[id].verificationManualChecks ||
+        serializeMultilineList(
+          (verificationPack.items || [])
+            .filter((entry) => entry.kind === "manual")
+            .map((entry) => entry.label)
+        ),
+      verificationDoneCriteria:
+        next[id].verificationDoneCriteria ||
+        serializeMultilineList(
+          (verificationPack.items || [])
+            .filter((entry) => entry.kind === "done" || entry.kind === "acceptance")
+            .map((entry) => entry.label)
+        ),
+      completedVerificationIds:
+        next[id].completedVerificationIds?.length
+          ? next[id].completedVerificationIds
+          : item.completedVerificationIds || [],
+    };
   });
 
   return next;
@@ -508,6 +567,21 @@ const BugsPage = () => {
     () => (selectedDraft ? getWorkItemClosureWarnings(selectedDraft) : []),
     [selectedDraft]
   );
+  const bugItems = useMemo(
+    () => workItems.filter((item) => item.type === "bug"),
+    [workItems]
+  );
+  const selectedRelatedWork = useMemo(
+    () =>
+      selectedWorkItem
+        ? getRelatedWorkItems({
+            workItem: selectedWorkItem,
+            workItems,
+            feedbackItems,
+          })
+        : [],
+    [feedbackItems, selectedWorkItem, workItems]
+  );
   const activeBugItems = useMemo(
     () => bugItems.filter((item) => !isInactiveWorkItem(item)),
     [bugItems]
@@ -674,7 +748,15 @@ const BugsPage = () => {
     verificationManualChecks: "",
     verificationDoneCriteria: "",
     completedVerificationIds: [],
+    verificationOwner: "",
+    resolvedAppVersion: "",
+    resolvedDeployId: "",
+    validatedCommandsText: "",
+    manualChecksText: "",
+    regressionChecklist: createWorkflowDraft().regressionChecklist,
   });
+
+  const formatMultilineList = (items?: string[]) => serializeMultilineList(items);
 
   const parseImplementationLinks = (value: string) =>
     parseMultilineList(value).map((entry) => {
@@ -791,6 +873,42 @@ const BugsPage = () => {
                 }
               : entry
           ),
+        },
+      };
+    });
+  };
+
+  const applyUpdatedWorkItem = (workItemId: string, updatedWorkItem: FeedbackWorkItemDoc) => {
+    setWorkItems((previous) =>
+      previous.map((item) =>
+        String(item._id) === workItemId ? { ...item, ...updatedWorkItem } : item
+      )
+    );
+    setDrafts((previous) => ({
+      ...previous,
+      [workItemId]: createWorkflowDraft(updatedWorkItem),
+    }));
+  };
+
+  const handleVerificationCompletionToggle = (
+    workItemId: string,
+    verificationId: string,
+    checked: boolean
+  ) => {
+    setDrafts((previous) => {
+      const baseDraft = previous[workItemId] || createWorkflowDraft();
+      const existingIds = new Set(baseDraft.completedVerificationIds || []);
+      if (checked) {
+        existingIds.add(verificationId);
+      } else {
+        existingIds.delete(verificationId);
+      }
+
+      return {
+        ...previous,
+        [workItemId]: {
+          ...baseDraft,
+          completedVerificationIds: Array.from(existingIds),
         },
       };
     });
@@ -2970,10 +3088,11 @@ const BugsPage = () => {
                                 []
                               ).includes(item.id)
                             }
-                            onChange={() =>
+                            onChange={(event) =>
                               handleVerificationCompletionToggle(
                                 String(selectedWorkItem._id),
-                                item.id
+                                item.id,
+                                event.target.checked
                               )
                             }
                           />

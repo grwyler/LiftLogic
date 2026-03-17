@@ -1,8 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { ObjectId } from "mongodb";
+import { Collection, Db, ObjectId } from "mongodb";
 import { getServerSession } from "next-auth/next";
+import nodemailer from "nodemailer";
 import { connectToDatabase } from "../../utils/mongodb";
 import {
+  FeedbackDeviceType,
   FeedbackItemDoc,
   FeedbackNotificationStatus,
   FeedbackTriageStatus,
@@ -10,23 +12,29 @@ import {
 } from "../../utils/types";
 import { authOptions } from "./auth/[...nextauth]";
 import {
-  buildFeedbackDoc,
-  ensureFeedbackWorkflowIndexes,
-  getSessionUserContext,
-  isAdminSession,
-  sanitizeFeedbackSeverity,
-  sanitizeText,
-  sanitizeTriageStatus,
-} from "../../utils/feedbackIntakeService";
+  FEEDBACK_TRIAGE_STATUSES,
+  buildWorkItemUrl,
+  createFeedbackFingerprint,
+  getLegacyStatusFromTriage,
+} from "../../utils/feedbackWorkflow";
 import {
   getAppBuildMetadata,
   getReporterRole,
 } from "../../utils/feedbackMetadata";
 import {
+  sanitizeFeedbackLabels,
+  sanitizeStructuredRepro,
+} from "../../utils/feedbackIntakeService";
+import {
   getSessionUserId,
   getSessionUserProfile,
   isBugWorkflowAdminSession,
 } from "../../utils/adminAuthorization";
+import {
+  buildImplementationContext,
+  buildVerificationPack,
+  inferStructuredRepro,
+} from "../../utils/feedbackWorkItemContext";
 import {
   getResolutionClosureWarnings,
   sanitizeResolutionMetadata,
@@ -344,7 +352,7 @@ const buildFeedbackDoc = ({
   const { _id: userId, username, email, roles, permissions } =
     getSessionUserProfile(session);
   const reporterRole =
-    getReporterRole({ username, email, roles, permissions }) ||
+    getReporterRole({ username, email }) ||
     sanitizeReporterRole(feedback.reporterRole);
   const type =
     feedback.type === "feature" || feedback.type === "bug"
@@ -357,7 +365,17 @@ const buildFeedbackDoc = ({
     return null;
   }
 
+  const bugReport = sanitizeBugReport(feedback.bugReport);
+  const coachFeedback = sanitizeCoachFeedback(feedback.coachFeedback);
   const runtimeContext = sanitizeRuntimeContext(feedback.runtimeContext);
+  const structuredRepro =
+    sanitizeStructuredRepro(feedback.structuredRepro) ||
+    inferStructuredRepro({
+      title,
+      description,
+      page: sanitizeText(feedback.page),
+      bugReport,
+    });
   const buildMetadata = getAppBuildMetadata();
   const doc: FeedbackItemDoc = {
     userId,
@@ -372,6 +390,7 @@ const buildFeedbackDoc = ({
     severity: sanitizeFeedbackSeverity(feedback.severity),
     page: sanitizeText(feedback.page) || undefined,
     deviceType: sanitizeDeviceType(feedback.deviceType),
+    structuredRepro,
     runtimeContext: {
       ...runtimeContext,
       appVersion: runtimeContext?.appVersion || buildMetadata.appVersion,
@@ -380,11 +399,11 @@ const buildFeedbackDoc = ({
       route:
         runtimeContext?.route ||
         sanitizeText(feedback.page) ||
-        sanitizeBugReport(feedback.bugReport)?.currentPath ||
+        bugReport?.currentPath ||
         undefined,
     },
-    bugReport: sanitizeBugReport(feedback.bugReport),
-    coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
+    bugReport,
+    coachFeedback,
     fingerprint: createFeedbackFingerprint({
       ...feedback,
       userId,
@@ -395,8 +414,8 @@ const buildFeedbackDoc = ({
       type,
       page: sanitizeText(feedback.page),
       severity: sanitizeFeedbackSeverity(feedback.severity),
-      bugReport: sanitizeBugReport(feedback.bugReport),
-      coachFeedback: sanitizeCoachFeedback(feedback.coachFeedback),
+      bugReport,
+      coachFeedback,
     }),
     notificationStatus: "pending",
     createdAt: now,
@@ -436,6 +455,17 @@ const upsertFeedbackWorkItem = async ({
       severity: nextSeverity,
       deviceType: feedback.deviceType || existing.deviceType,
       latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
+      structuredRepro: feedback.structuredRepro || existing.structuredRepro,
+      implementationContext: buildImplementationContext({
+        page: feedback.page || existing.page,
+        type: feedback.type || existing.type,
+        implementationContext: existing.implementationContext,
+      }),
+      verificationPack: buildVerificationPack({
+        page: feedback.page || existing.page,
+        verificationPack: existing.verificationPack,
+      }),
+      completedVerificationIds: existing.completedVerificationIds || [],
       occurrenceCount,
       triageStatus,
       status: getLegacyStatusFromTriage(triageStatus),
@@ -475,6 +505,15 @@ const upsertFeedbackWorkItem = async ({
     page: feedback.page,
     severity: feedback.severity,
     deviceType: feedback.deviceType,
+    structuredRepro: feedback.structuredRepro,
+    implementationContext: buildImplementationContext({
+      page: feedback.page,
+      type: feedback.type,
+    }),
+    verificationPack: buildVerificationPack({
+      page: feedback.page,
+    }),
+    completedVerificationIds: [],
     fingerprint,
     occurrenceCount: 1,
     status: getLegacyStatusFromTriage(triageStatus),
@@ -936,6 +975,9 @@ export default async function handler(
       const normalizedTitle = sanitizeText(title) || existing.title;
       const normalizedDescription =
         sanitizeText(latestDescription) || existing.latestDescription;
+      const normalizedLabels = sanitizeFeedbackLabels(labels) || existing.labels;
+      const normalizedStructuredRepro =
+        sanitizeStructuredRepro(structuredRepro) || existing.structuredRepro;
       const closureWarnings =
         normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
           ? getResolutionClosureWarnings(normalizedResolution)
@@ -955,8 +997,26 @@ export default async function handler(
       const update: Partial<FeedbackWorkItemDoc> = {
         title: normalizedTitle,
         latestDescription: normalizedDescription,
+        labels: normalizedLabels,
         triageStatus: normalizedTriageStatus,
         status: getLegacyStatusFromTriage(normalizedTriageStatus),
+        structuredRepro: normalizedStructuredRepro,
+        implementationContext: implementationContext
+          ? buildImplementationContext({
+              page: existing.page,
+              type: existing.type,
+              implementationContext,
+            })
+          : existing.implementationContext,
+        verificationPack: verificationPack
+          ? buildVerificationPack({
+              page: existing.page,
+              verificationPack,
+            })
+          : existing.verificationPack,
+        completedVerificationIds: Array.isArray(completedVerificationIds)
+          ? completedVerificationIds.map((entry) => sanitizeText(entry)).filter(Boolean)
+          : existing.completedVerificationIds,
         fixThreadId: normalizedFixThreadId,
         fixCommitSha: normalizedFixCommitSha,
         resolution: normalizedResolution,
@@ -978,6 +1038,7 @@ export default async function handler(
               triageStatus: update.triageStatus,
               status: update.status,
               severity: update.severity,
+              labels: update.labels,
               structuredRepro: update.structuredRepro,
               fixThreadId: update.fixThreadId,
               fixCommitSha: update.fixCommitSha,

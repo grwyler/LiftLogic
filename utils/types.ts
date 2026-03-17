@@ -331,6 +331,41 @@ export interface FeedbackResolutionMetadata {
   regressionChecklist?: FeedbackRegressionCheck[];
 }
 
+export interface FeedbackStructuredRepro {
+  actualBehavior?: string;
+  expectedBehavior?: string;
+  reproSteps?: string[];
+  affectedFlow?: string;
+  triggerConditions?: string;
+  regressionRisks?: string;
+  source?: "manual" | "inferred" | "recorder";
+}
+
+export interface FeedbackImplementationLink {
+  type: "route" | "schema" | "api" | "hook" | "component" | "test";
+  path: string;
+  label?: string;
+  note?: string;
+}
+
+export interface FeedbackImplementationContext {
+  summary?: string;
+  confirmed?: FeedbackImplementationLink[];
+  inferred?: FeedbackImplementationLink[];
+}
+
+export interface FeedbackVerificationItem {
+  id: string;
+  kind: "command" | "manual" | "acceptance" | "done";
+  label: string;
+  command?: string;
+}
+
+export interface FeedbackVerificationPack {
+  summary?: string;
+  items?: FeedbackVerificationItem[];
+}
+
 export interface FeedbackItemDoc {
   _id?: ObjectId;
   userId: string;

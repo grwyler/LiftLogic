@@ -32,6 +32,7 @@ import {
   getDisplayWeightFromSet,
   normalizeWeightUnit,
 } from "../utils/weightUnits";
+import { buildRoutineSemanticIconButtonSx } from "../utils/routinesSemanticStyles";
 import { useExerciseItemState } from "./exercise-item/useExerciseItemState";
 import ExerciseDialogs from "./exercise-item/ExerciseDialogs";
 import ExerciseLoggingDialog from "./exercise-item/ExerciseLoggingDialog";
@@ -634,6 +635,7 @@ const ExerciseItem = ({
               variant="outlined"
               startIcon={<RepeatIcon color={isRepeating ? "primary" : "disabled"} />}
               sx={{
+                ...buildRoutineSemanticIconButtonSx("premium", isRepeating, darkMode),
                 minHeight: mobileTouchTarget,
                 borderRadius: "14px",
                 px: 1.5,
@@ -820,6 +822,7 @@ const ExerciseItem = ({
               variant="outlined"
               startIcon={<RepeatIcon color={isRepeating ? "primary" : "disabled"} />}
               sx={{
+                ...buildRoutineSemanticIconButtonSx("premium", isRepeating, darkMode),
                 minHeight: mobileTouchTarget,
                 minWidth: mobileTouchTarget,
                 borderRadius: 999,

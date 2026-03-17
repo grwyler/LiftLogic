@@ -1,9 +1,10 @@
-import { FeedbackWorkItemDoc } from "./types";
+import { FeedbackItemDoc, FeedbackStructuredRepro, FeedbackWorkItemDoc } from "./types";
 
 export type ImplementationLink = {
   type: "route" | "schema" | "api" | "hook" | "component" | "test";
   path: string;
   label?: string;
+  note?: string;
 };
 
 export type ImplementationContext = {
@@ -14,7 +15,7 @@ export type ImplementationContext = {
 
 export type VerificationItem = {
   id: string;
-  kind: "command" | "manual" | "acceptance";
+  kind: "command" | "manual" | "acceptance" | "done";
   label: string;
   command?: string;
 };
@@ -24,7 +25,7 @@ export type VerificationPack = {
   items: VerificationItem[];
 };
 
-const toSourceText = (workItem?: FeedbackWorkItemDoc | null) =>
+const toSourceText = (workItem?: Partial<FeedbackWorkItemDoc> | null) =>
   `${workItem?.title ?? ""} ${workItem?.latestDescription ?? ""}`.toLowerCase();
 
 const hasAuditWorkflowSignals = (sourceText: string) =>
@@ -111,10 +112,10 @@ const buildRoutineContext = (): ImplementationContext => ({
 });
 
 export const buildImplementationContext = (
-  workItem?: FeedbackWorkItemDoc | null
+  workItem?: Partial<FeedbackWorkItemDoc> | null
 ): ImplementationContext => {
   const sourceText = toSourceText(workItem);
-  const explicitContext = (workItem as FeedbackWorkItemDoc & {
+  const explicitContext = (workItem as Partial<FeedbackWorkItemDoc> & {
     implementationContext?: Partial<ImplementationContext>;
   })?.implementationContext;
 
@@ -142,9 +143,9 @@ export const buildImplementationContext = (
 };
 
 export const buildVerificationPack = (
-  workItem?: FeedbackWorkItemDoc | null
+  workItem?: Partial<FeedbackWorkItemDoc> | null
 ): VerificationPack => {
-  const explicitPack = (workItem as FeedbackWorkItemDoc & {
+  const explicitPack = (workItem as Partial<FeedbackWorkItemDoc> & {
     verificationPack?: Partial<VerificationPack>;
   })?.verificationPack;
 
@@ -220,3 +221,53 @@ export const getVerificationItemsByKind = (
   verificationPack: VerificationPack,
   kind: VerificationItem["kind"]
 ) => verificationPack.items.filter((item) => item.kind === kind);
+
+const normalizeText = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
+
+export const inferStructuredRepro = ({
+  title,
+  description,
+  page,
+  bugReport,
+}: {
+  title?: string;
+  description?: string;
+  page?: string;
+  bugReport?: FeedbackItemDoc["bugReport"];
+}): FeedbackStructuredRepro | undefined => {
+  const normalizedTitle = normalizeText(title);
+  const normalizedDescription = normalizeText(description);
+  const currentPath = normalizeText(bugReport?.currentPath);
+  const affectedFlow = normalizeText(page) || currentPath || undefined;
+
+  if (!normalizedTitle && !normalizedDescription && !affectedFlow) {
+    return undefined;
+  }
+
+  const reproSteps = [
+    currentPath ? `Open ${currentPath}` : "",
+    normalizedDescription || normalizedTitle,
+  ].filter(Boolean);
+
+  return {
+    actualBehavior: normalizedTitle || normalizedDescription || undefined,
+    affectedFlow,
+    reproSteps: reproSteps.length > 0 ? reproSteps : undefined,
+    source: bugReport ? "recorder" : "inferred",
+  };
+};
+
+const hasMeaningfulField = (value?: string) => {
+  const normalized = normalizeText(value).toLowerCase();
+  return Boolean(normalized && normalized !== "unknown" && normalized !== "n/a");
+};
+
+export const hasMinimumStructuredRepro = (
+  structuredRepro?: FeedbackStructuredRepro
+) =>
+  hasMeaningfulField(structuredRepro?.actualBehavior) &&
+  hasMeaningfulField(structuredRepro?.expectedBehavior) &&
+  hasMeaningfulField(structuredRepro?.affectedFlow) &&
+  Array.isArray(structuredRepro?.reproSteps) &&
+  structuredRepro!.reproSteps!.some((step) => hasMeaningfulField(step));

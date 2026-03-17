@@ -20,6 +20,7 @@ import {
 import { DatePicker, PickersDay, StaticDatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { buildRoutineSemanticDotSx } from "../utils/routinesSemanticStyles";
 
 const DaySwitcher = ({
   currentDate,
@@ -191,8 +192,16 @@ const DaySwitcher = ({
             </LocalizationProvider>
             <Typography
               variant="caption"
-              sx={{ mt: 0.2, color: "text.secondary", textAlign: "center" }}
+              sx={{
+                mt: 0.2,
+                color: "text.secondary",
+                textAlign: "center",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.75,
+              }}
             >
+              <Box component="span" sx={buildRoutineSemanticDotSx("activeWorkout")} />
               {selectedDaySummary}
               {selectedDayExerciseCount > 0
                 ? ` | ${selectedDayExerciseCount} exercise${

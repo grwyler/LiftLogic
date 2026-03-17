@@ -18,11 +18,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Paper,
   Typography,
 } from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
+import { parseLocalDateKey, toLocalDateKey } from "../utils/localDate";
+import { buildMilestoneSummary } from "../utils/milestones";
 import {
   WorkoutSessionDraft,
   discardWorkoutSessionDraft,
@@ -285,6 +288,9 @@ const WorkoutsManager: React.FC<{
     refreshCalendarStatuses,
     calendarStatusMap,
     sessionUserId,
+    weeklyConsistency,
+    comebackGuide,
+    milestoneSummary,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
   const [pendingRecoveryDraft, setPendingRecoveryDraft] =
     useState<WorkoutSessionDraft | null>(null);

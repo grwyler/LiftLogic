@@ -20,6 +20,7 @@ import WorkoutCompletionRecap from "./workout-display/WorkoutCompletionRecap";
 import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary";
 import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
+import { buildRoutineSemanticPanelSx } from "../utils/routinesSemanticStyles";
 
 const WorkoutDisplay = ({
   exercises,
@@ -480,6 +481,7 @@ const WorkoutDisplay = ({
         <Paper
           elevation={0}
           sx={{
+            ...buildRoutineSemanticPanelSx("activeWorkout", darkMode),
             pointerEvents: "auto",
             width: { xs: "100%", sm: "auto" },
             maxWidth: { xs: 420, sm: "none" },

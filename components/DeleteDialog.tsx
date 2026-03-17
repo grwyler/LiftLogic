@@ -11,6 +11,7 @@ import { format, isValid } from "date-fns";
 type Props = {
   open: boolean;
   onClose: () => void;
+  onDeleteToday?: () => void;
   onDeleteAll: () => void;
   targetDate: Date | string;
 };
@@ -18,6 +19,7 @@ type Props = {
 const DeleteDialog: React.FC<Props> = ({
   open,
   onClose,
+  onDeleteToday,
   onDeleteAll,
   targetDate,
 }) => {
@@ -44,6 +46,11 @@ const DeleteDialog: React.FC<Props> = ({
         <MUIButton variant="outlined" onClick={onClose}>
           Keep schedule
         </MUIButton>
+        {onDeleteToday ? (
+          <MUIButton onClick={onDeleteToday}>
+            Delete only {shortDate}
+          </MUIButton>
+        ) : null}
         <MUIButton color="error" onClick={onDeleteAll}>
           Delete future {weekDay} repeats
         </MUIButton>
