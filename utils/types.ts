@@ -232,6 +232,7 @@ export interface MonetizationSummaryResponse {
   checkoutStarts: number;
   checkoutCompletions: number;
   manualProGrants: number;
+  weeklyProBriefViews: number;
   billingPortalOpens: number;
   cancelRequests: number;
   subscriptionCancellations: number;
@@ -246,12 +247,14 @@ export interface MonetizationSummaryResponse {
     upgradePromptViews: number;
     upgradePromptClicks: number;
     checkoutStarts: number;
+    weeklyProBriefViews: number;
   };
   authenticatedStage?: {
     pricingPageViews: number;
     upgradePromptViews: number;
     upgradePromptClicks: number;
     checkoutStarts: number;
+    weeklyProBriefViews: number;
   };
   sourceBreakdown?: {
     landingPageViews: Record<string, number>;
@@ -261,6 +264,7 @@ export interface MonetizationSummaryResponse {
     upgradePromptViews: Record<string, number>;
     upgradePromptClicks: Record<string, number>;
     checkoutStarts: Record<string, number>;
+    weeklyProBriefViews: Record<string, number>;
   };
 }
 

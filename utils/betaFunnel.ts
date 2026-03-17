@@ -16,6 +16,7 @@ export interface BetaFunnelAnalytics {
   pricingCtaClickedAt?: Date | string;
   checkoutStartedAt?: Date | string;
   checkoutCompletedAt?: Date | string;
+  weeklyProBriefViewedAt?: Date | string;
   manualProGrantAppliedAt?: Date | string;
   billingPortalOpenedAt?: Date | string;
   cancelRequestedAt?: Date | string;
@@ -27,6 +28,7 @@ export interface BetaFunnelAnalytics {
   upgradePromptViewSources?: Record<string, number>;
   upgradePromptClickSources?: Record<string, number>;
   checkoutStartSources?: Record<string, number>;
+  weeklyProBriefViewSources?: Record<string, number>;
 }
 
 export type BetaFunnelDateKey =
@@ -46,6 +48,7 @@ export type BetaFunnelDateKey =
   | "pricingCtaClickedAt"
   | "checkoutStartedAt"
   | "checkoutCompletedAt"
+  | "weeklyProBriefViewedAt"
   | "manualProGrantAppliedAt"
   | "billingPortalOpenedAt"
   | "cancelRequestedAt"
@@ -58,7 +61,8 @@ export type BetaFunnelSourceKey =
   | "pricingCtaSources"
   | "upgradePromptViewSources"
   | "upgradePromptClickSources"
-  | "checkoutStartSources";
+  | "checkoutStartSources"
+  | "weeklyProBriefViewSources";
 
 export const betaFunnelMilestoneMap = {
   landing_page_viewed: "landingPageViewedAt",
@@ -76,6 +80,7 @@ export const betaFunnelMilestoneMap = {
   pricing_cta_clicked: "pricingCtaClickedAt",
   checkout_started: "checkoutStartedAt",
   checkout_completed: "checkoutCompletedAt",
+  weekly_pro_brief_viewed: "weeklyProBriefViewedAt",
   manual_pro_grant_applied: "manualProGrantAppliedAt",
   billing_portal_opened: "billingPortalOpenedAt",
   cancel_requested: "cancelRequestedAt",
@@ -91,6 +96,7 @@ export type MonetizationSummary = {
   checkoutStarts: number;
   checkoutCompletions: number;
   manualProGrants: number;
+  weeklyProBriefViews: number;
   billingPortalOpens: number;
   cancelRequests: number;
   subscriptionCancellations: number;
@@ -105,12 +111,14 @@ export type MonetizationSummary = {
     upgradePromptViews: number;
     upgradePromptClicks: number;
     checkoutStarts: number;
+    weeklyProBriefViews: number;
   };
   authenticatedStage: {
     pricingPageViews: number;
     upgradePromptViews: number;
     upgradePromptClicks: number;
     checkoutStarts: number;
+    weeklyProBriefViews: number;
   };
   sourceBreakdown: {
     landingPageViews: Record<string, number>;
@@ -120,6 +128,7 @@ export type MonetizationSummary = {
     upgradePromptViews: Record<string, number>;
     upgradePromptClicks: Record<string, number>;
     checkoutStarts: Record<string, number>;
+    weeklyProBriefViews: Record<string, number>;
   };
 };
 
@@ -185,6 +194,7 @@ export const normalizeBetaFunnel = (
       "pricingCtaClickedAt",
       "checkoutStartedAt",
       "checkoutCompletedAt",
+      "weeklyProBriefViewedAt",
       "manualProGrantAppliedAt",
       "billingPortalOpenedAt",
       "cancelRequestedAt",
@@ -210,6 +220,7 @@ export const normalizeBetaFunnel = (
       "upgradePromptViewSources",
       "upgradePromptClickSources",
       "checkoutStartSources",
+      "weeklyProBriefViewSources",
     ] as const
   ).forEach((key) => {
     const rawValue = candidate[key];
@@ -246,7 +257,8 @@ const incrementSourceCount = (
     | "pricingCtaSources"
     | "upgradePromptViewSources"
     | "upgradePromptClickSources"
-    | "checkoutStartSources",
+    | "checkoutStartSources"
+    | "weeklyProBriefViewSources",
   source?: string | null
 ) => {
   const normalizedSource = typeof source === "string" ? source.trim() : "";
@@ -300,6 +312,9 @@ export const markBetaFunnelMilestone = ({
       break;
     case "checkoutStartedAt":
       incrementSourceCount(next, "checkoutStartSources", source);
+      break;
+    case "weeklyProBriefViewedAt":
+      incrementSourceCount(next, "weeklyProBriefViewSources", source);
       break;
     default:
       break;
@@ -426,6 +441,7 @@ export const mergeBetaFunnels = ({
       "pricingCtaClickedAt",
       "checkoutStartedAt",
       "checkoutCompletedAt",
+      "weeklyProBriefViewedAt",
       "manualProGrantAppliedAt",
       "billingPortalOpenedAt",
       "cancelRequestedAt",
@@ -446,6 +462,7 @@ export const mergeBetaFunnels = ({
       "upgradePromptViewSources",
       "upgradePromptClickSources",
       "checkoutStartSources",
+      "weeklyProBriefViewSources",
     ] as const
   ).forEach((key) => {
     const merged = { ...(next[key] || {}) };
@@ -487,6 +504,7 @@ export const summarizeMonetizationFunnel = ({
   const checkoutStarts = countUsersWithMilestone(funnels, "checkoutStartedAt");
   const checkoutCompletions = countUsersWithMilestone(funnels, "checkoutCompletedAt");
   const manualProGrants = countUsersWithMilestone(funnels, "manualProGrantAppliedAt");
+  const weeklyProBriefViews = countUsersWithMilestone(funnels, "weeklyProBriefViewedAt");
   const billingPortalOpens = countUsersWithMilestone(funnels, "billingPortalOpenedAt");
   const cancelRequests = countUsersWithMilestone(funnels, "cancelRequestedAt");
   const subscriptionCancellations = countUsersWithMilestone(
@@ -503,6 +521,7 @@ export const summarizeMonetizationFunnel = ({
     checkoutStarts,
     checkoutCompletions,
     manualProGrants,
+    weeklyProBriefViews,
     billingPortalOpens,
     cancelRequests,
     subscriptionCancellations,
@@ -517,12 +536,14 @@ export const summarizeMonetizationFunnel = ({
       upgradePromptViews: countUsersWithMilestone(anonymousStageFunnels, "upgradePromptViewedAt"),
       upgradePromptClicks: countUsersWithMilestone(anonymousStageFunnels, "upgradePromptClickedAt"),
       checkoutStarts: countUsersWithMilestone(anonymousStageFunnels, "checkoutStartedAt"),
+      weeklyProBriefViews: countUsersWithMilestone(anonymousStageFunnels, "weeklyProBriefViewedAt"),
     },
     authenticatedStage: {
       pricingPageViews,
       upgradePromptViews,
       upgradePromptClicks,
       checkoutStarts,
+      weeklyProBriefViews,
     },
     sourceBreakdown: {
       landingPageViews: mergeSourceBreakdown(anonymousStageFunnels, "landingPageViewSources"),
@@ -549,6 +570,10 @@ export const summarizeMonetizationFunnel = ({
       checkoutStarts: mergeSourceBreakdown(
         [...anonymousStageFunnels, ...funnels],
         "checkoutStartSources"
+      ),
+      weeklyProBriefViews: mergeSourceBreakdown(
+        [...anonymousStageFunnels, ...funnels],
+        "weeklyProBriefViewSources"
       ),
     },
   };

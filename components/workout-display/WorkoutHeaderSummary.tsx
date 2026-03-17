@@ -16,7 +16,9 @@ type WorkoutHeaderSummaryProps = {
   hasExercises: boolean;
   isWholeWorkoutRepeating: boolean;
   isWorkoutComplete: boolean;
+  minimumWinMode: boolean;
   nextExercise: WorkoutDisplayExercise | null;
+  onToggleMinimumWinMode: () => void;
   onOpenNextSet: () => void;
   onOpenWorkoutRepeatDialog: () => void;
   shouldShowNextSummary: boolean;
@@ -28,7 +30,9 @@ const WorkoutHeaderSummary = ({
   hasExercises,
   isWholeWorkoutRepeating,
   isWorkoutComplete,
+  minimumWinMode,
   nextExercise,
+  onToggleMinimumWinMode,
   onOpenNextSet,
   onOpenWorkoutRepeatDialog,
   shouldShowNextSummary,
@@ -105,6 +109,18 @@ const WorkoutHeaderSummary = ({
                 {statusChip.label.toLowerCase().includes("in progress")
                   ? "Open Next Set"
                   : "Start Lift"}
+              </Button>
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button
+                variant={minimumWinMode ? "contained" : "outlined"}
+                onClick={onToggleMinimumWinMode}
+                sx={{
+                  alignSelf: "flex-start",
+                  borderRadius: 999,
+                }}
+              >
+                {minimumWinMode ? "Minimum Win On" : "Need a lighter day?"}
               </Button>
             </Stack>
           </Stack>

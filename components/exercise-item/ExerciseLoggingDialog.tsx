@@ -26,6 +26,7 @@ const ExerciseLoggingDialog = ({
   upcomingWeight,
   upcomingReps,
   preferredUnits,
+  lowEnergyModeActive,
   handleOpenRepeatFlow,
   isRepeating,
   currentSetIndex,
@@ -105,6 +106,11 @@ const ExerciseLoggingDialog = ({
               ? ` | Next target ${upcomingWeight} ${preferredUnits} x ${upcomingReps}`
               : ""}
           </Typography>
+          {lowEnergyModeActive ? (
+            <Typography sx={{ color: "text.secondary", mt: 0.35 }}>
+              Minimum win mode is active. Clean priority work still counts today.
+            </Typography>
+          ) : null}
         </Box>
         <Button
           onClick={handleOpenRepeatFlow}
@@ -148,6 +154,7 @@ const ExerciseLoggingDialog = ({
                 routineName={routineName}
                 set={s}
                 currentExercise={currentExercise}
+                lowEnergyModeActive={lowEnergyModeActive}
                 progressionStyle={recommendation?.progressionStyle}
                 setIndex={i}
                 currentExerciseIndex={exerciseIndex}

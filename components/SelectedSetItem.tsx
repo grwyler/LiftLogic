@@ -55,6 +55,7 @@ const SelectedSetItem = ({
   setRefetchExercises,
   refreshCalendarStatuses,
   isRestTimerBlocking,
+  lowEnergyModeActive = false,
   preferredUnits = "lb",
   onLogSetAttempt,
   onLogSetPersisted,
@@ -446,6 +447,9 @@ const SelectedSetItem = ({
         complete: updatedExercise.complete,
         sets: updatedExercise.sets,
         ruleId: updatedExercise.ruleId,
+        intentionalLowVolume: lowEnergyModeActive,
+        reducedVolumeIntentional: lowEnergyModeActive,
+        volumeReductionIntentional: lowEnergyModeActive,
         },
         persistEntry: saveWorkoutEntry,
       });
@@ -570,6 +574,12 @@ const SelectedSetItem = ({
           }}
         >
           {logSetError}
+        </Typography>
+      ) : null}
+
+      {lowEnergyModeActive ? (
+        <Typography sx={{ mb: 1.25, color: "text.secondary" }}>
+          Minimum win mode is active. This set will be saved as intentional reduced volume so the day still reads like a lighter success, not a miss.
         </Typography>
       ) : null}
 

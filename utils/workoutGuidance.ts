@@ -26,10 +26,22 @@ type LimitationRule = LimitationInsight & {
 export type ExerciseExecutionGuidance = {
   title: string;
   cues: string[];
+  warmup: {
+    title: string;
+    steps: string[];
+    rampSets: string[];
+  } | null;
   regression: {
     name: string;
     reason: string;
   } | null;
+};
+
+export type LowEnergyWorkoutGuide = {
+  headline: string;
+  supportingCopy: string;
+  focusLabel: string;
+  completionCopy: string;
 };
 
 const hasCatalogExercise = (name: string) =>
@@ -162,6 +174,18 @@ export const getExerciseExecutionGuidance = (
         "Sit between your hips instead of tipping onto your toes.",
         "Drive up through the whole foot and finish with hips and chest rising together.",
       ],
+      warmup: {
+        title: "Warm up before working sets",
+        steps: [
+          "Start with 3-5 minutes of easy movement plus 1-2 bodyweight squat patterns to open the hips and ankles.",
+          "Use the empty bar or a very light load to practice depth, bracing, and bar path before effort matters.",
+        ],
+        rampSets: [
+          "Ramp set 1: 5 controlled reps with the easiest load that feels crisp.",
+          "Ramp set 2: 3-4 reps at a moderate load to lock in position and speed.",
+          "Ramp set 3: 1-2 reps near your first work-set load so the first heavy set is not a shock.",
+        ],
+      },
       regression: {
         name: "Goblet Squat",
         reason: "Easier to balance, easier to learn depth, and simpler to keep controlled.",
@@ -177,6 +201,18 @@ export const getExerciseExecutionGuidance = (
         "Lower with control toward the same touch point each rep.",
         "Press back up without letting the shoulders roll forward.",
       ],
+      warmup: {
+        title: "Warm up before pressing hard",
+        steps: [
+          "Prime the shoulders and upper back with light scapular retraction, band pull-aparts, or easy push-up reps.",
+          "Take at least one empty-bar or very light set to find your touch point and pressing groove.",
+        ],
+        rampSets: [
+          "Ramp set 1: 6-8 smooth reps with a load that feels easy.",
+          "Ramp set 2: 3-5 reps at a moderate load to tighten setup and bar path.",
+          "Ramp set 3: 1-2 reps close to work-set load before your first demanding set.",
+        ],
+      },
       regression: {
         name: "Push-Up",
         reason: "Lets beginners learn bracing and pressing rhythm before chasing load.",
@@ -192,6 +228,18 @@ export const getExerciseExecutionGuidance = (
         "Keep your ribs down so the hinge comes from the hips, not the low back.",
         "Stand tall by squeezing the glutes instead of leaning back at lockout.",
       ],
+      warmup: {
+        title: "Ramp up hinge tension first",
+        steps: [
+          "Start with easy hamstring and glute activation so the hinge begins in the hips, not the low back.",
+          "Use a dowel, kettlebell, or empty bar to rehearse the hinge before loading the floor pull.",
+        ],
+        rampSets: [
+          "Ramp set 1: 5 light reps to groove the path and brace.",
+          "Ramp set 2: 3 reps at a moderate load with full resets between reps.",
+          "Ramp set 3: 1-2 reps near work-set load so the heavy set starts with confidence, not surprise.",
+        ],
+      },
       regression: {
         name: "Glute Bridge",
         reason: "Builds hip-extension mechanics with much less balance and spinal demand.",
@@ -207,6 +255,7 @@ export const getExerciseExecutionGuidance = (
         "Keep your neck relaxed instead of reaching your chin forward.",
         "Pause briefly at the strongest position before lowering under control.",
       ],
+      warmup: null,
       regression: {
         name: "Chest-Supported Row",
         reason: "Reduces setup complexity and lets beginners feel the back working sooner.",
@@ -222,6 +271,7 @@ export const getExerciseExecutionGuidance = (
         "Let the front foot stay heavy instead of drifting onto the toes.",
         "Use a shorter range first if balance is the limiting factor.",
       ],
+      warmup: null,
       regression: {
         name: "Reverse Lunge",
         reason: "Usually easier to control and friendlier for beginners than forward-traveling options.",
@@ -237,6 +287,7 @@ export const getExerciseExecutionGuidance = (
         "Keep the movement small enough that your trunk stays quiet.",
         "Stop the set when you lose position, not just when the timer ends.",
       ],
+      warmup: null,
       regression: {
         name: "Dead Bug",
         reason: "Teaches trunk control with less global fatigue than longer holds.",
@@ -245,4 +296,22 @@ export const getExerciseExecutionGuidance = (
   }
 
   return null;
+};
+
+export const getLowEnergyWorkoutGuide = (
+  plannedExerciseCount: number
+): LowEnergyWorkoutGuide => {
+  const focusCount = Math.min(Math.max(plannedExerciseCount, 1), 2);
+
+  return {
+    headline: "Minimum win mode is on",
+    supportingCopy:
+      focusCount === 1
+        ? "Today can still count. Focus on one priority lift, keep the effort clean, and leave the rest optional."
+        : `Today can still count. Focus on your next ${focusCount} priority lifts, trim the extras, and protect consistency instead of perfection.`,
+    focusLabel:
+      focusCount === 1 ? "One priority lift" : `${focusCount} priority lifts`,
+    completionCopy:
+      "Reduced volume on purpose is still a success signal. Your recommendations can treat this as an intentional lighter day instead of a failed session.",
+  };
 };

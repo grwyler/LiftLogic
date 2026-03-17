@@ -22,6 +22,9 @@ describe("pricing page positioning", () => {
     expect(source).toContain("Progress-based recommendations");
     expect(source).toContain("Billing is now wired for self-serve upgrades.");
     expect(source).toContain("Manage billing");
+    expect(source).toContain("Start with a real {trialDays}-day Pro trial");
+    expect(source).toContain("What happens after the trial?");
+    expect(source).toContain("pricing_trial_${option.interval}");
   });
 
   it("links pricing from landing, signup, routines, and settings", () => {

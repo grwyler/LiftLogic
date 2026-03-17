@@ -208,28 +208,30 @@ const RoutinesPage = ({
         setUpgradePrompt({
           title: "Generate a workout plan with the assistant",
           description:
-            "Pro Beta is the planning layer that drafts a program around your goal, schedule, and available equipment. You can still keep using Lift Logic for free tracking if you skip this.",
+            "Pro Beta is the planning layer that drafts a program around your goal, schedule, and available equipment. Eligible first-time upgrades can start with a 7-day trial, and you can still keep using Lift Logic for free tracking if you skip this.",
           benefits: [
             "Generate a first plan instead of building each day manually.",
             "Replace or rebuild your week when your constraints change.",
+            "Start Pro Beta with a 7-day trial if you want to test the adaptive layer first.",
             "Keep free logging, set tracking, and manual workout edits either way.",
           ],
           continueLabel: "Keep tracking free",
-          upgradeLabel: "View Pro Beta plans",
+          upgradeLabel: "View trial and pricing",
         });
         return;
       case "coach_regeneration":
         setUpgradePrompt({
           title: "Let the coach revise your plan",
           description:
-            "Pro Beta unlocks assistant-led rebuilds when your schedule, equipment, or training assumptions change. If you skip it, you can still track workouts and use chat for guidance.",
+            "Pro Beta unlocks assistant-led rebuilds when your schedule, equipment, or training assumptions change. Eligible first-time upgrades can start with a 7-day trial. If you skip it, you can still track workouts and use chat for guidance.",
           benefits: [
             "Rebuild the split around updated training days or constraints.",
+            "Try the adaptive planning layer for 7 days before full billing begins.",
             "Adjust plan structure without losing your free tracking flow.",
             "Keep chatting with the coach and logging manually if you stay on Free.",
           ],
           continueLabel: "Keep chatting on Free",
-          upgradeLabel: "Upgrade for plan edits",
+          upgradeLabel: "See trial options",
         });
         return;
       case "recurring_schedule":
@@ -240,6 +242,7 @@ const RoutinesPage = ({
           benefits: [
             "Repeat a lift or whole workout on a weekly schedule.",
             "Let upcoming workout days populate automatically.",
+            "Start Pro Beta with a 7-day trial if you want to test repeat scheduling before paying in full.",
             "Keep free day-by-day tracking even if you decline.",
           ],
           continueLabel: "Keep this one-time",
@@ -250,28 +253,30 @@ const RoutinesPage = ({
         setUpgradePrompt({
           title: "Turn this momentum into next-session guidance",
           description:
-            "You have enough logged progress to generate smarter next-session targets. Pro Beta turns that success into adaptive guidance, while Free keeps the base workout logging open.",
+            "You have enough logged progress to generate smarter next-session targets. Pro Beta turns that success into adaptive guidance, and eligible first-time upgrades can start with a 7-day trial while Free keeps the base workout logging open.",
           benefits: [
             "See next-session sets, reps, and load recommendations from your logs.",
             "Review performance trends as your completed data grows.",
+            "Start with a 7-day trial if you want proof before a full subscription commitment.",
             "Keep logging every session for free if you want to wait.",
           ],
           continueLabel: "Keep logging free",
-          upgradeLabel: "Upgrade for recommendations",
+          upgradeLabel: "See trial and recommendations",
         });
         return;
       case "personal_record_celebration":
         setUpgradePrompt({
           title: "Build on this personal record while it is fresh",
           description:
-            "You just beat a prior benchmark. Pro Beta can turn that win into a tighter next block with updated targets, progression, and schedule follow-through.",
+            "You just beat a prior benchmark. Pro Beta can turn that win into a tighter next block with updated targets, progression, and schedule follow-through, and eligible first-time upgrades can start with a 7-day trial.",
           benefits: [
             "Use today's PR to tighten next-session recommendations.",
             "Carry the new benchmark into your next week instead of guessing.",
+            "Try the paid coaching layer for 7 days before ongoing billing starts.",
             "Keep free workout logging intact even if you dismiss this.",
           ],
           continueLabel: "Stay on free logging",
-          upgradeLabel: "Extend this momentum",
+          upgradeLabel: "Extend this with a trial",
         });
         return;
       default:

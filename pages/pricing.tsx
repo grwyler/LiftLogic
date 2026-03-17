@@ -36,6 +36,7 @@ import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
 import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
 const pricingRadius = brandRadii;
+const trialDays = 7;
 
 const freePlanFeatures = [
   "Workout logging and quick add",
@@ -56,6 +57,7 @@ const proPlanFeatures = [
   "Assistant-driven plan edits and schedule changes",
   "Recurring workout schedules",
   "Progress-based recommendations from your logs",
+  `Eligible first-time upgrades can start with a ${trialDays}-day Pro trial`,
 ];
 
 const comparisonRows = [
@@ -100,6 +102,12 @@ const comparisonRows = [
     free: "Pro Beta",
     starter: "Upgrade path into Pro",
     pro: "Included",
+  },
+  {
+    label: "Risk-reversal for first upgrade",
+    free: "No trial",
+    starter: "One-time scope",
+    pro: `${trialDays}-day trial`,
   },
 ];
 
@@ -254,14 +262,22 @@ const PricingPage: React.FC = () => {
   const currentPeriodEndLabel = formatBillingDate(billingSummary?.currentPeriodEnd);
   const hasPaidAccess = billingPlan === "pro_beta";
 
-  const handleCheckout = async (interval: "month" | "year") => {
+  const handleCheckout = async (
+    interval: "month" | "year",
+    options: {
+      trialRequested?: boolean;
+      source: string;
+    }
+  ) => {
     try {
       setActionLoading(interval);
       setBillingError("");
       await trackBetaFunnelMilestone("checkout_started", {
-        source: `pricing_checkout_${interval}`,
+        source: options.source,
       });
-      const { url } = await createBillingCheckoutSession(interval);
+      const { url } = await createBillingCheckoutSession(interval, {
+        trialRequested: options.trialRequested,
+      });
       window.location.assign(url);
     } catch (error) {
       console.error("Error starting checkout:", error);
@@ -271,10 +287,11 @@ const PricingPage: React.FC = () => {
         kind: "checkout_failure",
         status: "failure",
         route: "/pricing",
-        source: `pricing_checkout_${interval}`,
+        source: options.source,
         message,
         metadata: {
           interval,
+          trialRequested: Boolean(options.trialRequested),
         },
       }).catch(() => undefined);
       setBillingError(message);
@@ -658,6 +675,12 @@ const PricingPage: React.FC = () => {
               Use Lift Logic when you want the app to build, revise, and adapt the
               week with you.
             </Typography>
+            <Alert severity="success" sx={{ mt: 1.5, borderRadius: pricingRadius.inset }}>
+              Start with a real {trialDays}-day Pro trial on your first upgrade. During the
+              trial, adaptive planning, recurring schedules, and recommendation tools stay fully
+              on. If you cancel before the trial ends, your account falls back to free logging and
+              you keep your workouts, setup, and history.
+            </Alert>
 
             <Stack spacing={1.1} sx={{ mt: 2 }}>
               {proPlanFeatures.map((feature) => (
@@ -701,18 +724,37 @@ const PricingPage: React.FC = () => {
               ) : checkoutEnabled ? (
                 <>
                   {visiblePriceOptions.map((option) => (
-                    <Button
-                      key={option.interval}
-                      variant={option.interval === "year" ? "contained" : "outlined"}
-                      onClick={() => handleCheckout(option.interval)}
-                      disabled={Boolean(actionLoading) || hasPaidAccess}
-                    >
-                      {actionLoading === option.interval
-                        ? "Opening checkout..."
-                        : hasPaidAccess
-                        ? "Already on Pro Beta"
-                        : `Upgrade ${option.interval === "year" ? "yearly" : "monthly"}`}
-                    </Button>
+                    <Stack key={option.interval} spacing={0.75}>
+                      <Button
+                        variant={option.interval === "year" ? "contained" : "outlined"}
+                        onClick={() =>
+                          handleCheckout(option.interval, {
+                            trialRequested: true,
+                            source: `pricing_trial_${option.interval}`,
+                          })
+                        }
+                        disabled={Boolean(actionLoading) || hasPaidAccess}
+                      >
+                        {actionLoading === option.interval
+                          ? "Opening checkout..."
+                          : hasPaidAccess
+                          ? "Already on Pro Beta"
+                          : `Start ${trialDays}-day ${
+                              option.interval === "year" ? "yearly" : "monthly"
+                            } trial`}
+                      </Button>
+                      <Button
+                        variant="text"
+                        onClick={() =>
+                          handleCheckout(option.interval, {
+                            source: `pricing_checkout_${option.interval}_no_trial`,
+                          })
+                        }
+                        disabled={Boolean(actionLoading) || hasPaidAccess}
+                      >
+                        {`Prefer immediate ${option.interval === "year" ? "yearly" : "monthly"} billing?`}
+                      </Button>
+                    </Stack>
                   ))}
                 </>
               ) : (
@@ -731,6 +773,27 @@ const PricingPage: React.FC = () => {
                   {actionLoading === "portal" ? "Opening portal..." : "Manage billing"}
                 </Button>
               ) : null}
+
+              <Paper
+                elevation={0}
+                sx={{
+                  mt: 0.5,
+                  p: 1.15,
+                  borderRadius: pricingRadius.inset,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  backgroundColor: "rgba(255,255,255,0.82)",
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  What happens after the trial?
+                </Typography>
+                <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                  Pro keeps adaptive planning, recurring scheduling, and data-driven
+                  recommendations active. If you do not stay paid, Lift Logic falls back to free
+                  logging and execution while preserving your workout history and setup.
+                </Typography>
+              </Paper>
             </Stack>
           </Paper>
         </Box>

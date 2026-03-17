@@ -950,13 +950,13 @@ const useWorkoutsManagerState = (
         scheduledCount,
         remainingScheduledCount,
         state,
-        headline: "A little behind this week",
+        headline: "Resetting this week",
         supportingCopy:
           remainingScheduledCount > 0
-            ? `You have ${remainingScheduledCount} scheduled workout${
+            ? `You still have ${remainingScheduledCount} scheduled workout${
                 remainingScheduledCount === 1 ? "" : "s"
-              } left, but this week needs a small reset to hit ${target}.`
-            : `No scheduled sessions are left this week, so now is a good time to adjust your target or add another workout.`,
+              } left. Treat the next one like a fresh anchor and adjust the rest of the week around what is realistic now.`
+            : `No scheduled sessions are left this week, so this is a good moment to reset the target or add one realistic anchor session.`,
       };
     }
 
@@ -966,11 +966,11 @@ const useWorkoutsManagerState = (
       scheduledCount,
       remainingScheduledCount,
       state,
-      headline: "You are on track this week",
+      headline: "Still in reach this week",
       supportingCopy:
         remainingScheduledCount > 0
-          ? `${completedCount} down, ${remainingScheduledCount} scheduled to go, and your ${target}-workout target is still in reach.`
-          : `You are still tracking toward ${target} workouts this week. Add another session if you want the plan to reflect that.`,
+          ? `${completedCount} are already logged, ${remainingScheduledCount} are still scheduled, and your ${target}-workout target is still in reach.`
+          : `You are still pointed toward ${target} workouts this week. Add another session if you want the plan to reflect the extra momentum.`,
     };
   }, [
     currentDate,
@@ -1073,6 +1073,26 @@ const useWorkoutsManagerState = (
       nextWeekScheduledCount > 0
         ? `${nextWeekScheduledCount} day${nextWeekScheduledCount === 1 ? "" : "s"} are already lined up next week${nextWeekFirstDayLabel ? `, starting ${nextWeekFirstDayLabel}` : ""}. Pick the day most likely to happen and protect it now.`
         : "No next-week sessions are scheduled yet. Set one realistic anchor workout so the week starts with intent instead of guesswork.";
+    const recommendedFocus =
+      thisWeekCompleted === 0
+        ? "Protect one easy first session next week and let it restart momentum."
+        : nextWeekScheduledCount > 0
+        ? `Keep the first scheduled session${nextWeekFirstDayLabel ? ` on ${nextWeekFirstDayLabel}` : ""} simple enough that it definitely happens.`
+        : "Add one realistic anchor workout next week so the plan starts with a clear win.";
+    const recentBriefs = [
+      {
+        id: "this_week",
+        label: "This week",
+        headline: reviewHeadline,
+        summary: reviewCopy,
+      },
+      {
+        id: "next_week",
+        label: "Next week",
+        headline: previewHeadline,
+        summary: previewCopy,
+      },
+    ];
 
     return {
       reviewHeadline,
@@ -1083,6 +1103,8 @@ const useWorkoutsManagerState = (
       lastWeekCompleted,
       nextWeekScheduledCount,
       nextWeekFirstDayLabel,
+      recommendedFocus,
+      recentBriefs,
     };
   }, [currentDate, mergedStatusMap]);
 

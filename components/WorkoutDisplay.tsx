@@ -21,11 +21,13 @@ import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary";
 import WorkoutSecondaryInsights from "./workout-display/WorkoutSecondaryInsights";
 import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
+import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
 import {
   buildRoutineSemanticButtonSx,
   buildRoutineSemanticPanelSx,
 } from "../utils/routinesSemanticStyles";
 import { UserDoc, WorkoutExerciseView } from "../utils/types";
+import { getLowEnergyWorkoutGuide } from "../utils/workoutGuidance";
 import {
   WorkoutComebackGuide,
   WorkoutDisplayExercise,
@@ -89,7 +91,9 @@ const WorkoutDisplay = ({
 }: WorkoutDisplayProps) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [completionRecapDismissed, setCompletionRecapDismissed] = useState(false);
+  const [minimumWinMode, setMinimumWinMode] = useState(false);
   const completionStateRef = useRef(false);
+  const proWeeklyBriefTrackedRef = useRef(false);
   const { data: session } = useSession() as {
     data: (Session & { token?: { user?: { _id?: string } } }) | null;
   };
@@ -222,6 +226,21 @@ const WorkoutDisplay = ({
   const shouldShowCompletionRecap = isWorkoutComplete && !completionRecapDismissed;
   const shouldShowNextSummary = Boolean(nextExercise);
   const remainingExerciseCount = plannedExercises.length;
+  const lowEnergyGuide = useMemo(
+    () => getLowEnergyWorkoutGuide(remainingExerciseCount),
+    [remainingExerciseCount]
+  );
+  const visiblePlannedExercises = useMemo(
+    () =>
+      minimumWinMode
+        ? plannedExercises.slice(0, Math.min(2, plannedExercises.length))
+        : plannedExercises,
+    [minimumWinMode, plannedExercises]
+  );
+  const trimmedExerciseCount = Math.max(
+    0,
+    plannedExercises.length - visiblePlannedExercises.length
+  );
   const primaryActionLabel = !hasExercises
     ? "Add First Exercise"
     : shouldShowNextSummary
@@ -324,6 +343,31 @@ const WorkoutDisplay = ({
     completionStateRef.current = isWorkoutComplete;
   }, [isWorkoutComplete]);
 
+  useEffect(() => {
+    if (!hasExercises || isWorkoutComplete) {
+      setMinimumWinMode(false);
+    }
+  }, [hasExercises, isWorkoutComplete]);
+
+  useEffect(() => {
+    if (!progressionRecommendationsEnabled || !weeklyReviewPreview) {
+      proWeeklyBriefTrackedRef.current = false;
+      return;
+    }
+
+    if (proWeeklyBriefTrackedRef.current) {
+      return;
+    }
+
+    proWeeklyBriefTrackedRef.current = true;
+    void trackBetaFunnelMilestone("weekly_pro_brief_viewed", {
+      source: "routines_pro_weekly_brief",
+    }).catch((error) => {
+      proWeeklyBriefTrackedRef.current = false;
+      console.error("Error tracking Pro weekly brief view:", error);
+    });
+  }, [progressionRecommendationsEnabled, weeklyReviewPreview]);
+
   const handleCompletionNextStep = () => {
     if (recurringSchedulingEnabled && hasExercises) {
       openWorkoutRepeatDialog();
@@ -378,7 +422,9 @@ const WorkoutDisplay = ({
         hasExercises={hasExercises}
         isWholeWorkoutRepeating={isWholeWorkoutRepeating}
         isWorkoutComplete={isWorkoutComplete}
+        minimumWinMode={minimumWinMode}
         nextExercise={nextExercise}
+        onToggleMinimumWinMode={() => setMinimumWinMode((previous) => !previous)}
         onOpenNextSet={handleOpenNextSet}
         onOpenWorkoutRepeatDialog={openWorkoutRepeatDialog}
         shouldShowNextSummary={shouldShowNextSummary}
@@ -404,6 +450,71 @@ const WorkoutDisplay = ({
           workoutVolume={workoutVolume}
         />
 
+        {hasExercises && !isWorkoutComplete ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.5,
+              borderRadius: routinesPanelRadius.section,
+              border: "1px solid",
+              borderColor: minimumWinMode
+                ? darkMode
+                  ? "rgba(250,204,21,0.24)"
+                  : "rgba(202,138,4,0.18)"
+                : "divider",
+              backgroundColor: minimumWinMode
+                ? darkMode
+                  ? "rgba(69,26,3,0.34)"
+                  : "rgba(255,251,235,0.92)"
+                : darkMode
+                ? "rgba(15,23,42,0.42)"
+                : "rgba(248,250,252,0.9)",
+            }}
+          >
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={1.25}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", md: "center" }}
+            >
+              <Box>
+                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+                  {minimumWinMode ? "Minimum Win" : "Low-energy option"}
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 0.2 }}>
+                  {minimumWinMode ? lowEnergyGuide.headline : "Need a lighter version of today?"}
+                </Typography>
+                <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                  {minimumWinMode
+                    ? lowEnergyGuide.supportingCopy
+                    : "Switch the session into a lighter path when time, energy, or focus is low. The day can still count."}
+                </Typography>
+                {minimumWinMode ? (
+                  <Typography sx={{ mt: 0.65, color: "text.secondary" }}>
+                    {lowEnergyGuide.completionCopy}
+                  </Typography>
+                ) : null}
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {minimumWinMode ? (
+                  <>
+                    <Button variant="contained" onClick={handleOpenNextSet}>
+                      Focus the next lift
+                    </Button>
+                    <Button variant="outlined" onClick={() => setMinimumWinMode(false)}>
+                      Return to full plan
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outlined" onClick={() => setMinimumWinMode(true)}>
+                    Turn this into a minimum win
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+          </Paper>
+        ) : null}
+
         <MuscleRecoveryMap
           exercises={exercises}
           userId={currentUserId}
@@ -412,20 +523,25 @@ const WorkoutDisplay = ({
           darkMode={darkMode}
         />
 
-        {plannedExercises.length > 0 ? (
+        {visiblePlannedExercises.length > 0 ? (
           <ExerciseListSection
             activeRestTimer={activeRestTimer}
             currentExerciseIndex={currentExerciseIndex}
             currentWorkout={currentWorkout}
             darkMode={darkMode}
-            description="Exercises you still have left to complete today."
+            description={
+              minimumWinMode
+                ? "Only the highest-priority work stays visible so a lighter session is easier to finish."
+                : "Exercises you still have left to complete today."
+            }
             exerciseProgressById={exerciseProgressById}
             exercises={exercises}
             formattedDate={formattedDate}
             getExerciseCacheKey={getExerciseCacheKey}
             getExerciseIdentity={getExerciseIdentity}
             handleExerciseDragEnd={handleExerciseDragEnd}
-            items={plannedExercises}
+            items={visiblePlannedExercises}
+            lowEnergyModeActive={minimumWinMode}
             loadingProgressById={loadingProgressById}
             onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
             onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
@@ -440,9 +556,26 @@ const WorkoutDisplay = ({
             setRefetchExercises={setRefetchExercises}
             setShownMenuIndex={setShownMenuIndex}
             shownMenuIndex={shownMenuIndex}
-            title="Scheduled"
+            title={minimumWinMode ? "Minimum Win Focus" : "Scheduled"}
             userProfile={userProfile}
           />
+        ) : null}
+
+        {minimumWinMode && trimmedExerciseCount > 0 ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.25,
+              borderRadius: routinesPanelRadius.section,
+              border: "1px dashed",
+              borderColor: "divider",
+              backgroundColor: darkMode ? "rgba(15,23,42,0.35)" : "rgba(248,250,252,0.82)",
+            }}
+          >
+            <Typography sx={{ color: "text.secondary" }}>
+              {trimmedExerciseCount} extra exercise{trimmedExerciseCount === 1 ? "" : "s"} moved out of the main flow for today. You can still come back to the full plan whenever energy returns.
+            </Typography>
+          </Paper>
         ) : null}
 
         {completedExercises.length > 0 ? (
@@ -459,6 +592,7 @@ const WorkoutDisplay = ({
             getExerciseIdentity={getExerciseIdentity}
             handleExerciseDragEnd={handleExerciseDragEnd}
             items={completedExercises}
+            lowEnergyModeActive={minimumWinMode}
             loadingProgressById={loadingProgressById}
             onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
             onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
@@ -509,6 +643,7 @@ const WorkoutDisplay = ({
           darkMode={darkMode}
           progressTrendCards={progressTrendCards}
           progressTrendSummary={progressTrendSummary}
+          showProWeeklyBrief={progressionRecommendationsEnabled}
           weeklyConsistency={weeklyConsistency}
           weeklyReviewPreview={weeklyReviewPreview}
           weeklyTargetDraft={weeklyTargetDraft}

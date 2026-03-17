@@ -53,6 +53,13 @@ export type WorkoutWeeklyReviewPreview = {
   lastWeekCompleted: number;
   nextWeekScheduledCount: number;
   nextWeekFirstDayLabel: string | null;
+  recommendedFocus?: string;
+  recentBriefs?: Array<{
+    id: string;
+    label: string;
+    headline: string;
+    summary: string;
+  }>;
 };
 
 export type WorkoutProgressLookup = Record<

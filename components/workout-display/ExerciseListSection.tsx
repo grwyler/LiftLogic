@@ -23,6 +23,7 @@ const ExerciseListSection = ({
   getExerciseIdentity,
   handleExerciseDragEnd,
   items,
+  lowEnergyModeActive,
   loadingProgressById,
   onRequestPersonalRecordUpgradePrompt,
   onRequestProgressionUpgradePrompt,
@@ -52,6 +53,7 @@ const ExerciseListSection = ({
   getExerciseIdentity: (exercise: WorkoutDisplayExercise, fallbackIndex?: number | string) => string;
   handleExerciseDragEnd: (...args: unknown[]) => void;
   items: WorkoutDisplayExercise[];
+  lowEnergyModeActive: boolean;
   loadingProgressById: Record<string, boolean>;
   onRequestPersonalRecordUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
@@ -105,6 +107,7 @@ const ExerciseListSection = ({
         recommendation={exerciseProgressById[getExerciseCacheKey(exercise)]?.recommendation ?? null}
         progressSummary={exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null}
         loadingRecommendation={Boolean(loadingProgressById[getExerciseCacheKey(exercise)])}
+        lowEnergyModeActive={lowEnergyModeActive}
         progressionRecommendationsEnabled={progressionRecommendationsEnabled}
         recurringSchedulingEnabled={recurringSchedulingEnabled}
         onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}

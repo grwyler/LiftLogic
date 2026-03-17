@@ -413,6 +413,41 @@ export const ExerciseExecutionPanel = ({
           </Typography>
         ))}
       </Box>
+      {guidance.warmup ? (
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 1.15,
+            p: 1.1,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor: darkMode
+              ? "rgba(250,204,21,0.2)"
+              : "rgba(202,138,4,0.18)",
+            backgroundColor: darkMode
+              ? "rgba(51,65,85,0.5)"
+              : "rgba(255,251,235,0.92)",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            {guidance.warmup.title}
+          </Typography>
+          <Box sx={{ mt: 0.6, display: "grid", gap: 0.55 }}>
+            {guidance.warmup.steps.map((step) => (
+              <Typography key={step} sx={{ color: "text.secondary" }}>
+                {`\u2022 ${step}`}
+              </Typography>
+            ))}
+          </Box>
+          <Box sx={{ mt: 0.85, display: "grid", gap: 0.45 }}>
+            {guidance.warmup.rampSets.map((rampSet) => (
+              <Typography key={rampSet} sx={{ color: "text.secondary" }}>
+                {`\u2022 ${rampSet}`}
+              </Typography>
+            ))}
+          </Box>
+        </Paper>
+      ) : null}
       {guidance.regression ? (
         <Paper
           elevation={0}

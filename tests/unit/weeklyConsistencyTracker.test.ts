@@ -12,8 +12,8 @@ describe("weekly consistency tracker", () => {
     expect(source).toContain("Weekly Consistency");
     expect(source).toContain('label="Weekly target"');
     expect(source).toContain("Goal hit");
-    expect(source).toContain("Behind");
-    expect(source).toContain("On track");
+    expect(source).toContain("Resetting");
+    expect(source).toContain("Still in reach");
     expect(source).toContain("workouts this week");
     expect(source).toContain("scheduled");
     expect(source).toContain("remaining");

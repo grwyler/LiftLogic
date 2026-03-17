@@ -15,6 +15,7 @@ type WorkoutSecondaryInsightsProps = {
   darkMode: boolean;
   progressTrendCards: WorkoutTrendCard[];
   progressTrendSummary: WorkoutTrendSummary;
+  showProWeeklyBrief?: boolean;
   weeklyConsistency?: WorkoutWeeklyConsistency | null;
   weeklyReviewPreview?: WorkoutWeeklyReviewPreview | null;
   weeklyTargetDraft: string;
@@ -27,6 +28,7 @@ const WorkoutSecondaryInsights = ({
   darkMode,
   progressTrendCards,
   progressTrendSummary,
+  showProWeeklyBrief = false,
   weeklyConsistency,
   weeklyReviewPreview,
   weeklyTargetDraft,
@@ -141,6 +143,82 @@ const WorkoutSecondaryInsights = ({
         </Paper>
       ) : null}
 
+      {showProWeeklyBrief && weeklyReviewPreview ? (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.4,
+            borderRadius: routinesPanelRadius.section,
+            border: "1px solid",
+            borderColor: darkMode ? "rgba(250,204,21,0.24)" : "rgba(202,138,4,0.2)",
+            background: darkMode
+              ? "linear-gradient(145deg, rgba(69,26,3,0.54), rgba(30,41,59,0.82))"
+              : "linear-gradient(145deg, rgba(255,251,235,0.96), rgba(255,255,255,0.98))",
+          }}
+        >
+          <Stack spacing={1.15}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Box>
+                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+                  Pro Weekly Brief
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 0.25 }}>
+                  Progress recap plus next-week adaptation
+                </Typography>
+                <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                  {weeklyReviewPreview.recommendedFocus}
+                </Typography>
+              </Box>
+              <Chip size="small" color="warning" variant="outlined" label="Paid coaching loop" />
+            </Stack>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip size="small" variant="outlined" label={`${weeklyReviewPreview.thisWeekCompleted} completed this week`} />
+              <Chip size="small" variant="outlined" label={`${weeklyReviewPreview.lastWeekCompleted} in the prior week`} />
+              <Chip
+                size="small"
+                color={weeklyReviewPreview.nextWeekScheduledCount > 0 ? "success" : "warning"}
+                variant="outlined"
+                label={`${weeklyReviewPreview.nextWeekScheduledCount} planned next week`}
+              />
+            </Stack>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+                gap: 1,
+              }}
+            >
+              {(weeklyReviewPreview.recentBriefs ?? []).map((brief) => (
+                <Paper
+                  key={brief.id}
+                  elevation={0}
+                  sx={{
+                    p: 1.1,
+                    borderRadius: routinesPanelRadius.section,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    backgroundColor: darkMode ? "rgba(15,23,42,0.48)" : "rgba(255,255,255,0.88)",
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary">
+                    {brief.label}
+                  </Typography>
+                  <Typography sx={{ mt: 0.25, fontWeight: 700 }}>{brief.headline}</Typography>
+                  <Typography sx={{ mt: 0.35, color: "text.secondary" }}>{brief.summary}</Typography>
+                </Paper>
+              ))}
+            </Box>
+          </Stack>
+        </Paper>
+      ) : null}
+
       {weeklyConsistency ? (
         <Paper
           elevation={0}
@@ -184,8 +262,8 @@ const WorkoutSecondaryInsights = ({
                       weeklyConsistency.state === "goal_hit"
                         ? "Goal hit"
                         : weeklyConsistency.state === "behind"
-                        ? "Behind"
-                        : "On track"
+                        ? "Resetting"
+                        : "Still in reach"
                     }
                     variant="outlined"
                   />

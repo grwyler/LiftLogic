@@ -41,6 +41,8 @@ export default async function handler(
   }
 
   const requestedInterval = sanitizeText(req.body?.interval).toLowerCase();
+  const trialRequested = Boolean(req.body?.trialRequested);
+  const trialDays = trialRequested ? 7 : 0;
   const price = findBillingPriceByInterval(config, requestedInterval);
   if (!price) {
     return res.status(400).json({ message: "Valid billing interval is required." });
@@ -80,12 +82,15 @@ export default async function handler(
       metadata: {
         userId,
         billingInterval: price.interval,
+        trialRequested: trialRequested ? "true" : "false",
       },
       subscription_data: {
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
         metadata: {
           userId,
           billingInterval: price.interval,
           billingPlan: "pro_beta",
+          trialRequested: trialRequested ? "true" : "false",
         },
       },
       ...(user.stripeCustomerId

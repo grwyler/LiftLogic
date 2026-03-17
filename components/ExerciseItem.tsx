@@ -95,6 +95,7 @@ type ExerciseItemProps = {
     bestRepPerformance?: unknown;
     latestEstimated1RM?: number;
   } | null;
+  lowEnergyModeActive?: boolean;
   loadingRecommendation?: boolean;
   progressionRecommendationsEnabled?: boolean;
   recurringSchedulingEnabled?: boolean;
@@ -139,6 +140,7 @@ const ExerciseItem = ({
   userProfile,
   recommendation,
   progressSummary,
+  lowEnergyModeActive = false,
   loadingRecommendation,
   progressionRecommendationsEnabled = true,
   recurringSchedulingEnabled = true,
@@ -1006,6 +1008,7 @@ const ExerciseItem = ({
         }
         upcomingReps={upcomingReps}
         preferredUnits={preferredUnits}
+        lowEnergyModeActive={lowEnergyModeActive}
         handleOpenRepeatFlow={handleOpenRepeatFlow}
         isRepeating={isRepeating}
         currentSetIndex={currentSetIndex}
