@@ -10,10 +10,25 @@ import { Session } from "next-auth";
 import DaySwitcher from "./DaySwitcher";
 import WorkoutDisplay from "./WorkoutDisplay";
 import LoadingIndicator from "./LoadingIndicator";
-import { Box } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+} from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
+import {
+  WorkoutSessionDraft,
+  discardWorkoutSessionDraft,
+  readLatestWorkoutSessionDraftForUser,
+  saveWorkoutSessionDraft,
+  shouldPersistWorkoutSessionDraft,
+} from "../utils/workoutSessionDraft";
 
 type Workout = {
   title: string;
@@ -135,6 +150,111 @@ const WorkoutsManager: React.FC<{
     calendarStatusMap,
     sessionUserId,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
+  const [pendingRecoveryDraft, setPendingRecoveryDraft] =
+    useState<WorkoutSessionDraft | null>(null);
+  const [recoveryHandledKey, setRecoveryHandledKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionUserId || !currentWorkout?.title) {
+      return;
+    }
+
+    if (
+      shouldPersistWorkoutSessionDraft({
+        exercises,
+        currentExerciseIndex,
+        isAddingExercise,
+      })
+    ) {
+      saveWorkoutSessionDraft({
+        version: 1,
+        userId: sessionUserId,
+        dateISO,
+        routineName: currentWorkout.title,
+        currentExerciseIndex,
+        isAddingExercise,
+        exercises,
+        savedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    discardWorkoutSessionDraft({
+      userId: sessionUserId,
+      dateISO,
+      routineName: currentWorkout.title,
+    });
+  }, [
+    currentExerciseIndex,
+    currentWorkout?.title,
+    dateISO,
+    exercises,
+    isAddingExercise,
+    sessionUserId,
+  ]);
+
+  useEffect(() => {
+    if (!sessionUserId || isLoadingWorkout || pendingRecoveryDraft) {
+      return;
+    }
+
+    const nextDraft = readLatestWorkoutSessionDraftForUser(sessionUserId);
+    if (!nextDraft) {
+      return;
+    }
+
+    const nextDraftKey = `${nextDraft.userId}::${nextDraft.dateISO}::${nextDraft.routineName}`;
+    if (recoveryHandledKey === nextDraftKey) {
+      return;
+    }
+
+    if (
+      !shouldPersistWorkoutSessionDraft({
+        exercises: nextDraft.exercises,
+        currentExerciseIndex: nextDraft.currentExerciseIndex,
+        isAddingExercise: nextDraft.isAddingExercise,
+      })
+    ) {
+      setRecoveryHandledKey(nextDraftKey);
+      return;
+    }
+
+    setPendingRecoveryDraft(nextDraft);
+  }, [isLoadingWorkout, pendingRecoveryDraft, recoveryHandledKey, sessionUserId]);
+
+  const handleResumeRecoveredWorkout = () => {
+    if (!pendingRecoveryDraft) {
+      return;
+    }
+
+    const [year, month, day] = pendingRecoveryDraft.dateISO.split("-").map(Number);
+    const recoveredDate = new Date(year, month - 1, day);
+    setCurrentDate(recoveredDate);
+    setCalendarViewDate(recoveredDate);
+    setExercises(pendingRecoveryDraft.exercises);
+    setCurrentExerciseIndex(pendingRecoveryDraft.currentExerciseIndex);
+    setIsAddingExercise(pendingRecoveryDraft.isAddingExercise);
+    setRecoveryHandledKey(
+      `${pendingRecoveryDraft.userId}::${pendingRecoveryDraft.dateISO}::${pendingRecoveryDraft.routineName}`
+    );
+    setPendingRecoveryDraft(null);
+  };
+
+  const handleDiscardRecoveredWorkout = () => {
+    if (!pendingRecoveryDraft) {
+      return;
+    }
+
+    discardWorkoutSessionDraft({
+      userId: pendingRecoveryDraft.userId,
+      dateISO: pendingRecoveryDraft.dateISO,
+      routineName: pendingRecoveryDraft.routineName,
+    });
+    setRecoveryHandledKey(
+      `${pendingRecoveryDraft.userId}::${pendingRecoveryDraft.dateISO}::${pendingRecoveryDraft.routineName}`
+    );
+    setPendingRecoveryDraft(null);
+  };
 
   const handleCurrentDayChange = (change: number, isDateSelection: boolean) => {
     let newDate: Date;
@@ -155,6 +275,21 @@ const WorkoutsManager: React.FC<{
 
   return (
     <Box>
+      <Dialog open={Boolean(pendingRecoveryDraft)} onClose={handleDiscardRecoveredWorkout}>
+        <DialogTitle>Resume in-progress workout?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.secondary" }}>
+            Lift Logic found a saved workout draft for {pendingRecoveryDraft?.routineName || "your workout"} on{" "}
+            {pendingRecoveryDraft?.dateISO || "a recent day"}. You can resume where you left off or discard the draft.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDiscardRecoveredWorkout}>Discard draft</Button>
+          <Button variant="contained" onClick={handleResumeRecoveredWorkout}>
+            Resume workout
+          </Button>
+        </DialogActions>
+      </Dialog>
       {isAddingExercise ? (
         <ExerciseManager
           index={currentExerciseIndex}

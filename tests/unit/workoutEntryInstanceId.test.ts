@@ -342,4 +342,84 @@ describe("workout entry occurrence identity", () => {
       getRecurringWorkoutEntryInstanceId("rule-123", "2026-03-16", "Monday Workout")
     ).toBe("recurring-entry::rule-123::2026-03-16::Monday Workout");
   });
+
+  it("treats a repeated request with the same idempotency key as a safe no-op", async () => {
+    const entry = createEntry({
+      entryInstanceId: "entry-bench-safe",
+    });
+
+    const firstRes = createMockResponse();
+    await handler(
+      createMockRequest({
+        method: "POST",
+        body: {
+          entry: {
+            ...entry,
+            requestIdempotencyKey: "idem-1",
+          },
+        },
+      }),
+      firstRes as any
+    );
+
+    const secondRes = createMockResponse();
+    await handler(
+      createMockRequest({
+        method: "POST",
+        body: {
+          entry: {
+            ...entry,
+            requestIdempotencyKey: "idem-1",
+          },
+        },
+      }),
+      secondRes as any
+    );
+
+    expect(firstRes.statusCode).toBe(201);
+    expect(secondRes.statusCode).toBe(200);
+    expect(secondRes.body.deduped).toBe(true);
+    expect(db.workoutEntryDocs).toHaveLength(1);
+  });
+
+  it("rejects stale writes when the server already has a newer version", async () => {
+    const initialRes = createMockResponse();
+    await handler(
+      createMockRequest({
+        method: "POST",
+        body: {
+          entry: {
+            ...createEntry({
+              entryInstanceId: "entry-bench-conflict",
+            }),
+            requestIdempotencyKey: "idem-fresh",
+          },
+        },
+      }),
+      initialRes as any
+    );
+
+    const staleRes = createMockResponse();
+    await handler(
+      createMockRequest({
+        method: "POST",
+        body: {
+          entry: {
+            ...createEntry({
+              _id: initialRes.body.entryId,
+              entryInstanceId: "entry-bench-conflict",
+              sets: [{ name: "Working Set 1", reps: 3, weight: 225, complete: false }],
+            }),
+            requestIdempotencyKey: "idem-stale",
+            lastKnownUpdatedAt: "2026-03-01T00:00:00.000Z",
+          },
+        },
+      }),
+      staleRes as any
+    );
+
+    expect(staleRes.statusCode).toBe(409);
+    expect(staleRes.body.conflict).toBe(true);
+    expect(db.workoutEntryDocs[0].sets?.[0].reps).toBe(8);
+  });
 });

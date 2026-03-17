@@ -29,6 +29,7 @@ import {
 } from "../utils/helpers";
 import {
   FeedbackItemDoc,
+  FeedbackRegressionCheck,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
 } from "../utils/types";
@@ -38,11 +39,19 @@ import {
   formatFingerprintLabel,
   getWorkItemAnchorId,
 } from "../utils/feedbackWorkflow";
+import { isBugWorkflowAdminSession } from "../utils/adminAuthorization";
 import {
   getFeedbackEvidenceForWorkItem,
   buildCodexCopyText,
+  getRelatedWorkItems,
   summarizeBugReportEvidence,
 } from "../utils/feedbackDetails";
+import {
+  WorkflowDraft,
+  createWorkflowDraft,
+  getWorkItemClosureWarnings,
+  getWorkflowDraftResolution,
+} from "../utils/bugsWorkflow";
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -66,13 +75,6 @@ const notificationTone: Record<
   sent: "success",
   skipped: "default",
   failed: "error",
-};
-
-type WorkflowDraft = {
-  title: string;
-  latestDescription: string;
-  fixThreadId: string;
-  fixCommitSha: string;
 };
 
 type QueueSortMode =
@@ -182,12 +184,7 @@ const createDraftMap = (
   items.forEach((item) => {
     const id = String(item._id);
     if (!next[id]) {
-      next[id] = {
-        title: item.title || "",
-        latestDescription: item.latestDescription || "",
-        fixThreadId: item.fixThreadId || "",
-        fixCommitSha: item.fixCommitSha || "",
-      };
+      next[id] = createWorkflowDraft(item);
     }
   });
 
@@ -220,13 +217,7 @@ const BugsPage = () => {
   const activeAnchor =
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
 
-  const isAdmin =
-    String(session?.token?.user?.username || "").toLowerCase() === "grwyler" ||
-    String((session as any)?.user?.username || "").toLowerCase() === "grwyler" ||
-    String(session?.token?.user?.email || "").toLowerCase() ===
-      "grwyler@gmail.com" ||
-    String((session as any)?.user?.email || "").toLowerCase() ===
-      "grwyler@gmail.com";
+  const isAdmin = isBugWorkflowAdminSession(session as any);
 
   useEffect(() => {
     if (!session?.token?.user?._id) {
@@ -325,6 +316,17 @@ const BugsPage = () => {
       }),
     [feedbackItems, selectedWorkItem]
   );
+  const selectedDraft = useMemo(
+    () =>
+      selectedWorkItem
+        ? drafts[String(selectedWorkItem._id)] || createWorkflowDraft(selectedWorkItem)
+        : null,
+    [drafts, selectedWorkItem]
+  );
+  const selectedClosureWarnings = useMemo(
+    () => (selectedDraft ? getWorkItemClosureWarnings(selectedDraft) : []),
+    [selectedDraft]
+  );
   const activeBugItems = useMemo(
     () => bugItems.filter((item) => !isInactiveWorkItem(item)),
     [bugItems]
@@ -377,17 +379,34 @@ const BugsPage = () => {
     setDrafts((previous) => ({
       ...previous,
       [workItemId]: {
-        ...(
-          previous[workItemId] || {
-            title: "",
-            latestDescription: "",
-            fixThreadId: "",
-            fixCommitSha: "",
-          }
-        ),
+        ...(previous[workItemId] || createWorkflowDraft()),
         [key]: value,
       },
     }));
+  };
+
+  const handleRegressionChecklistChange = (
+    workItemId: string,
+    checklistIndex: number,
+    patch: Partial<FeedbackRegressionCheck>
+  ) => {
+    setDrafts((previous) => {
+      const baseDraft = previous[workItemId] || createWorkflowDraft();
+      return {
+        ...previous,
+        [workItemId]: {
+          ...baseDraft,
+          regressionChecklist: baseDraft.regressionChecklist.map((entry, index) =>
+            index === checklistIndex
+              ? {
+                  ...entry,
+                  ...patch,
+                }
+              : entry
+          ),
+        },
+      };
+    });
   };
 
   const handleWorkflowUpdate = async (
@@ -405,12 +424,16 @@ const BugsPage = () => {
     }
   ) => {
     const workItemId = String(item._id);
-    const draft = drafts[workItemId] || {
-      title: item.title || "",
-      latestDescription: item.latestDescription || "",
-      fixThreadId: item.fixThreadId || "",
-      fixCommitSha: item.fixCommitSha || "",
-    };
+    const draft = drafts[workItemId] || createWorkflowDraft(item);
+    const closureWarnings =
+      triageStatus === "resolved" || triageStatus === "verified"
+        ? getWorkItemClosureWarnings(draft)
+        : [];
+
+    if (closureWarnings.length > 0) {
+      toast.warning(closureWarnings.join(" "));
+      return;
+    }
 
     setSavingId(workItemId);
 
@@ -431,6 +454,7 @@ const BugsPage = () => {
         latestDescription: latestDescription ?? draft.latestDescription,
         fixThreadId: draft.fixThreadId || undefined,
         fixCommitSha: draft.fixCommitSha || undefined,
+        resolution: getWorkflowDraftResolution(draft),
       });
 
       const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
@@ -449,6 +473,7 @@ const BugsPage = () => {
                   status: updatedWorkItem.status,
                   fixThreadId: updatedWorkItem.fixThreadId,
                   fixCommitSha: updatedWorkItem.fixCommitSha,
+                  resolution: updatedWorkItem.resolution,
                   resolvedAt: updatedWorkItem.resolvedAt,
                 }
               : entry
@@ -456,12 +481,7 @@ const BugsPage = () => {
         );
         setDrafts((previous) => ({
           ...previous,
-          [workItemId]: {
-            title: updatedWorkItem.title || "",
-            latestDescription: updatedWorkItem.latestDescription || "",
-            fixThreadId: updatedWorkItem.fixThreadId || "",
-            fixCommitSha: updatedWorkItem.fixCommitSha || "",
-          },
+          [workItemId]: createWorkflowDraft(updatedWorkItem),
         }));
       }
 
@@ -520,9 +540,15 @@ const BugsPage = () => {
       workItem: item,
       feedbackItems,
     });
+    const relatedWork = getRelatedWorkItems({
+      workItem: item,
+      workItems,
+      feedbackItems,
+    });
     const copyText = buildCodexCopyText({
       workItem: item,
       evidence,
+      relatedWork,
     });
 
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
@@ -574,12 +600,8 @@ const BugsPage = () => {
       <Stack divider={<Divider flexItem />} spacing={0}>
         {items.map((item) => {
           const workItemId = String(item._id);
-          const draft = drafts[workItemId] || {
-            title: item.title || "",
-            latestDescription: item.latestDescription || "",
-            fixThreadId: item.fixThreadId || "",
-            fixCommitSha: item.fixCommitSha || "",
-          };
+          const draft = drafts[workItemId] || createWorkflowDraft(item);
+          const closureWarnings = getWorkItemClosureWarnings(draft);
           const anchorId = getWorkItemAnchorId(workItemId);
           const selected = activeAnchor === anchorId;
           const showAdvanced = Boolean(advancedOpenById[workItemId]);
@@ -729,6 +751,11 @@ const BugsPage = () => {
 
               {showAdvanced ? (
                 <Box sx={{ mt: 1.25 }}>
+                  {closureWarnings.length > 0 ? (
+                    <Alert severity="warning" sx={{ mb: 1.25 }}>
+                      Closing this item still needs: {closureWarnings.join(" ")}
+                    </Alert>
+                  ) : null}
                   <Stack
                     direction={{ xs: "column", md: "row" }}
                     spacing={1}
@@ -763,6 +790,124 @@ const BugsPage = () => {
                     />
                   </Stack>
                   <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={1}
+                    sx={{ mt: 1 }}
+                  >
+                    <TextField
+                      label="Verification owner"
+                      size="small"
+                      value={draft.verificationOwner}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "verificationOwner",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Resolved app version"
+                      size="small"
+                      value={draft.resolvedAppVersion}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "resolvedAppVersion",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Resolved deploy"
+                      size="small"
+                      value={draft.resolvedDeployId}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "resolvedDeployId",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                  </Stack>
+                  <Stack spacing={1} sx={{ mt: 1 }}>
+                    <TextField
+                      label="Validation commands"
+                      helperText="One command per line."
+                      size="small"
+                      value={draft.validatedCommandsText}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "validatedCommandsText",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Manual checks completed"
+                      helperText="One completed check per line."
+                      size="small"
+                      value={draft.manualChecksText}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          workItemId,
+                          "manualChecksText",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                  </Stack>
+                  <Stack spacing={1} sx={{ mt: 1 }}>
+                    <Typography variant="subtitle2">Regression checklist</Typography>
+                    {draft.regressionChecklist.map((entry, index) => (
+                      <Stack
+                        key={`${workItemId}-regression-${entry.label}`}
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1}
+                      >
+                        <TextField
+                          select
+                          size="small"
+                          label={entry.label}
+                          value={entry.outcome}
+                          onChange={(event) =>
+                            handleRegressionChecklistChange(workItemId, index, {
+                              outcome: event.target.value as FeedbackRegressionCheck["outcome"],
+                            })
+                          }
+                          sx={{ minWidth: { md: 220 } }}
+                        >
+                          <MenuItem value="pending">Pending</MenuItem>
+                          <MenuItem value="passed">Passed</MenuItem>
+                          <MenuItem value="failed">Failed</MenuItem>
+                          <MenuItem value="not_applicable">Not applicable</MenuItem>
+                        </TextField>
+                        <TextField
+                          size="small"
+                          label={`${entry.label} notes`}
+                          value={entry.notes || ""}
+                          onChange={(event) =>
+                            handleRegressionChecklistChange(workItemId, index, {
+                              notes: event.target.value,
+                            })
+                          }
+                          fullWidth
+                        />
+                      </Stack>
+                    ))}
+                  </Stack>
+                  <Stack
                     direction="row"
                     spacing={1}
                     flexWrap="wrap"
@@ -778,8 +923,8 @@ const BugsPage = () => {
                       Save Tracking
                     </Button>
                     <Typography variant="body2" color="text.secondary">
-                      Use these optional fields to track the implementation thread
-                      or final fix commit.
+                      Record the fix metadata and verification evidence before
+                      moving the item to Fixed or Closed.
                     </Typography>
                   </Stack>
                 </Box>
@@ -808,6 +953,20 @@ const BugsPage = () => {
                   <Chip
                     size="small"
                     label={`Commit ${item.fixCommitSha}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.resolution?.verificationOwner ? (
+                  <Chip
+                    size="small"
+                    label={`Verified by ${item.resolution.verificationOwner}`}
+                    variant="outlined"
+                  />
+                ) : null}
+                {item.resolution?.resolvedAppVersion ? (
+                  <Chip
+                    size="small"
+                    label={`Fixed in ${item.resolution.resolvedAppVersion}`}
                     variant="outlined"
                   />
                 ) : null}
@@ -1205,10 +1364,7 @@ const BugsPage = () => {
                   </Stack>
                   <TextField
                     label="Title"
-                    value={
-                      drafts[String(selectedWorkItem._id)]?.title ??
-                      selectedWorkItem.title
-                    }
+                    value={selectedDraft?.title ?? selectedWorkItem.title}
                     onChange={(event) =>
                       handleDraftChange(
                         String(selectedWorkItem._id),
@@ -1222,7 +1378,7 @@ const BugsPage = () => {
                   <TextField
                     label="Description"
                     value={
-                      drafts[String(selectedWorkItem._id)]?.latestDescription ??
+                      selectedDraft?.latestDescription ??
                       selectedWorkItem.latestDescription
                     }
                     onChange={(event) =>
@@ -1255,6 +1411,11 @@ const BugsPage = () => {
                       Update the issue summary here to clarify reports during triage.
                     </Typography>
                   </Stack>
+                  {selectedClosureWarnings.length > 0 ? (
+                    <Alert severity="warning">
+                      Closing this item still needs: {selectedClosureWarnings.join(" ")}
+                    </Alert>
+                  ) : null}
                   {renderMetadataRows([
                     { label: "Work item ID", value: String(selectedWorkItem._id || "") },
                     {
@@ -1295,6 +1456,181 @@ const BugsPage = () => {
                         : undefined,
                     },
                   ])}
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Resolution and regression evidence
+                  </Typography>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+                    <TextField
+                      label="Fix thread ID"
+                      size="small"
+                      value={selectedDraft?.fixThreadId || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "fixThreadId",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Commit SHA"
+                      size="small"
+                      value={selectedDraft?.fixCommitSha || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "fixCommitSha",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                  </Stack>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+                    <TextField
+                      label="Verification owner"
+                      size="small"
+                      value={selectedDraft?.verificationOwner || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "verificationOwner",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Resolved app version"
+                      size="small"
+                      value={selectedDraft?.resolvedAppVersion || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "resolvedAppVersion",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                    <TextField
+                      label="Resolved deploy"
+                      size="small"
+                      value={selectedDraft?.resolvedDeployId || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "resolvedDeployId",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    />
+                  </Stack>
+                  <TextField
+                    label="Validation commands"
+                    helperText="One command per line."
+                    size="small"
+                    value={selectedDraft?.validatedCommandsText || ""}
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "validatedCommandsText",
+                        event.target.value
+                      )
+                    }
+                    multiline
+                    minRows={3}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Manual checks completed"
+                    helperText="One completed check per line."
+                    size="small"
+                    value={selectedDraft?.manualChecksText || ""}
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "manualChecksText",
+                        event.target.value
+                      )
+                    }
+                    multiline
+                    minRows={3}
+                    fullWidth
+                  />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2">Regression checklist</Typography>
+                    {(selectedDraft?.regressionChecklist || []).map((entry, index) => (
+                      <Stack
+                        key={`${String(selectedWorkItem._id)}-regression-${entry.label}`}
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1}
+                      >
+                        <TextField
+                          select
+                          size="small"
+                          label={entry.label}
+                          value={entry.outcome}
+                          onChange={(event) =>
+                            handleRegressionChecklistChange(
+                              String(selectedWorkItem._id),
+                              index,
+                              {
+                                outcome: event.target.value as FeedbackRegressionCheck["outcome"],
+                              }
+                            )
+                          }
+                          sx={{ minWidth: { md: 220 } }}
+                        >
+                          <MenuItem value="pending">Pending</MenuItem>
+                          <MenuItem value="passed">Passed</MenuItem>
+                          <MenuItem value="failed">Failed</MenuItem>
+                          <MenuItem value="not_applicable">Not applicable</MenuItem>
+                        </TextField>
+                        <TextField
+                          size="small"
+                          label={`${entry.label} notes`}
+                          value={entry.notes || ""}
+                          onChange={(event) =>
+                            handleRegressionChecklistChange(
+                              String(selectedWorkItem._id),
+                              index,
+                              {
+                                notes: event.target.value,
+                              }
+                            )
+                          }
+                          fullWidth
+                        />
+                      </Stack>
+                    ))}
+                  </Stack>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() =>
+                        handleWorkflowUpdate(selectedWorkItem, {
+                          triageStatus: selectedWorkItem.triageStatus,
+                          successMessage: "Resolution metadata saved.",
+                        })
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                    >
+                      Save Resolution Metadata
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      These fields determine whether the issue can be closed.
+                    </Typography>
+                  </Stack>
                 </Paper>
 
                 <Paper

@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import {
   WorkoutEntryDoc,
   RecurringRuleDoc,
@@ -90,9 +91,40 @@ export const fetchExercises = async (
 };
 
 // save exercise **log**  (was saveExercise)
+export const createWorkoutEntryRequestIdempotencyKey = (entry: WorkoutEntryDoc) => {
+  const setSignature = (entry.sets || [])
+    .map((set, index) =>
+      [
+        set.id || index,
+        set.complete ? "1" : "0",
+        set.actualReps ?? "",
+        set.actualWeight ?? "",
+        set.actualSeconds ?? "",
+        set.actualMinutes ?? "",
+        set.actualHours ?? "",
+      ].join(":")
+    )
+    .join("|");
+
+  return [
+    String(entry.entryInstanceId ?? entry._id ?? ""),
+    String(entry.exerciseId ?? ""),
+    String(entry.routineName ?? ""),
+    String(entry.date ?? ""),
+    entry.complete ? "1" : "0",
+    setSignature,
+  ].join("::");
+};
+
 export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
+  const payloadEntry: WorkoutEntryDoc = {
+    ...entry,
+    requestIdempotencyKey:
+      entry.requestIdempotencyKey || createWorkoutEntryRequestIdempotencyKey(entry),
+    lastKnownUpdatedAt: entry.lastKnownUpdatedAt ?? entry.updatedAt,
+  };
   emitDevBugRequest({
-    label: `Save workout entry for ${entry.name || entry.exerciseId || "exercise"}`,
+    label: `Save workout entry for ${payloadEntry.name || payloadEntry.exerciseId || "exercise"}`,
     expected: "Workout entry persists and refetch returns the latest state.",
     actual: "Sending workout entry request.",
     status: "info",
@@ -100,17 +132,21 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
   const res = await fetch("/api/workoutEntry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entry }),
+    body: JSON.stringify({ entry: payloadEntry }),
   });
   if (!res.ok) {
     const message = await res.text();
     emitDevBugRequest({
-      label: `Workout entry save failed for ${entry.name || entry.exerciseId || "exercise"}`,
+      label: `Workout entry save failed for ${payloadEntry.name || payloadEntry.exerciseId || "exercise"}`,
       expected: "Workout entry saves successfully.",
       actual: `Request failed with ${res.status}: ${message}`,
       status: "failure",
     });
-    throw new Error(`saveWorkoutEntry ${res.status}: ${message}`);
+    throw new Error(
+      res.status === 409
+        ? `saveWorkoutEntry ${res.status}: Workout data changed in another session. Refresh before retrying.`
+        : `saveWorkoutEntry ${res.status}: ${message}`
+    );
   }
   emitDevBugRequest({
     label: `Workout entry save returned ${res.status}`,
@@ -131,6 +167,25 @@ export const createWorkoutEntryInstanceId = () => {
   }
 
   return `workout-entry-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+export type WorkoutExerciseView = Exercise & {
+  _id?: string;
+  entryInstanceId?: string;
+  exerciseId?: ObjectId | string;
+  max?: number;
+  rest?: number;
+  sortOrder?: number;
+  isRepeating?: boolean;
+  recurrenceType?: RecurringRuleDoc["recurrenceType"];
+  interval?: number;
+  intervalWeeks?: number;
+  dayOfWeek?: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  endDate?: Date | string;
+  ruleId?: string;
+  routineName: string;
 };
 
 export const getWorkoutEntryInstanceId = (entry: any) =>
@@ -736,7 +791,11 @@ export const fetchRecurringRules = async (
  * If you already saved those in your existing docs, you’re done.
  * Otherwise see option B or C below.
  */
-export const ruleToExercise = (r: RecurringRuleDoc, dateISO?: string): Exercise => {
+export const ruleToExercise = (
+  r: RecurringRuleDoc,
+  dateISO?: string
+): WorkoutExerciseView => {
+  const ruleId = String(r._id?.toString?.() ?? r._id ?? "").trim();
   const sets: ExerciseSet[] =
     ensureExerciseSetIds(r.templateSets ?? []).map((s, idx) => ({
       name: s.name ?? `Set ${idx + 1}`,
@@ -755,35 +814,34 @@ export const ruleToExercise = (r: RecurringRuleDoc, dateISO?: string): Exercise 
     })) || [];
 
   return {
-    _id: (r as any)._id?.toString?.() ?? (r as any)._id,
+    _id: ruleId || undefined,
     entryInstanceId:
-      dateISO && ((r as any)._id?.toString?.() ?? (r as any)._id)
+      dateISO && ruleId
         ? getRecurringWorkoutEntryInstanceId(
-            String((r as any)._id?.toString?.() ?? (r as any)._id),
+            ruleId,
             dateISO,
             r.routineName
           )
         : undefined,
-    /** the UI expects these 5 keys */
-    name: (r as any).exerciseName ?? "Exercise",
-    type: (r as any).exerciseType ?? "weight",
-    exerciseId: (r as any).exerciseId,
-    max: (r as any).defaultMax,
-    rest: (r as any).defaultRest ?? 0,
-    sortOrder: (r as any).sortOrder,
+    name: r.exerciseName ?? "Exercise",
+    type: r.exerciseType ?? "weight",
+    exerciseId: r.exerciseId,
+    max: r.defaultMax,
+    rest: r.defaultRest ?? 0,
+    sortOrder: r.sortOrder,
     complete: false,
     sets,
     isRepeating: true,
-    recurrenceType: (r as any).recurrenceType ?? "weekly",
-    interval: (r as any).interval ?? (r as any).intervalWeeks ?? 1,
-    intervalWeeks: (r as any).intervalWeeks ?? (r as any).interval ?? 1,
-    daysOfWeek: (r as any).daysOfWeek ?? [(r as any).dayOfWeek],
-    dayOfMonth: (r as any).dayOfMonth,
-    endDate: (r as any).endDate,
-    ruleId: (r as any)._id?.toString?.() ?? (r as any)._id,
-    /** keep the routineName so fetchDay can group */
+    recurrenceType: r.recurrenceType ?? "weekly",
+    interval: r.interval ?? r.intervalWeeks ?? 1,
+    intervalWeeks: r.intervalWeeks ?? r.interval ?? 1,
+    dayOfWeek: r.dayOfWeek,
+    daysOfWeek: r.daysOfWeek ?? [r.dayOfWeek],
+    dayOfMonth: r.dayOfMonth,
+    endDate: r.endDate,
+    ruleId: ruleId || undefined,
     routineName: r.routineName,
-  } as Exercise & { routineName: string };
+  };
 };
 
 export const saveSet = async (set) => {
@@ -1014,6 +1072,7 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha,
   title,
   latestDescription,
+  resolution,
 }: {
   workItemId: string;
   triageStatus: FeedbackTriageStatus;
@@ -1021,6 +1080,7 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha?: string;
   title?: string;
   latestDescription?: string;
+  resolution?: FeedbackWorkItemDoc["resolution"];
 }) => {
   emitDevBugRequest({
     label: `Update work item ${workItemId}`,
@@ -1041,6 +1101,7 @@ export const updateFeedbackWorkItem = async ({
       fixCommitSha,
       title,
       latestDescription,
+      resolution,
     }),
   });
 
