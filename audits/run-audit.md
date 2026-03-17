@@ -23,13 +23,15 @@ Use this file as the single sprint-closeout runner spec. Do not run every audit 
 Run these only when the change triggers below apply.
 
 - `performance-responsiveness-audit.md`
-- `retention-behavior-product-coherence-audit.md`
+- `retention-habit-loop-audit.md`
+- `product-coherence-feature-creep-audit.md`
 - `backlog-audit.md`
 - `data-integrity-state-recovery-audit.md`
 - `release-readiness-audit.md`
 - `subscription-paywall-conversion-audit.md`
 - `accessibility-mobile-ergonomics-audit.md`
 - `analytics-instrumentation-quality-audit.md`
+- `test-coverage-regression-defense-audit.md`
 
 ## Applicability matrix
 
@@ -38,8 +40,10 @@ Run these only when the change triggers below apply.
 | Core workout flow, logging, timers, navigation, onboarding workflow | Regression, UX, Maintainability | Regression |
 | Slow queries, large lists, hydration, loading states, mobile responsiveness | Performance, UX, Regression | Performance when the issue can block shipping |
 | Pricing, paywalls, billing, entitlements | Regression, UX, Subscription, Maintainability | Regression and Subscription |
-| Analytics, lifecycle messaging, comeback flows, engagement loops | Retention, UX, Regression | Retention when the change affects launch confidence |
+| Analytics, lifecycle messaging, comeback flows, engagement loops | Retention, UX, Regression, Analytics | Retention when the change affects launch confidence |
+| Product sprawl, overlapping bets, audience fit, or complexity drift | Product Coherence, UX, Backlog | Product Coherence when drift makes the release hard to understand or operate |
 | Data model, persistence, APIs, migrations, offline or retry logic | Data Integrity, Maintainability, Regression, Performance | Data Integrity and Regression |
+| Architecture churn, repeated regressions, bug-fix-heavy sprints, or critical workflow changes without clear automated defense | Test Coverage, Maintainability, Regression | Test Coverage when missing defense blocks launch confidence |
 | Backlog grooming, ticket churn, audit hygiene, repeated duplicate work | Backlog, Maintainability | Backlog is advisory unless it reveals release blockers |
 | Accessibility, legal, dynamic type, motion safety, mobile ergonomics | Accessibility, UX, Regression | Accessibility when the issue creates compliance or workflow risk |
 | Analytics, funnel instrumentation, alerting, adoption metrics, checkout telemetry | Analytics, Retention, Regression | Analytics when measurement gaps block launch confidence |
@@ -52,6 +56,7 @@ Run these only when the change triggers below apply.
 - Run `subscription-paywall-conversion-audit.md` whenever pricing, prompts, entitlement logic, checkout flow, or billing management changed.
 - Run `accessibility-mobile-ergonomics-audit.md` whenever meaningful UI, copy, navigation, or component-system changes shipped.
 - Run `analytics-instrumentation-quality-audit.md` whenever analytics events, funnel tracking, reminders, upgrade behavior, or reliability telemetry changed.
+- Run `test-coverage-regression-defense-audit.md` whenever the sprint includes architecture churn, critical workflow changes, or clusters of bug fixes in fragile code.
 
 ## Skip rules
 

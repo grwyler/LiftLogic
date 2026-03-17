@@ -287,6 +287,53 @@ export interface ExerciseRecommendationFeedbackDoc {
   updatedAt?: Date;
 }
 
+export type FeatureFlagKey =
+  | "onboarding_guided_starter"
+  | "pricing_premium_proof_experiment"
+  | "workout_focus_mode";
+
+export type FeatureFlagSurface = "onboarding" | "pricing" | "workout";
+
+export type FeatureFlagVariant = "control" | "variant_a" | "variant_b";
+
+export interface FeatureFlagDoc {
+  _id?: ObjectId;
+  key: FeatureFlagKey;
+  enabled: boolean;
+  surface: FeatureFlagSurface;
+  description: string;
+  rolloutPercent: number;
+  variantWeights?: Partial<Record<FeatureFlagVariant, number>>;
+  targeting?: {
+    authenticatedOnly?: boolean;
+    routes?: string[];
+    billingPlan?: BillingPlan | "any";
+  };
+  updatedAt?: Date;
+  updatedByEmail?: string;
+}
+
+export interface FeatureFlagResolution {
+  key: FeatureFlagKey;
+  enabled: boolean;
+  surface: FeatureFlagSurface;
+  variant: FeatureFlagVariant;
+  rolloutPercent: number;
+  reason: string;
+}
+
+export interface FeatureFlagExposureDoc {
+  _id?: ObjectId;
+  key: FeatureFlagKey;
+  surface: FeatureFlagSurface;
+  variant: FeatureFlagVariant;
+  route?: string;
+  userId?: string;
+  anonymousId?: string;
+  source?: string;
+  createdAt: Date;
+}
+
 export type ObservabilityEventKind =
   | "client_error"
   | "route_performance"

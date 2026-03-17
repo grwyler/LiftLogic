@@ -1,30 +1,8 @@
 # Retention Behavior and Product Coherence Audit
 
-## Cadence
+This prompt has been split into:
 
-- Conditional
+- `retention-habit-loop-audit.md`
+- `product-coherence-feature-creep-audit.md`
 
-## Trigger conditions
-
-- Onboarding, comeback loops, motivation, notifications, paywalls, product understanding, lifecycle moments
-
-## Required inputs
-
-- Funnel context, production behavior, copy and UX touchpoints, same-run tickets
-
-## Release-gating
-
-- Yes when the change materially affects launch confidence, onboarding, or monetization
-
-## Deliverable
-
-Every finding must include:
-
-- Whether it is observed behavior, inferred risk, or strategic recommendation
-- Evidence
-- Confidence
-- Affected user segments and touchpoints
-- Why now
-- Root cause or coherence gap
-- Duplicate or related work check
-- Ticket recommendation, including umbrella-ticket handling when one root issue spans multiple domains
+Do not run this legacy combined prompt for new sprint closeout work. Use the narrower prompts above so retention and product-strategy findings stay focused and reduce overlap with UX, backlog, and monetization analysis.

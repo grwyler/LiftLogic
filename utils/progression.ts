@@ -4,6 +4,7 @@ import {
   getCanonicalWeightFromSet,
   normalizeWeightUnit,
   roundToWeightIncrement,
+  toCanonicalWeightLb,
 } from "./weightUnits";
 
 type SupportedTrainingGoal =
@@ -87,6 +88,14 @@ export type ExerciseRecommendation = {
     deloadTriggered: boolean;
     signalReasons: string[];
   } | null;
+  plateau: {
+    consecutiveStalls: number;
+    threshold: number;
+    triggered: boolean;
+    intervention: "none" | "deload" | "rep_reset";
+    reramp: boolean;
+    signalReasons: string[];
+  } | null;
 };
 
 export type InWorkoutAdjustment = {
@@ -100,6 +109,7 @@ const RECENT_BASELINE_WINDOW = 5;
 const SIGNAL_CONFIRMATION_EXPOSURES = 2;
 const HIGH_OUTLIER_E1RM_FACTOR = 1.35;
 const LOW_OUTLIER_E1RM_FACTOR = 0.65;
+const DEFAULT_PLATEAU_THRESHOLD = 3;
 
 const GOAL_PROFILES: Record<"strength" | "hypertrophy" | "endurance", GoalProfile> =
   {
@@ -211,13 +221,117 @@ const getDaysSince = (date: Date | null, now = new Date()) => {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const roundToIncrement = (value: number, increment: number) => {
+  if (!Number.isFinite(value) || increment <= 0) {
+    return value;
+  }
+
+  return Math.round(value / increment) * increment;
+};
+
+const roundDisplayWeight = (value: number, increment: number) =>
+  Math.round(roundToIncrement(value, increment) * 10) / 10;
+
+type ExerciseLoadProfile = {
+  displayIncrement: number;
+  canonicalIncrementLb: number;
+  classification: "small" | "upper_compound" | "lower_compound" | "general";
+};
+
+const SMALL_LIFT_KEYWORDS = [
+  "curl",
+  "raise",
+  "fly",
+  "triceps",
+  "pushdown",
+  "extension",
+  "calf",
+  "lateral",
+  "rear delt",
+  "reverse fly",
+  "face pull",
+  "rehab",
+  "rotator",
+];
+
+const LOWER_COMPOUND_KEYWORDS = [
+  "squat",
+  "deadlift",
+  "leg press",
+  "hip thrust",
+  "hack squat",
+  "trap bar",
+  "rdl",
+  "romanian deadlift",
+];
+
+const UPPER_COMPOUND_KEYWORDS = [
+  "bench",
+  "press",
+  "row",
+  "pull-up",
+  "pulldown",
+  "chin-up",
+  "overhead",
+  "incline",
+];
+
+const getExerciseLoadProfile = ({
+  exerciseName,
+  preferredUnits,
+  baseWeightLb,
+}: {
+  exerciseName?: string;
+  preferredUnits: WeightUnit;
+  baseWeightLb: number;
+}): ExerciseLoadProfile => {
+  const normalizedName = String(exerciseName || "").toLowerCase();
+  const isSmallLift = SMALL_LIFT_KEYWORDS.some((keyword) =>
+    normalizedName.includes(keyword)
+  );
+  const isLowerCompound = LOWER_COMPOUND_KEYWORDS.some((keyword) =>
+    normalizedName.includes(keyword)
+  );
+  const isUpperCompound = UPPER_COMPOUND_KEYWORDS.some((keyword) =>
+    normalizedName.includes(keyword)
+  );
+
+  const displayIncrement = isSmallLift
+    ? preferredUnits === "kg"
+      ? 0.5
+      : 2.5
+    : isLowerCompound || isUpperCompound || baseWeightLb >= 225
+    ? preferredUnits === "kg"
+      ? 2.5
+      : 5
+    : preferredUnits === "kg"
+    ? 1
+    : 2.5;
+
+  return {
+    displayIncrement,
+    canonicalIncrementLb: toCanonicalWeightLb(displayIncrement, preferredUnits),
+    classification: isSmallLift
+      ? "small"
+      : isLowerCompound || baseWeightLb >= 225
+      ? "lower_compound"
+      : isUpperCompound
+      ? "upper_compound"
+      : "general",
+  };
+};
+
 const roundRecommendedWeight = (
   weightInLb: number,
   profile: GoalProfile,
-  preferredUnits: WeightUnit
+  preferredUnits: WeightUnit,
+  incrementOverride?: number
 ) => {
   const convertedWeight = fromCanonicalWeightLb(weightInLb, preferredUnits);
-  const roundedWeight = roundToWeightIncrement(convertedWeight, preferredUnits);
+  const roundedWeight =
+    typeof incrementOverride === "number" && incrementOverride > 0
+      ? roundDisplayWeight(convertedWeight, incrementOverride)
+      : roundToWeightIncrement(convertedWeight, preferredUnits);
   if (roundedWeight > 0) {
     return roundedWeight;
   }
@@ -737,28 +851,120 @@ const getFatigueState = (
   };
 };
 
+const getPlateauState = ({
+  recentSummaries,
+  profile,
+  exerciseName,
+  preferredUnits,
+}: {
+  recentSummaries: EntryPerformanceSummary[];
+  profile: GoalProfile;
+  exerciseName?: string;
+  preferredUnits: WeightUnit;
+}): ExerciseRecommendation["plateau"] => {
+  if (!recentSummaries.length) {
+    return {
+      consecutiveStalls: 0,
+      threshold: DEFAULT_PLATEAU_THRESHOLD,
+      triggered: false,
+      intervention: "none",
+      reramp: false,
+      signalReasons: [],
+    };
+  }
+
+  const latestRepresentative = recentSummaries[0]?.representativeSet;
+  const loadProfile = getExerciseLoadProfile({
+    exerciseName,
+    preferredUnits,
+    baseWeightLb: latestRepresentative?.actualWeight ?? 0,
+  });
+
+  let consecutiveStalls = 0;
+  const signalReasons: string[] = [];
+
+  for (let index = 0; index < recentSummaries.length; index += 1) {
+    const current = recentSummaries[index];
+    const previous = recentSummaries[index + 1] ?? null;
+    const currentSet = current.representativeSet;
+    const previousSet = previous?.representativeSet ?? null;
+
+    if (!currentSet) {
+      break;
+    }
+
+    const repeatedMiss = current.signal.status === "underperformed";
+    const repeatedPrescription =
+      current.sets.some(
+        (set) =>
+          set.plannedWeight !== null &&
+          currentSet.plannedWeight !== null &&
+          Math.abs(set.plannedWeight - currentSet.plannedWeight) <=
+            loadProfile.canonicalIncrementLb / 2
+      ) || currentSet.plannedWeight !== null;
+    const noComparableProgress =
+      previousSet !== null &&
+      currentSet.actualWeight <=
+        previousSet.actualWeight + loadProfile.canonicalIncrementLb / 2 &&
+      currentSet.actualReps <= previousSet.actualReps;
+    const stalled = repeatedMiss || (Boolean(repeatedPrescription) && noComparableProgress);
+
+    if (!stalled) {
+      break;
+    }
+
+    consecutiveStalls += 1;
+
+    if (repeatedMiss) {
+      signalReasons.push("recent session missed the planned prescription");
+    }
+
+    if (noComparableProgress) {
+      signalReasons.push("load and reps stayed flat versus the prior comparable exposure");
+    }
+  }
+
+  const triggered = consecutiveStalls >= DEFAULT_PLATEAU_THRESHOLD;
+  const intervention =
+    !triggered
+      ? "none"
+      : profile.label === "strength"
+      ? "deload"
+      : "rep_reset";
+
+  return {
+    consecutiveStalls,
+    threshold: DEFAULT_PLATEAU_THRESHOLD,
+    triggered,
+    intervention,
+    reramp: triggered,
+    signalReasons: Array.from(new Set(signalReasons)).slice(0, 3),
+  };
+};
+
 const applyBaseProgression = (
   baseWeight: number,
   status: "success" | "aggressive" | "underperformed",
-  profile: GoalProfile
+  profile: GoalProfile,
+  canonicalIncrementLb: number
 ) => {
   if (status === "aggressive") {
     return Math.max(
       baseWeight * (1 + profile.aggressiveIncreasePct),
-      baseWeight + profile.lightIncrement
+      baseWeight + canonicalIncrementLb
     );
   }
 
   if (status === "underperformed") {
     return Math.max(
       baseWeight * (1 - profile.underperformDecreasePct),
-      baseWeight - profile.lightIncrement
+      baseWeight - canonicalIncrementLb
     );
   }
 
   return Math.max(
     baseWeight * (1 + profile.successIncreasePct),
-    baseWeight + Math.min(profile.lightIncrement, profile.heavyIncrement)
+    baseWeight + canonicalIncrementLb
   );
 };
 
@@ -818,6 +1024,7 @@ export const buildNextExerciseRecommendation = (
       progressionStyle: profile.label,
       comparison: null,
       fatigue: null,
+      plateau: null,
     };
   }
 
@@ -872,11 +1079,22 @@ export const buildNextExerciseRecommendation = (
       progressionStyle: profile.label,
       comparison: null,
       fatigue: getFatigueState(recentSummaries),
+      plateau: getPlateauState({
+        recentSummaries,
+        profile,
+        exerciseName: latestEntry.name ?? String(latestEntry.exerciseId || ""),
+        preferredUnits: normalizedPreferredUnits,
+      }),
     };
   }
 
   const baseWeight = baselineWeight;
   const baseReps = baselineReps;
+  const loadProfile = getExerciseLoadProfile({
+    exerciseName: latestEntry.name ?? String(latestEntry.exerciseId || ""),
+    preferredUnits: normalizedPreferredUnits,
+    baseWeightLb: baseWeight,
+  });
   const effectiveWeightStatus: CompletionStatus =
     completionSignal.status === "aggressive" && !isAggressiveConfirmed
       ? "success"
@@ -884,20 +1102,34 @@ export const buildNextExerciseRecommendation = (
   const progressedWeight = applyBaseProgression(
     baseWeight,
     effectiveWeightStatus,
-    profile
+    profile,
+    loadProfile.canonicalIncrementLb
   );
   const detrained = applyDetrainingAdjustment(progressedWeight, daysSinceLastWorkout);
   const uncappedWeight = detrained.weight;
   const cappedWeight =
     completionSignal.status === "aggressive" && !isAggressiveConfirmed
-      ? Math.min(uncappedWeight, baseWeight + profile.lightIncrement)
+      ? Math.min(uncappedWeight, baseWeight + loadProfile.canonicalIncrementLb)
       : completionSignal.status === "underperformed" && !isUnderperformanceConfirmed
-      ? Math.max(uncappedWeight, baseWeight - profile.lightIncrement)
+      ? Math.max(uncappedWeight, baseWeight - loadProfile.canonicalIncrementLb)
       : uncappedWeight;
-  const recommendedWeight = roundRecommendedWeight(
-    cappedWeight,
+  const plateau = getPlateauState({
+    recentSummaries,
     profile,
-    normalizedPreferredUnits
+    exerciseName: latestEntry.name ?? String(latestEntry.exerciseId || ""),
+    preferredUnits: normalizedPreferredUnits,
+  });
+  const plateauAdjustedWeight =
+    plateau.triggered && plateau.intervention === "deload"
+      ? cappedWeight * 0.92
+      : plateau.triggered
+      ? cappedWeight * 0.96
+      : cappedWeight;
+  const recommendedWeight = roundRecommendedWeight(
+    plateauAdjustedWeight,
+    profile,
+    normalizedPreferredUnits,
+    loadProfile.displayIncrement
   );
   const latestRepBaseline = clamp(
     Math.round(baseReps),
@@ -910,7 +1142,15 @@ export const buildNextExerciseRecommendation = (
     profile.maxReps
   );
   const recommendedReps =
-    completionSignal.status === "underperformed" && isUnderperformanceConfirmed
+    plateau.triggered && plateau.intervention === "rep_reset"
+      ? clamp(
+          latestRepBaseline + (profile.label === "endurance" ? 2 : 1),
+          profile.minReps,
+          profile.maxReps
+        )
+      : plateau.triggered && plateau.intervention === "deload"
+      ? clamp(latestRepBaseline - 1, profile.minReps, profile.maxReps)
+      : completionSignal.status === "underperformed" && isUnderperformanceConfirmed
       ? repeatedUnderperformanceReps
       : latestRepBaseline;
   const recommendedSets = setCountResolution.recommendedSets;
@@ -937,14 +1177,20 @@ export const buildNextExerciseRecommendation = (
 
   const fatigueAdjustedWeight = recommendedWeight
     ? roundRecommendedWeight(
-        cappedWeight * fatigueLoadMultiplier,
+        plateauAdjustedWeight * fatigueLoadMultiplier,
         profile,
-        normalizedPreferredUnits
+        normalizedPreferredUnits,
+        loadProfile.displayIncrement
       )
     : recommendedWeight;
   const fatigueAdjustedSets =
     typeof recommendedSets === "number"
-      ? Math.max(1, recommendedSets + fatigueSetDelta)
+      ? Math.max(
+          1,
+          recommendedSets +
+            fatigueSetDelta +
+            (plateau.triggered && plateau.intervention === "deload" ? -1 : 0)
+        )
       : recommendedSets;
   const comparisonDelta =
     fatigueAdjustedWeight !== null && representativeSet.actualWeight !== null
@@ -996,6 +1242,12 @@ export const buildNextExerciseRecommendation = (
         ? `pulled the load back by ${Math.abs(comparisonDelta)} ${normalizedPreferredUnits}`
         : "held the target steady"
     }. Using a rolling ${baselineSummaries.length}-session baseline, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}${
+      plateau.triggered
+        ? plateau.intervention === "deload"
+          ? ` Plateau detection tripped after ${plateau.consecutiveStalls} stalled exposures, so Lift Logic prescribes a deload and restart ramp instead of repeating the same failed prescription.`
+          : ` Plateau detection tripped after ${plateau.consecutiveStalls} stalled exposures, so Lift Logic reset the rep target slightly and starts a reramp instead of holding the same stalled prescription.`
+        : ""
+    }${
       fatigue.state === "deload"
         ? " Fatigue stayed elevated across multiple sessions, so this recommendation prescribes a deload."
         : fatigue.state === "high"
@@ -1035,6 +1287,7 @@ export const buildNextExerciseRecommendation = (
       summary: comparisonSummary,
     },
     fatigue,
+    plateau,
   };
 };
 

@@ -23,6 +23,7 @@ import {
   BillingPlan,
   BillingPriceOption,
   BillingSummaryResponse,
+  FeatureFlagResolution,
 } from "../utils/types";
 import {
   trackObservabilityEvent,
@@ -33,6 +34,10 @@ import {
   fetchBillingSummary,
 } from "../utils/billingClient";
 import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
+import {
+  fetchResolvedFeatureFlags,
+  logFeatureFlagExposure,
+} from "../utils/featureFlagsClient";
 import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
 const pricingRadius = brandRadii;
@@ -228,7 +233,9 @@ const PricingPage: React.FC = () => {
     ""
   );
   const [billingError, setBillingError] = useState("");
+  const [resolvedFlags, setResolvedFlags] = useState<FeatureFlagResolution[]>([]);
   const pricingViewTrackedRef = useRef(false);
+  const pricingExperimentExposureTrackedRef = useRef(false);
 
   const isAuthenticated = status === "authenticated";
 
@@ -262,18 +269,66 @@ const PricingPage: React.FC = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    let active = true;
+
+    const loadFlags = async () => {
+      try {
+        const response = await fetchResolvedFeatureFlags("/pricing");
+        if (!active) {
+          return;
+        }
+        setResolvedFlags(response.flags || []);
+      } catch (error) {
+        console.error("Error loading feature flags:", error);
+      }
+    };
+
+    void loadFlags();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const pricingExperiment =
+    resolvedFlags.find((flag) => flag.key === "pricing_premium_proof_experiment") || null;
+  const pricingExperimentSuffix =
+    pricingExperiment?.enabled && pricingExperiment.variant !== "control"
+      ? `_exp_${pricingExperiment.variant}`
+      : "";
+
+  useEffect(() => {
+    if (!pricingExperiment?.enabled || pricingExperimentExposureTrackedRef.current) {
+      return;
+    }
+
+    pricingExperimentExposureTrackedRef.current = true;
+    void logFeatureFlagExposure({
+      key: pricingExperiment.key,
+      variant: pricingExperiment.variant,
+      route: "/pricing",
+      source: "pricing_page_view",
+    }).catch((error) => {
+      pricingExperimentExposureTrackedRef.current = false;
+      console.error("Error logging pricing experiment exposure:", error);
+    });
+  }, [pricingExperiment]);
+
+  useEffect(() => {
     if (pricingViewTrackedRef.current) {
       return;
     }
 
     pricingViewTrackedRef.current = true;
     void trackBetaFunnelMilestone("pricing_page_viewed", {
-      source: isAuthenticated ? "pricing_page_authenticated" : "pricing_page_anonymous",
+      source: `${
+        isAuthenticated ? "pricing_page_authenticated" : "pricing_page_anonymous"
+      }${pricingExperimentSuffix}`,
     }).catch((error) => {
       pricingViewTrackedRef.current = false;
       console.error("Error tracking pricing page view:", error);
     });
-  }, [isAuthenticated]);
+  }, [isAuthenticated, pricingExperimentSuffix]);
 
   useEffect(() => {
     if (!router.isReady) {
@@ -330,7 +385,7 @@ const PricingPage: React.FC = () => {
       setActionLoading(interval);
       setBillingError("");
       await trackBetaFunnelMilestone("checkout_started", {
-        source: options.source,
+        source: `${options.source}${pricingExperimentSuffix}`,
       });
       const { url } = await createBillingCheckoutSession(interval, {
         trialRequested: options.trialRequested,
@@ -377,11 +432,20 @@ const PricingPage: React.FC = () => {
 
   const handleProofInteraction = (source: string) => {
     void trackBetaFunnelMilestone("pricing_cta_clicked", {
-      source,
+      source: `${source}${pricingExperimentSuffix}`,
     }).catch((error) => {
       console.error("Error tracking pricing proof interaction:", error);
     });
   };
+
+  const premiumProofHeadline =
+    pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
+      ? "See the adaptive coaching proof before you commit."
+      : "Show me the coaching layer, not just the feature list.";
+  const premiumProofSubhead =
+    pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
+      ? "This experiment pushes the concrete outputs first so buyers can judge the paid layer on real planning proof instead of abstract claims."
+      : "Pro Beta should feel concrete before checkout. These examples show the kinds of outputs the paid layer is responsible for: a drafted week, a recommendation update, and a real-life schedule rewrite.";
 
   const handleProofCheckout = async (
     interval: "month" | "year",
@@ -525,7 +589,11 @@ const PricingPage: React.FC = () => {
           }}
         >
           <Chip
-            label="Pricing direction during beta"
+            label={
+              pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
+                ? "Proof-first pricing experiment"
+                : "Pricing direction during beta"
+            }
             color="primary"
             sx={{ borderRadius: pricingRadius.chip }}
           />
@@ -974,12 +1042,10 @@ const PricingPage: React.FC = () => {
             Premium Proof
           </Typography>
           <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 720 }}>
-            Show me the coaching layer, not just the feature list.
+            {premiumProofHeadline}
           </Typography>
           <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
-            Pro Beta should feel concrete before checkout. These examples show the
-            kinds of outputs the paid layer is responsible for: a drafted week, a
-            recommendation update, and a real-life schedule rewrite.
+            {premiumProofSubhead}
           </Typography>
 
           <Box

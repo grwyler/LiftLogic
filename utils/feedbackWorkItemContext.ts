@@ -82,8 +82,13 @@ const buildAuditContext = (): ImplementationContext => ({
     },
     {
       type: "schema",
-      path: "audits/retention-behavior-product-coherence-audit.md",
+      path: "audits/retention-habit-loop-audit.md",
       label: "Retention audit",
+    },
+    {
+      type: "schema",
+      path: "audits/product-coherence-feature-creep-audit.md",
+      label: "Product coherence audit",
     },
     {
       type: "schema",
@@ -91,6 +96,11 @@ const buildAuditContext = (): ImplementationContext => ({
       label: "Maintainability audit",
     },
     { type: "schema", path: "audits/backlog-audit.md", label: "Backlog audit" },
+    {
+      type: "schema",
+      path: "audits/test-coverage-regression-defense-audit.md",
+      label: "Regression defense audit",
+    },
   ],
   inferred: [
     { type: "api", path: "pages/api/feedback.ts", label: "Feedback API" },

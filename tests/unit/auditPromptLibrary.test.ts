@@ -17,6 +17,8 @@ describe("audit prompt library", () => {
     expect(runner).toContain("Subscription");
     expect(runner).toContain("Accessibility");
     expect(runner).toContain("Analytics");
+    expect(runner).toContain("Product Coherence");
+    expect(runner).toContain("Test Coverage");
     expect(runner).toContain("Mandatory trigger rules");
     expect(runner).toContain("Cross-audit dedupe protocol");
     expect(runner).toContain("Umbrella-ticket rules");
@@ -29,7 +31,8 @@ describe("audit prompt library", () => {
       "regression-workflow-audit.md",
       "performance-responsiveness-audit.md",
       "ux-clarity-visual-polish-audit.md",
-      "retention-behavior-product-coherence-audit.md",
+      "retention-habit-loop-audit.md",
+      "product-coherence-feature-creep-audit.md",
       "code-quality-maintainability-audit.md",
       "backlog-audit.md",
       "data-integrity-state-recovery-audit.md",
@@ -37,6 +40,7 @@ describe("audit prompt library", () => {
       "subscription-paywall-conversion-audit.md",
       "accessibility-mobile-ergonomics-audit.md",
       "analytics-instrumentation-quality-audit.md",
+      "test-coverage-regression-defense-audit.md",
     ];
 
     auditFiles.forEach((fileName) => {
@@ -64,6 +68,13 @@ describe("audit prompt library", () => {
     );
     expect(readAudit("analytics-instrumentation-quality-audit.md")).toContain(
       "concrete observability gaps"
+    );
+    expect(readAudit("product-coherence-feature-creep-audit.md")).toContain(
+      "core promise"
+    );
+    expect(readAudit("retention-habit-loop-audit.md")).toContain("comeback");
+    expect(readAudit("test-coverage-regression-defense-audit.md")).toContain(
+      "Distinguish meaningful behavioral coverage from brittle implementation-detail tests"
     );
   });
 

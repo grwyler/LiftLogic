@@ -10,6 +10,7 @@ These notes apply to every sprint-closeout audit run.
 - Blocking release findings must appear before optimization or polish findings.
 - Any release-readiness conclusion must be explicit: `ship`, `ship with conditions`, or `no ship`.
 - When blockers exist, list blocker severity, affected surface, and required follow-up before any non-blocking improvements.
+- Retention, product-coherence, monetization, analytics, and test-defense findings must stay in their own lanes instead of collapsing into one blended strategy essay.
 
 ## Final dedupe checkpoint
 
