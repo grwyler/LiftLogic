@@ -5,6 +5,7 @@ import {
 } from "./types";
 import { createFeedbackFingerprint, getLegacyStatusFromTriage } from "./feedbackWorkflow";
 import {
+  sanitizeFeedbackLabels,
   sanitizeFeedbackSeverity,
   sanitizeStructuredRepro,
   sanitizeText,
@@ -185,6 +186,7 @@ export const buildWorkItemUpdate = ({
   fixCommitSha,
   title,
   latestDescription,
+  labels,
   structuredRepro,
   implementationContext,
   verificationPack,
@@ -198,6 +200,7 @@ export const buildWorkItemUpdate = ({
   fixCommitSha?: string;
   title?: string;
   latestDescription?: string;
+  labels?: string[];
   structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
   implementationContext?: FeedbackWorkItemDoc["implementationContext"];
   verificationPack?: FeedbackWorkItemDoc["verificationPack"];
@@ -210,6 +213,7 @@ export const buildWorkItemUpdate = ({
   const normalizedTitle = sanitizeText(title) || existing.title;
   const normalizedDescription =
     sanitizeText(latestDescription) || existing.latestDescription;
+  const normalizedLabels = sanitizeFeedbackLabels(labels) || existing.labels;
   const normalizedStructuredRepro =
     sanitizeStructuredRepro(structuredRepro) || existing.structuredRepro;
   const normalizedImplementationContext = implementationContext
@@ -247,6 +251,7 @@ export const buildWorkItemUpdate = ({
   return {
     title: normalizedTitle,
     latestDescription: normalizedDescription,
+    labels: normalizedLabels,
     severity: normalizedSeverity,
     triageStatus,
     status: getLegacyStatusFromTriage(triageStatus),
@@ -343,6 +348,7 @@ export const refreshWorkItemAfterDelete = async ({
           verificationPack: existingWorkItem?.verificationPack,
         }),
         completedVerificationIds: existingWorkItem?.completedVerificationIds || [],
+        labels: existingWorkItem?.labels,
       },
     }
   );

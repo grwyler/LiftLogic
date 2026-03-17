@@ -306,6 +306,33 @@ export const sanitizeStructuredRepro = (value: unknown) => {
 export const sanitizeFeedbackSeverity = (value: unknown) =>
   value === "low" || value === "medium" || value === "high" ? value : undefined;
 
+export const sanitizeFeedbackLabels = (value: unknown) => {
+  const rawLabels = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+    ? value.split(",")
+    : [];
+  const seen = new Set<string>();
+  const normalized = rawLabels
+    .map((entry) => sanitizeText(entry).slice(0, 32))
+    .filter((entry) => {
+      if (!entry) {
+        return false;
+      }
+
+      const key = entry.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
+
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 const sanitizeDeviceType = (value: unknown) =>
   value === "mobile" ||
   value === "tablet" ||

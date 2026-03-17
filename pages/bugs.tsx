@@ -23,6 +23,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import LoadingIndicator from "../components/LoadingIndicator";
+import VersionChangelogDialog from "../components/VersionChangelogDialog";
 import {
   deleteFeedbackWorkItem,
   fetchMonetizationSummary,
@@ -45,6 +46,7 @@ import {
 } from "../utils/feedbackWorkflow";
 import {
   getFeedbackEvidenceForWorkItem,
+  buildTopFiveCopyFooter,
   buildCodexCopyText,
   getRelatedWorkItems,
   summarizeBugReportEvidence,
@@ -85,6 +87,7 @@ const notificationTone: Record<
 type WorkflowDraft = {
   title: string;
   latestDescription: string;
+  labels: string;
   fixThreadId: string;
   fixCommitSha: string;
   actualBehavior: string;
@@ -115,6 +118,7 @@ type WorkItemFilterType = "all" | "bug" | "feature";
 type WorkItemListScope = "active" | "completed" | "all";
 type WorkItemStatusFilter = "all" | FeedbackTriageStatus;
 type WorkItemSeverityFilter = "all" | "high" | "medium" | "low" | "unset";
+type WorkItemLabelFilter = "all" | string;
 
 type FoundingBetaUserRecord = {
   _id: string;
@@ -240,6 +244,29 @@ const isInactiveWorkItem = (item: FeedbackWorkItemDoc) =>
 
 const isActiveWorkItem = (item: FeedbackWorkItemDoc) => !isInactiveWorkItem(item);
 
+const formatLabelsInput = (labels?: string[]) => (labels || []).join(", ");
+
+const parseLabelInput = (value: string) => {
+  const seen = new Set<string>();
+
+  return value
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => {
+      if (!entry) {
+        return false;
+      }
+
+      const key = entry.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+};
+
 const createDraftMap = (
   items: FeedbackWorkItemDoc[],
   previous: Record<string, WorkflowDraft>
@@ -269,6 +296,7 @@ const createDraftMap = (
       next[id] = {
         title: item.title || "",
         latestDescription: item.latestDescription || "",
+        labels: formatLabelsInput(item.labels),
         fixThreadId: item.fixThreadId || "",
         fixCommitSha: item.fixCommitSha || "",
         actualBehavior: item.structuredRepro?.actualBehavior || "",
@@ -328,7 +356,12 @@ const BugsPage = () => {
     useState<WorkItemStatusFilter>("all");
   const [workItemSeverityFilter, setWorkItemSeverityFilter] =
     useState<WorkItemSeverityFilter>("all");
+  const [workItemLabelFilter, setWorkItemLabelFilter] =
+    useState<WorkItemLabelFilter>("all");
   const [showCompletedSection, setShowCompletedSection] = useState(false);
+  const [selectedChangelogVersion, setSelectedChangelogVersion] = useState<string | null>(
+    null
+  );
   const [foundingBetaUsers, setFoundingBetaUsers] = useState<FoundingBetaUserRecord[]>([]);
   const [foundingBetaDrafts, setFoundingBetaDrafts] = useState<
     Record<string, FoundingBetaDraft>
@@ -558,6 +591,19 @@ const BugsPage = () => {
     () => completedWorkItems.filter((item) => item.type === "feature").length,
     [completedWorkItems]
   );
+  const availableLabels = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          workItems
+            .flatMap((item) => item.labels || [])
+            .map((label) => label.trim())
+            .filter(Boolean)
+            .sort((left, right) => left.localeCompare(right))
+        )
+      ),
+    [workItems]
+  );
   const matchesWorkItemFilters = (item: FeedbackWorkItemDoc) => {
     const normalizedSearch = workItemSearch.trim().toLowerCase();
     const matchesSearch =
@@ -565,6 +611,7 @@ const BugsPage = () => {
       [
         item.title,
         item.latestDescription,
+        ...(item.labels || []),
         item.page,
         item.fingerprint,
         item.fixThreadId,
@@ -582,8 +629,20 @@ const BugsPage = () => {
         : workItemSeverityFilter === "unset"
         ? !item.severity
         : item.severity === workItemSeverityFilter;
+    const matchesLabel =
+      workItemLabelFilter === "all"
+        ? true
+        : (item.labels || []).some(
+            (label) => label.toLowerCase() === workItemLabelFilter.toLowerCase()
+          );
 
-    return matchesSearch && matchesType && matchesStatus && matchesSeverity;
+    return (
+      matchesSearch &&
+      matchesType &&
+      matchesStatus &&
+      matchesSeverity &&
+      matchesLabel
+    );
   };
   const filteredActiveWorkItems = useMemo(
     () => activeWorkItems.filter(matchesWorkItemFilters),
@@ -593,6 +652,7 @@ const BugsPage = () => {
       workItemTypeFilter,
       workItemStatusFilter,
       workItemSeverityFilter,
+      workItemLabelFilter,
     ]
   );
   const filteredCompletedWorkItems = useMemo(
@@ -603,6 +663,7 @@ const BugsPage = () => {
       workItemTypeFilter,
       workItemStatusFilter,
       workItemSeverityFilter,
+      workItemLabelFilter,
     ]
   );
   const currentPrimaryListItems = useMemo(() => {
@@ -643,6 +704,7 @@ const BugsPage = () => {
   const createBlankDraft = (): WorkflowDraft => ({
     title: "",
     latestDescription: "",
+    labels: "",
     fixThreadId: "",
     fixCommitSha: "",
     actualBehavior: "",
@@ -721,6 +783,7 @@ const BugsPage = () => {
       severity: item.severity,
       title: draft.title,
       latestDescription: draft.latestDescription,
+      labels: parseLabelInput(draft.labels),
       fixThreadId: draft.fixThreadId || undefined,
       fixCommitSha: draft.fixCommitSha || undefined,
       structuredRepro: {
@@ -988,9 +1051,10 @@ const BugsPage = () => {
         ].join("\n");
       })
       .join("\n\n----------------------------------------\n\n");
+    const combinedTextWithFooter = `${combinedText}\n\n${buildTopFiveCopyFooter()}`;
 
     try {
-      await navigator.clipboard.writeText(combinedText);
+      await navigator.clipboard.writeText(combinedTextWithFooter);
       const results = await Promise.allSettled(
         itemsToCopy.map((item) =>
           updateFeedbackWorkItem({
@@ -1442,6 +1506,9 @@ const BugsPage = () => {
                     size="small"
                     label={`Version ${item.latestRuntimeContext.appVersion}`}
                     variant="outlined"
+                    onClick={() =>
+                      setSelectedChangelogVersion(item.latestRuntimeContext?.appVersion || null)
+                    }
                   />
                 ) : null}
                 {item.latestRuntimeContext?.commitSha ? (
@@ -1458,6 +1525,14 @@ const BugsPage = () => {
                     variant="outlined"
                   />
                 ) : null}
+                {(item.labels || []).map((label) => (
+                  <Chip
+                    key={`${workItemId}-${label}`}
+                    size="small"
+                    label={`Label ${label}`}
+                    variant="outlined"
+                  />
+                ))}
                 {item.lastNotificationError ? (
                   <Chip
                     size="small"
@@ -1909,6 +1984,23 @@ const BugsPage = () => {
               <TextField
                 select
                 size="small"
+                label="Label"
+                value={workItemLabelFilter}
+                onChange={(event) =>
+                  setWorkItemLabelFilter(event.target.value as WorkItemLabelFilter)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 170 } }}
+              >
+                <MenuItem value="all">All labels</MenuItem>
+                {availableLabels.map((label) => (
+                  <MenuItem key={label} value={label}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
                 label="Sort"
                 value={queueSortMode}
                 onChange={(event) =>
@@ -2151,6 +2243,14 @@ const BugsPage = () => {
                         variant="outlined"
                       />
                     ) : null}
+                    {(selectedWorkItem.labels || []).map((label) => (
+                      <Chip
+                        key={`selected-${label}`}
+                        size="small"
+                        label={label}
+                        variant="outlined"
+                      />
+                    ))}
                   </Stack>
                   <TextField
                     label="Title"
@@ -2184,6 +2284,23 @@ const BugsPage = () => {
                     disabled={savingId === String(selectedWorkItem._id)}
                     multiline
                     minRows={4}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Labels"
+                    helperText="Separate labels with commas. Example: auth, mobile, regression"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.labels ??
+                      formatLabelsInput(selectedWorkItem.labels)
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "labels",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
                     fullWidth
                   />
                   <Stack spacing={1.25}>
@@ -3189,6 +3306,11 @@ const BugsPage = () => {
             ) : null}
           </DialogContent>
         </Dialog>
+        <VersionChangelogDialog
+          open={Boolean(selectedChangelogVersion)}
+          version={selectedChangelogVersion}
+          onClose={() => setSelectedChangelogVersion(null)}
+        />
       </Box>
     </Box>
   );

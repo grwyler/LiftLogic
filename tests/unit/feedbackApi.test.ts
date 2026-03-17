@@ -650,6 +650,7 @@ describe("feedback API route", () => {
         fixCommitSha: "abc123def",
         title: "Updated login failure summary",
         latestDescription: "Admins clarified the repro steps during triage.",
+        labels: ["auth", "regression", "mobile"],
         structuredRepro: {
           actualBehavior: "The current bug lacks a stable summary.",
           expectedBehavior: "The summary should be clear before fixing starts.",
@@ -694,6 +695,7 @@ describe("feedback API route", () => {
     expect(patchRes.body.workItem.latestDescription).toBe(
       "Admins clarified the repro steps during triage."
     );
+    expect(patchRes.body.workItem.labels).toEqual(["auth", "regression", "mobile"]);
     expect(patchRes.body.workItem.structuredRepro.actualBehavior).toBe(
       "The current bug lacks a stable summary."
     );
