@@ -46,6 +46,7 @@ import {
   workoutFrequencyOptions,
   workoutLengthOptions,
 } from "../utils/profileSetup";
+import { parseLimitations } from "../utils/workoutGuidance";
 import {
   APPEARANCE_DENSITY_OPTIONS,
   AppearanceDensity,
@@ -304,6 +305,11 @@ const UserHomePage: React.FC<UserPageProps> = ({
         })
     );
   }, [form, user]);
+
+  const limitationInsights = useMemo(
+    () => parseLimitations(form.limitations),
+    [form.limitations]
+  );
 
   const handleFieldChange =
     (field: keyof typeof form) =>
@@ -1161,6 +1167,50 @@ const UserHomePage: React.FC<UserPageProps> = ({
                   minRows={3}
                   placeholder="Shoulder-friendly pressing, avoid deep knee flexion, low-back caution..."
                 />
+
+                {limitationInsights.length > 0 ? (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 3,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: "rgba(239,246,255,0.75)",
+                    }}
+                  >
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Structured guardrails preview
+                        </Typography>
+                        <Typography sx={{ mt: 0.4, color: "text.secondary" }}>
+                          These guardrails will shape substitutions and safer exercise picks when the assistant drafts your plan.
+                        </Typography>
+                      </Box>
+                      {limitationInsights.map((insight) => (
+                        <Box key={insight.id}>
+                          <Typography sx={{ fontWeight: 700 }}>{insight.title}</Typography>
+                          <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                            {insight.summary}
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                            <Chip size="small" variant="outlined" label={`Avoid: ${insight.avoidLabel}`} />
+                            {insight.substitutions.map((substitution) => (
+                              <Chip
+                                key={`${insight.id}-${substitution}`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                label={`Swap in: ${substitution}`}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                ) : null}
 
                 <TextField
                   label="Notes"

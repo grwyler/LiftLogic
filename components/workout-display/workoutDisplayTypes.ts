@@ -44,6 +44,17 @@ export type WorkoutComebackGuide = {
   daysSinceLastLog: number | null;
 };
 
+export type WorkoutWeeklyReviewPreview = {
+  reviewHeadline: string;
+  reviewCopy: string;
+  previewHeadline: string;
+  previewCopy: string;
+  thisWeekCompleted: number;
+  lastWeekCompleted: number;
+  nextWeekScheduledCount: number;
+  nextWeekFirstDayLabel: string | null;
+};
+
 export type WorkoutProgressLookup = Record<
   string,
   {

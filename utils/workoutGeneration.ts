@@ -1,6 +1,10 @@
 import { initialExercises } from "./sample-data";
 import { DEFAULT_ROUTINE } from "./helpers";
 import { SetupFormValues } from "./profileSetup";
+import {
+  getLimitationAwareReplacementOptions,
+  parseLimitations,
+} from "./workoutGuidance";
 
 type GeneratedExercise = {
   name: string;
@@ -775,13 +779,24 @@ const buildExercisesForDay = (
   profile: SetupFormValues
 ) => {
   const usedNames = new Set<string>();
+  const limitations = profile.limitations || "";
   const resolvedExercises = exerciseNames.map((name) => {
-    const catalogExercise =
+    const directExercise =
       resolveExerciseForProfile(name, profile, usedNames) ??
       ((!profile.equipmentAccess.length || profile.equipmentAccess.includes("Full gym"))
         ? resolveCatalogExercise(name)
         : null);
-    const exercise = catalogExercise ?? createFallbackExerciseDefinition(name);
+    const limitationAwareReplacement = getLimitationAwareReplacementOptions(
+      directExercise?.name ?? name,
+      limitations
+    ).find((replacementName) => !usedNames.has(normalizeName(replacementName)));
+    const catalogExercise = limitationAwareReplacement
+      ? resolveExerciseForProfile(limitationAwareReplacement, profile, usedNames)
+      : null;
+    const exercise =
+      catalogExercise ??
+      directExercise ??
+      createFallbackExerciseDefinition(limitationAwareReplacement ?? name);
     usedNames.add(normalizeName(exercise.name));
     return exercise;
   });
@@ -1540,6 +1555,7 @@ export const buildFallbackWorkoutPlan = (
     profile,
     days.length
   );
+  const limitations = parseLimitations(profile.limitations || "");
   return {
     summary: [
       "Built a baseline weekly draft from your goal, weekly frequency, and available equipment.",
@@ -1547,6 +1563,11 @@ export const buildFallbackWorkoutPlan = (
         ? "The higher-frequency layout redistributes stress with lighter sessions instead of repeating the same workout."
         : null,
       frequencyRecommendation,
+      limitations.length > 0
+        ? `Applied ${limitations.length} limitation-aware guardrail${
+            limitations.length === 1 ? "" : "s"
+          } to keep the draft friendlier to your current constraints.`
+        : null,
     ]
       .filter(Boolean)
       .join(" "),
@@ -1668,6 +1689,7 @@ export const buildWorkoutCoachResponse = (
     sessionCount
   );
   const firstSessionLoadGuidance = getFirstSessionLoadGuidance(plan);
+  const limitationInsights = parseLimitations(profile.limitations || "");
   const plannedDays = plan.days.map((day) => {
     const exerciseCount = day.exercises.length;
     return `${day.title} on ${
@@ -1720,7 +1742,11 @@ export const buildWorkoutCoachResponse = (
           ", "
         )}.`
       : null,
-    profile.limitations
+    limitationInsights.length > 0
+      ? `It includes ${limitationInsights
+          .map((insight) => insight.title.toLowerCase())
+          .join(", ")} guardrails based on the limitations you noted.`
+      : profile.limitations
       ? `It should be easier to work around your noted limitations: ${profile.limitations}.`
       : null,
   ].filter(Boolean) as string[];
@@ -1728,6 +1754,9 @@ export const buildWorkoutCoachResponse = (
   const tips = [
     "Start by opening the first scheduled day and adjusting any exercise you know you want to swap.",
     "Treat the first week as a baseline and use your logged performance to refine the recommendations.",
+    limitationInsights.length > 0
+      ? `Quick safety pass: ${limitationInsights[0]?.avoidLabel}. Use the easier substitutions if a movement still feels wrong in warm-ups.`
+      : null,
     firstSessionLoadGuidance,
     frequencyRecommendation,
     profile.notes

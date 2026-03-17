@@ -41,6 +41,7 @@ import ExerciseDialogs from "./exercise-item/ExerciseDialogs";
 import ExerciseLoggingDialog from "./exercise-item/ExerciseLoggingDialog";
 import {
   CompletedExercisePerformancePanel,
+  ExerciseExecutionPanel,
   ExerciseRecommendationPanel,
 } from "./exercise-item/ExerciseFeedbackPanels";
 import {
@@ -343,6 +344,16 @@ const ExerciseItem = ({
         preferredUnits={preferredUnits}
         handleApplyRecommendation={handleApplyRecommendation}
         applyingRecommendation={applyingRecommendation}
+      />
+    );
+  };
+
+  const renderExecutionPanel = () => {
+    return (
+      <ExerciseExecutionPanel
+        currentExercise={currentExercise}
+        darkMode={darkMode}
+        completedExerciseRadius={completedExerciseRadius}
       />
     );
   };
@@ -1016,6 +1027,7 @@ const ExerciseItem = ({
         handleDeleteSet={handleDeleteSet}
         handleAddSet={handleAddSet}
         renderRecommendationPanel={renderRecommendationPanel}
+        renderExecutionPanel={renderExecutionPanel}
         mobileTouchTarget={mobileTouchTarget}
         routineName={routineName}
         recommendation={recommendation}

@@ -11,10 +11,13 @@ describe("workouts manager derived state wiring", () => {
 
     expect(source).toContain("const comebackGuide = useMemo(");
     expect(source).toContain("const milestoneSummary = useMemo(");
+    expect(source).toContain("const weeklyReviewPreview = useMemo");
     expect(source).toContain("comebackGuide,");
     expect(source).toContain("milestoneSummary,");
+    expect(source).toContain("weeklyReviewPreview,");
     expect(source).toContain("comebackGuide={comebackGuide}");
     expect(source).toContain("milestoneSummary={milestoneSummary}");
+    expect(source).toContain("weeklyReviewPreview={weeklyReviewPreview}");
   });
 
   it("shows a lightweight loading veil instead of replacing the current workout during day switches", () => {

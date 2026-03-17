@@ -98,6 +98,17 @@ export type ComebackGuideState = {
   supportingCopy: string;
 };
 
+export type WeeklyReviewPreviewState = {
+  reviewHeadline: string;
+  reviewCopy: string;
+  previewHeadline: string;
+  previewCopy: string;
+  thisWeekCompleted: number;
+  lastWeekCompleted: number;
+  nextWeekScheduledCount: number;
+  nextWeekFirstDayLabel: string | null;
+};
+
 const isScheduledDay = (dayStatus?: CalendarDayStatus | null) =>
   Boolean(dayStatus && (dayStatus.hasRecurring || dayStatus.exerciseCount > 0));
 
@@ -291,6 +302,7 @@ const WorkoutsManager: React.FC<{
     calendarStatusMap,
     sessionUserId,
     weeklyConsistency,
+    weeklyReviewPreview,
     comebackGuide,
     milestoneSummary,
   } = useWorkoutsManagerState(startDate, routine, setRoutine);
@@ -479,10 +491,11 @@ const WorkoutsManager: React.FC<{
                 darkMode={darkMode}
                 setRefetchExercises={setRefetchExercises}
                 refreshCalendarStatuses={refreshCalendarStatuses}
-                userProfile={userProfile}
-                weeklyConsistency={weeklyConsistency}
-                comebackGuide={comebackGuide}
-                milestoneSummary={milestoneSummary}
+        userProfile={userProfile}
+        weeklyConsistency={weeklyConsistency}
+        weeklyReviewPreview={weeklyReviewPreview}
+        comebackGuide={comebackGuide}
+        milestoneSummary={milestoneSummary}
                 onWeeklyTargetChange={onWeeklyTargetChange}
                 lastQuickAddedExerciseIdentity={lastQuickAddedExerciseIdentity}
                 clearLastQuickAddedExerciseIdentity={() =>
@@ -982,6 +995,97 @@ const useWorkoutsManagerState = (
     [currentMonthKey, monthSummaryCache, nextMonthKey, previousMonthKey]
   );
 
+  const weeklyReviewPreview = useMemo<WeeklyReviewPreviewState | null>(() => {
+    const today = new Date(currentDate);
+    today.setHours(0, 0, 0, 0);
+
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay());
+    const previousWeekStart = new Date(currentWeekStart);
+    previousWeekStart.setDate(currentWeekStart.getDate() - 7);
+    const nextWeekStart = new Date(currentWeekStart);
+    nextWeekStart.setDate(currentWeekStart.getDate() + 7);
+
+    const countLoggedDays = (startDate: Date) => {
+      let count = 0;
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+      for (const cursor = new Date(startDate); cursor < endDate; cursor.setDate(cursor.getDate() + 1)) {
+        const dayStatus = mergedStatusMap[toLocalDateKey(cursor)];
+        if (isLoggedDay(dayStatus)) {
+          count += 1;
+        }
+      }
+      return count;
+    };
+
+    const countScheduledDays = (startDate: Date) => {
+      let count = 0;
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+      for (const cursor = new Date(startDate); cursor < endDate; cursor.setDate(cursor.getDate() + 1)) {
+        const dayStatus = mergedStatusMap[toLocalDateKey(cursor)];
+        if (isScheduledDay(dayStatus)) {
+          count += 1;
+        }
+      }
+      return count;
+    };
+
+    const thisWeekCompleted = countLoggedDays(currentWeekStart);
+    const lastWeekCompleted = countLoggedDays(previousWeekStart);
+    const nextWeekScheduledCount = countScheduledDays(nextWeekStart);
+
+    let nextWeekFirstDayLabel: string | null = null;
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+    for (const cursor = new Date(nextWeekStart); cursor < nextWeekEnd; cursor.setDate(cursor.getDate() + 1)) {
+      const dayStatus = mergedStatusMap[toLocalDateKey(cursor)];
+      if (isScheduledDay(dayStatus)) {
+        nextWeekFirstDayLabel = cursor.toLocaleDateString(undefined, {
+          weekday: "long",
+        });
+        break;
+      }
+    }
+
+    if (thisWeekCompleted === 0 && lastWeekCompleted === 0 && nextWeekScheduledCount === 0) {
+      return null;
+    }
+
+    const reviewHeadline =
+      thisWeekCompleted > lastWeekCompleted
+        ? "You built momentum this week"
+        : thisWeekCompleted === 0
+        ? "This week stayed quiet"
+        : "Your week has a real training signal";
+    const reviewCopy =
+      thisWeekCompleted > lastWeekCompleted
+        ? `You logged ${thisWeekCompleted} workout${thisWeekCompleted === 1 ? "" : "s"} this week, up from ${lastWeekCompleted} last week. That is exactly the kind of progress worth carrying forward.`
+        : thisWeekCompleted === 0
+        ? "No workouts were logged yet this week, so next week works best if it starts with one easy win instead of a perfect reset."
+        : `You logged ${thisWeekCompleted} workout${thisWeekCompleted === 1 ? "" : "s"} this week. Review what felt good, what felt rushed, and what you want to repeat.`;
+    const previewHeadline =
+      nextWeekScheduledCount > 0
+        ? "Next week already has a foothold"
+        : "Next week needs a clearer first step";
+    const previewCopy =
+      nextWeekScheduledCount > 0
+        ? `${nextWeekScheduledCount} day${nextWeekScheduledCount === 1 ? "" : "s"} are already lined up next week${nextWeekFirstDayLabel ? `, starting ${nextWeekFirstDayLabel}` : ""}. Pick the day most likely to happen and protect it now.`
+        : "No next-week sessions are scheduled yet. Set one realistic anchor workout so the week starts with intent instead of guesswork.";
+
+    return {
+      reviewHeadline,
+      reviewCopy,
+      previewHeadline,
+      previewCopy,
+      thisWeekCompleted,
+      lastWeekCompleted,
+      nextWeekScheduledCount,
+      nextWeekFirstDayLabel,
+    };
+  }, [currentDate, mergedStatusMap]);
+
   const comebackGuide = useMemo(
     () =>
       buildComebackGuide({
@@ -1033,6 +1137,7 @@ const useWorkoutsManagerState = (
     calendarStatusMap,
     sessionUserId,
     weeklyConsistency,
+    weeklyReviewPreview,
     comebackGuide,
     milestoneSummary,
   };

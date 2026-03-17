@@ -60,6 +60,24 @@ const fitCards = [
   },
 ];
 
+const guestWorkoutPreview = [
+  {
+    name: "Goblet Squat",
+    detail: "3 x 8",
+    note: "Simple squat pattern with enough rest to learn it cleanly.",
+  },
+  {
+    name: "Dumbbell Floor Press",
+    detail: "3 x 10",
+    note: "Shoulder-friendlier press that still feels like real strength work.",
+  },
+  {
+    name: "One-Arm Dumbbell Row",
+    detail: "3 x 10 / side",
+    note: "Back work paired with easy setup and clear progression room.",
+  },
+];
+
 const HomePage: React.FC = () => {
   const router = useRouter();
   const { status } = useSession();
@@ -405,6 +423,114 @@ const HomePage: React.FC = () => {
         </Box>
 
         <Box sx={{ mt: { xs: 3, sm: 4 }, display: "grid", gap: 2 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2.25, sm: 2.75 },
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: landingRadius.panel,
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,249,255,0.95) 100%)",
+            }}
+          >
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", lg: "0.9fr 1.1fr" },
+                gap: 2,
+                alignItems: "start",
+              }}
+            >
+              <Box>
+                <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
+                  Preview The Workout
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 580 }}>
+                  See a real workout flow before you ever make an account.
+                </Typography>
+                <Typography sx={{ mt: 1.1, color: "text.secondary", maxWidth: 620 }}>
+                  Instead of asking you to imagine the product, here is a sample starter session the app could hand to a beginner with dumbbells and a short training window.
+                </Typography>
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
+                  <Chip label="Beginner-friendly" color="primary" sx={{ borderRadius: landingRadius.chip }} />
+                  <Chip label="30-minute session" variant="outlined" sx={{ borderRadius: landingRadius.chip }} />
+                  <Chip label="Home dumbbells" variant="outlined" sx={{ borderRadius: landingRadius.chip }} />
+                </Stack>
+              </Box>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.75,
+                  borderRadius: landingRadius.card,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  backgroundColor: "rgba(255,255,255,0.88)",
+                }}
+              >
+                <Stack spacing={1.15}>
+                  <Box>
+                    <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                      Guest workout preview
+                    </Typography>
+                    <Typography variant="h5" sx={{ mt: 0.4 }}>
+                      Foundation Dumbbell Day
+                    </Typography>
+                    <Typography sx={{ mt: 0.45, color: "text.secondary" }}>
+                      A first-week session built to feel real, not just inspirational.
+                    </Typography>
+                  </Box>
+
+                  {guestWorkoutPreview.map((exercise, index) => (
+                    <Paper
+                      key={exercise.name}
+                      elevation={0}
+                      sx={{
+                        p: 1.25,
+                        borderRadius: landingRadius.inset,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        backgroundColor: index === 0 ? "rgba(219,234,254,0.72)" : "rgba(248,250,252,0.94)",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Box>
+                          <Typography sx={{ fontWeight: 700 }}>{exercise.name}</Typography>
+                          <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                            {exercise.note}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={exercise.detail}
+                          color={index === 0 ? "primary" : "default"}
+                          variant={index === 0 ? "filled" : "outlined"}
+                          sx={{ borderRadius: landingRadius.chip, fontWeight: 700 }}
+                        />
+                      </Stack>
+                    </Paper>
+                  ))}
+
+                  <Button
+                    component={NextLink}
+                    href="/signup"
+                    variant="outlined"
+                    endIcon={<ArrowForwardIcon />}
+                    onClick={() => handleLandingCtaClick("guest_preview_start_free_beta")}
+                    sx={{ alignSelf: "flex-start", borderRadius: landingRadius.button }}
+                  >
+                    Try the full beta
+                  </Button>
+                </Stack>
+              </Paper>
+            </Box>
+          </Paper>
+
           <Paper
             elevation={0}
             sx={{

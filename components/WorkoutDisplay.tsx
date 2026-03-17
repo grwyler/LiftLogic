@@ -29,6 +29,7 @@ import { UserDoc, WorkoutExerciseView } from "../utils/types";
 import {
   WorkoutComebackGuide,
   WorkoutDisplayExercise,
+  WorkoutWeeklyReviewPreview,
   WorkoutWeeklyConsistency,
 } from "./workout-display/workoutDisplayTypes";
 
@@ -47,6 +48,7 @@ type WorkoutDisplayProps = {
   refreshCalendarStatuses?: () => void;
   userProfile?: Partial<UserDoc> | null;
   weeklyConsistency?: WorkoutWeeklyConsistency | null;
+  weeklyReviewPreview?: WorkoutWeeklyReviewPreview | null;
   comebackGuide?: WorkoutComebackGuide | null;
   milestoneSummary?: {
     recentlyUnlocked?: unknown[];
@@ -75,6 +77,7 @@ const WorkoutDisplay = ({
   refreshCalendarStatuses,
   userProfile,
   weeklyConsistency,
+  weeklyReviewPreview,
   comebackGuide,
   milestoneSummary,
   onWeeklyTargetChange,
@@ -507,6 +510,7 @@ const WorkoutDisplay = ({
           progressTrendCards={progressTrendCards}
           progressTrendSummary={progressTrendSummary}
           weeklyConsistency={weeklyConsistency}
+          weeklyReviewPreview={weeklyReviewPreview}
           weeklyTargetDraft={weeklyTargetDraft}
           savingWeeklyTarget={savingWeeklyTarget}
           onWeeklyTargetChange={handleWeeklyTargetChange}

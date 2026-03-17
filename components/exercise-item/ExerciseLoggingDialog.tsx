@@ -47,6 +47,7 @@ const ExerciseLoggingDialog = ({
   handleDeleteSet,
   handleAddSet,
   renderRecommendationPanel,
+  renderExecutionPanel,
   mobileTouchTarget,
   routineName,
   recommendation,
@@ -136,6 +137,7 @@ const ExerciseLoggingDialog = ({
       }}
     >
       {renderRecommendationPanel()}
+      {renderExecutionPanel()}
 
       {currentExercise.sets &&
         currentExercise.sets.map((s: any, i: number) => {

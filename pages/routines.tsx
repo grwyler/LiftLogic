@@ -66,6 +66,11 @@ import {
   buildWorkoutCoachResponseFromRoutine,
 } from "../utils/workoutGeneration";
 import {
+  parseLimitations,
+  starterPlanLibrary,
+  type StarterPlanPreset,
+} from "../utils/workoutGuidance";
+import {
   clearPendingLandingCta,
   readAnonymousFunnelId,
   rememberAnonymousFunnelMerged,
@@ -621,6 +626,11 @@ const RoutinesPage = ({
     );
   }, [routine]);
 
+  const limitationInsights = useMemo(
+    () => parseLimitations(setupForm.limitations),
+    [setupForm.limitations]
+  );
+
   const handleSetupFieldChange =
     (field: keyof typeof setupForm) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -632,6 +642,18 @@ const RoutinesPage = ({
     (field: keyof typeof setupForm) => (event: any) => {
       setSetupForm((prev) => ({ ...prev, [field]: event.target.value }));
     };
+
+  const applyStarterPlanPreset = (preset: StarterPlanPreset) => {
+    setAssistantIntent("planner");
+    setShowPlanningDetails(true);
+    setSetupForm((prev) =>
+      normalizeSetupForm({
+        ...prev,
+        ...preset.draft,
+        setupPromptSeen: true,
+      })
+    );
+  };
 
   const toggleSetupListValue =
     (field: "equipmentAccess" | "preferredTrainingDays", value: string) => {
@@ -1466,6 +1488,73 @@ const RoutinesPage = ({
               }}
             >
               <Stack spacing={1.5}>
+                <Box>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Starter plan library
+                  </Typography>
+                  <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                    If you do not want to build from scratch, start from a proven weekly shape and tweak it after the first draft appears.
+                  </Typography>
+                </Box>
+
+                <Stack spacing={1.2}>
+                  {starterPlanLibrary.map((preset) => (
+                    <Paper
+                      key={preset.id}
+                      elevation={0}
+                      sx={{
+                        p: 1.25,
+                        borderRadius: 3,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        backgroundColor: darkMode
+                          ? "rgba(15,23,42,0.42)"
+                          : "rgba(248,250,252,0.92)",
+                      }}
+                    >
+                      <Stack spacing={1}>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          justifyContent="space-between"
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700 }}>{preset.title}</Typography>
+                            <Typography sx={{ mt: 0.3, color: "text.secondary" }}>
+                              {preset.description}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="outlined"
+                            onClick={() => applyStarterPlanPreset(preset)}
+                          >
+                            Use this starter
+                          </Button>
+                        </Stack>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Chip size="small" color="primary" variant="outlined" label={preset.commitment} />
+                          {preset.preview.map((item) => (
+                            <Chip key={`${preset.id}-${item}`} size="small" variant="outlined" label={item} />
+                          ))}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              </Stack>
+            </Paper>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={1.5}>
                 <Typography sx={{ fontWeight: 700 }}>
                   Planning profile
                 </Typography>
@@ -1820,6 +1909,32 @@ const RoutinesPage = ({
                   minRows={3}
                   placeholder="Shoulder-friendly pressing, avoid deep knee flexion, low-back caution..."
                 />
+                {limitationInsights.length > 0 ? (
+                  <Stack spacing={0.75} sx={{ mt: 1 }}>
+                    {limitationInsights.map((insight) => (
+                      <Paper
+                        key={insight.id}
+                        elevation={0}
+                        sx={{
+                          p: 1,
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          backgroundColor: darkMode
+                            ? "rgba(15,23,42,0.42)"
+                            : "rgba(248,250,252,0.92)",
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {insight.title}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "block", mt: 0.35, color: "text.secondary" }}>
+                          {insight.summary}
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Stack>
+                ) : null}
               </Box>
             </Stack>
 

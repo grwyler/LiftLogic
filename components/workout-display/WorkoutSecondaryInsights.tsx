@@ -7,6 +7,7 @@ import {
   WorkoutTrendCard,
   WorkoutTrendSummary,
   WorkoutWeeklyConsistency,
+  WorkoutWeeklyReviewPreview,
 } from "./workoutDisplayTypes";
 
 type WorkoutSecondaryInsightsProps = {
@@ -15,6 +16,7 @@ type WorkoutSecondaryInsightsProps = {
   progressTrendCards: WorkoutTrendCard[];
   progressTrendSummary: WorkoutTrendSummary;
   weeklyConsistency?: WorkoutWeeklyConsistency | null;
+  weeklyReviewPreview?: WorkoutWeeklyReviewPreview | null;
   weeklyTargetDraft: string;
   savingWeeklyTarget: boolean;
   onWeeklyTargetChange: (value: string) => void | Promise<void>;
@@ -26,12 +28,14 @@ const WorkoutSecondaryInsights = ({
   progressTrendCards,
   progressTrendSummary,
   weeklyConsistency,
+  weeklyReviewPreview,
   weeklyTargetDraft,
   savingWeeklyTarget,
   onWeeklyTargetChange,
 }: WorkoutSecondaryInsightsProps) => {
   const hasInsights =
     Boolean(weeklyConsistency) ||
+    Boolean(weeklyReviewPreview) ||
     Boolean(comebackGuide) ||
     progressTrendCards.length > 0;
 
@@ -49,6 +53,93 @@ const WorkoutSecondaryInsights = ({
           Review consistency, comeback guidance, and trend signals after the active lift flow.
         </Typography>
       </Box>
+
+      {weeklyReviewPreview ? (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.4,
+            borderRadius: routinesPanelRadius.section,
+            border: "1px solid",
+            borderColor: darkMode ? "rgba(96,165,250,0.2)" : "rgba(37,99,235,0.14)",
+            background: darkMode
+              ? "linear-gradient(145deg, rgba(30,41,59,0.82), rgba(15,23,42,0.7))"
+              : "linear-gradient(145deg, rgba(239,246,255,0.94), rgba(255,255,255,0.98))",
+          }}
+        >
+          <Stack spacing={1.15}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Box>
+                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+                  Weekly Review
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 0.25 }}>
+                  {weeklyReviewPreview.reviewHeadline}
+                </Typography>
+                <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                  {weeklyReviewPreview.reviewCopy}
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={weeklyReviewPreview.thisWeekCompleted > 0 ? "primary" : "default"}
+                  label={`${weeklyReviewPreview.thisWeekCompleted} logged`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`${weeklyReviewPreview.lastWeekCompleted} last week`}
+                />
+              </Stack>
+            </Stack>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.15,
+                borderRadius: routinesPanelRadius.section,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: darkMode ? "rgba(15,23,42,0.5)" : "rgba(255,255,255,0.85)",
+              }}
+            >
+              <Stack spacing={0.65}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Next-week preview
+                </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  {weeklyReviewPreview.previewCopy}
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={weeklyReviewPreview.nextWeekScheduledCount > 0 ? "success" : "warning"}
+                    label={`${weeklyReviewPreview.nextWeekScheduledCount} next-week day${
+                      weeklyReviewPreview.nextWeekScheduledCount === 1 ? "" : "s"
+                    }`}
+                  />
+                  {weeklyReviewPreview.nextWeekFirstDayLabel ? (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`Starts ${weeklyReviewPreview.nextWeekFirstDayLabel}`}
+                    />
+                  ) : null}
+                  <Chip size="small" variant="outlined" label={weeklyReviewPreview.previewHeadline} />
+                </Stack>
+              </Stack>
+            </Paper>
+          </Stack>
+        </Paper>
+      ) : null}
 
       {weeklyConsistency ? (
         <Paper

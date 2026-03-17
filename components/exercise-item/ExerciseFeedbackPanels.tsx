@@ -5,6 +5,7 @@ import {
   fromCanonicalWeightLb,
 } from "../../utils/weightUnits";
 import { getPersonalRecordHighlights } from "../../utils/performance";
+import { getExerciseExecutionGuidance } from "../../utils/workoutGuidance";
 
 export const CompletedExercisePerformancePanel = ({
   currentExercise,
@@ -371,6 +372,74 @@ export const ExerciseRecommendationPanel = ({
           variant="outlined"
         />
       </Box>
+    </Paper>
+  );
+};
+
+export const ExerciseExecutionPanel = ({
+  currentExercise,
+  darkMode,
+  completedExerciseRadius,
+}: any) => {
+  const guidance = getExerciseExecutionGuidance(currentExercise?.name ?? "");
+
+  if (!guidance) {
+    return null;
+  }
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        mb: 1.5,
+        p: 1.5,
+        borderRadius: completedExerciseRadius.section,
+        border: "1px solid",
+        borderColor: darkMode
+          ? "rgba(148,163,184,0.12)"
+          : "rgba(17,24,39,0.08)",
+        backgroundColor: darkMode
+          ? "rgba(15,23,42,0.68)"
+          : "rgba(248,250,252,0.92)",
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+        {guidance.title}
+      </Typography>
+      <Box sx={{ mt: 1, display: "grid", gap: 0.65 }}>
+        {guidance.cues.map((cue) => (
+          <Typography key={cue} sx={{ color: "text.secondary" }}>
+            {`\u2022 ${cue}`}
+          </Typography>
+        ))}
+      </Box>
+      {guidance.regression ? (
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 1.15,
+            p: 1.1,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor: darkMode
+              ? "rgba(96,165,250,0.18)"
+              : "rgba(37,99,235,0.14)",
+            backgroundColor: darkMode
+              ? "rgba(30,41,59,0.66)"
+              : "rgba(255,255,255,0.88)",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Beginner regression
+          </Typography>
+          <Typography sx={{ mt: 0.3, fontWeight: 700 }}>
+            {guidance.regression.name}
+          </Typography>
+          <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+            {guidance.regression.reason}
+          </Typography>
+        </Paper>
+      ) : null}
     </Paper>
   );
 };
