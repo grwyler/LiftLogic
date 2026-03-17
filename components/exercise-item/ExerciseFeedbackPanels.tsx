@@ -18,6 +18,7 @@ export const CompletedExercisePerformancePanel = ({
   progressSummary,
   loadingRecommendation,
   preferredUnits,
+  onOpenHistory,
 }: any) => {
   if (currentExercise.type !== "weight" || !currentExercise.complete) {
     return null;
@@ -124,13 +125,18 @@ export const CompletedExercisePerformancePanel = ({
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Performance
         </Typography>
-        <Chip
-          size="small"
-          label={trendLabel}
-          color={trendColor as any}
-          variant="outlined"
-          sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
-        />
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Chip
+            size="small"
+            label={trendLabel}
+            color={trendColor as any}
+            variant="outlined"
+            sx={{ borderRadius: completedExerciseRadius.pill, fontWeight: 700 }}
+          />
+          <Button variant="outlined" size="small" onClick={onOpenHistory}>
+            View history
+          </Button>
+        </Box>
       </Box>
 
       {personalRecordHighlights.length > 0 ? (
@@ -259,9 +265,14 @@ export const ExerciseRecommendationPanel = ({
   hasUnlockedProgressionRecommendation,
   onRequestProgressionUpgradePrompt,
   recommendation,
+  progressSummary,
+  latestFeedback,
   preferredUnits,
   handleApplyRecommendation,
   applyingRecommendation,
+  onOpenHistory,
+  onRecommendationFeedback,
+  savingRecommendationFeedback,
 }: any) => {
   if (!progressionRecommendationsEnabled && currentExercise.type === "weight") {
     return (
@@ -312,6 +323,36 @@ export const ExerciseRecommendationPanel = ({
     return null;
   }
 
+  const recommendedWeight = recommendation.recommendedWeight;
+  const recommendedReps = recommendation.recommendedReps;
+  const recommendedSets = recommendation.recommendedSets;
+  const weightChange =
+    recommendation?.basedOn?.topSetWeight && recommendedWeight
+      ? Math.round((recommendedWeight - recommendation.basedOn.topSetWeight) * 10) / 10
+      : null;
+  const repChange =
+    recommendation?.basedOn?.topSetReps && recommendedReps
+      ? recommendedReps - recommendation.basedOn.topSetReps
+      : null;
+  const setChange =
+    recommendation?.basedOn?.setsCompleted && recommendedSets
+      ? recommendedSets - recommendation.basedOn.setsCompleted
+      : null;
+  const primaryChangeSummary =
+    weightChange && Math.abs(weightChange) > 0
+      ? weightChange > 0
+        ? "Progressing load"
+        : "Reducing load"
+      : repChange && Math.abs(repChange) > 0
+      ? repChange > 0
+        ? "Adding reps"
+        : "Reducing reps"
+      : setChange && Math.abs(setChange) > 0
+      ? setChange > 0
+        ? "Adding volume"
+        : "Reducing volume"
+      : "Holding steady";
+
   return (
     <Paper
       elevation={0}
@@ -345,13 +386,18 @@ export const ExerciseRecommendationPanel = ({
             Your planned sets stay unchanged until you apply this recommendation.
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          onClick={handleApplyRecommendation}
-          disabled={applyingRecommendation}
-        >
-          {applyingRecommendation ? "Applying..." : "Apply recommendation"}
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Button variant="outlined" onClick={onOpenHistory}>
+            View history
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={handleApplyRecommendation}
+            disabled={applyingRecommendation}
+          >
+            {applyingRecommendation ? "Applying..." : "Apply recommendation"}
+          </Button>
+        </Box>
       </Box>
       <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Chip
@@ -372,6 +418,127 @@ export const ExerciseRecommendationPanel = ({
           variant="outlined"
         />
       </Box>
+
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 1.1,
+          p: 1.1,
+          borderRadius: completedExerciseRadius.section,
+          border: "1px solid",
+          borderColor: "divider",
+          backgroundColor: darkMode ? "rgba(15,23,42,0.5)" : "rgba(255,255,255,0.88)",
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Why the app picked this
+        </Typography>
+        <Box sx={{ mt: 0.8, display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Chip size="small" label={primaryChangeSummary} variant="outlined" />
+          {recommendation.daysSinceLastWorkout !== null ? (
+            <Chip
+              size="small"
+              label={`${recommendation.daysSinceLastWorkout} day gap`}
+              variant="outlined"
+            />
+          ) : null}
+          {recommendation.basedOn?.date ? (
+            <Chip
+              size="small"
+              label={`Benchmark ${recommendation.basedOn.date}`}
+              variant="outlined"
+            />
+          ) : null}
+        </Box>
+        <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+          {recommendation.reason}
+        </Typography>
+        {recommendation.basedOn ? (
+          <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+            Based on your last benchmark of{" "}
+            {formatWeight(
+              recommendation.basedOn.topSetWeight,
+              recommendation.weightUnit ?? preferredUnits
+            )}{" "}
+            x {recommendation.basedOn.topSetReps}, averaging{" "}
+            {formatWeight(
+              recommendation.basedOn.averageWeight,
+              recommendation.weightUnit ?? preferredUnits
+            )}{" "}
+            for {recommendation.basedOn.averageReps} reps across{" "}
+            {recommendation.basedOn.setsCompleted} completed sets.
+          </Typography>
+        ) : null}
+        {progressSummary?.latestEstimated1RM ? (
+          <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+            Current estimated strength:{" "}
+            {formatWeight(
+              fromCanonicalWeightLb(
+                progressSummary.latestEstimated1RM,
+                recommendation.weightUnit ?? preferredUnits
+              ),
+              recommendation.weightUnit ?? preferredUnits
+            )}
+            .
+          </Typography>
+        ) : null}
+      </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 1.1,
+          p: 1.1,
+          borderRadius: completedExerciseRadius.section,
+          border: "1px solid",
+          borderColor: "divider",
+          backgroundColor: darkMode ? "rgba(15,23,42,0.5)" : "rgba(255,255,255,0.88)",
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          How did this recommendation feel?
+        </Typography>
+        <Box sx={{ mt: 0.8, display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Button
+            variant={latestFeedback?.feedback === "too_easy" ? "contained" : "outlined"}
+            size="small"
+            onClick={() => onRecommendationFeedback?.("too_easy")}
+            disabled={savingRecommendationFeedback}
+          >
+            Too easy
+          </Button>
+          <Button
+            variant={latestFeedback?.feedback === "about_right" ? "contained" : "outlined"}
+            size="small"
+            onClick={() => onRecommendationFeedback?.("about_right")}
+            disabled={savingRecommendationFeedback}
+          >
+            About right
+          </Button>
+          <Button
+            variant={latestFeedback?.feedback === "too_hard" ? "contained" : "outlined"}
+            size="small"
+            onClick={() => onRecommendationFeedback?.("too_hard")}
+            disabled={savingRecommendationFeedback}
+          >
+            Too hard
+          </Button>
+        </Box>
+        <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+          You can still override the set, rep, or load target manually. The original recommendation stays visible here for comparison.
+        </Typography>
+        {latestFeedback ? (
+          <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+            Latest feedback on this lift:{" "}
+            {latestFeedback.feedback === "too_easy"
+              ? "too easy"
+              : latestFeedback.feedback === "too_hard"
+              ? "too hard"
+              : "about right"}
+            .
+          </Typography>
+        ) : null}
+      </Paper>
     </Paper>
   );
 };

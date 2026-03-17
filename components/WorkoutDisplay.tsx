@@ -21,6 +21,10 @@ import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary";
 import WorkoutSecondaryInsights from "./workout-display/WorkoutSecondaryInsights";
 import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
+import {
+  createWorkoutEntryInstanceId,
+  saveWorkoutEntry,
+} from "../utils/helpers";
 import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
 import {
   buildRoutineSemanticButtonSx,
@@ -28,9 +32,13 @@ import {
 } from "../utils/routinesSemanticStyles";
 import { UserDoc, WorkoutExerciseView } from "../utils/types";
 import { getLowEnergyWorkoutGuide } from "../utils/workoutGuidance";
+import { createExerciseSetId } from "../utils/exerciseSetIds";
+import { getExerciseProfile } from "../utils/exerciseDrafts";
+import { normalizeWeightUnit } from "../utils/weightUnits";
 import {
   WorkoutComebackGuide,
   WorkoutDisplayExercise,
+  WorkoutTrainingAnalyticsSummary,
   WorkoutWeeklyReviewPreview,
   WorkoutWeeklyConsistency,
 } from "./workout-display/workoutDisplayTypes";
@@ -52,6 +60,10 @@ type WorkoutDisplayProps = {
   weeklyConsistency?: WorkoutWeeklyConsistency | null;
   weeklyReviewPreview?: WorkoutWeeklyReviewPreview | null;
   comebackGuide?: WorkoutComebackGuide | null;
+  trainingAnalytics?: {
+    week: WorkoutTrainingAnalyticsSummary;
+    month: WorkoutTrainingAnalyticsSummary;
+  } | null;
   milestoneSummary?: {
     recentlyUnlocked?: unknown[];
     unlocked?: unknown[];
@@ -63,6 +75,21 @@ type WorkoutDisplayProps = {
   onRequestProgressionUpgradePrompt?: () => void;
   onRequestPersonalRecordUpgradePrompt?: () => void;
 };
+
+const trackerStarterTemplates = [
+  {
+    id: "starter_strength",
+    title: "Simple strength starter",
+    description: "Three foundational lifts so you can start logging in one move.",
+    exercises: ["Goblet Squat", "Bench Press", "Seated Cable Row"],
+  },
+  {
+    id: "starter_home",
+    title: "Home dumbbell start",
+    description: "A quick full-body session for short windows and minimal setup.",
+    exercises: ["Dumbbell Romanian Deadlift", "Dumbbell Floor Press", "Split Squat"],
+  },
+] as const;
 
 const WorkoutDisplay = ({
   exercises,
@@ -81,6 +108,7 @@ const WorkoutDisplay = ({
   weeklyConsistency,
   weeklyReviewPreview,
   comebackGuide,
+  trainingAnalytics,
   milestoneSummary,
   onWeeklyTargetChange,
   lastQuickAddedExerciseIdentity,
@@ -92,6 +120,8 @@ const WorkoutDisplay = ({
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [completionRecapDismissed, setCompletionRecapDismissed] = useState(false);
   const [minimumWinMode, setMinimumWinMode] = useState(false);
+  const [starterFlowDismissed, setStarterFlowDismissed] = useState(false);
+  const [startingTemplateId, setStartingTemplateId] = useState<string | null>(null);
   const completionStateRef = useRef(false);
   const proWeeklyBriefTrackedRef = useRef(false);
   const { data: session } = useSession() as {
@@ -108,6 +138,7 @@ const WorkoutDisplay = ({
     userProfile,
     "recurringWorkoutScheduling"
   );
+  const preferredUnits = normalizeWeightUnit(userProfile?.preferredUnits);
 
   const {
     exerciseProgressById,
@@ -368,6 +399,27 @@ const WorkoutDisplay = ({
     });
   }, [progressionRecommendationsEnabled, weeklyReviewPreview]);
 
+  useEffect(() => {
+    if (!currentUserId || typeof window === "undefined") {
+      return;
+    }
+
+    const dismissalKey = `liftlogic:starter-flow-dismissed:${currentUserId}`;
+    setStarterFlowDismissed(window.localStorage.getItem(dismissalKey) === "true");
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (hasExercises || starterFlowDismissed) {
+      return;
+    }
+
+    void trackBetaFunnelMilestone("starter_flow_shown", {
+      source: "tracker_first_empty_state",
+    }).catch((error) => {
+      console.error("Error tracking starter flow impression:", error);
+    });
+  }, [hasExercises, starterFlowDismissed]);
+
   const handleCompletionNextStep = () => {
     if (recurringSchedulingEnabled && hasExercises) {
       openWorkoutRepeatDialog();
@@ -412,6 +464,93 @@ const WorkoutDisplay = ({
   const handleOpenNextSet = () => {
     if (nextExerciseIndex >= 0) {
       setCurrentExerciseIndex(nextExerciseIndex);
+    }
+  };
+
+  const handleDismissStarterFlow = () => {
+    setStarterFlowDismissed(true);
+    if (currentUserId && typeof window !== "undefined") {
+      window.localStorage.setItem(
+        `liftlogic:starter-flow-dismissed:${currentUserId}`,
+        "true"
+      );
+    }
+    void trackBetaFunnelMilestone("starter_flow_dismissed", {
+      source: "tracker_first_empty_state",
+    }).catch((error) => {
+      console.error("Error tracking starter flow dismissal:", error);
+    });
+  };
+
+  const handleStartStarterTemplate = async (
+    template: (typeof trackerStarterTemplates)[number]
+  ) => {
+    if (!currentUserId) {
+      toast.error("You need to be signed in to start a workout.");
+      return;
+    }
+
+    try {
+      setStartingTemplateId(template.id);
+      void trackBetaFunnelMilestone("starter_flow_started", {
+        source: template.id,
+      }).catch((error) => {
+        console.error("Error tracking starter flow start:", error);
+      });
+
+      const newExercises = await Promise.all(
+        template.exercises.map(async (exerciseName, index) => {
+          const profile = getExerciseProfile({ name: exerciseName });
+          const sets = Array.from({ length: profile.sets ?? 3 }, (_, setIndex) => ({
+            id: createExerciseSetId(),
+            name: `Working Set ${setIndex + 1}`,
+            reps: profile.reps ?? 8,
+            weight: profile.weight ?? undefined,
+            actualWeight: "",
+            actualReps: "",
+            weightUnit: preferredUnits,
+            complete: false,
+          }));
+
+          const entry = {
+            entryInstanceId: createWorkoutEntryInstanceId(),
+            userId: currentUserId,
+            exerciseId: exerciseName.toLowerCase().replace(/\s+/g, "-"),
+            name: exerciseName,
+            type: "weight" as const,
+            routineName,
+            date: formattedDate,
+            rest: 90,
+            complete: false,
+            sortOrder: index,
+            weightUnit: preferredUnits,
+            sets,
+          };
+
+          const saved = await saveWorkoutEntry(entry as any);
+          return {
+            ...entry,
+            _id: saved?.entryId,
+            entryInstanceId: saved?.entryInstanceId ?? entry.entryInstanceId,
+          };
+        })
+      );
+
+      setExercises(newExercises as WorkoutDisplayExercise[]);
+      setCurrentExerciseIndex(0);
+      setStarterFlowDismissed(true);
+      refreshCalendarStatuses?.();
+      void trackBetaFunnelMilestone("starter_flow_completed", {
+        source: template.id,
+      }).catch((error) => {
+        console.error("Error tracking starter flow completion:", error);
+      });
+      toast.success(`${template.title} is ready to log`);
+    } catch (error) {
+      console.error("Failed to start starter workout", error);
+      toast.error("The starter workout was not created. Try again.");
+    } finally {
+      setStartingTemplateId(null);
     }
   };
 
@@ -635,6 +774,55 @@ const WorkoutDisplay = ({
             <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
               Start with a lift, movement, or timed activity. You can always add more after that.
             </Typography>
+            {!starterFlowDismissed ? (
+              <Stack spacing={1.1} sx={{ mt: 1.5, textAlign: "left" }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Guided first-session options
+                </Typography>
+                {trackerStarterTemplates.map((template) => (
+                  <Paper
+                    key={template.id}
+                    variant="outlined"
+                    sx={{
+                      p: 1.15,
+                      borderRadius: routinesPanelRadius.section,
+                      textAlign: "left",
+                      backgroundColor: darkMode
+                        ? "rgba(15,23,42,0.52)"
+                        : "rgba(248,250,252,0.9)",
+                    }}
+                  >
+                    <Typography sx={{ fontWeight: 700 }}>{template.title}</Typography>
+                    <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                      {template.description}
+                    </Typography>
+                    <Typography sx={{ mt: 0.55, color: "text.secondary" }}>
+                      {template.exercises.join(" • ")}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      sx={{ mt: 1 }}
+                      onClick={() => void handleStartStarterTemplate(template)}
+                      disabled={Boolean(startingTemplateId)}
+                    >
+                      {startingTemplateId === template.id ? "Creating..." : "Start this workout"}
+                    </Button>
+                  </Paper>
+                ))}
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="center"
+                >
+                  <Button variant="outlined" onClick={() => setIsAddingExercise(true)}>
+                    Build manually instead
+                  </Button>
+                  <Button variant="text" onClick={handleDismissStarterFlow}>
+                    Dismiss starter flow
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : null}
           </Paper>
         ) : null}
 
@@ -644,10 +832,14 @@ const WorkoutDisplay = ({
           progressTrendCards={progressTrendCards}
           progressTrendSummary={progressTrendSummary}
           showProWeeklyBrief={progressionRecommendationsEnabled}
+          trainingAnalytics={trainingAnalytics}
           weeklyConsistency={weeklyConsistency}
           weeklyReviewPreview={weeklyReviewPreview}
           weeklyTargetDraft={weeklyTargetDraft}
           savingWeeklyTarget={savingWeeklyTarget}
+          onResumeToday={handleResumeToday}
+          onLightRestart={handleLightRestart}
+          onRescheduleThisWeek={handleRescheduleThisWeek}
           onWeeklyTargetChange={handleWeeklyTargetChange}
         />
       </Stack>

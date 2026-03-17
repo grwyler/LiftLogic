@@ -33,6 +33,7 @@ import {
   saveWorkoutSessionDraft,
   shouldPersistWorkoutSessionDraft,
 } from "../utils/workoutSessionDraft";
+import { buildTrainingAnalyticsSummary } from "../utils/workoutAnalytics";
 
 type Workout = {
   title: string;
@@ -96,6 +97,8 @@ export type ComebackGuideState = {
   daysSinceLastLog: number | null;
   headline: string;
   supportingCopy: string;
+  lastCompletedLabel?: string | null;
+  adjustmentCopy?: string | null;
 };
 
 export type WeeklyReviewPreviewState = {
@@ -107,6 +110,13 @@ export type WeeklyReviewPreviewState = {
   lastWeekCompleted: number;
   nextWeekScheduledCount: number;
   nextWeekFirstDayLabel: string | null;
+  recommendedFocus?: string;
+  recentBriefs?: Array<{
+    id: string;
+    label: string;
+    headline: string;
+    summary: string;
+  }>;
 };
 
 const isScheduledDay = (dayStatus?: CalendarDayStatus | null) =>
@@ -118,9 +128,11 @@ const isLoggedDay = (dayStatus?: CalendarDayStatus | null) =>
 export const buildComebackGuide = ({
   statusMap,
   currentDate,
+  historyEntries = [],
 }: {
   statusMap: CalendarStatusMap;
   currentDate: Date;
+  historyEntries?: WorkoutEntryDoc[];
 }): ComebackGuideState | null => {
   const today = new Date(currentDate);
   today.setHours(0, 0, 0, 0);
@@ -138,6 +150,7 @@ export const buildComebackGuide = ({
 
   const dateKeys = Object.keys(statusMap).sort().reverse();
   let daysSinceLastLog: number | null = null;
+  let lastCompletedLabel: string | null = null;
 
   for (const key of dateKeys) {
     const dayStatus = statusMap[key];
@@ -151,6 +164,10 @@ export const buildComebackGuide = ({
     }
 
     daysSinceLastLog = Math.round((today.getTime() - parsed.getTime()) / 86400000);
+    lastCompletedLabel = parsed.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
     break;
   }
 
@@ -166,10 +183,13 @@ export const buildComebackGuide = ({
       state: "missed_sessions_and_lapse",
       missedScheduledCount,
       daysSinceLastLog,
+      lastCompletedLabel,
       headline: "Fresh restart, no catching up required",
       supportingCopy: `A few planned sessions slipped and it has been about ${daysSinceLastLog} day${
         daysSinceLastLog === 1 ? "" : "s"
       } since your last logged workout. You do not need to make anything up. Resume with one good session or reshape the rest of this week.`,
+      adjustmentCopy:
+        "Recommendations ease back in after time away, so the first return session should feel conservative on purpose.",
     };
   }
 
@@ -178,21 +198,38 @@ export const buildComebackGuide = ({
       state: "returning_after_lapse",
       missedScheduledCount,
       daysSinceLastLog,
+      lastCompletedLabel,
       headline: "Welcome back. Today still counts.",
       supportingCopy: `It has been about ${daysSinceLastLog} day${
         daysSinceLastLog === 1 ? "" : "s"
       } since your last logged workout. The best move is a simple return session, not a perfect restart.`,
+      adjustmentCopy:
+        "The app will bias recommendations a little lighter after a longer gap so you can rebuild rhythm before pushing again.",
     };
   }
+
+  const mostRecentCompletedEntry = [...historyEntries]
+    .filter((entry) => isLoggedDay(statusMap[toLocalDateKey(new Date(entry.date))]))
+    .sort((left, right) => +new Date(right.date) - +new Date(left.date))[0];
 
   return {
     state: "missed_sessions",
     missedScheduledCount,
     daysSinceLastLog,
+    lastCompletedLabel:
+      lastCompletedLabel ??
+      (mostRecentCompletedEntry
+        ? new Date(mostRecentCompletedEntry.date).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })
+        : null),
     headline: "A couple sessions slipped. That is recoverable.",
     supportingCopy: `You missed ${missedScheduledCount} scheduled workout${
       missedScheduledCount === 1 ? "" : "s"
     } earlier this week. Treat today like a fresh win opportunity and adjust the rest of the week around what is realistic now.`,
+    adjustmentCopy:
+      "If the next recommendation looks slightly easier than usual, that is the app trying to lower friction for your return session.",
   };
 };
 
@@ -305,7 +342,8 @@ const WorkoutsManager: React.FC<{
     weeklyReviewPreview,
     comebackGuide,
     milestoneSummary,
-  } = useWorkoutsManagerState(startDate, routine, setRoutine);
+    trainingAnalytics,
+  } = useWorkoutsManagerState(startDate, routine, setRoutine, userProfile);
   const [pendingRecoveryDraft, setPendingRecoveryDraft] =
     useState<WorkoutSessionDraft | null>(null);
   const [recoveryHandledKey, setRecoveryHandledKey] = useState<string | null>(null);
@@ -491,11 +529,12 @@ const WorkoutsManager: React.FC<{
                 darkMode={darkMode}
                 setRefetchExercises={setRefetchExercises}
                 refreshCalendarStatuses={refreshCalendarStatuses}
-        userProfile={userProfile}
-        weeklyConsistency={weeklyConsistency}
-        weeklyReviewPreview={weeklyReviewPreview}
-        comebackGuide={comebackGuide}
-        milestoneSummary={milestoneSummary}
+                userProfile={userProfile}
+                weeklyConsistency={weeklyConsistency}
+                weeklyReviewPreview={weeklyReviewPreview}
+                comebackGuide={comebackGuide}
+                milestoneSummary={milestoneSummary}
+                trainingAnalytics={trainingAnalytics}
                 onWeeklyTargetChange={onWeeklyTargetChange}
                 lastQuickAddedExerciseIdentity={lastQuickAddedExerciseIdentity}
                 clearLastQuickAddedExerciseIdentity={() =>
@@ -558,6 +597,7 @@ const useWorkoutsManagerState = (
   setRoutine: any,
   userProfile?: {
     workoutDaysPerWeek?: string;
+    preferredUnits?: "lb" | "kg";
   } | null
 ) => {
   const [currentDayIndex, setCurrentDayIndex] = useState(startDate.getDay());
@@ -1113,8 +1153,9 @@ const useWorkoutsManagerState = (
       buildComebackGuide({
         statusMap: mergedStatusMap,
         currentDate,
+        historyEntries,
       }),
-    [currentDate, mergedStatusMap]
+    [currentDate, historyEntries, mergedStatusMap]
   );
 
   const milestoneSummary = useMemo(
@@ -1125,6 +1166,26 @@ const useWorkoutsManagerState = (
         weeklyTarget: Number(userProfile?.workoutDaysPerWeek || 0) || null,
       }),
     [currentDate, historyEntries, userProfile?.workoutDaysPerWeek]
+  );
+
+  const trainingAnalytics = useMemo(
+    () => ({
+      week: buildTrainingAnalyticsSummary({
+        entries: historyEntries,
+        statusMap: mergedStatusMap,
+        currentDate,
+        period: "week",
+        preferredUnits: userProfile?.preferredUnits,
+      }),
+      month: buildTrainingAnalyticsSummary({
+        entries: historyEntries,
+        statusMap: mergedStatusMap,
+        currentDate,
+        period: "month",
+        preferredUnits: userProfile?.preferredUnits,
+      }),
+    }),
+    [currentDate, historyEntries, mergedStatusMap, userProfile?.preferredUnits]
   );
 
   return {
@@ -1162,6 +1223,7 @@ const useWorkoutsManagerState = (
     weeklyReviewPreview,
     comebackGuide,
     milestoneSummary,
+    trainingAnalytics,
   };
 };
 

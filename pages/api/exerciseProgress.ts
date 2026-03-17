@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { ObjectId } from "mongodb";
 import { connectToDatabase } from "../../utils/mongodb";
-import { WorkoutEntryDoc } from "@/utils/types";
+import { ExerciseRecommendationFeedbackDoc, WorkoutEntryDoc } from "@/utils/types";
 import { buildExerciseProgressSummary } from "@/utils/performance";
 import { buildNextExerciseRecommendation } from "@/utils/progression";
 import {
@@ -33,6 +33,9 @@ export default async function handler(
     const db = await connectToDatabase();
     const col = db.collection<WorkoutEntryDoc>("workoutEntries");
     const userCollection = db.collection("users");
+    const recommendationFeedbackCollection = db.collection<ExerciseRecommendationFeedbackDoc>(
+      "exerciseRecommendationFeedback"
+    );
 
     const entries = await col
       .find({
@@ -62,11 +65,21 @@ export default async function handler(
           user?.preferredUnits
         )
       : null;
+    const latestFeedback = await recommendationFeedbackCollection.findOne(
+      {
+        userId: String(userId),
+        exerciseId: trimmedExerciseId,
+      },
+      {
+        sort: { createdAt: -1 },
+      }
+    );
 
     return res.status(200).json({
       summary,
       recommendation,
       entries,
+      latestFeedback,
       user: withResolvedUserAccess(user as any),
     });
   } catch (error) {

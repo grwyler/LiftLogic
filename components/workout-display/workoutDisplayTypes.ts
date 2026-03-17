@@ -38,10 +38,13 @@ export type WorkoutWeeklyConsistency = {
 };
 
 export type WorkoutComebackGuide = {
+  state?: "missed_sessions" | "returning_after_lapse" | "missed_sessions_and_lapse";
   headline: string;
   supportingCopy: string;
   missedScheduledCount: number;
   daysSinceLastLog: number | null;
+  lastCompletedLabel?: string | null;
+  adjustmentCopy?: string | null;
 };
 
 export type WorkoutWeeklyReviewPreview = {
@@ -62,11 +65,37 @@ export type WorkoutWeeklyReviewPreview = {
   }>;
 };
 
+export type WorkoutTrainingAnalyticsSummary = {
+  period: "week" | "month";
+  label: string;
+  completedWorkouts: number;
+  plannedWorkouts: number;
+  totalSets: number;
+  totalVolume: number;
+  workoutStreak: number;
+  consistencyRate: number;
+  muscleDistribution: Array<{
+    group: string;
+    sets: number;
+    share: number;
+  }>;
+  liftTrendHighlights: Array<{
+    exerciseId: string;
+    exerciseName: string;
+    status: "new" | "up" | "steady" | "down";
+    label: string;
+    benchmark: string;
+    detail: string;
+  }>;
+};
+
 export type WorkoutProgressLookup = Record<
   string,
   {
     summary: unknown;
     recommendation: unknown;
+    entries?: unknown[];
+    latestFeedback?: unknown;
   }
 >;
 

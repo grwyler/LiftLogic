@@ -271,6 +271,22 @@ export interface MonetizationSummaryResponse {
   };
 }
 
+export interface ExerciseRecommendationFeedbackDoc {
+  _id?: ObjectId;
+  userId: string;
+  exerciseId: string;
+  exerciseName?: string;
+  feedback: "too_easy" | "about_right" | "too_hard";
+  recommendedWeight?: number | null;
+  recommendedReps?: number | null;
+  recommendedSets?: number | null;
+  weightUnit?: WeightUnit;
+  recommendationReason?: string;
+  basedOnDate?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export type ObservabilityEventKind =
   | "client_error"
   | "route_performance"

@@ -5,7 +5,7 @@ import {
   getPersonalRecordHighlights,
   getProgressTrendHighlight,
 } from "../../utils/performance";
-import { UserDoc } from "../../utils/types";
+import { ExerciseRecommendationFeedbackDoc, UserDoc, WorkoutEntryDoc } from "../../utils/types";
 import {
   WorkoutDisplayExercise,
   WorkoutProgressLookup,
@@ -108,6 +108,10 @@ export const useWorkoutProgressData = ({
             [exerciseId]: {
               summary: result?.summary ?? null,
               recommendation: result?.recommendation ?? null,
+              entries: (result?.entries ?? []) as WorkoutEntryDoc[],
+              latestFeedback:
+                (result as { latestFeedback?: ExerciseRecommendationFeedbackDoc | null })
+                  ?.latestFeedback ?? null,
             },
           }));
         } catch (error) {
@@ -118,6 +122,8 @@ export const useWorkoutProgressData = ({
               [exerciseId]: {
                 summary: null,
                 recommendation: null,
+                entries: [],
+                latestFeedback: null,
               },
             }));
           }

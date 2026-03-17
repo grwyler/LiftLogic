@@ -2,7 +2,11 @@ import React from "react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Box, Chip, Paper, Typography } from "@mui/material";
 import ExerciseItem from "../ExerciseItem";
-import { WorkoutExerciseView } from "../../utils/types";
+import {
+  ExerciseRecommendationFeedbackDoc,
+  WorkoutEntryDoc,
+  WorkoutExerciseView,
+} from "../../utils/types";
 import { routinesPanelRadius } from "./panelStyles";
 import {
   WorkoutDisplayExercise,
@@ -106,6 +110,16 @@ const ExerciseListSection = ({
         userProfile={userProfile}
         recommendation={exerciseProgressById[getExerciseCacheKey(exercise)]?.recommendation ?? null}
         progressSummary={exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null}
+        progressEntries={
+          (exerciseProgressById[getExerciseCacheKey(exercise)]?.entries as WorkoutEntryDoc[] | undefined) ??
+          []
+        }
+        latestRecommendationFeedback={
+          (exerciseProgressById[getExerciseCacheKey(exercise)]?.latestFeedback as
+            | ExerciseRecommendationFeedbackDoc
+            | null
+            | undefined) ?? null
+        }
         loadingRecommendation={Boolean(loadingProgressById[getExerciseCacheKey(exercise)])}
         lowEnergyModeActive={lowEnergyModeActive}
         progressionRecommendationsEnabled={progressionRecommendationsEnabled}

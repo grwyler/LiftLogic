@@ -39,6 +39,7 @@ import {
 import { useExerciseItemState } from "./exercise-item/useExerciseItemState";
 import ExerciseDialogs from "./exercise-item/ExerciseDialogs";
 import ExerciseLoggingDialog from "./exercise-item/ExerciseLoggingDialog";
+import ExerciseHistoryDialog from "./exercise-item/ExerciseHistoryDialog";
 import {
   CompletedExercisePerformancePanel,
   ExerciseExecutionPanel,
@@ -50,7 +51,14 @@ import {
   saveExerciseRepeatSchedule,
 } from "../utils/exerciseScheduleActions";
 import { radiusTokens } from "../styles/radiusTokens";
-import { Exercise, UserDoc, WorkoutEntryDoc, WorkoutExerciseView } from "../utils/types";
+import {
+  Exercise,
+  ExerciseRecommendationFeedbackDoc,
+  UserDoc,
+  WorkoutEntryDoc,
+  WorkoutExerciseView,
+} from "../utils/types";
+import { saveExerciseRecommendationFeedback } from "../utils/exerciseRecommendationFeedbackClient";
 
 type SessionWithUserId = Session & {
   token?: {
@@ -90,11 +98,23 @@ type ExerciseItemProps = {
     recommendedReps?: number;
     recommendedSets?: number;
     weightUnit?: "lb" | "kg";
+    reason?: string;
+    daysSinceLastWorkout?: number | null;
+    basedOn?: {
+      date?: string;
+      topSetWeight?: number;
+      topSetReps?: number;
+      averageWeight?: number;
+      averageReps?: number;
+      setsCompleted?: number;
+    };
   } | null;
   progressSummary?: {
     bestRepPerformance?: unknown;
     latestEstimated1RM?: number;
   } | null;
+  progressEntries?: WorkoutEntryDoc[] | null;
+  latestRecommendationFeedback?: ExerciseRecommendationFeedbackDoc | null;
   lowEnergyModeActive?: boolean;
   loadingRecommendation?: boolean;
   progressionRecommendationsEnabled?: boolean;
@@ -140,6 +160,8 @@ const ExerciseItem = ({
   userProfile,
   recommendation,
   progressSummary,
+  progressEntries,
+  latestRecommendationFeedback,
   lowEnergyModeActive = false,
   loadingRecommendation,
   progressionRecommendationsEnabled = true,
@@ -201,6 +223,13 @@ const ExerciseItem = ({
   const preferredUnits = normalizeWeightUnit(
     userProfile?.preferredUnits ?? currentExercise?.weightUnit ?? exercise?.weightUnit
   );
+  const [showHistoryDialog, setShowHistoryDialog] = React.useState(false);
+  const [latestFeedbackState, setLatestFeedbackState] =
+    React.useState<ExerciseRecommendationFeedbackDoc | null>(
+      latestRecommendationFeedback ?? null
+    );
+  const [savingRecommendationFeedback, setSavingRecommendationFeedback] =
+    React.useState(false);
   const hasUnlockedProgressionRecommendation = Boolean(
     recommendation?.recommendedWeight ||
       recommendation?.recommendedReps ||
@@ -228,6 +257,10 @@ const ExerciseItem = ({
     return null;
   };
 
+  React.useEffect(() => {
+    setLatestFeedbackState(latestRecommendationFeedback ?? null);
+  }, [latestRecommendationFeedback]);
+
   const renderCompletedPerformancePanel = () => {
     return (
       <CompletedExercisePerformancePanel
@@ -241,6 +274,7 @@ const ExerciseItem = ({
         progressSummary={progressSummary}
         loadingRecommendation={loadingRecommendation}
         preferredUnits={preferredUnits}
+        onOpenHistory={() => setShowHistoryDialog(true)}
       />
     );
   };
@@ -333,6 +367,43 @@ const ExerciseItem = ({
     }
   };
 
+  const handleRecommendationFeedback = async (
+    feedback: ExerciseRecommendationFeedbackDoc["feedback"]
+  ) => {
+    if (!currentUserId || !recommendation) {
+      return;
+    }
+
+    try {
+      setSavingRecommendationFeedback(true);
+      const payload: ExerciseRecommendationFeedbackDoc = {
+        userId: currentUserId,
+        exerciseId: String(currentExercise.exerciseId ?? currentExercise._id ?? ""),
+        exerciseName: currentExercise.name,
+        feedback,
+        recommendedWeight: recommendation.recommendedWeight,
+        recommendedReps: recommendation.recommendedReps,
+        recommendedSets: recommendation.recommendedSets,
+        weightUnit: recommendation.weightUnit ?? preferredUnits,
+        recommendationReason: recommendation.reason,
+        basedOnDate: recommendation?.basedOn?.date,
+      };
+
+      await saveExerciseRecommendationFeedback(payload);
+      setLatestFeedbackState({
+        ...payload,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      toast.success("Recommendation feedback saved");
+    } catch (error) {
+      console.error("Failed to save recommendation feedback", error);
+      toast.error("Recommendation feedback was not saved. Try again.");
+    } finally {
+      setSavingRecommendationFeedback(false);
+    }
+  };
+
   const renderRecommendationPanel = () => {
     return (
       <ExerciseRecommendationPanel
@@ -343,9 +414,14 @@ const ExerciseItem = ({
         hasUnlockedProgressionRecommendation={hasUnlockedProgressionRecommendation}
         onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
         recommendation={recommendation}
+        progressSummary={progressSummary}
+        latestFeedback={latestFeedbackState}
         preferredUnits={preferredUnits}
         handleApplyRecommendation={handleApplyRecommendation}
         applyingRecommendation={applyingRecommendation}
+        onOpenHistory={() => setShowHistoryDialog(true)}
+        onRecommendationFeedback={handleRecommendationFeedback}
+        savingRecommendationFeedback={savingRecommendationFeedback}
       />
     );
   };
@@ -1064,6 +1140,14 @@ const ExerciseItem = ({
         setRepeatDayOfMonth={setRepeatDayOfMonth}
         repeatEndDate={repeatEndDate}
         setRepeatEndDate={setRepeatEndDate}
+      />
+
+      <ExerciseHistoryDialog
+        open={showHistoryDialog}
+        onClose={() => setShowHistoryDialog(false)}
+        exerciseName={toTitleCase(currentExercise.name)}
+        entries={progressEntries ?? []}
+        preferredUnits={preferredUnits}
       />
     </>
   );

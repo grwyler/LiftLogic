@@ -1,9 +1,10 @@
 import React from "react";
-import { Box, Chip, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { workoutFrequencyOptions } from "../../utils/profileSetup";
 import { routinesPanelRadius } from "./panelStyles";
 import {
   WorkoutComebackGuide,
+  WorkoutTrainingAnalyticsSummary,
   WorkoutTrendCard,
   WorkoutTrendSummary,
   WorkoutWeeklyConsistency,
@@ -16,10 +17,17 @@ type WorkoutSecondaryInsightsProps = {
   progressTrendCards: WorkoutTrendCard[];
   progressTrendSummary: WorkoutTrendSummary;
   showProWeeklyBrief?: boolean;
+  trainingAnalytics?: {
+    week: WorkoutTrainingAnalyticsSummary;
+    month: WorkoutTrainingAnalyticsSummary;
+  } | null;
   weeklyConsistency?: WorkoutWeeklyConsistency | null;
   weeklyReviewPreview?: WorkoutWeeklyReviewPreview | null;
   weeklyTargetDraft: string;
   savingWeeklyTarget: boolean;
+  onResumeToday?: () => void;
+  onLightRestart?: () => void;
+  onRescheduleThisWeek?: () => void;
   onWeeklyTargetChange: (value: string) => void | Promise<void>;
 };
 
@@ -29,13 +37,19 @@ const WorkoutSecondaryInsights = ({
   progressTrendCards,
   progressTrendSummary,
   showProWeeklyBrief = false,
+  trainingAnalytics,
   weeklyConsistency,
   weeklyReviewPreview,
   weeklyTargetDraft,
   savingWeeklyTarget,
+  onResumeToday,
+  onLightRestart,
+  onRescheduleThisWeek,
   onWeeklyTargetChange,
 }: WorkoutSecondaryInsightsProps) => {
+  const [analyticsPeriod, setAnalyticsPeriod] = React.useState<"week" | "month">("week");
   const hasInsights =
+    Boolean(trainingAnalytics) ||
     Boolean(weeklyConsistency) ||
     Boolean(weeklyReviewPreview) ||
     Boolean(comebackGuide) ||
@@ -55,6 +69,164 @@ const WorkoutSecondaryInsights = ({
           Review consistency, comeback guidance, and trend signals after the active lift flow.
         </Typography>
       </Box>
+
+      {trainingAnalytics ? (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.4,
+            borderRadius: routinesPanelRadius.section,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: darkMode ? "rgba(15,23,42,0.58)" : "rgba(248,250,252,0.92)",
+          }}
+        >
+          {(() => {
+            const activeAnalytics = trainingAnalytics[analyticsPeriod];
+            return (
+              <Stack spacing={1.15}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "flex-start", sm: "center" }}
+                >
+                  <Box>
+                    <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+                      Training Analytics
+                    </Typography>
+                    <Typography variant="h6" sx={{ mt: 0.25 }}>
+                      {activeAnalytics.label} at a glance
+                    </Typography>
+                    <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                      Check workload, muscle balance, and consistency without opening each workout one by one.
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant={analyticsPeriod === "week" ? "contained" : "outlined"}
+                      onClick={() => setAnalyticsPeriod("week")}
+                    >
+                      Weekly
+                    </Button>
+                    <Button
+                      size="small"
+                      variant={analyticsPeriod === "month" ? "contained" : "outlined"}
+                      onClick={() => setAnalyticsPeriod("month")}
+                    >
+                      Monthly
+                    </Button>
+                  </Stack>
+                </Stack>
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip size="small" variant="outlined" label={`${activeAnalytics.completedWorkouts} completed`} />
+                  <Chip size="small" variant="outlined" label={`${activeAnalytics.plannedWorkouts} planned`} />
+                  <Chip size="small" variant="outlined" label={`${activeAnalytics.totalSets} sets`} />
+                  <Chip size="small" variant="outlined" label={`Volume ${activeAnalytics.totalVolume.toLocaleString()}`} />
+                  <Chip size="small" variant="outlined" label={`${activeAnalytics.consistencyRate}% consistency`} />
+                  <Chip size="small" variant="outlined" label={`${activeAnalytics.workoutStreak} day streak`} />
+                </Stack>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
+                    gap: 1,
+                  }}
+                >
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.1,
+                      borderRadius: routinesPanelRadius.section,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: darkMode ? "rgba(30,41,59,0.6)" : "rgba(255,255,255,0.88)",
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Muscle balance
+                    </Typography>
+                    <Stack spacing={0.7} sx={{ mt: 0.9 }}>
+                      {activeAnalytics.muscleDistribution.map((group) => (
+                        <Box key={group.group}>
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
+                            <Typography variant="caption" color="text.secondary">
+                              {group.group}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {group.sets} sets ({group.share}%)
+                            </Typography>
+                          </Stack>
+                          <Box
+                            sx={{
+                              mt: 0.35,
+                              height: 8,
+                              borderRadius: 999,
+                              backgroundColor: "rgba(148,163,184,0.16)",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                height: "100%",
+                                width: `${Math.max(8, group.share)}%`,
+                                borderRadius: 999,
+                                background: "linear-gradient(90deg, #2563eb, #0ea5e9)",
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.1,
+                      borderRadius: routinesPanelRadius.section,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: darkMode ? "rgba(30,41,59,0.6)" : "rgba(255,255,255,0.88)",
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Lift trend watch
+                    </Typography>
+                    <Stack spacing={0.85} sx={{ mt: 0.9 }}>
+                      {activeAnalytics.liftTrendHighlights.map((lift) => (
+                        <Paper
+                          key={lift.exerciseId}
+                          elevation={0}
+                          sx={{
+                            p: 0.9,
+                            borderRadius: routinesPanelRadius.section,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            backgroundColor: darkMode ? "rgba(15,23,42,0.48)" : "rgba(248,250,252,0.92)",
+                          }}
+                        >
+                          <Stack spacing={0.35}>
+                            <Typography variant="caption" color="text.secondary">
+                              {lift.exerciseName}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700 }}>{lift.label}</Typography>
+                            <Typography sx={{ color: "text.secondary" }}>{lift.benchmark}</Typography>
+                            <Typography sx={{ color: "text.secondary" }}>{lift.detail}</Typography>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </Paper>
+                </Box>
+              </Stack>
+            );
+          })()}
+        </Paper>
+      ) : null}
 
       {weeklyReviewPreview ? (
         <Paper
@@ -360,6 +532,31 @@ const WorkoutSecondaryInsights = ({
             <Typography sx={{ color: "text.secondary" }}>
               No streak debt, no catch-up workout. Pick the easiest next step and let today count.
             </Typography>
+            {comebackGuide.lastCompletedLabel || comebackGuide.adjustmentCopy ? (
+              <Stack spacing={0.5}>
+                {comebackGuide.lastCompletedLabel ? (
+                  <Typography sx={{ color: "text.secondary" }}>
+                    Last completed workout: {comebackGuide.lastCompletedLabel}.
+                  </Typography>
+                ) : null}
+                {comebackGuide.adjustmentCopy ? (
+                  <Typography sx={{ color: "text.secondary" }}>
+                    {comebackGuide.adjustmentCopy}
+                  </Typography>
+                ) : null}
+              </Stack>
+            ) : null}
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button variant="contained" size="small" onClick={onResumeToday}>
+                Start return session
+              </Button>
+              <Button variant="outlined" size="small" onClick={onLightRestart}>
+                Ease back in
+              </Button>
+              <Button variant="outlined" size="small" onClick={onRescheduleThisWeek}>
+                Reshape this week
+              </Button>
+            </Stack>
           </Stack>
         </Paper>
       ) : null}
