@@ -207,7 +207,7 @@ const SignUp: React.FC = () => {
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: 3,
-                  backgroundColor: "rgba(255,255,255,0.36)",
+                  backgroundColor: "rgba(255,255,255,0.82)",
                 }}
               >
                 <Typography sx={{ color: "text.secondary" }}>{item}</Typography>

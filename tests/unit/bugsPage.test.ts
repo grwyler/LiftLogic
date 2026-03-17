@@ -31,5 +31,12 @@ describe("bugs page workflow actions", () => {
     expect(source).toContain("Grant access");
     expect(source).toContain("Save expiration/note");
     expect(source).toContain("Revoke");
+    expect(source).toContain("Structured repro");
+    expect(source).toContain("Start here");
+    expect(source).toContain("Verification pack");
+    expect(source).toContain("Completed checks");
+    expect(source).toContain("handleVerificationCompletionToggle");
+    expect(source).toContain("implementationSummary");
+    expect(source).toContain("verificationDoneCriteria");
   });
 });

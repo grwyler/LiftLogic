@@ -25,6 +25,9 @@ describe("workout action copy", () => {
     expect(exerciseItemSource).toContain("Edit repeat");
     expect(loggingDialogSource).toContain("Repeat Lift");
     expect(restTimerOverlaySource).toContain("Save Rest Time");
+    expect(restTimerOverlaySource).toContain("Pause timer");
+    expect(restTimerOverlaySource).toContain("Resume timer");
+    expect(restTimerOverlaySource).toContain("Continue to Next Set");
     expect(exerciseItemSource).not.toContain(">Open<");
     expect(exerciseItemSource).not.toContain(">Apply<");
     expect(bugRecorderSource).toContain('submitting ? "Saving..." : "Save Bug Report"');

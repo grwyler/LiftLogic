@@ -44,11 +44,12 @@ import {
   removeExerciseRepeatSchedule,
   saveExerciseRepeatSchedule,
 } from "../utils/exerciseScheduleActions";
+import { radiusTokens } from "../styles/radiusTokens";
 
 const completedExerciseRadius = {
-  panel: "28px",
-  section: "22px",
-  pill: "999px",
+  panel: radiusTokens.panel,
+  section: radiusTokens.card,
+  pill: radiusTokens.pill,
 } as const;
 
 const mobileTouchTarget = 44;

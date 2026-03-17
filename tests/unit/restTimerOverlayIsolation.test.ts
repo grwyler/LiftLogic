@@ -24,8 +24,13 @@ describe("rest timer overlay isolation", () => {
     expect(overlaySource).toContain("const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);");
     expect(overlaySource).toContain("const interval = window.setInterval(() => {");
     expect(overlaySource).toContain("position: \"fixed\"");
-    expect(overlaySource).toContain("Keep moving through the workout while the countdown runs.");
-    expect(overlaySource).toContain("{isExpanded ? \"Minimize\" : \"Expand\"}");
+    expect(overlaySource).toContain("Recovery HUD");
+    expect(overlaySource).toContain("Rest running");
+    expect(overlaySource).toContain("Rest paused");
+    expect(overlaySource).toContain("Rest finished");
+    expect(overlaySource).toContain("Adjust rest");
+    expect(overlaySource).toContain("showAdvancedControls");
+    expect(overlaySource).not.toContain("window.setTimeout(() => onClose(), 0);");
     expect(overlaySource).not.toContain("fullScreen");
     expect(overlaySource).not.toContain("Dialog");
   });

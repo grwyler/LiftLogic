@@ -16,12 +16,16 @@ describe("completed exercise styling", () => {
       path.join(process.cwd(), "components", "CompletedSetItem.tsx"),
       "utf8"
     );
+    const radiusTokensSource = fs.readFileSync(
+      path.join(process.cwd(), "styles", "radiusTokens.ts"),
+      "utf8"
+    );
 
-    expect(exerciseItemSource).toContain('panel: "28px"');
-    expect(exerciseItemSource).toContain('section: "22px"');
+    expect(radiusTokensSource).toContain('panel: "28px"');
+    expect(radiusTokensSource).toContain('card: "20px"');
     expect(exerciseItemSource).toContain("borderRadius: completedExerciseRadius.panel");
     expect(feedbackPanelsSource).toContain("borderRadius: completedExerciseRadius.section");
-    expect(completedSetSource).toContain('card: "20px"');
+    expect(completedSetSource).toContain("card: radiusTokens.card");
     expect(completedSetSource).toContain("borderRadius: completedSetRadius.card");
   });
 });

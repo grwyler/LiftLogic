@@ -1,25 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { connectToDatabase } from "../../utils/mongodb";
+import { endOfLocalDay, parseLocalDateInput, startOfLocalDay } from "../../utils/localDate";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../../utils/types";
-
-const parseLocalDate = (value: unknown) => {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-").map(Number);
-    const parsed = new Date(year, month - 1, day);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
 
 export default async function handler(
   req: NextApiRequest,
@@ -37,16 +19,14 @@ export default async function handler(
       return res.status(400).json({ message: "userId required" });
     }
 
-    const parsedStart = parseLocalDate(monthStart);
-    const parsedEnd = parseLocalDate(monthEnd);
+    const parsedStart = parseLocalDateInput(monthStart);
+    const parsedEnd = parseLocalDateInput(monthEnd);
     if (!parsedStart || !parsedEnd) {
       return res.status(400).json({ message: "Bad month range" });
     }
 
-    const start = new Date(parsedStart);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(parsedEnd);
-    end.setHours(23, 59, 59, 999);
+    const start = startOfLocalDay(parsedStart);
+    const end = endOfLocalDay(parsedEnd);
 
     const db = await connectToDatabase();
     const workoutEntryCollection = db.collection<WorkoutEntryDoc>("workoutEntries");

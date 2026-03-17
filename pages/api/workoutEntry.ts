@@ -9,6 +9,7 @@ import { ensureExerciseSetIds } from "../../utils/exerciseSetIds";
 import { validateWorkoutEntry } from "../../utils/workoutValidation";
 import { DEFAULT_WEIGHT_UNIT, normalizeWeightUnit, normalizeWorkoutEntryWeights } from "../../utils/weightUnits";
 import { randomUUID } from "crypto";
+import { parseLocalDateInput, toLocalDateKey } from "../../utils/localDate";
 
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === "") {
@@ -121,23 +122,13 @@ const normalizeWorkoutEntrySets = (
 };
 
 const parseWorkoutEntryDate = (rawDate: unknown) => {
-  if (rawDate instanceof Date) {
-    return rawDate;
+  const parsed = parseLocalDateInput(rawDate);
+  if (parsed) {
+    return parsed;
   }
 
   if (typeof rawDate !== "string") {
     return null;
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-    const [year, month, day] = rawDate.split("-").map(Number);
-    const isoDate = new Date(year, month - 1, day);
-    return isNaN(+isoDate) ? null : isoDate;
-  }
-
-  const parsed = new Date(rawDate);
-  if (!isNaN(+parsed)) {
-    return parsed;
   }
 
   const thisYear = new Date().getFullYear();
@@ -152,10 +143,7 @@ const buildRecurringEntryInstanceId = (
   parsedDate: Date,
   routineName: string
 ) => {
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-  return `recurring-entry::${ruleId}::${year}-${month}-${day}::${routineName}`;
+  return `recurring-entry::${ruleId}::${toLocalDateKey(parsedDate)}::${routineName}`;
 };
 
 const isHistoricalMutationDate = (value: Date) => {

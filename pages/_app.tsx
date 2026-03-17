@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Instrument_Sans, Manrope } from "next/font/google";
 import { ToastContainer } from "react-toastify";
 import DevBugRecorder from "../components/DevBugRecorder";
@@ -121,26 +122,44 @@ const manrope = Manrope({
 });
 
 function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
   const [themePreference, setThemePreference] = useState<ThemePreference>("light");
   const [appearanceDensity, setAppearanceDensity] =
     useState<AppearanceDensity>("comfortable");
   const [interfaceScale, setInterfaceScale] = useState<InterfaceScale>("normal");
+  const [developerChromeEnabled, setDeveloperChromeEnabled] = useState(false);
   const themeMeta = getThemePreferenceMeta(themePreference);
   const darkMode = themeMeta.mode === "dark";
   const densityScale = appearanceDensity === "compact" ? 0.9 : 1;
   const interfaceScaleFactor = interfaceScale === "large" ? 1.08 : 1;
   const surfaceBorder = darkMode
     ? "rgba(148, 163, 184, 0.18)"
-    : "rgba(15, 23, 42, 0.08)";
+    : "rgba(15, 23, 42, 0.14)";
   const softSurface = darkMode
     ? "rgba(15, 23, 42, 0.72)"
-    : "rgba(255, 255, 255, 0.9)";
+    : "rgba(255, 255, 255, 0.96)";
   const softSurfaceHover = darkMode
     ? "rgba(30, 41, 59, 0.9)"
-    : "rgba(255, 255, 255, 0.98)";
+    : "rgba(255, 255, 255, 0.99)";
   const softShadow = darkMode
     ? "0 16px 36px rgba(2, 6, 23, 0.26)"
-    : "0 12px 28px rgba(15, 23, 42, 0.08)";
+    : "0 14px 34px rgba(15, 23, 42, 0.12)";
+  const lightMode = !darkMode;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const route = router.pathname || "";
+    const internalRoute = route === "/bugs";
+    const explicitFlag =
+      router.query.devtools === "1" ||
+      window.localStorage.getItem("liftlogic-developer-mode") === "enabled" ||
+      process.env.NEXT_PUBLIC_SHOW_INTERNAL_TOOLS === "true";
+
+    setDeveloperChromeEnabled(Boolean(internalRoute || explicitFlag));
+  }, [router.pathname, router.query.devtools]);
 
   const applyThemePreference = useCallback(
     (value: ThemePreference | ((previous: ThemePreference) => ThemePreference)) => {
@@ -273,11 +292,21 @@ function MyApp({ Component, pageProps }: AppProps) {
               outlined: {
                 borderColor: surfaceBorder,
                 backgroundColor: softSurface,
+                color: darkMode ? "#f8fafc" : "#0f172a",
                 "&:hover": {
                   borderColor: darkMode
                     ? "rgba(255, 255, 255, 0.22)"
-                    : "rgba(15, 23, 42, 0.16)",
+                    : "rgba(15, 23, 42, 0.24)",
                   backgroundColor: softSurfaceHover,
+                },
+                "&.Mui-disabled": {
+                  borderColor: darkMode
+                    ? "rgba(148, 163, 184, 0.18)"
+                    : "rgba(15, 23, 42, 0.16)",
+                  color: darkMode ? "#64748b" : "#667085",
+                  backgroundColor: darkMode
+                    ? "rgba(15, 23, 42, 0.4)"
+                    : "rgba(248, 250, 252, 0.9)",
                 },
               },
               text: {
@@ -297,6 +326,15 @@ function MyApp({ Component, pageProps }: AppProps) {
                 color: darkMode ? "#f8fafc" : "#101828",
                 border: `1px solid ${surfaceBorder}`,
                 backgroundColor: softSurface,
+              },
+              outlined: {
+                borderColor: darkMode
+                  ? "rgba(148, 163, 184, 0.22)"
+                  : "rgba(15, 23, 42, 0.18)",
+                color: darkMode ? "#e2e8f0" : "#0f172a",
+                backgroundColor: darkMode
+                  ? "rgba(15, 23, 42, 0.62)"
+                  : "rgba(255, 255, 255, 0.94)",
               },
               filledPrimary: {
                 backgroundImage: darkMode
@@ -338,17 +376,18 @@ function MyApp({ Component, pageProps }: AppProps) {
                 paddingInline: 16 * interfaceScaleFactor,
                 minHeight: Math.round(44 * interfaceScaleFactor * densityScale),
                 color: darkMode ? "#cbd5e1" : "#334155",
+                border: lightMode ? "1px solid rgba(15, 23, 42, 0.08)" : undefined,
                 "&.Mui-selected": {
                   color: darkMode ? "#f8fafc" : "#0f172a",
                   backgroundImage: darkMode
                     ? "linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(255, 255, 255, 0.08))"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(191, 219, 254, 0.58))",
-                  boxShadow: "none",
+                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(191, 219, 254, 0.92))",
+                  boxShadow: lightMode ? "inset 0 0 0 1px rgba(37, 99, 235, 0.22)" : "none",
                 },
                 "&.Mui-selected:hover": {
                   backgroundImage: darkMode
                     ? "linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(255, 255, 255, 0.1))"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(191, 219, 254, 0.68))",
+                    : "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(191, 219, 254, 0.96))",
                 },
               },
             },
@@ -369,7 +408,7 @@ function MyApp({ Component, pageProps }: AppProps) {
                   "&:hover fieldset": {
                     borderColor: darkMode
                       ? "rgba(255, 255, 255, 0.26)"
-                      : "rgba(15, 23, 42, 0.16)",
+                      : "rgba(15, 23, 42, 0.24)",
                   },
                   "&.Mui-focused fieldset": {
                     borderColor: darkMode ? "rgba(125, 211, 252, 0.82)" : "#60a5fa",
@@ -559,13 +598,15 @@ function MyApp({ Component, pageProps }: AppProps) {
           setInterfaceScale={applyInterfaceScale}
         />
         <AutomaticBugReporter />
-        <AppVersionBadge />
+        {developerChromeEnabled ? <AppVersionBadge /> : null}
         <ToastContainer
           position="bottom-center"
           autoClose={2500}
           toastClassName="liftlogic-toast"
         />
-        {process.env.NODE_ENV !== "production" ? <DevBugRecorder /> : null}
+        {process.env.NODE_ENV !== "production" && developerChromeEnabled ? (
+          <DevBugRecorder />
+        ) : null}
         </div>
       </ThemeProvider>
     </SessionProvider>

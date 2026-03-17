@@ -28,6 +28,7 @@ describe("overlay safe-area handling", () => {
     expect(source).toContain("OVERLAY_KEYBOARD_OFFSET_CSS_VAR");
     expect(source).toContain("window.visualViewport?.addEventListener");
     expect(source).toContain("toastClassName=\"liftlogic-toast\"");
+    expect(source).toContain("developerChromeEnabled");
   });
 
   it("applies the shared overlay offset to fixed bottom UI", () => {

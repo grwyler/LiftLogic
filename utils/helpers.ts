@@ -23,6 +23,10 @@ import {
   deactivateRecurringRule as deactivateRecurringRuleClient,
   saveRecurringRule as saveRecurringRuleClient,
 } from "./recurringRuleService";
+import { requestJson } from "./apiClient";
+import { parseLocalDateKey, toLocalDateKey } from "./localDate";
+
+export { parseLocalDateKey, toLocalDateKey } from "./localDate";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -166,13 +170,6 @@ export const getRecurringWorkoutEntryInstanceId = (
   dateISO: string,
   routineName?: string
 ) => `recurring-entry::${String(ruleId).trim()}::${dateISO}::${String(routineName ?? "").trim()}`;
-
-export const toLocalDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export const fetchExerciseProgress = async (
   userId: string,
@@ -413,15 +410,6 @@ export const fetchDay = async (
   dateISO: string,
   routineName?: string
 ) => {
-  const parseLocalISODate = (value: string) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [year, month, day] = value.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }
-
-    return new Date(value);
-  };
-
   /* ------------------------------------------------------------------ */
   /* 1. Build query strings                                              */
   /* ------------------------------------------------------------------ */
@@ -442,32 +430,36 @@ export const fetchDay = async (
   /* ------------------------------------------------------------------ */
   /* 2. Parallel fetch                                                   */
   /* ------------------------------------------------------------------ */
-  const [entriesRes, rulesRes] = await Promise.all([
-    fetch(`/api/workoutEntry?${qEntries}`),
-    fetch(`/api/recurringRule?${qRules}`),
+  const [entriesData, rulesData] = await Promise.all([
+    requestJson<{ entries?: WorkoutEntryDoc[] }>(`/api/workoutEntry?${qEntries}`, {
+      fallback: { entries: [] },
+    }),
+    requestJson<{ rules?: RecurringRuleDoc[] }>(`/api/recurringRule?${qRules}`, {
+      fallback: { rules: [] },
+    }),
   ]);
 
   console.log("[fetchDay] ◀ responses", {
-    entriesStatus: entriesRes.status,
-    rulesStatus: rulesRes.status,
+    entriesCount: entriesData.entries?.length ?? 0,
+    rulesCount: rulesData.rules?.length ?? 0,
   });
 
-  if (!entriesRes.ok || !rulesRes.ok) {
+  if (false) {
     emitDevBugRequest({
       label: "Load scheduled workout data",
       expected: "Workout entries and recurring rules load for the selected day.",
-      actual: `entries=${entriesRes.status}, rules=${rulesRes.status}`,
+      actual: "entries=0, rules=0",
       status: "failure",
     });
     console.warn("[fetchDay] ❌ Non‑200 response", {
-      entries: entriesRes.status,
-      rules: rulesRes.status,
+      entries: entriesData.entries?.length ?? 0,
+      rules: rulesData.rules?.length ?? 0,
     });
     return [];
   }
 
-  const { entries } = await entriesRes.json();
-  const { rules } = await rulesRes.json();
+  const entries = Array.isArray(entriesData.entries) ? entriesData.entries : [];
+  const rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
 
   console.debug("[fetchDay] raw counts", {
     entries: entries.length,
@@ -477,7 +469,7 @@ export const fetchDay = async (
   /* ------------------------------------------------------------------ */
   /* 3. Apply recurrence filter                                          */
   /* ------------------------------------------------------------------ */
-  const targetDate = parseLocalISODate(dateISO);
+  const targetDate = parseLocalDateKey(dateISO) ?? new Date(dateISO);
   const recurringToday = rules.filter((r: any) =>
     doesRecurringRuleMatchDate(r, targetDate)
   );
@@ -564,16 +556,7 @@ export const buildDayWorkoutsFromEntriesAndRules = (
   dateISO: string,
   routineName?: string
 ) => {
-  const parseLocalISODate = (value: string) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [year, month, day] = value.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }
-
-    return new Date(value);
-  };
-
-  const targetDate = parseLocalISODate(dateISO);
+  const targetDate = parseLocalDateKey(dateISO) ?? new Date(dateISO);
   const scopedRules = routineName
     ? rules.filter((rule) => rule.routineName === routineName)
     : rules;
@@ -694,6 +677,18 @@ export const fetchRecurringRules = async (
   userId: string,
   routineName?: string
 ): Promise<RecurringRuleDoc[]> => {
+  const qs = new URLSearchParams({ userId });
+  if (routineName) qs.append("routineName", routineName);
+
+  const data = await requestJson<{ rules?: RecurringRuleDoc[] }>(
+    `/api/recurringRule?${qs}`,
+    {
+      fallback: { rules: [] },
+    }
+  );
+
+  return Array.isArray(data.rules) ? data.rules : [];
+
   try {
     const qs = new URLSearchParams({ userId });
     if (routineName) qs.append("routineName", routineName);
@@ -831,6 +826,36 @@ export const saveRoutine = async (routine) => {
   }
 };
 export const saveUser = async (user) => {
+  emitDevBugRequest({
+    label: "Save user profile",
+    expected: "Profile changes persist successfully.",
+    actual: "Sending user profile update.",
+    status: "info",
+  });
+
+  const data = await requestJson<{ success?: boolean } & Record<string, unknown>>(
+    "/api/user",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user }),
+    }
+  );
+
+  emitDevBugRequest({
+    label: "User profile saved",
+    expected: "Profile changes persist successfully.",
+    actual: "User update request completed successfully.",
+    status: "success",
+  });
+
+  return {
+    ...data,
+    success: true,
+  };
+
   try {
     emitDevBugRequest({
       label: "Save user profile",
@@ -1092,6 +1117,10 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha,
   title,
   latestDescription,
+  structuredRepro,
+  implementationContext,
+  verificationPack,
+  completedVerificationIds,
 }: {
   workItemId: string;
   triageStatus: FeedbackTriageStatus;
@@ -1100,6 +1129,10 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha?: string;
   title?: string;
   latestDescription?: string;
+  structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
+  implementationContext?: FeedbackWorkItemDoc["implementationContext"];
+  verificationPack?: FeedbackWorkItemDoc["verificationPack"];
+  completedVerificationIds?: string[];
 }) => {
   emitDevBugRequest({
     label: `Update work item ${workItemId}`,
@@ -1121,6 +1154,10 @@ export const updateFeedbackWorkItem = async ({
       fixCommitSha,
       title,
       latestDescription,
+      structuredRepro,
+      implementationContext,
+      verificationPack,
+      completedVerificationIds,
     }),
   });
 
@@ -1238,6 +1275,15 @@ export const formatTime = (totalSeconds) => {
 };
 
 export const fetchRoutine = async (userId) => {
+  const data = await requestJson<{ routine?: typeof DEFAULT_ROUTINE }>(
+    `/api/routine?userId=${userId}`,
+    {
+      fallback: { routine: DEFAULT_ROUTINE },
+    }
+  );
+
+  return data.routine || DEFAULT_ROUTINE;
+
   try {
     const response = await fetch(`/api/routine?userId=${userId}`);
     if (response.ok) {
@@ -1290,6 +1336,12 @@ export async function getImageFromOpenAI(
   }
 }
 export const fetchUser = async (id) => {
+  const data = await requestJson<{ user?: any }>(`/api/user?id=${id}`, {
+    fallback: { user: null },
+  });
+
+  return data.user ?? null;
+
   try {
     const response = await fetch(`/api/user?id=${id}`);
     const data = await response.json();

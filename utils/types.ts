@@ -298,6 +298,41 @@ export interface FeedbackRuntimeContext {
   online?: boolean;
 }
 
+export interface FeedbackStructuredRepro {
+  actualBehavior?: string;
+  expectedBehavior?: string;
+  reproSteps?: string[];
+  affectedFlow?: string;
+  triggerConditions?: string;
+  regressionRisks?: string;
+  source?: "manual" | "inferred" | "recorder";
+}
+
+export interface FeedbackImplementationLink {
+  type: "route" | "component" | "api" | "hook" | "schema" | "test";
+  path: string;
+  label?: string;
+  note?: string;
+}
+
+export interface FeedbackImplementationContext {
+  summary?: string;
+  confirmed?: FeedbackImplementationLink[];
+  inferred?: FeedbackImplementationLink[];
+}
+
+export interface FeedbackVerificationItem {
+  id: string;
+  kind: "command" | "manual" | "done";
+  label: string;
+  command?: string;
+}
+
+export interface FeedbackVerificationPack {
+  summary?: string;
+  items: FeedbackVerificationItem[];
+}
+
 export interface FeedbackItemDoc {
   _id?: ObjectId;
   userId: string;
@@ -313,6 +348,7 @@ export interface FeedbackItemDoc {
   page?: string;
   deviceType?: FeedbackDeviceType;
   runtimeContext?: FeedbackRuntimeContext;
+  structuredRepro?: FeedbackStructuredRepro;
   fingerprint?: string;
   workItemId?: ObjectId | string;
   notificationStatus?: FeedbackNotificationStatus;
@@ -374,6 +410,10 @@ export interface FeedbackWorkItemDoc {
   severity?: "low" | "medium" | "high";
   deviceType?: FeedbackDeviceType;
   latestRuntimeContext?: FeedbackRuntimeContext;
+  structuredRepro?: FeedbackStructuredRepro;
+  implementationContext?: FeedbackImplementationContext;
+  verificationPack?: FeedbackVerificationPack;
+  completedVerificationIds?: string[];
   fingerprint: string;
   occurrenceCount: number;
   status?: FeedbackLegacyStatus;

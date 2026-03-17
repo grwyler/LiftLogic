@@ -8,6 +8,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogContent,
@@ -45,8 +46,16 @@ import {
 import {
   getFeedbackEvidenceForWorkItem,
   buildCodexCopyText,
+  getRelatedWorkItems,
   summarizeBugReportEvidence,
 } from "../utils/feedbackDetails";
+import {
+  buildImplementationContext,
+  buildVerificationPack,
+  formatMultilineList,
+  getVerificationItemsByKind,
+  parseMultilineList,
+} from "../utils/feedbackWorkItemContext";
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -78,6 +87,20 @@ type WorkflowDraft = {
   latestDescription: string;
   fixThreadId: string;
   fixCommitSha: string;
+  actualBehavior: string;
+  expectedBehavior: string;
+  reproSteps: string;
+  affectedFlow: string;
+  triggerConditions: string;
+  regressionRisks: string;
+  implementationSummary: string;
+  implementationConfirmed: string;
+  implementationInferred: string;
+  verificationSummary: string;
+  verificationCommands: string;
+  verificationManualChecks: string;
+  verificationDoneCriteria: string;
+  completedVerificationIds: string[];
 };
 
 type QueueSortMode =
@@ -223,14 +246,51 @@ const createDraftMap = (
 ) => {
   const next = { ...previous };
 
+  const formatLinks = (
+    links:
+      | NonNullable<FeedbackWorkItemDoc["implementationContext"]>["confirmed"]
+      | NonNullable<FeedbackWorkItemDoc["implementationContext"]>["inferred"]
+      | undefined
+  ) =>
+    (links || [])
+      .map(
+        (link) =>
+          `[${link.type}] ${link.path}${link.label ? ` | ${link.label}` : ""}${
+            link.note ? ` | ${link.note}` : ""
+          }`
+      )
+      .join("\n");
+
   items.forEach((item) => {
     const id = String(item._id);
+    const implementationContext = buildImplementationContext(item);
+    const verificationPack = buildVerificationPack(item);
     if (!next[id]) {
       next[id] = {
         title: item.title || "",
         latestDescription: item.latestDescription || "",
         fixThreadId: item.fixThreadId || "",
         fixCommitSha: item.fixCommitSha || "",
+        actualBehavior: item.structuredRepro?.actualBehavior || "",
+        expectedBehavior: item.structuredRepro?.expectedBehavior || "",
+        reproSteps: formatMultilineList(item.structuredRepro?.reproSteps),
+        affectedFlow: item.structuredRepro?.affectedFlow || "",
+        triggerConditions: item.structuredRepro?.triggerConditions || "",
+        regressionRisks: item.structuredRepro?.regressionRisks || "",
+        implementationSummary: implementationContext.summary || "",
+        implementationConfirmed: formatLinks(implementationContext.confirmed),
+        implementationInferred: formatLinks(implementationContext.inferred),
+        verificationSummary: verificationPack.summary || "",
+        verificationCommands: getVerificationItemsByKind(verificationPack, "command")
+          .map((entry) => entry.command || entry.label)
+          .join("\n"),
+        verificationManualChecks: getVerificationItemsByKind(verificationPack, "manual")
+          .map((entry) => entry.label)
+          .join("\n"),
+        verificationDoneCriteria: getVerificationItemsByKind(verificationPack, "done")
+          .map((entry) => entry.label)
+          .join("\n"),
+        completedVerificationIds: item.completedVerificationIds || [],
       };
     }
   });
@@ -457,6 +517,23 @@ const BugsPage = () => {
       }),
     [feedbackItems, selectedWorkItem]
   );
+  const selectedRelatedWork = useMemo(
+    () =>
+      getRelatedWorkItems({
+        workItem: selectedWorkItem,
+        workItems,
+        feedbackItems,
+      }),
+    [feedbackItems, selectedWorkItem, workItems]
+  );
+  const selectedRelatedActiveWork = useMemo(
+    () => selectedRelatedWork.filter((match) => isActiveWorkItem(match.workItem)),
+    [selectedRelatedWork]
+  );
+  const selectedRelatedClosedWork = useMemo(
+    () => selectedRelatedWork.filter((match) => isInactiveWorkItem(match.workItem)),
+    [selectedRelatedWork]
+  );
   const activeWorkItems = useMemo(
     () => sortedWorkItems.filter((item) => isActiveWorkItem(item)),
     [sortedWorkItems]
@@ -563,6 +640,108 @@ const BugsPage = () => {
     </Stack>
   );
 
+  const createBlankDraft = (): WorkflowDraft => ({
+    title: "",
+    latestDescription: "",
+    fixThreadId: "",
+    fixCommitSha: "",
+    actualBehavior: "",
+    expectedBehavior: "",
+    reproSteps: "",
+    affectedFlow: "",
+    triggerConditions: "",
+    regressionRisks: "",
+    implementationSummary: "",
+    implementationConfirmed: "",
+    implementationInferred: "",
+    verificationSummary: "",
+    verificationCommands: "",
+    verificationManualChecks: "",
+    verificationDoneCriteria: "",
+    completedVerificationIds: [],
+  });
+
+  const parseImplementationLinks = (value: string) =>
+    parseMultilineList(value).map((entry) => {
+      const typeMatch = entry.match(/^\[([a-z]+)\]\s+/i);
+      const rawType = typeMatch?.[1]?.toLowerCase();
+      const remainder = entry.replace(/^\[[a-z]+\]\s+/i, "");
+      const [path, label, note] = remainder.split("|").map((part) => part.trim());
+      const normalizedType:
+        | "route"
+        | "component"
+        | "api"
+        | "hook"
+        | "schema"
+        | "test" =
+        rawType === "route" ||
+        rawType === "component" ||
+        rawType === "api" ||
+        rawType === "hook" ||
+        rawType === "schema" ||
+        rawType === "test"
+          ? rawType
+          : "route";
+
+      return {
+        type: normalizedType,
+        path: path || remainder,
+        label: label || undefined,
+        note: note || undefined,
+      };
+    });
+
+  const buildWorkItemUpdatePayload = (item: FeedbackWorkItemDoc, draft: WorkflowDraft) => {
+    const verificationPack = buildVerificationPack({
+      page: item.page,
+      verificationPack: {
+        summary: draft.verificationSummary || undefined,
+        items: [
+          ...parseMultilineList(draft.verificationCommands).map((command) => ({
+            id: "",
+            kind: "command" as const,
+            label: command,
+            command,
+          })),
+          ...parseMultilineList(draft.verificationManualChecks).map((label) => ({
+            id: "",
+            kind: "manual" as const,
+            label,
+          })),
+          ...parseMultilineList(draft.verificationDoneCriteria).map((label) => ({
+            id: "",
+            kind: "done" as const,
+            label,
+          })),
+        ],
+      },
+    });
+
+    return {
+      severity: item.severity,
+      title: draft.title,
+      latestDescription: draft.latestDescription,
+      fixThreadId: draft.fixThreadId || undefined,
+      fixCommitSha: draft.fixCommitSha || undefined,
+      structuredRepro: {
+        actualBehavior: draft.actualBehavior || undefined,
+        expectedBehavior: draft.expectedBehavior || undefined,
+        reproSteps: parseMultilineList(draft.reproSteps),
+        affectedFlow: draft.affectedFlow || undefined,
+        triggerConditions: draft.triggerConditions || undefined,
+        regressionRisks: draft.regressionRisks || undefined,
+        source: "manual" as const,
+      },
+      implementationContext: {
+        summary: draft.implementationSummary || undefined,
+        confirmed: parseImplementationLinks(draft.implementationConfirmed),
+        inferred: parseImplementationLinks(draft.implementationInferred),
+      },
+      verificationPack,
+      completedVerificationIds: draft.completedVerificationIds,
+    };
+  };
+
   const handleDraftChange = (
     workItemId: string,
     key: keyof WorkflowDraft,
@@ -571,17 +750,30 @@ const BugsPage = () => {
     setDrafts((previous) => ({
       ...previous,
       [workItemId]: {
-        ...(
-          previous[workItemId] || {
-            title: "",
-            latestDescription: "",
-            fixThreadId: "",
-            fixCommitSha: "",
-          }
-        ),
+        ...(previous[workItemId] || createBlankDraft()),
         [key]: value,
       },
     }));
+  };
+
+  const handleVerificationCompletionToggle = (
+    workItemId: string,
+    verificationId: string
+  ) => {
+    setDrafts((previous) => {
+      const current = previous[workItemId] || createBlankDraft();
+      const isCompleted = current.completedVerificationIds.includes(verificationId);
+
+      return {
+        ...previous,
+        [workItemId]: {
+          ...current,
+          completedVerificationIds: isCompleted
+            ? current.completedVerificationIds.filter((entry) => entry !== verificationId)
+            : [...current.completedVerificationIds, verificationId],
+        },
+      };
+    });
   };
 
   const applyUpdatedWorkItem = (
@@ -610,12 +802,7 @@ const BugsPage = () => {
     );
     setDrafts((previous) => ({
       ...previous,
-      [workItemId]: {
-        title: updatedWorkItem.title || "",
-        latestDescription: updatedWorkItem.latestDescription || "",
-        fixThreadId: updatedWorkItem.fixThreadId || "",
-        fixCommitSha: updatedWorkItem.fixCommitSha || "",
-      },
+      [workItemId]: createDraftMap([updatedWorkItem], previous)[workItemId],
     }));
   };
 
@@ -636,12 +823,7 @@ const BugsPage = () => {
     }
   ) => {
     const workItemId = String(item._id);
-    const draft = drafts[workItemId] || {
-      title: item.title || "",
-      latestDescription: item.latestDescription || "",
-      fixThreadId: item.fixThreadId || "",
-      fixCommitSha: item.fixCommitSha || "",
-    };
+    const draft = drafts[workItemId] || createDraftMap([item], {})[workItemId] || createBlankDraft();
 
     setSavingId(workItemId);
 
@@ -658,11 +840,12 @@ const BugsPage = () => {
       const response = await updateFeedbackWorkItem({
         workItemId,
         triageStatus,
+        ...buildWorkItemUpdatePayload(item, {
+          ...draft,
+          title: title ?? draft.title,
+          latestDescription: latestDescription ?? draft.latestDescription,
+        }),
         severity,
-        title: title ?? draft.title,
-        latestDescription: latestDescription ?? draft.latestDescription,
-        fixThreadId: draft.fixThreadId || undefined,
-        fixCommitSha: draft.fixCommitSha || undefined,
       });
 
       const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
@@ -729,6 +912,11 @@ const BugsPage = () => {
     const copyText = buildCodexCopyText({
       workItem: item,
       evidence,
+      relatedWork: getRelatedWorkItems({
+        workItem: item,
+        workItems,
+        feedbackItems,
+      }),
     });
 
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
@@ -791,6 +979,11 @@ const BugsPage = () => {
           buildCodexCopyText({
             workItem: item,
             evidence,
+            relatedWork: getRelatedWorkItems({
+              workItem: item,
+              workItems,
+              feedbackItems,
+            }),
           }),
         ].join("\n");
       })
@@ -980,12 +1173,8 @@ const BugsPage = () => {
       <Stack divider={<Divider flexItem />} spacing={0}>
         {items.map((item) => {
           const workItemId = String(item._id);
-          const draft = drafts[workItemId] || {
-            title: item.title || "",
-            latestDescription: item.latestDescription || "",
-            fixThreadId: item.fixThreadId || "",
-            fixCommitSha: item.fixCommitSha || "",
-          };
+          const draft =
+            drafts[workItemId] || createDraftMap([item], {})[workItemId] || createBlankDraft();
           const anchorId = getWorkItemAnchorId(workItemId);
           const selected = activeAnchor === anchorId;
           const showAdvanced = Boolean(advancedOpenById[workItemId]);
@@ -1997,6 +2186,123 @@ const BugsPage = () => {
                     minRows={4}
                     fullWidth
                   />
+                  <Stack spacing={1.25}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Structured repro
+                    </Typography>
+                    <TextField
+                      label="Actual behavior"
+                      value={
+                        drafts[String(selectedWorkItem._id)]?.actualBehavior ??
+                        selectedWorkItem.structuredRepro?.actualBehavior ??
+                        ""
+                      }
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "actualBehavior",
+                          event.target.value
+                        )
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                    />
+                    <TextField
+                      label="Expected behavior"
+                      value={
+                        drafts[String(selectedWorkItem._id)]?.expectedBehavior ??
+                        selectedWorkItem.structuredRepro?.expectedBehavior ??
+                        ""
+                      }
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "expectedBehavior",
+                          event.target.value
+                        )
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                    />
+                    <TextField
+                      label="Repro steps"
+                      helperText="Use one step per line. Enter Unknown if repro steps are not available."
+                      value={
+                        drafts[String(selectedWorkItem._id)]?.reproSteps ??
+                        formatMultilineList(selectedWorkItem.structuredRepro?.reproSteps)
+                      }
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "reproSteps",
+                          event.target.value
+                        )
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                      fullWidth
+                      multiline
+                      minRows={4}
+                    />
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                      <TextField
+                        label="Affected flow"
+                        value={
+                          drafts[String(selectedWorkItem._id)]?.affectedFlow ??
+                          selectedWorkItem.structuredRepro?.affectedFlow ??
+                          ""
+                        }
+                        onChange={(event) =>
+                          handleDraftChange(
+                            String(selectedWorkItem._id),
+                            "affectedFlow",
+                            event.target.value
+                          )
+                        }
+                        disabled={savingId === String(selectedWorkItem._id)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Trigger conditions"
+                        value={
+                          drafts[String(selectedWorkItem._id)]?.triggerConditions ??
+                          selectedWorkItem.structuredRepro?.triggerConditions ??
+                          ""
+                        }
+                        onChange={(event) =>
+                          handleDraftChange(
+                            String(selectedWorkItem._id),
+                            "triggerConditions",
+                            event.target.value
+                          )
+                        }
+                        disabled={savingId === String(selectedWorkItem._id)}
+                        fullWidth
+                      />
+                    </Stack>
+                    <TextField
+                      label="Regression risks"
+                      value={
+                        drafts[String(selectedWorkItem._id)]?.regressionRisks ??
+                        selectedWorkItem.structuredRepro?.regressionRisks ??
+                        ""
+                      }
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "regressionRisks",
+                          event.target.value
+                        )
+                      }
+                      disabled={savingId === String(selectedWorkItem._id)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                    />
+                  </Stack>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Button
                       variant="contained"
@@ -2012,7 +2318,7 @@ const BugsPage = () => {
                       Save Details
                     </Button>
                     <Typography variant="body2" color="text.secondary">
-                      Update the issue summary here to clarify reports during triage.
+                      Save the summary, structured repro fields, implementation hints, and verification pack together.
                     </Typography>
                   </Stack>
                   {renderMetadataRows([
@@ -2102,6 +2408,421 @@ const BugsPage = () => {
                           : undefined,
                     },
                   ])}
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Start here
+                  </Typography>
+                  <TextField
+                    label="Implementation summary"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.implementationSummary ??
+                      buildImplementationContext(selectedWorkItem).summary ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "implementationSummary",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                  />
+                  <TextField
+                    label="Confirmed links"
+                    helperText="Use one link per line, for example: [route] pages/bugs.tsx | Bugs inbox"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.implementationConfirmed ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "implementationConfirmed",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={4}
+                  />
+                  <TextField
+                    label="Inferred links"
+                    helperText="Use one link per line for likely components, API handlers, hooks, schemas, or tests."
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.implementationInferred ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "implementationInferred",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={5}
+                  />
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Verification pack
+                  </Typography>
+                  <TextField
+                    label="Verification summary"
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.verificationSummary ??
+                      buildVerificationPack(selectedWorkItem).summary ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "verificationSummary",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                  />
+                  <TextField
+                    label="Recommended commands"
+                    helperText="Use one command per line."
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.verificationCommands ?? ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "verificationCommands",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={3}
+                  />
+                  <TextField
+                    label="Manual checks"
+                    helperText="Use one manual check per line."
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.verificationManualChecks ?? ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "verificationManualChecks",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={3}
+                  />
+                  <TextField
+                    label="Done criteria"
+                    helperText="Use one done criterion per line."
+                    value={
+                      drafts[String(selectedWorkItem._id)]?.verificationDoneCriteria ?? ""
+                    }
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "verificationDoneCriteria",
+                        event.target.value
+                      )
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    fullWidth
+                    multiline
+                    minRows={3}
+                  />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Completed checks
+                    </Typography>
+                    {buildVerificationPack({
+                      ...selectedWorkItem,
+                      verificationPack: buildWorkItemUpdatePayload(
+                        selectedWorkItem,
+                        drafts[String(selectedWorkItem._id)] || createDraftMap([selectedWorkItem], {})[String(selectedWorkItem._id)]
+                      ).verificationPack,
+                    }).items.map((item) => (
+                      <Paper
+                        key={item.id}
+                        variant="outlined"
+                        sx={{ p: 1, borderRadius: 2 }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Checkbox
+                            checked={
+                              (
+                                drafts[String(selectedWorkItem._id)]?.completedVerificationIds ||
+                                []
+                              ).includes(item.id)
+                            }
+                            onChange={() =>
+                              handleVerificationCompletionToggle(
+                                String(selectedWorkItem._id),
+                                item.id
+                              )
+                            }
+                          />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {item.label}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {item.kind === "command"
+                                ? item.command || item.label
+                                : item.kind === "manual"
+                                ? "Manual validation"
+                                : "Done criterion"}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Related work
+                  </Typography>
+                  {selectedRelatedWork.length === 0 ? (
+                    <Alert severity="info">
+                      No nearby duplicates or related work items were detected.
+                    </Alert>
+                  ) : (
+                    <Stack spacing={1}>
+                      {selectedRelatedWork.map((match) => (
+                        <Paper
+                          key={String(match.workItem._id)}
+                          variant="outlined"
+                          sx={{ p: 1.25, borderRadius: 2 }}
+                        >
+                          <Typography variant="subtitle2">
+                            {match.workItem.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {match.reasons.join("; ")}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  )}
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    justifyContent="space-between"
+                    alignItems={{ xs: "flex-start", sm: "center" }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        Related work
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Similar items combine fingerprint, route, stack clues, and nearby
+                        code-area signals so duplicate triage can reuse existing work.
+                      </Typography>
+                    </Box>
+                    {selectedRelatedWork.length > 0 ? (
+                      <Chip
+                        size="small"
+                        label={`${selectedRelatedWork.length} related item${
+                          selectedRelatedWork.length === 1 ? "" : "s"
+                        }`}
+                        variant="outlined"
+                      />
+                    ) : null}
+                  </Stack>
+                  {selectedRelatedWork.length === 0 ? (
+                    <Alert severity="info">
+                      No likely duplicates or nearby fixes were found for this work item yet.
+                    </Alert>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      {selectedRelatedActiveWork.length > 0 ? (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: "block", mb: 1 }}
+                          >
+                            Active work items
+                          </Typography>
+                          <Stack spacing={1}>
+                            {selectedRelatedActiveWork.map((match) => {
+                              const relatedWorkItemId = String(match.workItem._id || "");
+
+                              return (
+                                <Paper
+                                  key={relatedWorkItemId}
+                                  variant="outlined"
+                                  sx={{ p: 1.5, borderRadius: 2, display: "grid", gap: 1 }}
+                                >
+                                  <Stack
+                                    direction={{ xs: "column", sm: "row" }}
+                                    spacing={1}
+                                    justifyContent="space-between"
+                                    alignItems={{ xs: "flex-start", sm: "center" }}
+                                  >
+                                    <Box>
+                                      <Typography variant="subtitle2">
+                                        {match.workItem.title}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {relatedWorkItemId}
+                                      </Typography>
+                                    </Box>
+                                    <Button
+                                      variant="text"
+                                      size="small"
+                                      onClick={() => setSelectedWorkItemId(relatedWorkItemId)}
+                                    >
+                                      Open Work Item
+                                    </Button>
+                                  </Stack>
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip
+                                      size="small"
+                                      label={
+                                        triageLabel[match.workItem.triageStatus] ||
+                                        match.workItem.triageStatus
+                                      }
+                                      color={triageTone[match.workItem.triageStatus] || "default"}
+                                    />
+                                    <Chip
+                                      size="small"
+                                      label={`Score ${match.score}`}
+                                      variant="outlined"
+                                    />
+                                    {match.workItem.page ? (
+                                      <Chip
+                                        size="small"
+                                        label={match.workItem.page}
+                                        variant="outlined"
+                                      />
+                                    ) : null}
+                                  </Stack>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
+                                  >
+                                    {match.reasons.join(" | ")}
+                                  </Typography>
+                                </Paper>
+                              );
+                            })}
+                          </Stack>
+                        </Box>
+                      ) : null}
+                      {selectedRelatedClosedWork.length > 0 ? (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: "block", mb: 1 }}
+                          >
+                            Resolved and duplicate history
+                          </Typography>
+                          <Stack spacing={1}>
+                            {selectedRelatedClosedWork.map((match) => {
+                              const relatedWorkItemId = String(match.workItem._id || "");
+
+                              return (
+                                <Paper
+                                  key={relatedWorkItemId}
+                                  variant="outlined"
+                                  sx={{ p: 1.5, borderRadius: 2, display: "grid", gap: 1 }}
+                                >
+                                  <Stack
+                                    direction={{ xs: "column", sm: "row" }}
+                                    spacing={1}
+                                    justifyContent="space-between"
+                                    alignItems={{ xs: "flex-start", sm: "center" }}
+                                  >
+                                    <Box>
+                                      <Typography variant="subtitle2">
+                                        {match.workItem.title}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {relatedWorkItemId}
+                                      </Typography>
+                                    </Box>
+                                    <Button
+                                      variant="text"
+                                      size="small"
+                                      onClick={() => setSelectedWorkItemId(relatedWorkItemId)}
+                                    >
+                                      Open Work Item
+                                    </Button>
+                                  </Stack>
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip
+                                      size="small"
+                                      label={
+                                        triageLabel[match.workItem.triageStatus] ||
+                                        match.workItem.triageStatus
+                                      }
+                                      color={triageTone[match.workItem.triageStatus] || "default"}
+                                    />
+                                    <Chip
+                                      size="small"
+                                      label={`Score ${match.score}`}
+                                      variant="outlined"
+                                    />
+                                    {match.workItem.resolvedAt ? (
+                                      <Chip
+                                        size="small"
+                                        label={`Resolved ${formatTimestamp(match.workItem.resolvedAt)}`}
+                                        variant="outlined"
+                                      />
+                                    ) : null}
+                                  </Stack>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ color: "text.secondary", whiteSpace: "pre-wrap" }}
+                                  >
+                                    {match.reasons.join(" | ")}
+                                  </Typography>
+                                </Paper>
+                              );
+                            })}
+                          </Stack>
+                        </Box>
+                      ) : null}
+                    </Stack>
+                  )}
                 </Paper>
 
                 <Paper

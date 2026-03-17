@@ -144,13 +144,13 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
         primaryMain: "#111827",
         primaryContrastText: "#ffffff",
         secondaryMain: "#6b7280",
-        backgroundDefault: "#f4f7fb",
-        backgroundPaper: "rgba(255, 255, 255, 0.94)",
+        backgroundDefault: "#eef3f9",
+        backgroundPaper: "rgba(255, 255, 255, 0.97)",
         textPrimary: "#101828",
-        textSecondary: "#667085",
-        divider: "rgba(15, 23, 42, 0.08)",
+        textSecondary: "#475467",
+        divider: "rgba(15, 23, 42, 0.14)",
         bodyBackground:
-          "radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(255, 255, 255, 0.92), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #eaf1f8 100%)",
+          "radial-gradient(circle at top left, rgba(125, 211, 252, 0.2), transparent 24%), radial-gradient(circle at top right, rgba(255, 255, 255, 0.94), transparent 32%), linear-gradient(180deg, #f9fbff 0%, #e6eef7 100%)",
         containedBackground:
           "linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(31, 41, 55, 0.94))",
         containedHoverBackground:

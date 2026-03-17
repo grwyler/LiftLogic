@@ -16,6 +16,8 @@ describe("feedback copy details instructions", () => {
       evidence: [],
     });
 
+    expect(text).toContain("Implementation brief");
+    expect(text).toContain("## Verification plan");
     expect(text).toContain(
       "prefer observing real production behavior over a local run unless this is specifically a code audit"
     );
@@ -25,5 +27,7 @@ describe("feedback copy details instructions", () => {
     expect(text).toContain(
       "Keep this work item's ticket status updated in the database while you are working on it and when the work is done."
     );
+    expect(text).toContain("## Implementation context");
+    expect(text).toContain("## Verification plan");
   });
 });

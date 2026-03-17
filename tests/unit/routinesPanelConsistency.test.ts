@@ -8,8 +8,15 @@ describe("routines panel consistency", () => {
       path.join(process.cwd(), "components", "workout-display", "panelStyles.ts"),
       "utf8"
     );
+    const radiusTokensSource = fs.readFileSync(
+      path.join(process.cwd(), "styles", "radiusTokens.ts"),
+      "utf8"
+    );
 
     expect(source).toContain("const routinesPanelRadius =");
+    expect(radiusTokensSource).toContain("control: \"12px\"");
+    expect(radiusTokensSource).toContain("card: \"20px\"");
+    expect(radiusTokensSource).toContain("panel: \"28px\"");
     const headerSource = fs.readFileSync(
       path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
       "utf8"
