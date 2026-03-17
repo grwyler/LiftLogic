@@ -1,47 +1,66 @@
-import fs from "fs";
-import path from "path";
 import { describe, expect, it } from "vitest";
+import {
+  getWorkItemClosureWarnings,
+  getWorkflowDraftResolution,
+} from "../../utils/bugsWorkflow";
 
-describe("bugs page workflow actions", () => {
-  it("keeps bugs and features in one filtered work list with inline status and priority controls", () => {
-    const source = fs.readFileSync(
-      path.join(process.cwd(), "pages", "bugs.tsx"),
-      "utf8"
-    );
+describe("bugs inbox workflow helpers", () => {
+  it("turns draft verification inputs into structured resolution metadata", () => {
+    const resolution = getWorkflowDraftResolution({
+      title: "Workout log failed",
+      latestDescription: "Latest description",
+      fixThreadId: "thread-42",
+      fixCommitSha: "abc123def",
+      verificationOwner: "qa@liftlogic",
+      resolvedAppVersion: "1.2.3",
+      resolvedDeployId: "",
+      validatedCommandsText: "npm run test:unit -- tests/unit/bugsPage.test.ts",
+      manualChecksText: "Opened /bugs and reviewed the verification panel",
+      regressionChecklist: [
+        { label: "Reported flow re-checked", outcome: "passed" },
+        { label: "Copy details output reviewed", outcome: "passed" },
+        { label: "Closure workflow verified", outcome: "not_applicable" },
+      ],
+    });
 
-    expect(source).not.toContain("getPrimaryAction(");
-    expect(source).toContain("Work queue");
-    expect(source).toContain('label="Search"');
-    expect(source).toContain('label="Type"');
-    expect(source).toContain('label="List"');
-    expect(source).toContain('label="Priority"');
-    expect(source).toContain('label="Label"');
-    expect(source).toContain("Copy Details Of Top 5");
-    expect(source).toContain("handleCopyTopFiveDetails");
-    expect(source).toContain("currentPrimaryListItems.slice(0, 5)");
-    expect(source).toContain("buildTopFiveCopyFooter()");
-    expect(source).toContain("Open work items");
-    expect(source).toContain('label="Status"');
-    expect(source).toContain('label="Labels"');
-    expect(source).toContain("VersionChangelogDialog");
-    expect(source).toContain("setSelectedChangelogVersion");
-    expect(source).toContain("handleWorkflowUpdate(item, {");
-    expect(source).toContain('triageStatus: "details copied"');
-    expect(source).toContain("Founding beta access");
-    expect(source).toContain("Monetization summary");
-    expect(source).toContain("fetchMonetizationSummary");
-    expect(source).toContain("Refresh summary");
-    expect(source).toContain("fetchFoundingBetaUsers");
-    expect(source).toContain("saveFoundingBetaAccess");
-    expect(source).toContain("Grant access");
-    expect(source).toContain("Save expiration/note");
-    expect(source).toContain("Revoke");
-    expect(source).toContain("Structured repro");
-    expect(source).toContain("Start here");
-    expect(source).toContain("Verification pack");
-    expect(source).toContain("Completed checks");
-    expect(source).toContain("handleVerificationCompletionToggle");
-    expect(source).toContain("implementationSummary");
-    expect(source).toContain("verificationDoneCriteria");
+    expect(resolution).toEqual({
+      verificationOwner: "qa@liftlogic",
+      resolvedAppVersion: "1.2.3",
+      resolvedDeployId: undefined,
+      validatedCommands: ["npm run test:unit -- tests/unit/bugsPage.test.ts"],
+      manualChecks: ["Opened /bugs and reviewed the verification panel"],
+      regressionChecklist: [
+        { label: "Reported flow re-checked", outcome: "passed", notes: undefined },
+        { label: "Copy details output reviewed", outcome: "passed", notes: undefined },
+        { label: "Closure workflow verified", outcome: "not_applicable", notes: undefined },
+      ],
+    });
+  });
+
+  it("warns when a work item is missing required closure evidence", () => {
+    const warnings = getWorkItemClosureWarnings({
+      title: "Workout log failed",
+      latestDescription: "Latest description",
+      fixThreadId: "",
+      fixCommitSha: "",
+      verificationOwner: "",
+      resolvedAppVersion: "",
+      resolvedDeployId: "",
+      validatedCommandsText: "",
+      manualChecksText: "",
+      regressionChecklist: [
+        { label: "Reported flow re-checked", outcome: "passed" },
+        { label: "Copy details output reviewed", outcome: "pending" },
+        { label: "Closure workflow verified", outcome: "pending" },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      "Add a verification owner.",
+      "Record the resolved app version or deploy.",
+      "List at least one validating command.",
+      "List at least one completed manual check.",
+      "Complete the regression checklist outcomes.",
+    ]);
   });
 });

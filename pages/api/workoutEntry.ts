@@ -138,6 +138,15 @@ const parseWorkoutEntryDate = (rawDate: unknown) => {
 
 const getStringId = (value: unknown) => String(value ?? "").trim();
 
+const toComparableTimestamp = (value: unknown) => {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = new Date(value as string | number | Date).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const buildRecurringEntryInstanceId = (
   ruleId: string,
   parsedDate: Date,
@@ -348,6 +357,12 @@ export default async function handler(
 
       const rawEntryId = getStringId(entry._id);
       const rawRuleId = getStringId((entry as WorkoutEntryDoc & { ruleId?: string | null }).ruleId);
+      const requestIdempotencyKey = getStringId(
+        (entry as WorkoutEntryDoc & { requestIdempotencyKey?: string }).requestIdempotencyKey
+      );
+      const lastKnownUpdatedAt = (entry as WorkoutEntryDoc & {
+        lastKnownUpdatedAt?: Date | string;
+      }).lastKnownUpdatedAt;
       const resolvedEntryInstanceId =
         getStringId(entry.entryInstanceId) ||
         (rawEntryId && !ObjectId.isValid(rawEntryId) ? rawEntryId : "") ||
@@ -398,6 +413,35 @@ export default async function handler(
           };
       const existingEntry = await col.findOne(filter);
 
+      if (
+        existingEntry &&
+        requestIdempotencyKey &&
+        requestIdempotencyKey === existingEntry.lastRequestIdempotencyKey
+      ) {
+        return res.status(200).json({
+          message: "Workout entry already saved",
+          entryId: String(existingEntry._id ?? rawEntryId ?? ""),
+          entryInstanceId: existingEntry.entryInstanceId ?? resolvedEntryInstanceId,
+          updatedAt: existingEntry.updatedAt,
+          deduped: true,
+        });
+      }
+
+      if (
+        existingEntry &&
+        lastKnownUpdatedAt &&
+        toComparableTimestamp(existingEntry.updatedAt) >
+          toComparableTimestamp(lastKnownUpdatedAt)
+      ) {
+        return res.status(409).json({
+          message: "Workout entry has newer server changes",
+          entryId: String(existingEntry._id ?? rawEntryId ?? ""),
+          entryInstanceId: existingEntry.entryInstanceId ?? resolvedEntryInstanceId,
+          updatedAt: existingEntry.updatedAt,
+          conflict: true,
+        });
+      }
+
       const result = await col.updateOne(
         filter,
         {
@@ -407,6 +451,7 @@ export default async function handler(
             weightUnit: entryWeightUnit,
             sets: normalizedSets,
             entryInstanceId: resolvedEntryInstanceId,
+            lastRequestIdempotencyKey: requestIdempotencyKey || undefined,
             exerciseId,
             date: parsedDate,
             updatedAt: new Date(),
@@ -440,6 +485,7 @@ export default async function handler(
           message: "Workout entry saved",
           entryId: String(savedEntry?._id ?? result.upsertedId ?? rawEntryId ?? ""),
           entryInstanceId: savedEntry?.entryInstanceId ?? resolvedEntryInstanceId,
+          updatedAt: savedEntry?.updatedAt,
         });
     }
 

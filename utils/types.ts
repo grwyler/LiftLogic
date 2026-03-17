@@ -77,6 +77,10 @@ export interface RecurringRuleDoc {
   _id?: ObjectId;
   userId: string;
   exerciseId: ObjectId | string;
+  exerciseName?: string;
+  exerciseType?: "timed" | "weight";
+  defaultMax?: number;
+  defaultRest?: number;
   routineName: string;
   sortOrder?: number;
   recurrenceType?: "daily" | "weekly" | "custom" | "monthly";
@@ -96,6 +100,9 @@ export interface RecurringRuleDoc {
 export interface WorkoutEntryDoc {
   _id?: ObjectId;
   entryInstanceId?: string;
+  requestIdempotencyKey?: string;
+  lastKnownUpdatedAt?: Date | string;
+  lastRequestIdempotencyKey?: string;
   userId: string;
   exerciseId: ObjectId | string;
   weightUnit?: WeightUnit;
@@ -198,6 +205,11 @@ export interface UserDoc {
   username: string;
   email?: string;
   name?: string;
+  roles?: string[];
+  permissions?: {
+    bugWorkflowAdmin?: boolean;
+    foundingBetaAdmin?: boolean;
+  };
   provider?: string;
   providerAccountId?: string;
   sex?: string;
@@ -298,39 +310,25 @@ export interface FeedbackRuntimeContext {
   online?: boolean;
 }
 
-export interface FeedbackStructuredRepro {
-  actualBehavior?: string;
-  expectedBehavior?: string;
-  reproSteps?: string[];
-  affectedFlow?: string;
-  triggerConditions?: string;
-  regressionRisks?: string;
-  source?: "manual" | "inferred" | "recorder";
-}
+export type FeedbackRegressionOutcome =
+  | "passed"
+  | "failed"
+  | "not_applicable"
+  | "pending";
 
-export interface FeedbackImplementationLink {
-  type: "route" | "component" | "api" | "hook" | "schema" | "test";
-  path: string;
-  label?: string;
-  note?: string;
-}
-
-export interface FeedbackImplementationContext {
-  summary?: string;
-  confirmed?: FeedbackImplementationLink[];
-  inferred?: FeedbackImplementationLink[];
-}
-
-export interface FeedbackVerificationItem {
-  id: string;
-  kind: "command" | "manual" | "done";
+export interface FeedbackRegressionCheck {
   label: string;
-  command?: string;
+  outcome: FeedbackRegressionOutcome;
+  notes?: string;
 }
 
-export interface FeedbackVerificationPack {
-  summary?: string;
-  items: FeedbackVerificationItem[];
+export interface FeedbackResolutionMetadata {
+  validatedCommands?: string[];
+  manualChecks?: string[];
+  verificationOwner?: string;
+  resolvedAppVersion?: string;
+  resolvedDeployId?: string;
+  regressionChecklist?: FeedbackRegressionCheck[];
 }
 
 export interface FeedbackItemDoc {
@@ -355,6 +353,7 @@ export interface FeedbackItemDoc {
   lastNotificationError?: string;
   fixThreadId?: string;
   fixCommitSha?: string;
+  resolution?: FeedbackResolutionMetadata;
   resolvedAt?: Date | string;
   bugReport?: {
     mode: "recorded";
@@ -429,9 +428,38 @@ export interface FeedbackWorkItemDoc {
   latestReporterRole?: "admin" | "user";
   fixThreadId?: string;
   fixCommitSha?: string;
+  resolution?: FeedbackResolutionMetadata;
   resolvedAt?: Date | string;
   firstReportedAt?: Date;
   lastReportedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface RecurringRuleApiRequest {
+  rule: {
+    _id?: ObjectId | string;
+    userId: string;
+    exerciseId: ObjectId | string;
+    exerciseName: string;
+    exerciseType: "weight" | "timed";
+    routineName: string;
+    sortOrder?: number;
+    recurrenceType?: "daily" | "weekly" | "custom" | "monthly";
+    interval?: number;
+    daysOfWeek?: number[];
+    dayOfWeek?: number;
+    dayOfMonth?: number;
+    intervalWeeks?: number;
+    startDate: Date | string;
+    endDate?: Date | string;
+    templateSets?: ExerciseSet[];
+    defaultMax?: number;
+    defaultRest?: number;
+    active?: boolean;
+  };
+}
+
+export interface RecurringRuleApiResponse {
+  rule: RecurringRuleDoc | (RecurringRuleDoc & { _id?: ObjectId | string });
 }

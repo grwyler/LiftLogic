@@ -174,7 +174,9 @@ describe("feedback details helpers", () => {
 
     expect(copyText).toContain("Priority: P0");
     expect(copyText).toContain("Proposed fix: Emit a stable implementation brief schema.");
-    expect(copyText).toContain("Acceptance check: Copy details exports the same stable section order for every bug work item.");
+    expect(copyText).toContain(
+      "Acceptance check: Copy details exports the same stable section order for every bug work item."
+    );
   });
 
   it("renders explicit TODO markers for missing required sections instead of omitting them", () => {
@@ -401,5 +403,48 @@ describe("feedback details helpers", () => {
     expect(copyText).toContain(
       "Why it matched: shared route /routines; shared code area pages/api/workoutEntry"
     );
+  });
+
+  it("includes fix metadata, verification evidence, and regression checklist outcomes", () => {
+    const workItem = {
+      _id: "work-10",
+      type: "bug",
+      title: "Workout log failed",
+      latestDescription: "Description: Logging a set throws an error.",
+      fingerprint: "wrk_10",
+      occurrenceCount: 2,
+      triageStatus: "resolved",
+      fixThreadId: "thread-42",
+      fixCommitSha: "abc123def",
+      resolvedAt: "2026-03-17T05:00:00.000Z",
+      resolution: {
+        verificationOwner: "qa@liftlogic",
+        resolvedAppVersion: "1.2.3",
+        validatedCommands: ["npm run test:unit -- tests/unit/feedbackDetails.test.ts"],
+        manualChecks: ["Re-opened /bugs and confirmed the work item summary"],
+        regressionChecklist: [
+          { label: "Reported flow re-checked", outcome: "passed" },
+          { label: "Copy details output reviewed", outcome: "passed" },
+          { label: "Closure workflow verified", outcome: "not_applicable" },
+        ],
+      },
+    } as unknown as FeedbackWorkItemDoc;
+
+    const copyText = buildCodexCopyText({
+      workItem,
+      evidence: [],
+    });
+
+    expect(copyText).toContain("Fix thread: thread-42");
+    expect(copyText).toContain("Fix commit: abc123def");
+    expect(copyText).toContain("Verification owner: qa@liftlogic");
+    expect(copyText).toContain("Resolved app version: 1.2.3");
+    expect(copyText).toContain(
+      "Automated verification: npm run test:unit -- tests/unit/feedbackDetails.test.ts"
+    );
+    expect(copyText).toContain(
+      "Manual verification: Re-opened /bugs and confirmed the work item summary"
+    );
+    expect(copyText).toContain("Regression checklist: Reported flow re-checked = passed");
   });
 });

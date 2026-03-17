@@ -2,8 +2,11 @@ import { FeedbackItemDoc, FeedbackWorkItemDoc } from "./types";
 import {
   buildImplementationContext,
   buildVerificationPack,
-  getVerificationItemsByKind,
 } from "./feedbackWorkItemContext";
+import {
+  createDefaultRegressionChecklist,
+  normalizeRegressionChecklist,
+} from "./feedbackResolution";
 
 export const CODEX_COPY_BRIEF_SECTIONS = [
   "Work item metadata",
@@ -202,7 +205,7 @@ const normalizeErrorSignature = (value: unknown) =>
     .replace(/\d+/g, "#");
 
 const fileSignalPattern =
-  /((?:[a-z]:)?[\\/](?:[^\\/\s:'")]+[\\/])+[^\\/\s:'")]+\.(?:[jt]sx?|mjs|cjs)|(?:pages|components|utils|server|domain|db|tests)[\\/][^\\/\s:'")]+\.(?:[jt]sx?|mjs|cjs))/gi;
+  /((?:[a-z]:)?[\\/](?:[^\\/\s:'")]+[\\/])+[^\\/\s:'")]+\.(?:[jt]sx?|mjs|cjs)|(?:pages|components|utils|server|domain|db|tests|audits)[\\/][^\\/\s:'")]+\.(?:[jt]sx?|mjs|cjs|md))/gi;
 
 const getOwnershipSignal = (value: string) => {
   const normalized = value.replace(/\\/g, "/").replace(/^[a-z]:/i, "");
@@ -402,7 +405,10 @@ const scoreRelatedWorkItem = ({
   if (
     candidateIsClosed &&
     candidateResolvedAt >= sevenDaysAgo &&
-    reasons.some((reason) => reason.startsWith("same page area") || reason.startsWith("shared code area"))
+    reasons.some(
+      (reason) =>
+        reason.startsWith("same page area") || reason.startsWith("shared code area")
+    )
   ) {
     score += 1;
     reasons.push("recently resolved nearby work");
@@ -482,6 +488,9 @@ export const buildCodexCopyText = ({
   const flowLines: string[] = [];
   const likelyFiles = new Set<string>();
   const sourceText = `${workItem.title} ${workItem.latestDescription}`.toLowerCase();
+  const regressionChecklist = workItem.resolution?.regressionChecklist?.length
+    ? normalizeRegressionChecklist(workItem.resolution.regressionChecklist)
+    : createDefaultRegressionChecklist();
 
   [workItem.page, workItem.latestRuntimeContext?.route].forEach((candidate) => {
     const path = String(candidate || "")
@@ -505,12 +514,20 @@ export const buildCodexCopyText = ({
   if (
     workItem.page === "/bugs" ||
     sourceText.includes("copy details") ||
-    sourceText.includes("implementation brief")
+    sourceText.includes("implementation brief") ||
+    sourceText.includes("audit")
   ) {
     likelyFiles.add("pages/bugs.tsx");
     likelyFiles.add("utils/feedbackDetails.ts");
+    likelyFiles.add("utils/feedbackWorkItemContext.ts");
     likelyFiles.add("tests/unit/feedbackDetails.test.ts");
     likelyFiles.add("tests/unit/feedbackCopyDetailsInstructions.test.ts");
+  }
+
+  if (sourceText.includes("audit")) {
+    likelyFiles.add("audits/run-audit.md");
+    likelyFiles.add("audits/runner-notes.md");
+    likelyFiles.add("tests/unit/auditPromptLibrary.test.ts");
   }
 
   pushIfPresent(runtimeContextLines, "- Environment", workItem.latestRuntimeContext?.environment);
@@ -541,12 +558,14 @@ export const buildCodexCopyText = ({
   if (workItem.latestRuntimeContext?.route) {
     flowLines.push(`- Runtime route: ${workItem.latestRuntimeContext.route}`);
   }
-  if (workItem.structuredRepro?.affectedFlow) {
-    flowLines.push(`- Affected flow: ${workItem.structuredRepro.affectedFlow}`);
+  if ((workItem as any).structuredRepro?.affectedFlow) {
+    flowLines.push(`- Affected flow: ${(workItem as any).structuredRepro.affectedFlow}`);
   }
-  (workItem.structuredRepro?.reproSteps || []).slice(0, 5).forEach((step, index) => {
-    flowLines.push(`- Repro step ${index + 1}: ${step}`);
-  });
+  (((workItem as any).structuredRepro?.reproSteps as string[] | undefined) || [])
+    .slice(0, 5)
+    .forEach((step, index) => {
+      flowLines.push(`- Repro step ${index + 1}: ${step}`);
+    });
   evidence
     .flatMap((entry) => entry.bugReport?.interactions?.filter((step) => step.kind === "semantic") || [])
     .slice(0, 5)
@@ -618,8 +637,18 @@ export const buildCodexCopyText = ({
     `- Occurrence count: ${String(workItem.occurrenceCount ?? MISSING_TODO)}`,
     `- Severity: ${workItem.severity || MISSING_TODO}`,
     `- Page: ${workItem.page || MISSING_TODO}`,
+    `- Fix thread: ${workItem.fixThreadId || MISSING_TODO}`,
+    `- Fix commit: ${workItem.fixCommitSha || MISSING_TODO}`,
+    `- Verification owner: ${
+      workItem.resolution?.verificationOwner || MISSING_TODO
+    }`,
+    `- Resolved app version: ${
+      workItem.resolution?.resolvedAppVersion || MISSING_TODO
+    }`,
+    `- Resolved deploy: ${workItem.resolution?.resolvedDeployId || MISSING_TODO}`,
     `- First reported: ${formatTimestamp(workItem.firstReportedAt) || MISSING_TODO}`,
     `- Last reported: ${formatTimestamp(workItem.lastReportedAt) || MISSING_TODO}`,
+    `- Resolved: ${formatTimestamp(workItem.resolvedAt) || MISSING_TODO}`,
   ]);
   pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[1], [
     `- Summary: ${workItem.title || MISSING_TODO}`,
@@ -633,7 +662,7 @@ export const buildCodexCopyText = ({
     lines,
     CODEX_COPY_BRIEF_SECTIONS[2],
     formatParagraphOrTodo(
-      workItem.structuredRepro?.actualBehavior ||
+      (workItem as any).structuredRepro?.actualBehavior ||
         getFieldText(descriptionFields, "actual behavior", "description")
     )
   );
@@ -641,7 +670,7 @@ export const buildCodexCopyText = ({
     lines,
     CODEX_COPY_BRIEF_SECTIONS[3],
     formatParagraphOrTodo(
-      workItem.structuredRepro?.expectedBehavior ||
+      (workItem as any).structuredRepro?.expectedBehavior ||
         getFieldText(descriptionFields, "expected behavior")
     )
   );
@@ -696,6 +725,22 @@ export const buildCodexCopyText = ({
       : ["- Summary: TODO: missing from the current work item."]),
     ...formatBulletsOrTodo(
       verificationPack.items.map((item) => item.command || item.label).filter(Boolean)
+    ),
+    "- Resolution metadata:",
+    ...(workItem.resolution?.validatedCommands?.length
+      ? workItem.resolution.validatedCommands.map(
+          (command) => `- Automated verification: ${command}`
+        )
+      : ["- Automated verification: TODO: missing from the current work item."]),
+    ...(workItem.resolution?.manualChecks?.length
+      ? workItem.resolution.manualChecks.map(
+          (check) => `- Manual verification: ${check}`
+        )
+      : ["- Manual verification: TODO: missing from the current work item."]),
+    ...regressionChecklist.map((entry) =>
+      `- Regression checklist: ${entry.label} = ${entry.outcome}${
+        entry.notes ? ` (${entry.notes})` : ""
+      }`
     ),
     ...(acceptanceCriteria.length > 0
       ? acceptanceCriteria.map((criterion) => `- Acceptance check: ${criterion}`)

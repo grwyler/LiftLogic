@@ -40,4 +40,26 @@ describe("feedback copy details instructions", () => {
     expect(buildTopFiveCopyFooter()).toContain("Increment version.");
     expect(buildTopFiveCopyFooter()).toContain("Redeploy to prod.");
   });
+
+  it("shows TODO markers for missing closure metadata inside the implementation brief", () => {
+    const text = buildCodexCopyText({
+      workItem: {
+        _id: "work-234",
+        type: "bug",
+        title: "Sample",
+        triageStatus: "new",
+        fingerprint: "fp",
+        occurrenceCount: 1,
+        latestDescription: "Description: Example description",
+      } as any,
+      evidence: [],
+    });
+
+    expect(text).toContain("Verification owner: TODO: missing from the current work item.");
+    expect(text).toContain("Resolved app version: TODO: missing from the current work item.");
+    expect(text).toContain("Resolved deploy: TODO: missing from the current work item.");
+    expect(text).toContain("Automated verification: TODO: missing from the current work item.");
+    expect(text).toContain("Manual verification: TODO: missing from the current work item.");
+    expect(text).toContain("Regression checklist: Reported flow re-checked = pending");
+  });
 });
