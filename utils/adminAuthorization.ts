@@ -11,6 +11,9 @@ type SessionLike = {
   };
 } | null | undefined;
 
+const BUG_WORKFLOW_ADMIN_USERNAME = "grwyler";
+const BUG_WORKFLOW_ADMIN_EMAIL = "grwyler@gmail.com";
+
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
@@ -31,9 +34,24 @@ export const hasUserPermission = (
   permission: keyof NonNullable<UserDoc["permissions"]>
 ) => Boolean(user?.permissions?.[permission]);
 
+const isKnownBugWorkflowAdminIdentity = (
+  user: AdminUserLike | null | undefined
+) => {
+  const username = normalizeText(user?.username).toLowerCase();
+  const email = normalizeText(user?.email).toLowerCase();
+
+  return (
+    username === BUG_WORKFLOW_ADMIN_USERNAME ||
+    email === BUG_WORKFLOW_ADMIN_EMAIL
+  );
+};
+
 export const isBugWorkflowAdminUser = (
   user: AdminUserLike | null | undefined
-) => hasUserPermission(user, "bugWorkflowAdmin") || hasUserRole(user, "admin");
+) =>
+  hasUserPermission(user, "bugWorkflowAdmin") ||
+  hasUserRole(user, "admin") ||
+  isKnownBugWorkflowAdminIdentity(user);
 
 export const isBugWorkflowAdminSession = (session: SessionLike) =>
   isBugWorkflowAdminUser(session?.user) ||

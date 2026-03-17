@@ -28,6 +28,25 @@ describe("admin authorization", () => {
     ).toBe(true);
   });
 
+  it("grants workflow admin access to the canonical admin username", () => {
+    expect(
+      isBugWorkflowAdminSession({
+        user: {
+          _id: "admin-2",
+          username: "grwyler",
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("grants workflow admin access to the canonical admin email", () => {
+    expect(
+      isBugWorkflowAdminUser({
+        email: "grwyler@gmail.com",
+      })
+    ).toBe(true);
+  });
+
   it("reads the requester id from either session shape", () => {
     expect(
       getSessionUserId({
