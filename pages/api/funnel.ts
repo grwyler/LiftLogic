@@ -15,6 +15,14 @@ import {
 import { hasActiveManualProBetaAccess } from "../../utils/entitlements";
 import { UserDoc } from "../../utils/types";
 
+type AnonymousFunnelDoc = {
+  anonymousFunnelId?: string;
+  betaFunnel?: unknown;
+  mergedAt?: Date;
+  mergedUserId?: ObjectId;
+  updatedAt?: Date;
+};
+
 const parseSessionUserId = (session: any) =>
   String(session?.user?._id || session?.token?.user?._id || "").trim();
 
@@ -66,7 +74,7 @@ export default async function handler(
       )
       .toArray();
     const anonymousFunnels = await db
-      .collection("anonymousBetaFunnels")
+      .collection<AnonymousFunnelDoc>("anonymousBetaFunnels")
       .find(
         {},
         {
@@ -99,7 +107,7 @@ export default async function handler(
   const requestAnonymousFunnelId = sanitizeText(req.body?.anonymousFunnelId);
   const cookieAnonymousFunnelId = sanitizeText(req.cookies?.[ANONYMOUS_FUNNEL_COOKIE_KEY]);
   const anonymousFunnelId = requestAnonymousFunnelId || cookieAnonymousFunnelId;
-  const anonymousFunnels = db.collection("anonymousBetaFunnels");
+  const anonymousFunnels = db.collection<AnonymousFunnelDoc>("anonymousBetaFunnels");
 
   if (action === "mergeAnonymousFunnel") {
     if (!isAuthenticated) {

@@ -24,7 +24,7 @@ describe("recommendation autofill guard", () => {
     expect(source).toContain("<ExerciseRecommendationPanel");
     expect(source).toContain("handleApplyRecommendation={handleApplyRecommendation}");
     expect(source).toContain("buildRecommendedIncompleteSets");
-    expect(source).toContain("await saveWorkoutEntry({");
+    expect(source).toContain("await saveWorkoutEntry(toWorkoutEntryPayload({");
     expect(source).toContain("Recommendation applied to this session");
   });
 });

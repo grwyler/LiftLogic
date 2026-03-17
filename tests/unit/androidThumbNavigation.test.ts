@@ -11,7 +11,7 @@ describe("android thumb-first navigation", () => {
 
     expect(source).toContain('const mobilePrimaryAction = !hasExercises');
     expect(source).toContain('display: { xs: "inline-flex", sm: "none" }');
-    expect(source).toContain("Next set");
+    expect(source).toContain("Next Set");
     expect(source).toContain('display: { xs: "none", sm: "inline-flex" }');
   });
 

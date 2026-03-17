@@ -29,6 +29,37 @@ export interface BetaFunnelAnalytics {
   checkoutStartSources?: Record<string, number>;
 }
 
+export type BetaFunnelDateKey =
+  | "anonymousMergedAt"
+  | "landingPageViewedAt"
+  | "landingCtaAt"
+  | "signupCompletedAt"
+  | "setupCompletedAt"
+  | "firstWorkoutLoggedAt"
+  | "secondWorkoutLoggedAt"
+  | "secondWorkoutWithin7DaysAt"
+  | "retainedWeek2At"
+  | "retainedWeek4At"
+  | "pricingPageViewedAt"
+  | "upgradePromptViewedAt"
+  | "upgradePromptClickedAt"
+  | "pricingCtaClickedAt"
+  | "checkoutStartedAt"
+  | "checkoutCompletedAt"
+  | "manualProGrantAppliedAt"
+  | "billingPortalOpenedAt"
+  | "cancelRequestedAt"
+  | "subscriptionCanceledAt";
+
+export type BetaFunnelSourceKey =
+  | "landingPageViewSources"
+  | "landingCtaSources"
+  | "pricingPageViewSources"
+  | "pricingCtaSources"
+  | "upgradePromptViewSources"
+  | "upgradePromptClickSources"
+  | "checkoutStartSources";
+
 export const betaFunnelMilestoneMap = {
   landing_page_viewed: "landingPageViewedAt",
   landing_cta: "landingCtaAt",
@@ -116,7 +147,7 @@ const toDateKey = (value: Date) => {
 
 const setMilestoneIfMissing = (
   next: BetaFunnelAnalytics,
-  key: keyof BetaFunnelAnalytics,
+  key: BetaFunnelDateKey,
   occurredAt: Date | null
 ) => {
   if (!occurredAt || next[key]) {
@@ -158,7 +189,7 @@ export const normalizeBetaFunnel = (
       "billingPortalOpenedAt",
       "cancelRequestedAt",
       "subscriptionCanceledAt",
-    ] as Array<keyof BetaFunnelAnalytics>
+    ] as BetaFunnelDateKey[]
   ).forEach((key) => {
     const parsed = toValidDate(candidate[key]);
     if (parsed) {
@@ -237,7 +268,7 @@ export const markBetaFunnelMilestone = ({
   anonymousFunnelId,
 }: {
   funnel: unknown;
-  key: keyof BetaFunnelAnalytics;
+  key: BetaFunnelDateKey;
   occurredAt?: Date | string | null;
   source?: string | null;
   anonymousFunnelId?: string | null;
@@ -278,7 +309,7 @@ export const markBetaFunnelMilestone = ({
 
 export const resolveBetaFunnelMilestoneKey = (
   milestone: string
-): keyof BetaFunnelAnalytics | null =>
+): BetaFunnelDateKey | null =>
   betaFunnelMilestoneMap[milestone as BetaFunnelMilestoneName] ?? null;
 
 export const getDistinctWorkoutDates = (dates: Array<Date | string>) => {
@@ -352,19 +383,12 @@ export const applyWorkoutMilestones = ({
 
 const countUsersWithMilestone = (
   funnels: BetaFunnelAnalytics[],
-  key: keyof BetaFunnelAnalytics
+  key: BetaFunnelDateKey
 ) => funnels.filter((funnel) => Boolean(funnel[key])).length;
 
 const mergeSourceBreakdown = (
   funnels: BetaFunnelAnalytics[],
-  key:
-    | "landingPageViewSources"
-    | "landingCtaSources"
-    | "pricingPageViewSources"
-    | "pricingCtaSources"
-    | "upgradePromptViewSources"
-    | "upgradePromptClickSources"
-    | "checkoutStartSources"
+  key: BetaFunnelSourceKey
 ) =>
   funnels.reduce<Record<string, number>>((accumulator, funnel) => {
     Object.entries(funnel[key] || {}).forEach(([source, count]) => {
@@ -406,7 +430,7 @@ export const mergeBetaFunnels = ({
       "billingPortalOpenedAt",
       "cancelRequestedAt",
       "subscriptionCanceledAt",
-    ] as Array<keyof BetaFunnelAnalytics>
+    ] as BetaFunnelDateKey[]
   ).forEach((key) => {
     if (!next[key] && incomingFunnel[key]) {
       next[key] = incomingFunnel[key];

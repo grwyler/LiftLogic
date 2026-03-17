@@ -26,7 +26,7 @@ describe("routines performance refresh flow", () => {
 
     expect(source).toContain("setExercises([...currentExercises, baseExercise]);");
     expect(source).toContain("const persistedExercise = await persistExercise(baseExercise);");
-    expect(source).toContain("setExercises((prev: any[]) =>");
+    expect(source).toContain("setExercises((prev) =>");
     expect(source).not.toContain("setRefetchExercises((prev) => !prev);");
   });
 

@@ -10,7 +10,10 @@ import {
   getEntitlementsForPlan,
   hasActiveManualProBetaAccess,
 } from "../../utils/entitlements";
-import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
+import {
+  BetaFunnelDateKey,
+  markBetaFunnelMilestone,
+} from "../../utils/betaFunnel";
 import { getBillingPriceOptions, StripeBillingConfig } from "./config";
 
 let billingIndexesReady = false;
@@ -60,7 +63,7 @@ const markUserBetaFunnelMilestone = async ({
 }: {
   db: Db;
   userId?: string;
-  key: keyof NonNullable<UserDoc["betaFunnel"]>;
+  key: BetaFunnelDateKey;
   occurredAt?: Date | string | null;
 }) => {
   const objectId = toObjectId(sanitizeText(userId));
