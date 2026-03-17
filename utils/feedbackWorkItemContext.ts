@@ -1,4 +1,3 @@
-import { execSync } from "child_process";
 import {
   FeedbackBugArchetype,
   FeedbackBugContext,
@@ -175,39 +174,49 @@ const ownershipFromPath = (value: string) => {
   return segments[0] || "";
 };
 
+const readGitLogOutput = (filePath: string) => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  try {
+    const dynamicRequire = Function("return require")() as NodeJS.Require;
+    const childProcess = dynamicRequire("child_process") as typeof import("child_process");
+    return childProcess.execSync(
+      `git log -n 2 --pretty=format:%H%x09%s -- "${filePath}"`,
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }
+    );
+  } catch {
+    return "";
+  }
+};
+
 const readRecentCommits = (filePaths: string[]): FeedbackDerivedCommit[] => {
   const commits: FeedbackDerivedCommit[] = [];
   const seen = new Set<string>();
 
   filePaths.slice(0, 5).forEach((filePath) => {
-    try {
-      const output = execSync(
-        `git log -n 2 --pretty=format:%H%x09%s -- "${filePath}"`,
-        {
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        }
-      );
+    const output = readGitLogOutput(filePath);
 
-      output
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .forEach((line) => {
-          const [sha, summary] = line.split("\t");
-          if (!sha || !summary || seen.has(`${sha}:${filePath}`)) {
-            return;
-          }
-          seen.add(`${sha}:${filePath}`);
-          commits.push({
-            sha: sha.slice(0, 12),
-            summary,
-            file: filePath,
-          });
+    output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const [sha, summary] = line.split("\t");
+        if (!sha || !summary || seen.has(`${sha}:${filePath}`)) {
+          return;
+        }
+        seen.add(`${sha}:${filePath}`);
+        commits.push({
+          sha: sha.slice(0, 12),
+          summary,
+          file: filePath,
         });
-    } catch {
-      // Git context is best-effort only.
-    }
+      });
   });
 
   return commits.slice(0, 6);
