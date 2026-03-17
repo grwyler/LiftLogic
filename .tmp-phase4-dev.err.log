@@ -563,3 +563,54 @@ Import trace for requested module:
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: unexpected end of file
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ ./components/RestTimerOverlay.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\RestTimerOverlay.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/RestTimerOverlay.tsx
+./components/WorkoutDisplay.tsx
+./components/WorkoutsManager.tsx
+ ⨯ ./components/RestTimerOverlay.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\RestTimerOverlay.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/RestTimerOverlay.tsx
+./components/WorkoutDisplay.tsx
+./components/WorkoutsManager.tsx
+./pages/routines.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ ./components/AppVersionBadge.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\AppVersionBadge.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/AppVersionBadge.tsx
+ ⨯ ./components/AppVersionBadge.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\AppVersionBadge.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/AppVersionBadge.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
