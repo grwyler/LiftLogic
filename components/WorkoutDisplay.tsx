@@ -18,15 +18,19 @@ import { useWeeklyTargetActions } from "./workout-display/useWeeklyTargetActions
 import { useWorkoutExerciseOrder } from "./workout-display/useWorkoutExerciseOrder";
 import WorkoutCompletionRecap from "./workout-display/WorkoutCompletionRecap";
 import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary";
+import WorkoutSecondaryInsights from "./workout-display/WorkoutSecondaryInsights";
 import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
 import {
   buildRoutineSemanticButtonSx,
   buildRoutineSemanticPanelSx,
 } from "../utils/routinesSemanticStyles";
-import { Exercise, UserDoc, WorkoutExerciseView } from "../utils/types";
-
-type WorkoutDisplayExercise = Exercise & Partial<WorkoutExerciseView>;
+import { UserDoc, WorkoutExerciseView } from "../utils/types";
+import {
+  WorkoutComebackGuide,
+  WorkoutDisplayExercise,
+  WorkoutWeeklyConsistency,
+} from "./workout-display/workoutDisplayTypes";
 
 type WorkoutDisplayProps = {
   exercises: WorkoutDisplayExercise[];
@@ -42,10 +46,8 @@ type WorkoutDisplayProps = {
   setRefetchExercises: React.Dispatch<React.SetStateAction<boolean>>;
   refreshCalendarStatuses?: () => void;
   userProfile?: Partial<UserDoc> | null;
-  weeklyConsistency?: {
-    target?: number | null;
-  } | null;
-  comebackGuide?: unknown;
+  weeklyConsistency?: WorkoutWeeklyConsistency | null;
+  comebackGuide?: WorkoutComebackGuide | null;
   milestoneSummary?: {
     recentlyUnlocked?: unknown[];
     unlocked?: unknown[];
@@ -367,25 +369,15 @@ const WorkoutDisplay = ({
   return (
     <Box>
       <WorkoutHeaderSummary
-        comebackGuide={comebackGuide}
         darkMode={darkMode}
         hasExercises={hasExercises}
         isWholeWorkoutRepeating={isWholeWorkoutRepeating}
         isWorkoutComplete={isWorkoutComplete}
         nextExercise={nextExercise}
-        onLightRestart={handleLightRestart}
         onOpenNextSet={handleOpenNextSet}
         onOpenWorkoutRepeatDialog={openWorkoutRepeatDialog}
-        onRescheduleThisWeek={handleRescheduleThisWeek}
-        onResumeToday={handleResumeToday}
-        progressTrendCards={progressTrendCards}
-        progressTrendSummary={progressTrendSummary}
         shouldShowNextSummary={shouldShowNextSummary}
         statusChip={statusChip}
-        weeklyConsistency={weeklyConsistency}
-        weeklyTargetDraft={weeklyTargetDraft}
-        savingWeeklyTarget={savingWeeklyTarget}
-        onWeeklyTargetChange={handleWeeklyTargetChange}
       />
 
       <Stack spacing={2.25} sx={{ mt: 2.25 }}>
@@ -504,6 +496,17 @@ const WorkoutDisplay = ({
             </Typography>
           </Paper>
         ) : null}
+
+        <WorkoutSecondaryInsights
+          comebackGuide={comebackGuide}
+          darkMode={darkMode}
+          progressTrendCards={progressTrendCards}
+          progressTrendSummary={progressTrendSummary}
+          weeklyConsistency={weeklyConsistency}
+          weeklyTargetDraft={weeklyTargetDraft}
+          savingWeeklyTarget={savingWeeklyTarget}
+          onWeeklyTargetChange={handleWeeklyTargetChange}
+        />
       </Stack>
 
       <Box sx={{ height: { xs: 136, sm: 96 } }} />

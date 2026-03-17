@@ -25,6 +25,7 @@ import {
   getOrCreateAnonymousFunnelId,
   readPendingLandingCta,
 } from "../utils/betaFunnelClient";
+import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
 const SignUp: React.FC = () => {
   const router = useRouter();
@@ -164,7 +165,8 @@ const SignUp: React.FC = () => {
             p: { xs: 2.5, sm: 3.5 },
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: 4,
+            borderRadius: brandRadii.panel,
+            backgroundImage: brandBackgrounds.heroGlow,
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center">
@@ -172,11 +174,11 @@ const SignUp: React.FC = () => {
               sx={{
                 width: 38,
                 height: 38,
-                borderRadius: 2,
+                borderRadius: 3,
                 display: "grid",
                 placeItems: "center",
-                backgroundColor: "text.primary",
-                color: "background.paper",
+                backgroundImage: brandBackgrounds.accentBadge,
+                color: "#fff7ed",
               }}
             >
               <FitnessCenterIcon fontSize="small" />
@@ -208,8 +210,8 @@ const SignUp: React.FC = () => {
                   py: 1.4,
                   border: "1px solid",
                   borderColor: "divider",
-                  borderRadius: 3,
-                  backgroundColor: "rgba(255,255,255,0.82)",
+                  borderRadius: brandRadii.card,
+                  background: brandBackgrounds.premiumPanel,
                 }}
               >
                 <Typography sx={{ color: "text.secondary" }}>{item}</Typography>
@@ -226,7 +228,7 @@ const SignUp: React.FC = () => {
             p: { xs: 2.5, sm: 3.5 },
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: 4,
+            borderRadius: brandRadii.panel,
           }}
         >
           <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>

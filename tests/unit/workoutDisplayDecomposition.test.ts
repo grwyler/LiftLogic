@@ -28,6 +28,10 @@ describe("workout display decomposition", () => {
       path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
       "utf8"
     );
+    const secondaryInsightsSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "workout-display", "WorkoutSecondaryInsights.tsx"),
+      "utf8"
+    );
     const recapSource = fs.readFileSync(
       path.join(process.cwd(), "components", "workout-display", "WorkoutCompletionRecap.tsx"),
       "utf8"
@@ -38,6 +42,7 @@ describe("workout display decomposition", () => {
     );
 
     expect(workoutDisplaySource).toContain('import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary"');
+    expect(workoutDisplaySource).toContain('import WorkoutSecondaryInsights from "./workout-display/WorkoutSecondaryInsights"');
     expect(workoutDisplaySource).toContain('import WorkoutCompletionRecap from "./workout-display/WorkoutCompletionRecap"');
     expect(workoutDisplaySource).toContain('import ExerciseListSection from "./workout-display/ExerciseListSection"');
     expect(workoutDisplaySource).toContain("useWorkoutProgressData({");
@@ -54,8 +59,9 @@ describe("workout display decomposition", () => {
     expect(scheduleHookSource).toContain('action: "save_workout_schedule"');
     expect(orderHookSource).toContain("const persistExerciseOrder = async");
     expect(restTimerHookSource).toContain("const [activeRestTimer, setActiveRestTimer] = useState<");
-    expect(headerSource).toContain("Weekly Consistency");
-    expect(headerSource).toContain("Comeback Plan");
+    expect(headerSource).toContain("Next Action");
+    expect(secondaryInsightsSource).toContain("Weekly Consistency");
+    expect(secondaryInsightsSource).toContain("Comeback Plan");
     expect(recapSource).toContain("Session Recap");
     expect(recapSource).toContain("Milestone Unlocked");
     expect(sectionSource).toContain("<DragDropContext onDragEnd={handleExerciseDragEnd}>");

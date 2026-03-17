@@ -20,14 +20,9 @@ import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { rememberLandingCta } from "../utils/betaFunnelClient";
 import { trackBetaFunnelMilestone } from "../utils/helpers";
+import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
-const landingRadius = {
-  panel: "28px",
-  card: "24px",
-  inset: "20px",
-  button: "18px",
-  chip: "999px",
-} as const;
+const landingRadius = brandRadii;
 
 const featureCards = [
   {
@@ -173,9 +168,10 @@ const HomePage: React.FC = () => {
               p: { xs: 2.5, sm: 3.5 },
               border: "1px solid",
               borderColor: "divider",
-              borderRadius: landingRadius.panel,
+              borderRadius: brandRadii.panel,
               overflow: "hidden",
               position: "relative",
+              backgroundImage: brandBackgrounds.heroGlow,
             }}
           >
             <Box
@@ -195,7 +191,7 @@ const HomePage: React.FC = () => {
             <Chip
               label="Free while beta sharpens up"
               color="primary"
-              sx={{ alignSelf: "flex-start", borderRadius: landingRadius.chip }}
+              sx={{ alignSelf: "flex-start", borderRadius: brandRadii.chip }}
             />
 
             <Typography variant="h2" sx={{ mt: 2.5, maxWidth: 620, fontSize: { xs: "2.7rem", md: "4.2rem" }, lineHeight: 0.95 }}>
@@ -227,22 +223,22 @@ const HomePage: React.FC = () => {
               <Chip
                 label="Track-only mode"
                 variant="outlined"
-                sx={{ borderRadius: landingRadius.chip }}
+                sx={{ borderRadius: brandRadii.chip }}
               />
               <Chip
                 label="AI workout setup"
                 variant="outlined"
-                sx={{ borderRadius: landingRadius.chip }}
+                sx={{ borderRadius: brandRadii.chip }}
               />
               <Chip
                 label="Recurring schedules"
                 variant="outlined"
-                sx={{ borderRadius: landingRadius.chip }}
+                sx={{ borderRadius: brandRadii.chip }}
               />
               <Chip
                 label="Progress-based recommendations"
                 variant="outlined"
-                sx={{ borderRadius: landingRadius.chip }}
+                sx={{ borderRadius: brandRadii.chip }}
               />
             </Stack>
 

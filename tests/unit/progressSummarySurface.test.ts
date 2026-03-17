@@ -49,7 +49,7 @@ describe("progress summary surface", () => {
 
   it("renders a routines-level progress summary that answers what improved recently", () => {
     const workoutSource = fs.readFileSync(
-      path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutSecondaryInsights.tsx"),
       "utf8"
     );
     const performanceSource = fs.readFileSync(

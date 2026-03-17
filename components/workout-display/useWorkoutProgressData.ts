@@ -1,15 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchExerciseProgress, getWorkoutEntryIdentity } from "../../utils/helpers";
 import {
+  ExerciseProgressSummary,
   getPersonalRecordHighlights,
   getProgressTrendHighlight,
 } from "../../utils/performance";
+import { UserDoc } from "../../utils/types";
+import {
+  WorkoutDisplayExercise,
+  WorkoutProgressLookup,
+} from "./workoutDisplayTypes";
 
-export const isWorkoutExerciseComplete = (exercise: any) => {
+export const isWorkoutExerciseComplete = (
+  exercise: WorkoutDisplayExercise | null | undefined
+) => {
   const sets = Array.isArray(exercise?.sets) ? exercise.sets : [];
   return Boolean(
     exercise?.complete || (sets.length > 0 && sets.every((set) => set.complete))
   );
+};
+
+const asExerciseProgressSummary = (
+  value: unknown
+): ExerciseProgressSummary | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  return value as ExerciseProgressSummary;
 };
 
 export const useWorkoutProgressData = ({
@@ -20,19 +38,22 @@ export const useWorkoutProgressData = ({
 }: {
   currentUserId: string;
   currentExerciseIndex: number;
-  exercises: any[];
-  userProfile?: any;
+  exercises: WorkoutDisplayExercise[];
+  userProfile?: Partial<UserDoc> | null;
 }) => {
-  const [exerciseProgressById, setExerciseProgressById] = useState<
-    Record<string, { summary: any; recommendation: any }>
-  >({});
+  const [exerciseProgressById, setExerciseProgressById] = useState<WorkoutProgressLookup>(
+    {}
+  );
   const [loadingProgressById, setLoadingProgressById] = useState<Record<string, boolean>>(
     {}
   );
 
-  const getExerciseCacheKey = (exercise: any): string =>
+  const getExerciseCacheKey = (exercise: WorkoutDisplayExercise): string =>
     String(exercise?.exerciseId ?? exercise?._id ?? "");
-  const getExerciseIdentity = (exercise: any, fallbackIndex = 0): string =>
+  const getExerciseIdentity = (
+    exercise: WorkoutDisplayExercise,
+    fallbackIndex = 0
+  ): string =>
     getWorkoutEntryIdentity(exercise, fallbackIndex);
 
   useEffect(() => {
@@ -141,8 +162,9 @@ export const useWorkoutProgressData = ({
   const prHighlights = useMemo(
     () =>
       completedExercises.filter((exercise) => {
-        const summary =
-          exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null;
+        const summary = asExerciseProgressSummary(
+          exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null
+        );
         return Boolean(summary?.latestWorkoutBrokePR);
       }).length,
     [completedExercises, exerciseProgressById]
@@ -150,8 +172,12 @@ export const useWorkoutProgressData = ({
   const recentPersonalRecords = useMemo(
     () =>
       completedExercises.flatMap((exercise) => {
-        const summary =
-          exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null;
+        const summary = asExerciseProgressSummary(
+          exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null
+        );
+        if (!summary) {
+          return [];
+        }
         return getPersonalRecordHighlights(
           summary,
           userProfile?.preferredUnits ?? exercise?.weightUnit
@@ -166,8 +192,12 @@ export const useWorkoutProgressData = ({
     () =>
       exercises
         .map((exercise, index) => {
-          const summary =
-            exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null;
+          const summary = asExerciseProgressSummary(
+            exerciseProgressById[getExerciseCacheKey(exercise)]?.summary ?? null
+          );
+          if (!summary) {
+            return null;
+          }
           const highlight = getProgressTrendHighlight(
             summary,
             userProfile?.preferredUnits ?? exercise?.weightUnit

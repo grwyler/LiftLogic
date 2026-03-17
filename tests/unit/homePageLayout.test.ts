@@ -8,10 +8,15 @@ describe("home page layout styling", () => {
       path.join(process.cwd(), "pages", "index.tsx"),
       "utf8"
     );
+    const tokenSource = fs.readFileSync(
+      path.join(process.cwd(), "utils", "brandSystem.ts"),
+      "utf8"
+    );
 
-    expect(source).toContain('panel: "28px"');
-    expect(source).toContain('card: "24px"');
-    expect(source).toContain('inset: "20px"');
+    expect(tokenSource).toContain('panel: "28px"');
+    expect(tokenSource).toContain('card: "24px"');
+    expect(tokenSource).toContain('inset: "20px"');
+    expect(source).toContain("const landingRadius = brandRadii;");
     expect(source).toContain("borderRadius: landingRadius.panel");
     expect(source).toContain("borderRadius: landingRadius.card");
     expect(source).toContain("borderRadius: landingRadius.inset");

@@ -21,6 +21,7 @@ import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import GoogleIcon from "@mui/icons-material/Google";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
+import { brandBackgrounds, brandPalette, brandRadii } from "../utils/brandSystem";
 
 const SignIn = () => {
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -126,26 +127,27 @@ const SignIn = () => {
             p: { xs: 2.5, sm: 3.5 },
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: 4,
+            borderRadius: brandRadii.panel,
             display: { xs: "none", md: "flex" },
             flexDirection: "column",
             justifyContent: "space-between",
             minHeight: { md: 640 },
+            backgroundImage: brandBackgrounds.heroGlow,
           }}
         >
           <Box>
             <Stack direction="row" spacing={1} alignItems="center">
               <Box
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 2,
-                  display: "grid",
-                  placeItems: "center",
-                  backgroundColor: "text.primary",
-                  color: "background.paper",
-                }}
-              >
+                width: 38,
+                height: 38,
+                borderRadius: 3,
+                display: "grid",
+                placeItems: "center",
+                backgroundImage: brandBackgrounds.accentBadge,
+                color: "#fff7ed",
+              }}
+            >
                 <FitnessCenterIcon fontSize="small" />
               </Box>
               <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
@@ -182,8 +184,8 @@ const SignIn = () => {
                   py: 1.4,
                   border: "1px solid",
                   borderColor: "divider",
-                  borderRadius: 3,
-                  backgroundColor: "rgba(255,255,255,0.82)",
+                  borderRadius: brandRadii.card,
+                  background: brandBackgrounds.premiumPanel,
                 }}
               >
                 <Typography sx={{ color: "text.secondary" }}>{item}</Typography>
@@ -198,7 +200,7 @@ const SignIn = () => {
             p: { xs: 2.25, sm: 3.5 },
             border: "1px solid",
             borderColor: "divider",
-            borderRadius: { xs: 4, sm: 4 },
+            borderRadius: { xs: brandRadii.panel, sm: brandRadii.panel },
             maxWidth: { xs: 420, md: "none" },
             width: "100%",
             mx: "auto",
@@ -221,8 +223,8 @@ const SignIn = () => {
                 borderRadius: 2.5,
                 display: "grid",
                 placeItems: "center",
-                backgroundColor: "text.primary",
-                color: "background.paper",
+                backgroundImage: brandBackgrounds.accentBadge,
+                color: "#fff7ed",
               }}
             >
               <FitnessCenterIcon fontSize="small" />

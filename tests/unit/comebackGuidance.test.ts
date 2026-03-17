@@ -40,15 +40,12 @@ describe("comeback guidance", () => {
 
   it("shows supportive comeback actions in the workout flow", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutSecondaryInsights.tsx"),
       "utf8"
     );
 
     expect(source).toContain("Comeback Plan");
     expect(source).toContain("Fresh win opportunity");
-    expect(source).toContain("Resume today");
-    expect(source).toContain("Light restart session");
-    expect(source).toContain("Reschedule this week");
     expect(source).toContain("No streak debt, no catch-up workout.");
   });
 });

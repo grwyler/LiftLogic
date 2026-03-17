@@ -32,12 +32,17 @@ describe("light mode contrast tokens", () => {
       path.join(process.cwd(), "pages", "signup.tsx"),
       "utf8"
     );
+    const brandTokenSource = fs.readFileSync(
+      path.join(process.cwd(), "utils", "brandSystem.ts"),
+      "utf8"
+    );
 
     expect(landingSource).toContain("rgba(255,255,255,0.97)");
     expect(landingSource).toContain("rgba(255,255,255,0.92)");
     expect(pricingSource).toContain("rgba(255,255,255,0.9)");
     expect(pricingSource).toContain("rgba(255,255,255,0.84)");
-    expect(signInSource).toContain("rgba(255,255,255,0.82)");
-    expect(signUpSource).toContain("rgba(255,255,255,0.82)");
+    expect(signInSource).toContain("brandBackgrounds.premiumPanel");
+    expect(signUpSource).toContain("brandBackgrounds.premiumPanel");
+    expect(brandTokenSource).toContain("premiumPanel");
   });
 });

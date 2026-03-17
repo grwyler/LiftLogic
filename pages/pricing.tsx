@@ -31,13 +31,9 @@ import {
   trackObservabilityEvent,
   trackBetaFunnelMilestone,
 } from "../utils/helpers";
+import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
-const pricingRadius = {
-  panel: "28px",
-  card: "24px",
-  inset: "18px",
-  chip: "999px",
-} as const;
+const pricingRadius = brandRadii;
 
 const freePlanFeatures = [
   "Workout logging and quick add",

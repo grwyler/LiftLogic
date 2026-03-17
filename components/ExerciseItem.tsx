@@ -100,7 +100,12 @@ type ExerciseItemProps = {
   onRequestRecurringUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
   isRestTimerBlocking?: boolean;
-  openRestTimer?: () => void;
+  openRestTimer?: (value: {
+    exerciseKey: string;
+    exerciseName: string;
+    seconds: number;
+    restSeconds: number;
+  }) => void;
 };
 
 const toWorkoutEntryPayload = (value: Record<string, unknown>) =>
