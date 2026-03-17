@@ -9,7 +9,7 @@ describe("set logging persistence failure handling", () => {
       "utf8"
     );
 
-    const saveIndex = source.indexOf("await saveWorkoutEntry({");
+    const saveIndex = source.indexOf("await persistWorkoutEntryWithOfflineQueue({");
     const setCurrentExerciseIndex = source.indexOf("setCurrentExercise(updatedExercise);");
     const setCurrentSetIndex = source.indexOf(
       "setCurrentSetIndex(nextSetIndexAfterLog);"
@@ -30,6 +30,8 @@ describe("set logging persistence failure handling", () => {
 
     expect(source).toContain("const [loggingSet, setLoggingSet] = useState(false);");
     expect(source).toContain("const [logSetError, setLogSetError] = useState<string | null>(null);");
+    expect(source).toContain("persistWorkoutEntryWithOfflineQueue");
+    expect(source).toContain("Saved offline. We'll sync this set when your connection returns.");
     expect(source).toContain("setCurrentExercise(previousExercise);");
     expect(source).toContain("setExercises?.(previousExercises);");
     expect(source).toContain("setCurrentSetIndex(setIndex);");

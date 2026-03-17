@@ -367,9 +367,116 @@ const getWeightDefaults = (goal: string, timed = false) => {
   }
 };
 
+const getProfileReadinessScore = (profile: SetupFormValues) => {
+  const experienceScore =
+    profile.experienceLevel === "advanced"
+      ? 2
+      : profile.experienceLevel === "intermediate"
+      ? 1
+      : profile.experienceLevel === "beginner"
+      ? 0
+      : 1;
+  const fitnessScoreMap: Record<string, number> = {
+    starting_out: 0,
+    getting_back_into_it: 0,
+    active_but_inconsistent: 1,
+    training_consistently: 2,
+    highly_trained: 3,
+    "": 1,
+  };
+
+  return experienceScore + (fitnessScoreMap[profile.currentFitnessLevel] ?? 0);
+};
+
+const getVolumeAdjustment = (profile: SetupFormValues) => {
+  const readinessScore = getProfileReadinessScore(profile);
+  if (readinessScore <= 1) {
+    return -1;
+  }
+
+  if (readinessScore >= 4) {
+    return 1;
+  }
+
+  return 0;
+};
+
+const getSessionDensityAdjustment = (profile: SetupFormValues) => {
+  const workoutLengthBudget = getWorkoutLengthBudget(profile);
+  if (workoutLengthBudget <= 30) {
+    return -1;
+  }
+
+  if (workoutLengthBudget >= 70) {
+    return 1;
+  }
+
+  return 0;
+};
+
+const getComplexityTier = (profile: SetupFormValues) => {
+  const readinessScore = getProfileReadinessScore(profile);
+  if (readinessScore <= 1) {
+    return "simple" as const;
+  }
+
+  if (readinessScore >= 4) {
+    return "advanced" as const;
+  }
+
+  return "standard" as const;
+};
+
+const getExerciseCountLimit = (
+  profile: SetupFormValues,
+  totalExerciseCount: number
+) => {
+  const workoutLengthBudget = getWorkoutLengthBudget(profile);
+  const readinessScore = getProfileReadinessScore(profile);
+
+  if (workoutLengthBudget <= 30) {
+    return Math.min(totalExerciseCount, readinessScore >= 4 ? 4 : 3);
+  }
+
+  if (workoutLengthBudget <= 45) {
+    return Math.min(totalExerciseCount, 4);
+  }
+
+  if (workoutLengthBudget >= 70) {
+    return Math.min(totalExerciseCount, readinessScore >= 4 ? 5 : 4);
+  }
+
+  return Math.min(totalExerciseCount, readinessScore >= 4 ? 5 : 4);
+};
+
+const simplifyExerciseForProfile = (
+  exercise: any,
+  profile: SetupFormValues
+) => {
+  if (getComplexityTier(profile) !== "simple" || exercise.type === "timed") {
+    return exercise;
+  }
+
+  const name = normalizeName(exercise.name);
+  const replacements: Array<[RegExp, string]> = [
+    [/back squat|front squat/, "Goblet Squat"],
+    [/deadlift$/, "Romanian Deadlift"],
+    [/bench press|incline bench press/, "Push-Up"],
+    [/overhead press/, "Standing Dumbbell Shoulder Press"],
+    [/walking lunge/, "Step-Up"],
+  ];
+
+  const replacementName = replacements.find(([pattern]) => pattern.test(name))?.[1];
+  if (!replacementName) {
+    return exercise;
+  }
+
+  return resolveExerciseForProfile(replacementName, profile, new Set<string>()) ?? exercise;
+};
+
 const getTargetWeight = (exercise: any, profile: SetupFormValues) => {
   const name = normalizeName(exercise.name);
-  const normalizedEquipment = exercise.equipment.map(normalizeEquipmentText);
+  const normalizedEquipment = (exercise.equipment ?? []).map(normalizeEquipmentText);
 
   if (
     normalizedEquipment.some((item: string) => item.includes("bodyweight")) ||
@@ -398,59 +505,105 @@ const getRepTarget = (goal: string, exercise: any, profile: SetupFormValues) => 
   }
 
   const name = normalizeName(exercise.name);
-  const normalizedEquipment = exercise.equipment.map(normalizeEquipmentText);
+  const normalizedEquipment = (exercise.equipment ?? []).map(normalizeEquipmentText);
+  const readinessScore = getProfileReadinessScore(profile);
+  let baseTarget = 8;
 
   if (goal === "strength") {
-    return /curl|raise|pushdown|fly|extension/.test(name)
+    baseTarget = /curl|raise|pushdown|fly|extension/.test(name)
       ? 8
       : 5;
-  }
-
-  if (goal === "conditioning" || goal === "fat_loss") {
-    return 10;
-  }
-
-  if (
+  } else if (goal === "conditioning" || goal === "fat_loss") {
+    baseTarget = 10;
+  } else if (
     goal === "muscle" &&
     isLightDumbbellHomeProfile(profile) &&
     normalizedEquipment.some((item: string) => /dumbbell|bodyweight/.test(item))
   ) {
-    return /curl|raise|fly|extension/.test(name) ? 15 : 12;
+    baseTarget = /curl|raise|fly|extension/.test(name) ? 15 : 12;
+  } else {
+    baseTarget = goal === "muscle" ? 8 : 8;
   }
 
-  return goal === "muscle" ? 8 : 8;
+  if (readinessScore <= 1) {
+    if (goal === "strength") {
+      return Math.max(baseTarget, /curl|raise|pushdown|fly|extension/.test(name) ? 10 : 6);
+    }
+
+    return baseTarget + 2;
+  }
+
+  if (readinessScore >= 4) {
+    if (goal === "strength") {
+      return /curl|raise|pushdown|fly|extension/.test(name) ? 8 : 4;
+    }
+
+    if (goal === "muscle") {
+      return /curl|raise|fly|extension/.test(name) ? 10 : 8;
+    }
+  }
+
+  if (getWorkoutLengthBudget(profile) <= 30 && goal !== "strength") {
+    return baseTarget + 1;
+  }
+
+  return baseTarget;
 };
 
-const getSetTarget = (goal: string, exercise: any) => {
+const getSetTarget = (goal: string, exercise: any, profile: SetupFormValues) => {
   if (exercise.type === "timed") {
     return 1;
   }
 
+  const name = normalizeName(exercise.name);
+  const isAccessory = /curl|raise|pushdown|fly|extension|calf raise|face pull|dead bug|plank/.test(
+    name
+  );
+  const volumeAdjustment = getVolumeAdjustment(profile);
+  const densityAdjustment = getSessionDensityAdjustment(profile);
+  let baseTarget = goal === "muscle" ? 4 : 3;
+
   if (goal === "strength") {
-    return /curl|raise|pushdown|fly|extension/.test(normalizeName(exercise.name))
+    baseTarget = /curl|raise|pushdown|fly|extension/.test(name)
       ? 3
       : 4;
   }
 
-  return goal === "muscle" ? 4 : 3;
+  const adjustedTarget =
+    baseTarget +
+    volumeAdjustment +
+    (isAccessory ? Math.min(densityAdjustment, 0) : densityAdjustment);
+
+  return Math.max(isAccessory ? 2 : 2, Math.min(5, adjustedTarget));
 };
 
-const getRestTarget = (goal: string, exercise: any) => {
+const getRestTarget = (goal: string, exercise: any, profile: SetupFormValues) => {
   if (exercise.type === "timed") {
     return 0;
   }
 
   const name = normalizeName(exercise.name);
+  const readinessScore = getProfileReadinessScore(profile);
+  const workoutLengthBudget = getWorkoutLengthBudget(profile);
+  let baseTarget = goal === "conditioning" ? 45 : 75;
 
   if (/deadlift|squat|bench|press|row/.test(name)) {
-    return goal === "strength" ? 150 : 120;
+    baseTarget = goal === "strength" ? 150 : 120;
+  } else if (/pull-up|pulldown|lunge|step-up|romanian deadlift/.test(name)) {
+    baseTarget = 105;
   }
 
-  if (/pull-up|pulldown|lunge|step-up|romanian deadlift/.test(name)) {
-    return 105;
+  if (readinessScore <= 1) {
+    baseTarget += 15;
+  } else if (readinessScore >= 4 && /deadlift|squat|bench|press|row/.test(name)) {
+    baseTarget += goal === "strength" ? 15 : 0;
   }
 
-  return goal === "conditioning" ? 45 : 75;
+  if (workoutLengthBudget <= 30 && !/deadlift|squat|bench|press|row/.test(name)) {
+    baseTarget -= 15;
+  }
+
+  return Math.max(30, baseTarget);
 };
 
 const getWorkoutLengthBudget = (profile: SetupFormValues) =>
@@ -496,18 +649,33 @@ const getTimedExerciseDefaults = (
 ) => {
   const name = normalizeName(exercise.name);
   const cardioMinutes = getTimedMinutesTarget(goal, profile, context);
+  const readinessScore = getProfileReadinessScore(profile);
+  const beginnerFriendly = readinessScore <= 1;
+  const advancedReadiness = readinessScore >= 4;
 
   if (/plank|wall sit|support hold|hang|superman hold/.test(name)) {
-    return { sets: 3, hours: 0, minutes: 1, seconds: 0, rest: 30 };
+    return {
+      sets: beginnerFriendly ? 2 : 3,
+      hours: 0,
+      minutes: 1,
+      seconds: 0,
+      rest: beginnerFriendly ? 45 : 30,
+    };
   }
 
   if (/dead bug|bird dog/.test(name)) {
-    return { sets: 2, hours: 0, minutes: 1, seconds: 0, rest: 30 };
+    return {
+      sets: advancedReadiness ? 3 : 2,
+      hours: 0,
+      minutes: 1,
+      seconds: 0,
+      rest: 30,
+    };
   }
 
   if (/carry/.test(name)) {
     return {
-      sets: 2,
+      sets: beginnerFriendly ? 1 : 2,
       hours: 0,
       minutes: Math.max(1, Math.min(6, Math.round(cardioMinutes / 2))),
       seconds: 0,
@@ -526,7 +694,7 @@ const getTimedExerciseDefaults = (
   }
 
   return {
-    sets: 1,
+    sets: advancedReadiness && getWorkoutLengthBudget(profile) >= 70 ? 2 : 1,
     hours: 0,
     minutes: cardioMinutes,
     seconds: 0,
@@ -582,9 +750,9 @@ const buildExercise = (
   }
 
   const defaults = getWeightDefaults(goal, false);
-  const setTarget = getSetTarget(goal, resolvedExercise);
+  const setTarget = getSetTarget(goal, resolvedExercise, profile);
   const repTarget = getRepTarget(goal, resolvedExercise, profile) ?? defaults.reps;
-  const restTarget = getRestTarget(goal, resolvedExercise);
+  const restTarget = getRestTarget(goal, resolvedExercise, profile);
   const targetWeight = getTargetWeight(resolvedExercise, profile);
   return {
     name: resolvedExercise.name,
@@ -618,12 +786,38 @@ const buildExercisesForDay = (
     return exercise;
   });
   const timedContext = {
-    timedExerciseCount: resolvedExercises.filter((exercise) => exercise.type === "timed")
-      .length,
-    totalExerciseCount: resolvedExercises.length,
+    timedExerciseCount: 0,
+    totalExerciseCount: 0,
   };
+  const adjustedExercises = resolvedExercises
+    .map((exercise) => simplifyExerciseForProfile(exercise, profile))
+    .filter((exercise, index, collection) => {
+      const normalized = normalizeName(exercise.name);
+      return (
+        collection.findIndex(
+          (candidate) => normalizeName(candidate.name) === normalized
+        ) === index
+      );
+    });
+  const limitedExerciseCount = getExerciseCountLimit(profile, adjustedExercises.length);
+  const prioritizedExercises = adjustedExercises.slice(0, limitedExerciseCount);
+  const overflowTimedExercise = adjustedExercises
+    .slice(limitedExerciseCount)
+    .find((exercise) => exercise.type === "timed");
+  const hasTimedExerciseInWindow = prioritizedExercises.some(
+    (exercise) => exercise.type === "timed"
+  );
+  const limitedExercises =
+    overflowTimedExercise && !hasTimedExerciseInWindow && prioritizedExercises.length > 0
+      ? [...prioritizedExercises.slice(0, -1), overflowTimedExercise]
+      : prioritizedExercises;
 
-  return resolvedExercises.map((exercise) =>
+  timedContext.timedExerciseCount = limitedExercises.filter(
+    (exercise) => exercise.type === "timed"
+  ).length;
+  timedContext.totalExerciseCount = limitedExercises.length;
+
+  return limitedExercises.map((exercise) =>
     buildExercise(exercise, goal, profile, timedContext)
   );
 };

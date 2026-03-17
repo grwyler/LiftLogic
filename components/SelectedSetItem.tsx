@@ -4,6 +4,7 @@ import {
   formatTime,
   saveWorkoutEntry,
 } from "../utils/helpers";
+import { persistWorkoutEntryWithOfflineQueue } from "../utils/workoutPendingSaveQueue";
 import { adjustRemainingSetsAfterLoggedSet } from "../utils/progression";
 import {
   Box,
@@ -422,7 +423,8 @@ const SelectedSetItem = ({
         throw new Error("Missing userId while logging set");
       }
 
-      await saveWorkoutEntry({
+      const saveResult = await persistWorkoutEntryWithOfflineQueue({
+        entry: {
         // WorkoutEntryDoc shape
         _id: updatedExercise._id,
         weightUnit:
@@ -444,6 +446,8 @@ const SelectedSetItem = ({
         complete: updatedExercise.complete,
         sets: updatedExercise.sets,
         ruleId: updatedExercise.ruleId,
+        },
+        persistEntry: saveWorkoutEntry,
       });
 
       if (exerciseComplete) {
@@ -455,7 +459,11 @@ const SelectedSetItem = ({
       }
 
       refreshCalendarStatuses?.();
-      onLogSetPersisted?.();
+      if (saveResult.queued) {
+        toast.info("Saved offline. We'll sync this set when your connection returns.");
+      } else {
+        onLogSetPersisted?.();
+      }
     } catch (error) {
       console.error("Failed to log set", error);
       workout.complete = false;

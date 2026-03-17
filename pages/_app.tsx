@@ -22,6 +22,7 @@ import {
   fetchPendingReminders,
   trackObservabilityEvent,
 } from "../utils/helpers";
+import { flushPendingWorkoutSaveQueue } from "../utils/workoutPendingSaveQueue";
 import { SLOW_ROUTE_TRANSITION_MS } from "../utils/observability";
 import {
   AppearanceDensity,
@@ -251,6 +252,49 @@ function MyApp({ Component, pageProps }: AppProps) {
       })
       .catch(() => undefined);
   }, [router.pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let disposed = false;
+
+    const flushQueuedWorkoutSaves = async (source: "boot" | "online") => {
+      const result = await flushPendingWorkoutSaveQueue().catch(() => null);
+      if (disposed || !result) {
+        return;
+      }
+
+      if (result.flushedCount > 0) {
+        toast.success(
+          `Synced ${result.flushedCount} queued workout save${
+            result.flushedCount === 1 ? "" : "s"
+          }.`
+        );
+      }
+
+      if (source === "online" && result.remainingCount > 0) {
+        toast.info(
+          `${result.remainingCount} workout save${
+            result.remainingCount === 1 ? "" : "s"
+          } still need a stable connection to sync.`
+        );
+      }
+    };
+
+    const handleOnline = () => {
+      void flushQueuedWorkoutSaves("online");
+    };
+
+    void flushQueuedWorkoutSaves("boot");
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   const applyThemePreference = useCallback(
     (value: ThemePreference | ((previous: ThemePreference) => ThemePreference)) => {

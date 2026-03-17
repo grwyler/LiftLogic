@@ -161,6 +161,8 @@ export interface WorkoutEntryApiResponse {
   updatedAt?: Date | string;
   deduped?: boolean;
   conflict?: boolean;
+  queued?: boolean;
+  queueLength?: number;
 }
 
 export interface WorkoutEntryAuditDoc {
