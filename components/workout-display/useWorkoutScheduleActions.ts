@@ -1,10 +1,57 @@
-import { useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { toLocalDateKey } from "../../utils/helpers";
 import {
+  RecurringWorkoutExerciseInput,
   removeWorkoutSchedule,
   updateWorkoutSchedule,
 } from "../../utils/recurringRuleService";
+import { WorkoutExerciseView } from "../../utils/types";
+
+type WorkoutScheduleExercise = WorkoutExerciseView & {
+  userId?: string;
+};
+
+type WorkoutScheduleActionsProps = {
+  currentDate: Date;
+  currentUserId: string;
+  exercises: WorkoutScheduleExercise[];
+  recurringSchedulingEnabled: boolean;
+  refreshCalendarStatuses?: () => void;
+  routineName: string;
+  setExercises: Dispatch<SetStateAction<unknown[]>>;
+  setRefetchExercises: Dispatch<SetStateAction<boolean>>;
+  onRequestRecurringUpgradePrompt?: () => void;
+};
+
+const toRecurringExerciseInput = (
+  exercise: WorkoutScheduleExercise
+): RecurringWorkoutExerciseInput =>
+  ({
+  _id: exercise._id,
+  userId: exercise.userId,
+  exerciseId: exercise.exerciseId,
+  entryInstanceId: exercise.entryInstanceId,
+  weightUnit: exercise.weightUnit,
+  sortOrder: exercise.sortOrder,
+  name: exercise.name,
+  type: exercise.type,
+  max: exercise.max,
+  routineName: exercise.routineName,
+  date: exercise.date,
+  rest: exercise.rest,
+  complete: exercise.complete,
+  sets: exercise.sets,
+  ruleId: exercise.ruleId ?? undefined,
+  isRepeating: exercise.isRepeating,
+  recurrenceType: exercise.recurrenceType,
+  interval: exercise.interval,
+  intervalWeeks: exercise.intervalWeeks,
+  dayOfWeek: exercise.dayOfWeek,
+  daysOfWeek: exercise.daysOfWeek,
+  dayOfMonth: exercise.dayOfMonth,
+  endDate: exercise.endDate,
+}) as unknown as RecurringWorkoutExerciseInput;
 
 export const useWorkoutScheduleActions = ({
   currentDate,
@@ -16,12 +63,12 @@ export const useWorkoutScheduleActions = ({
   setExercises,
   setRefetchExercises,
   onRequestRecurringUpgradePrompt,
-}: any) => {
+}: WorkoutScheduleActionsProps) => {
   const [showWorkoutRepeatDialog, setShowWorkoutRepeatDialog] = useState(false);
   const [savingWorkoutSchedule, setSavingWorkoutSchedule] = useState(false);
 
   const repeatingExercises = useMemo(
-    () => exercises.filter((exercise: any) => Boolean(exercise?.isRepeating || exercise?.ruleId)),
+    () => exercises.filter((exercise) => Boolean(exercise.isRepeating || exercise.ruleId)),
     [exercises]
   );
 
@@ -31,6 +78,9 @@ export const useWorkoutScheduleActions = ({
     }
 
     const [firstExercise, ...restExercises] = repeatingExercises;
+    if (!firstExercise) {
+      return null;
+    }
     const baseSchedule = {
       recurrenceType: firstExercise?.recurrenceType ?? "weekly",
       interval: Number(firstExercise?.interval ?? firstExercise?.intervalWeeks ?? 1) || 1,
@@ -54,7 +104,7 @@ export const useWorkoutScheduleActions = ({
       endDate: firstExercise?.endDate ? String(firstExercise.endDate).slice(0, 10) : "",
     };
 
-    const allMatch = restExercises.every((exercise: any) => {
+    const allMatch = restExercises.every((exercise) => {
       const exerciseDays = Array.isArray(exercise?.daysOfWeek)
         ? exercise.daysOfWeek.map(Number).sort().join(",")
         : "";
@@ -129,7 +179,7 @@ export const useWorkoutScheduleActions = ({
         userId: currentUserId,
         routineName,
         date: toLocalDateKey(currentDate),
-        exercises,
+        exercises: exercises.map(toRecurringExerciseInput),
         schedule: {
           recurrenceType,
           interval: repeatInterval,
@@ -142,7 +192,7 @@ export const useWorkoutScheduleActions = ({
       });
       const nextExercises = Array.isArray(data.exercises) ? data.exercises : [];
 
-      setExercises(nextExercises as any);
+      setExercises(nextExercises as WorkoutScheduleExercise[]);
       setShowWorkoutRepeatDialog(false);
       setRefetchExercises((prev: boolean) => !prev);
       refreshCalendarStatuses?.();
@@ -168,11 +218,11 @@ export const useWorkoutScheduleActions = ({
         userId: currentUserId,
         routineName,
         date: toLocalDateKey(currentDate),
-        exercises,
+        exercises: exercises.map(toRecurringExerciseInput),
       });
       const nextExercises = Array.isArray(data.exercises) ? data.exercises : [];
 
-      setExercises(nextExercises as any);
+      setExercises(nextExercises as WorkoutScheduleExercise[]);
       setShowWorkoutRepeatDialog(false);
       setRefetchExercises((prev: boolean) => !prev);
       refreshCalendarStatuses?.();

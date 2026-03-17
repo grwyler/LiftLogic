@@ -13,6 +13,7 @@ import {
   saveRecurringRule,
   saveExercise,
   saveUser,
+  mergeAnonymousBetaFunnel,
   trackBetaFunnelMilestone,
 } from "../utils/helpers";
 import { useRouter } from "next/router";
@@ -64,7 +65,10 @@ import {
 } from "../utils/workoutGeneration";
 import {
   clearPendingLandingCta,
+  readAnonymousFunnelId,
+  rememberAnonymousFunnelMerged,
   readPendingLandingCta,
+  shouldMergeAnonymousFunnel,
 } from "../utils/betaFunnelClient";
 import {
   AppearanceDensity,
@@ -151,6 +155,7 @@ const RoutinesPage = ({
   const [showPlanningDetails, setShowPlanningDetails] = useState(false);
   const [showClearProgramDialog, setShowClearProgramDialog] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<UpgradePromptConfig | null>(null);
+  const [upgradePromptKey, setUpgradePromptKey] = useState<UpgradePromptKey | null>(null);
   const access = useMemo(() => resolveUserAccess(user), [user]);
   const plannerGenerationEnabled = access.entitlements.assistantPlanGeneration;
   const plannerRegenerationEnabled = access.entitlements.assistantPlanRegeneration;
@@ -189,6 +194,7 @@ const RoutinesPage = ({
   };
 
   const openUpgradePrompt = (key: UpgradePromptKey) => {
+    setUpgradePromptKey(key);
     switch (key) {
       case "assistant_generation":
         setUpgradePrompt({
@@ -360,56 +366,42 @@ const RoutinesPage = ({
       createdAt &&
       !Number.isNaN(createdAt.getTime()) &&
       Date.now() - createdAt.getTime() <= 24 * 60 * 60 * 1000;
-    const pendingLandingCta = readPendingLandingCta();
-
-    if (!pendingLandingCta) {
-      return;
-    }
-
-    if (user?.betaFunnel?.landingCtaAt || !isFreshSignup) {
-      clearPendingLandingCta();
-      return;
-    }
 
     let cancelled = false;
 
-    const syncLandingCta = async () => {
+    const syncAnonymousFunnel = async () => {
+      const pendingLandingCta = readPendingLandingCta();
+      const anonymousFunnelId =
+        pendingLandingCta?.anonymousFunnelId || readAnonymousFunnelId();
+
+      if (!anonymousFunnelId) {
+        return;
+      }
+
+      if (!isFreshSignup && !shouldMergeAnonymousFunnel()) {
+        clearPendingLandingCta();
+        return;
+      }
+
       try {
-        await fetch("/api/funnel", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            milestone: "landing_cta",
-            occurredAt: pendingLandingCta,
-          }),
-        });
+        await mergeAnonymousBetaFunnel(anonymousFunnelId);
       } catch (error) {
-        console.error("Error syncing landing CTA milestone:", error);
+        console.error("Error merging anonymous funnel:", error);
         return;
       }
 
       if (!cancelled) {
+        rememberAnonymousFunnelMerged(anonymousFunnelId);
         clearPendingLandingCta();
-        setUser((prev: any) =>
-          prev
-            ? {
-                ...prev,
-                betaFunnel: {
-                  ...(prev.betaFunnel || {}),
-                  landingCtaAt: pendingLandingCta,
-                },
-              }
-            : prev
-        );
       }
     };
 
-    void syncLandingCta();
+    void syncAnonymousFunnel();
 
     return () => {
       cancelled = true;
     };
-  }, [user?._id, user?.createdAt, user?.betaFunnel?.landingCtaAt]);
+  }, [user?._id, user?.createdAt]);
 
   useEffect(() => {
     if (!showSetupDialog) {
@@ -1958,13 +1950,24 @@ const RoutinesPage = ({
         continueLabel={upgradePrompt?.continueLabel}
         upgradeLabel={upgradePrompt?.upgradeLabel}
         onView={() => {
-          void trackBetaFunnelMilestone("upgrade_prompt_viewed").catch((error) => {
+          void trackBetaFunnelMilestone("upgrade_prompt_viewed", {
+            source: upgradePromptKey || undefined,
+          }).catch((error) => {
             console.error("Error tracking upgrade prompt view:", error);
           });
         }}
-        onClose={() => setUpgradePrompt(null)}
-        onUpgrade={() => {
+        onClose={() => {
           setUpgradePrompt(null);
+          setUpgradePromptKey(null);
+        }}
+        onUpgrade={() => {
+          void trackBetaFunnelMilestone("upgrade_prompt_clicked", {
+            source: upgradePromptKey || undefined,
+          }).catch((error) => {
+            console.error("Error tracking upgrade prompt click:", error);
+          });
+          setUpgradePrompt(null);
+          setUpgradePromptKey(null);
           routeToPricing("Explore Pro Beta plans and pricing.");
         }}
       />

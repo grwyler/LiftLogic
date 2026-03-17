@@ -271,7 +271,7 @@ const ExerciseLoggingDialog = ({
           Back
         </Button>
         <Button
-          variant="contained"
+          variant="outlined"
           onClick={handleAddSet}
           startIcon={<AddIcon />}
           sx={{

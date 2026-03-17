@@ -86,9 +86,17 @@ export const upsertFeedbackWorkItem = async ({
       deviceType: feedback.deviceType || existing.deviceType,
       latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
       structuredRepro: feedback.structuredRepro || existing.structuredRepro,
+      bugArchetype: feedback.bugArchetype || existing.bugArchetype,
+      bugContext: feedback.bugContext || existing.bugContext,
+      scopeGuardrails: feedback.scopeGuardrails || existing.scopeGuardrails,
+      parentWorkItemId: feedback.parentWorkItemId || existing.parentWorkItemId,
       implementationContext: buildImplementationContext({
+        title: feedback.title,
+        latestDescription: feedback.description,
         page: feedback.page || existing.page,
         type: feedback.type || existing.type,
+        latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
+        bugArchetype: feedback.bugArchetype || existing.bugArchetype,
         implementationContext: existing.implementationContext,
       }),
       verificationPack: buildVerificationPack({
@@ -136,9 +144,16 @@ export const upsertFeedbackWorkItem = async ({
     severity: feedback.severity,
     deviceType: feedback.deviceType,
     structuredRepro: feedback.structuredRepro,
+    bugArchetype: feedback.bugArchetype,
+    bugContext: feedback.bugContext,
+    scopeGuardrails: feedback.scopeGuardrails,
     implementationContext: buildImplementationContext({
+      title: feedback.title,
+      latestDescription: feedback.description,
       page: feedback.page,
       type: feedback.type,
+      latestRuntimeContext: feedback.runtimeContext,
+      bugArchetype: feedback.bugArchetype,
       implementationContext: undefined,
     }),
     verificationPack: buildVerificationPack({
@@ -188,6 +203,9 @@ export const buildWorkItemUpdate = ({
   latestDescription,
   labels,
   structuredRepro,
+  bugArchetype,
+  bugContext,
+  scopeGuardrails,
   implementationContext,
   verificationPack,
   completedVerificationIds,
@@ -202,6 +220,9 @@ export const buildWorkItemUpdate = ({
   latestDescription?: string;
   labels?: string[];
   structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
+  bugArchetype?: FeedbackWorkItemDoc["bugArchetype"];
+  bugContext?: FeedbackWorkItemDoc["bugContext"];
+  scopeGuardrails?: FeedbackWorkItemDoc["scopeGuardrails"];
   implementationContext?: FeedbackWorkItemDoc["implementationContext"];
   verificationPack?: FeedbackWorkItemDoc["verificationPack"];
   completedVerificationIds?: string[];
@@ -216,10 +237,17 @@ export const buildWorkItemUpdate = ({
   const normalizedLabels = sanitizeFeedbackLabels(labels) || existing.labels;
   const normalizedStructuredRepro =
     sanitizeStructuredRepro(structuredRepro) || existing.structuredRepro;
+  const normalizedBugArchetype = bugArchetype || existing.bugArchetype;
+  const normalizedBugContext = bugContext || existing.bugContext;
+  const normalizedScopeGuardrails = scopeGuardrails || existing.scopeGuardrails;
   const normalizedImplementationContext = implementationContext
     ? buildImplementationContext({
+        title: normalizedTitle,
+        latestDescription: normalizedDescription,
         page: existing.page,
         type: existing.type,
+        latestRuntimeContext: existing.latestRuntimeContext,
+        bugArchetype: normalizedBugArchetype,
         implementationContext,
       })
     : existing.implementationContext;
@@ -236,10 +264,14 @@ export const buildWorkItemUpdate = ({
   if (
     existing.type === "bug" &&
     (triageStatus === "queued" || triageStatus === "fixing") &&
-    !hasMinimumStructuredRepro(normalizedStructuredRepro)
+    !hasMinimumStructuredRepro(
+      normalizedStructuredRepro,
+      normalizedBugArchetype,
+      normalizedBugContext
+    )
   ) {
     throw new Error(
-      "Actual behavior, expected behavior, affected flow, and repro steps must be filled in or explicitly marked Unknown before a bug can be readied for fixing."
+      "Actual behavior, expected behavior, affected flow, repro steps, and any required bug-archetype fields must be filled in before a bug can be readied for fixing."
     );
   }
 
@@ -256,6 +288,9 @@ export const buildWorkItemUpdate = ({
     triageStatus,
     status: getLegacyStatusFromTriage(triageStatus),
     structuredRepro: normalizedStructuredRepro,
+    bugArchetype: normalizedBugArchetype,
+    bugContext: normalizedBugContext,
+    scopeGuardrails: normalizedScopeGuardrails,
     implementationContext: normalizedImplementationContext,
     verificationPack: normalizedVerificationPack,
     completedVerificationIds: normalizedCompletedVerificationIds,
@@ -339,8 +374,14 @@ export const refreshWorkItemAfterDelete = async ({
       $set: {
         ...snapshot,
         implementationContext: buildImplementationContext({
+          title: snapshot.title as string | undefined,
+          latestDescription: snapshot.latestDescription as string | undefined,
           page: snapshot.page as string | undefined,
           type: (existingWorkItem?.type || remaining[0]?.type) as "bug" | "feature",
+          latestRuntimeContext: snapshot.latestRuntimeContext as
+            | FeedbackWorkItemDoc["latestRuntimeContext"]
+            | undefined,
+          bugArchetype: existingWorkItem?.bugArchetype,
           implementationContext: existingWorkItem?.implementationContext,
         }),
         verificationPack: buildVerificationPack({

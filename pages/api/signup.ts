@@ -1,18 +1,20 @@
 // pages/api/signup.ts
 import { connectToDatabase } from "../../utils/mongodb";
 import { hashPassword } from "../../utils/passwords";
-import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
+import { markBetaFunnelMilestone, mergeBetaFunnels } from "../../utils/betaFunnel";
 import { FREE_ENTITLEMENTS } from "../../utils/entitlements";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
     const username = String(req.body?.username ?? "").trim();
     const password = String(req.body?.password ?? "");
-    const landingCtaAt = req.body?.landingCtaAt;
+    const landingCta = req.body?.landingCtaAt;
+    const anonymousFunnelId = String(req.body?.anonymousFunnelId ?? "").trim();
 
     try {
       const db = await connectToDatabase();
       const collection = db.collection("users");
+      const anonymousFunnels = db.collection("anonymousBetaFunnels");
 
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
@@ -25,6 +27,24 @@ export default async function handler(req, res) {
 
       const passwordHash = await hashPassword(password);
       const createdAt = new Date();
+      const anonymousFunnelDoc = anonymousFunnelId
+        ? await anonymousFunnels.findOne({ anonymousFunnelId })
+        : null;
+      const landingCtaOccurredAt =
+        landingCta && typeof landingCta === "object" ? landingCta.occurredAt : landingCta;
+      const landingCtaSource =
+        landingCta && typeof landingCta === "object" ? landingCta.source : undefined;
+      const baseBetaFunnel = mergeBetaFunnels({
+        base: anonymousFunnelDoc?.betaFunnel,
+        incoming: markBetaFunnelMilestone({
+          funnel: {},
+          key: "landingCtaAt",
+          occurredAt: landingCtaOccurredAt,
+          source: landingCtaSource,
+          anonymousFunnelId,
+        }),
+        mergedAt: createdAt,
+      });
 
       const result = await collection.insertOne({
         username,
@@ -51,11 +71,7 @@ export default async function handler(req, res) {
         subscriptionStatus: "inactive",
         subscriptionCancelAtPeriodEnd: false,
         betaFunnel: markBetaFunnelMilestone({
-          funnel: markBetaFunnelMilestone({
-            funnel: {},
-            key: "landingCtaAt",
-            occurredAt: landingCtaAt,
-          }),
+          funnel: baseBetaFunnel,
           key: "signupCompletedAt",
           occurredAt: createdAt,
         }),
@@ -64,6 +80,18 @@ export default async function handler(req, res) {
       });
 
       if (result.insertedId) {
+        if (anonymousFunnelDoc?._id) {
+          await anonymousFunnels.updateOne(
+            { _id: anonymousFunnelDoc._id },
+            {
+              $set: {
+                mergedAt: createdAt,
+                mergedUserId: result.insertedId,
+                updatedAt: createdAt,
+              },
+            }
+          );
+        }
         res.status(201).json({ message: "User registered successfully!" });
       } else {
         res.status(500).json({ message: "Failed to register user." });

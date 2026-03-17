@@ -5,6 +5,12 @@ import {
   saveRecurringRule,
   type RecurringScheduleInput,
 } from "./recurringRuleService";
+import { WorkoutEntryDoc, WorkoutExerciseView } from "./types";
+
+type SchedulableExercise = WorkoutExerciseView & {
+  userId?: string;
+  date?: string | Date;
+};
 
 const buildExerciseEntryPayload = ({
   exercise,
@@ -12,11 +18,12 @@ const buildExerciseEntryPayload = ({
   routineName,
   formattedDate,
 }: {
-  exercise: any;
+  exercise: SchedulableExercise;
   currentUserId: string;
   routineName: string;
   formattedDate: string;
-}) => ({
+}) =>
+  ({
   ...exercise,
   _id: exercise._id,
   entryInstanceId:
@@ -29,7 +36,7 @@ const buildExerciseEntryPayload = ({
   routineName,
   date: formattedDate,
   rest: exercise.rest ?? 0,
-});
+}) as unknown as WorkoutEntryDoc;
 
 export const removeExerciseRepeatSchedule = async ({
   currentExercise,
@@ -38,7 +45,7 @@ export const removeExerciseRepeatSchedule = async ({
   parsedDate,
   routineName,
 }: {
-  currentExercise: any;
+  currentExercise: SchedulableExercise;
   currentUserId: string;
   formattedDate: string;
   parsedDate: Date;
@@ -77,7 +84,16 @@ export const removeExerciseRepeatSchedule = async ({
     daysOfWeek: null,
     dayOfMonth: null,
     endDate: null,
-  } as any);
+  } as unknown as WorkoutEntryDoc & {
+    isRepeating: boolean;
+    recurrenceType: null;
+    interval: null;
+    intervalWeeks: null;
+    dayOfWeek: null;
+    daysOfWeek: null;
+    dayOfMonth: null;
+    endDate: null;
+  });
 
   return updatedExercise;
 };
@@ -90,7 +106,7 @@ export const saveExerciseRepeatSchedule = async ({
   routineName,
   scheduleInput,
 }: {
-  currentExercise: any;
+  currentExercise: SchedulableExercise;
   currentUserId: string;
   formattedDate: string;
   parsedDate: Date;
@@ -116,11 +132,11 @@ export const saveExerciseRepeatSchedule = async ({
     intervalWeeks: schedule.interval,
     startDate: parsedDate,
     endDate: schedule.endDate,
-    templateSets: currentExercise.sets,
-    defaultMax: currentExercise.max,
-    defaultRest: currentExercise.rest,
-    active: true,
-  } as any);
+        templateSets: currentExercise.sets,
+        defaultMax: currentExercise.max,
+        defaultRest: currentExercise.rest,
+        active: true,
+      });
 
   const updatedExercise = {
     ...currentExercise,
@@ -141,7 +157,7 @@ export const saveExerciseRepeatSchedule = async ({
       currentUserId,
       routineName,
       formattedDate: toLocalDateKey(parsedDate),
-    }) as any
+    }) as unknown as WorkoutEntryDoc
   );
 
   return updatedExercise;
@@ -152,7 +168,7 @@ export const deleteExerciseWithScheduleScope = async ({
   isRepeating,
   scope,
 }: {
-  currentExercise: any;
+  currentExercise: SchedulableExercise;
   isRepeating: boolean;
   scope: "today" | "all";
 }) => {

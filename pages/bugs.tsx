@@ -25,6 +25,7 @@ import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import LoadingIndicator from "../components/LoadingIndicator";
 import VersionChangelogDialog from "../components/VersionChangelogDialog";
 import {
+  createFollowUpFeedbackWorkItem,
   deleteFeedbackWorkItem,
   fetchMonetizationSummary,
   fetchFoundingBetaUsers,
@@ -33,6 +34,7 @@ import {
   updateFeedbackWorkItem,
 } from "../utils/helpers";
 import {
+  FeedbackBugArchetype,
   FeedbackItemDoc,
   FeedbackRegressionCheck,
   FeedbackTriageStatus,
@@ -47,6 +49,7 @@ import {
 } from "../utils/feedbackWorkflow";
 import { isBugWorkflowAdminSession } from "../utils/adminAuthorization";
 import {
+  CodexCopyVariant,
   getFeedbackEvidenceForWorkItem,
   buildTopFiveCopyFooter,
   buildCodexCopyText,
@@ -56,6 +59,7 @@ import {
 import {
   WorkflowDraft,
   createWorkflowDraft,
+  getWorkflowDraftBugContext,
   getWorkItemClosureWarnings,
   getWorkflowDraftResolution,
 } from "../utils/bugsWorkflow";
@@ -127,6 +131,12 @@ type FoundingBetaUserRecord = {
 type FoundingBetaDraft = {
   expiresAt: string;
   paymentCollectionNote: string;
+};
+
+type FollowUpDraft = {
+  title: string;
+  description: string;
+  type: "bug" | "feature";
 };
 
 const inactiveTriageStatuses: FeedbackTriageStatus[] = [
@@ -354,6 +364,7 @@ const BugsPage = () => {
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItemDoc[]>([]);
   const [drafts, setDrafts] = useState<Record<string, WorkflowDraft>>({});
+  const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, FollowUpDraft>>({});
   const [advancedOpenById, setAdvancedOpenById] = useState<
     Record<string, boolean>
   >({});
@@ -732,6 +743,7 @@ const BugsPage = () => {
     title: "",
     latestDescription: "",
     labels: "",
+    bugArchetype: "general",
     fixThreadId: "",
     fixCommitSha: "",
     actualBehavior: "",
@@ -740,6 +752,26 @@ const BugsPage = () => {
     affectedFlow: "",
     triggerConditions: "",
     regressionRisks: "",
+    uiSelectors: "",
+    uiScreenshots: "",
+    uiViewports: "",
+    apiEndpoint: "",
+    apiMethod: "",
+    apiRequestShape: "",
+    apiResponseShape: "",
+    apiSchemaPaths: "",
+    perfBenchmark: "",
+    perfMetric: "",
+    perfBaseline: "",
+    perfRegression: "",
+    perfDeviceContext: "",
+    refactorTouchedSystems: "",
+    refactorContractSurfaces: "",
+    refactorMigrationRisks: "",
+    scopeInScope: "",
+    scopeOutOfScope: "",
+    scopeNonGoals: "",
+    scopeAllowedTouchAreas: "",
     implementationSummary: "",
     implementationConfirmed: "",
     implementationInferred: "",
@@ -751,6 +783,8 @@ const BugsPage = () => {
     verificationOwner: "",
     resolvedAppVersion: "",
     resolvedDeployId: "",
+    shippedSummary: "",
+    deferredFollowUpsText: "",
     validatedCommandsText: "",
     manualChecksText: "",
     regressionChecklist: createWorkflowDraft().regressionChecklist,
@@ -819,6 +853,8 @@ const BugsPage = () => {
       title: draft.title,
       latestDescription: draft.latestDescription,
       labels: parseLabelInput(draft.labels),
+      bugArchetype: draft.bugArchetype,
+      bugContext: getWorkflowDraftBugContext(draft),
       fixThreadId: draft.fixThreadId || undefined,
       fixCommitSha: draft.fixCommitSha || undefined,
       structuredRepro: {
@@ -829,6 +865,12 @@ const BugsPage = () => {
         triggerConditions: draft.triggerConditions || undefined,
         regressionRisks: draft.regressionRisks || undefined,
         source: "manual" as const,
+      },
+      scopeGuardrails: {
+        inScope: parseMultilineList(draft.scopeInScope),
+        outOfScope: parseMultilineList(draft.scopeOutOfScope),
+        nonGoals: parseMultilineList(draft.scopeNonGoals),
+        allowedTouchAreas: parseMultilineList(draft.scopeAllowedTouchAreas),
       },
       implementationContext: {
         summary: draft.implementationSummary || undefined,
@@ -914,6 +956,67 @@ const BugsPage = () => {
     });
   };
 
+  const handleFollowUpDraftChange = (
+    workItemId: string,
+    key: keyof FollowUpDraft,
+    value: string
+  ) => {
+    setFollowUpDrafts((previous) => ({
+      ...previous,
+      [workItemId]: {
+        title: previous[workItemId]?.title || "",
+        description: previous[workItemId]?.description || "",
+        type: previous[workItemId]?.type || "bug",
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleCreateFollowUp = async (item: FeedbackWorkItemDoc) => {
+    const workItemId = String(item._id || "");
+    const draft = followUpDrafts[workItemId];
+
+    if (!draft?.title?.trim() || !draft?.description?.trim()) {
+      toast.warning("Add a follow-up title and description first.");
+      return;
+    }
+
+    setSavingId(workItemId);
+    try {
+      const response = await createFollowUpFeedbackWorkItem({
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        type: draft.type,
+        linkedWorkItemId: workItemId,
+        page: item.page,
+      });
+
+      const nextWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
+      if (nextWorkItem) {
+        setWorkItems((previous) => [nextWorkItem, ...previous]);
+      }
+
+      const freshWorkflow = await fetchFeedbackWorkflow();
+      setWorkItems(freshWorkflow.workItems);
+      setFeedbackItems(freshWorkflow.feedback);
+      setDrafts((previous) => createDraftMap(freshWorkflow.workItems, previous));
+      setFollowUpDrafts((previous) => ({
+        ...previous,
+        [workItemId]: {
+          title: "",
+          description: "",
+          type: "bug",
+        },
+      }));
+      toast.success("Created a linked follow-up work item.");
+    } catch (error) {
+      console.error("Follow-up creation failed:", error);
+      toast.error("Couldn't create the follow-up work item.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleWorkflowUpdate = async (
     item: FeedbackWorkItemDoc,
     {
@@ -962,6 +1065,7 @@ const BugsPage = () => {
         fixThreadId: draft.fixThreadId || undefined,
         fixCommitSha: draft.fixCommitSha || undefined,
         resolution: getWorkflowDraftResolution(draft),
+        ...buildWorkItemUpdatePayload(item, draft),
       });
 
       const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
@@ -1042,7 +1146,10 @@ const BugsPage = () => {
     }
   };
 
-  const handleCopyDetails = async (item: FeedbackWorkItemDoc) => {
+  const handleCopyDetails = async (
+    item: FeedbackWorkItemDoc,
+    variant: CodexCopyVariant = "full"
+  ) => {
     const workItemId = String(item._id || "");
     const evidence = getFeedbackEvidenceForWorkItem({
       workItem: item,
@@ -1057,6 +1164,7 @@ const BugsPage = () => {
       workItem: item,
       evidence,
       relatedWork,
+      variant,
     });
 
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
@@ -1081,7 +1189,15 @@ const BugsPage = () => {
         if (updatedWorkItem) {
           applyUpdatedWorkItem(workItemId, updatedWorkItem);
         }
-        toast.success("Copied issue details and marked the ticket as details copied.");
+        toast.success(
+          `Copied ${
+            variant === "full"
+              ? "full brief"
+              : variant === "fast"
+              ? "fast path"
+              : "investigator brief"
+          } and marked the ticket as details copied.`
+        );
       } catch (statusError) {
         console.error("Copied work item details but failed to update status:", statusError);
         toast.warning("Copied issue details, but couldn't update the ticket status.");
@@ -1124,6 +1240,7 @@ const BugsPage = () => {
               workItems,
               feedbackItems,
             }),
+            variant: "full",
           }),
         ].join("\n");
       })
@@ -1472,9 +1589,9 @@ const BugsPage = () => {
                 <Button
                   variant="text"
                   size="small"
-                  onClick={() => handleCopyDetails(item)}
+                  onClick={() => handleCopyDetails(item, "full")}
                 >
-                  Copy Details
+                  Copy Full Brief
                 </Button>
                 <Button
                   color="error"
@@ -2364,9 +2481,23 @@ const BugsPage = () => {
                       <Button
                         variant="outlined"
                         size="small"
-                        onClick={() => handleCopyDetails(selectedWorkItem)}
+                        onClick={() => handleCopyDetails(selectedWorkItem, "full")}
                       >
-                        Copy Details
+                        Copy Full Brief
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleCopyDetails(selectedWorkItem, "fast")}
+                      >
+                        Copy Fast Path
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleCopyDetails(selectedWorkItem, "investigator")}
+                      >
+                        Copy Investigator
                       </Button>
                       <Button
                         color="error"
@@ -2631,6 +2762,327 @@ const BugsPage = () => {
                       minRows={2}
                     />
                   </Stack>
+                  <Stack spacing={1.25}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Bug archetype
+                    </Typography>
+                    <TextField
+                      select
+                      label="Archetype"
+                      value={selectedDraft?.bugArchetype || "general"}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "bugArchetype",
+                          event.target.value
+                        )
+                      }
+                      fullWidth
+                    >
+                      <MenuItem value="general">General</MenuItem>
+                      <MenuItem value="ui">UI</MenuItem>
+                      <MenuItem value="api">API</MenuItem>
+                      <MenuItem value="performance">Performance</MenuItem>
+                      <MenuItem value="refactor">Refactor</MenuItem>
+                    </TextField>
+                    {(selectedDraft?.bugArchetype || "general") === "ui" ? (
+                      <Stack spacing={1}>
+                        <TextField
+                          label="Selectors"
+                          helperText="One selector or element clue per line."
+                          value={selectedDraft?.uiSelectors || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "uiSelectors",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Screenshot references"
+                          helperText="One screenshot URL or artifact reference per line."
+                          value={selectedDraft?.uiScreenshots || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "uiScreenshots",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Viewport notes"
+                          value={selectedDraft?.uiViewports || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "uiViewports",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                      </Stack>
+                    ) : null}
+                    {(selectedDraft?.bugArchetype || "general") === "api" ? (
+                      <Stack spacing={1}>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <TextField
+                            label="Endpoint"
+                            value={selectedDraft?.apiEndpoint || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "apiEndpoint",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                          <TextField
+                            label="Method"
+                            value={selectedDraft?.apiMethod || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "apiMethod",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                        </Stack>
+                        <TextField
+                          label="Request shape"
+                          value={selectedDraft?.apiRequestShape || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "apiRequestShape",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Response shape"
+                          value={selectedDraft?.apiResponseShape || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "apiResponseShape",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Schema paths"
+                          helperText="One schema file or contract path per line."
+                          value={selectedDraft?.apiSchemaPaths || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "apiSchemaPaths",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                      </Stack>
+                    ) : null}
+                    {(selectedDraft?.bugArchetype || "general") === "performance" ? (
+                      <Stack spacing={1}>
+                        <TextField
+                          label="Benchmark"
+                          value={selectedDraft?.perfBenchmark || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "perfBenchmark",
+                              event.target.value
+                            )
+                          }
+                          fullWidth
+                        />
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <TextField
+                            label="Metric"
+                            value={selectedDraft?.perfMetric || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "perfMetric",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                          <TextField
+                            label="Device context"
+                            value={selectedDraft?.perfDeviceContext || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "perfDeviceContext",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                        </Stack>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <TextField
+                            label="Baseline"
+                            value={selectedDraft?.perfBaseline || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "perfBaseline",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                          <TextField
+                            label="Regression"
+                            value={selectedDraft?.perfRegression || ""}
+                            onChange={(event) =>
+                              handleDraftChange(
+                                String(selectedWorkItem._id),
+                                "perfRegression",
+                                event.target.value
+                              )
+                            }
+                            fullWidth
+                          />
+                        </Stack>
+                      </Stack>
+                    ) : null}
+                    {(selectedDraft?.bugArchetype || "general") === "refactor" ? (
+                      <Stack spacing={1}>
+                        <TextField
+                          label="Touched systems"
+                          value={selectedDraft?.refactorTouchedSystems || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "refactorTouchedSystems",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Contract surfaces"
+                          value={selectedDraft?.refactorContractSurfaces || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "refactorContractSurfaces",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Migration risks"
+                          value={selectedDraft?.refactorMigrationRisks || ""}
+                          onChange={(event) =>
+                            handleDraftChange(
+                              String(selectedWorkItem._id),
+                              "refactorMigrationRisks",
+                              event.target.value
+                            )
+                          }
+                          multiline
+                          minRows={2}
+                          fullWidth
+                        />
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                  <Stack spacing={1.25}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Scope guardrails
+                    </Typography>
+                    <TextField
+                      label="In scope"
+                      helperText="One in-scope boundary per line."
+                      value={selectedDraft?.scopeInScope || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "scopeInScope",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Out of scope"
+                      value={selectedDraft?.scopeOutOfScope || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "scopeOutOfScope",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Non-goals"
+                      value={selectedDraft?.scopeNonGoals || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "scopeNonGoals",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Allowed touch areas"
+                      value={selectedDraft?.scopeAllowedTouchAreas || ""}
+                      onChange={(event) =>
+                        handleDraftChange(
+                          String(selectedWorkItem._id),
+                          "scopeAllowedTouchAreas",
+                          event.target.value
+                        )
+                      }
+                      multiline
+                      minRows={2}
+                      fullWidth
+                    />
+                  </Stack>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Button
                       variant="contained"
@@ -2772,6 +3224,38 @@ const BugsPage = () => {
                       fullWidth
                     />
                   </Stack>
+                  <TextField
+                    label="Shipped work summary"
+                    helperText="What shipped in this fix?"
+                    size="small"
+                    value={selectedDraft?.shippedSummary || ""}
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "shippedSummary",
+                        event.target.value
+                      )
+                    }
+                    multiline
+                    minRows={2}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Deferred follow-ups"
+                    helperText="One deferred item per line."
+                    size="small"
+                    value={selectedDraft?.deferredFollowUpsText || ""}
+                    onChange={(event) =>
+                      handleDraftChange(
+                        String(selectedWorkItem._id),
+                        "deferredFollowUpsText",
+                        event.target.value
+                      )
+                    }
+                    multiline
+                    minRows={2}
+                    fullWidth
+                  />
                   <TextField
                     label="Validation commands"
                     helperText="One command per line."
@@ -2981,6 +3465,157 @@ const BugsPage = () => {
                     fullWidth
                     multiline
                     minRows={5}
+                  />
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Linked follow-ups
+                  </Typography>
+                  {selectedWorkItem.followUps?.length ? (
+                    <Stack spacing={1}>
+                      {selectedWorkItem.followUps.map((entry, index) => (
+                        <Paper
+                          key={`${String(selectedWorkItem._id)}-follow-up-${index}`}
+                          variant="outlined"
+                          sx={{ p: 1.25, borderRadius: 2 }}
+                        >
+                          <Typography variant="subtitle2">{entry.title}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {`${entry.type || "bug"} | ${entry.status || "tracked"}${
+                              entry.workItemId ? ` | ${String(entry.workItemId)}` : ""
+                            }`}
+                          </Typography>
+                          {entry.notes ? (
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              {entry.notes}
+                            </Typography>
+                          ) : null}
+                        </Paper>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">
+                      No linked follow-up work items yet.
+                    </Alert>
+                  )}
+                  <TextField
+                    label="Follow-up title"
+                    value={followUpDrafts[String(selectedWorkItem._id)]?.title || ""}
+                    onChange={(event) =>
+                      handleFollowUpDraftChange(
+                        String(selectedWorkItem._id),
+                        "title",
+                        event.target.value
+                      )
+                    }
+                    fullWidth
+                  />
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <TextField
+                      select
+                      label="Follow-up type"
+                      value={followUpDrafts[String(selectedWorkItem._id)]?.type || "bug"}
+                      onChange={(event) =>
+                        handleFollowUpDraftChange(
+                          String(selectedWorkItem._id),
+                          "type",
+                          event.target.value
+                        )
+                      }
+                      sx={{ minWidth: { sm: 180 } }}
+                    >
+                      <MenuItem value="bug">Bug</MenuItem>
+                      <MenuItem value="feature">Feature</MenuItem>
+                    </TextField>
+                    <Button
+                      variant="outlined"
+                      onClick={() => handleCreateFollowUp(selectedWorkItem)}
+                      disabled={savingId === String(selectedWorkItem._id)}
+                    >
+                      Create Linked Follow-up
+                    </Button>
+                  </Stack>
+                  <TextField
+                    label="Follow-up description"
+                    helperText="Describe the adjacent work that should stay out of this fix."
+                    value={followUpDrafts[String(selectedWorkItem._id)]?.description || ""}
+                    onChange={(event) =>
+                      handleFollowUpDraftChange(
+                        String(selectedWorkItem._id),
+                        "description",
+                        event.target.value
+                      )
+                    }
+                    multiline
+                    minRows={3}
+                    fullWidth
+                  />
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, display: "grid", gap: 1.5 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Auto-generated intelligence
+                  </Typography>
+                  {renderMetadataRows([
+                    {
+                      label: "Ownership hints",
+                      value:
+                        buildImplementationContext(selectedWorkItem).derived?.ownershipHints?.join(
+                          ", "
+                        ),
+                    },
+                    {
+                      label: "Likely files",
+                      value:
+                        buildImplementationContext(selectedWorkItem).derived?.likelyFilePaths?.join(
+                          "\n"
+                        ),
+                    },
+                    {
+                      label: "Stack clues",
+                      value:
+                        buildImplementationContext(selectedWorkItem).derived?.stackClues?.join(
+                          "\n"
+                        ),
+                    },
+                    {
+                      label: "Runtime provenance",
+                      value:
+                        buildImplementationContext(selectedWorkItem).derived?.runtimeProvenance?.join(
+                          "\n"
+                        ),
+                    },
+                    {
+                      label: "Open questions",
+                      value:
+                        buildImplementationContext(selectedWorkItem).derived?.openQuestions?.join(
+                          "\n"
+                        ),
+                    },
+                  ])}
+                  <TextField
+                    label="Recent commits"
+                    value={(
+                      buildImplementationContext(selectedWorkItem).derived?.recentCommits || []
+                    )
+                      .map(
+                        (entry) =>
+                          `${entry.sha} ${entry.summary}${
+                            entry.file ? ` (${entry.file})` : ""
+                          }`
+                      )
+                      .join("\n")}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
+                    multiline
+                    minRows={3}
                   />
                 </Paper>
 

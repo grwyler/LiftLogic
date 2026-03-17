@@ -14,8 +14,13 @@ describe("workout next-step CTA visibility", () => {
     );
 
     expect(displaySource).toContain("const shouldShowNextSummary = Boolean(nextExercise);");
+    expect(displaySource).toContain('const primaryActionLabel = !hasExercises');
+    expect(displaySource).toContain('loggedSetCount > 0');
     expect(headerSource).toContain("{shouldShowNextSummary ? (");
+    expect(headerSource).toContain("Next Action");
+    expect(headerSource).toContain('buildRoutineSemanticPanelSx("activeWorkout", darkMode)');
     expect(headerSource).toContain("Open Next Set");
+    expect(headerSource).toContain("Start Lift");
     expect(displaySource).not.toContain("plannedExercises.length > 1");
   });
 

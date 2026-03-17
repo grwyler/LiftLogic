@@ -23,6 +23,8 @@ export const CODEX_COPY_BRIEF_SECTIONS = [
   "Codex execution instructions",
 ] as const;
 
+export type CodexCopyVariant = "full" | "fast" | "investigator";
+
 const MISSING_TODO = "TODO: missing from the current work item.";
 const MISSING_TODO_LIST = [`- ${MISSING_TODO}`];
 
@@ -475,15 +477,18 @@ export const buildCodexCopyText = ({
   workItem,
   evidence,
   relatedWork = [],
+  variant = "full",
 }: {
   workItem: FeedbackWorkItemDoc;
   evidence: FeedbackItemDoc[];
   relatedWork?: RelatedWorkItemMatch[];
+  variant?: CodexCopyVariant;
 }) => {
   const descriptionFields = parseDescriptionFields(workItem.latestDescription);
   const acceptanceCriteria = getFieldList(descriptionFields, "acceptance criteria");
   const implementationContext = buildImplementationContext(workItem);
   const verificationPack = buildVerificationPack(workItem);
+  const derivedContext = implementationContext.derived;
   const runtimeContextLines: string[] = [];
   const flowLines: string[] = [];
   const likelyFiles = new Set<string>();
@@ -551,6 +556,43 @@ export const buildCodexCopyText = ({
       : ""
   );
   pushIfPresent(runtimeContextLines, "- User agent", workItem.latestRuntimeContext?.userAgent);
+
+  const archetypeLines: string[] = [];
+  pushIfPresent(archetypeLines, "- Bug archetype", workItem.bugArchetype);
+  (workItem.bugContext?.ui?.selectors || []).forEach((value) =>
+    archetypeLines.push(`- UI selector: ${value}`)
+  );
+  (workItem.bugContext?.ui?.screenshotUrls || []).forEach((value) =>
+    archetypeLines.push(`- Screenshot reference: ${value}`)
+  );
+  (workItem.bugContext?.ui?.viewports || []).forEach((value) =>
+    archetypeLines.push(`- Viewport note: ${value}`)
+  );
+  pushIfPresent(archetypeLines, "- API endpoint", workItem.bugContext?.api?.endpoint);
+  pushIfPresent(archetypeLines, "- API method", workItem.bugContext?.api?.method);
+  pushIfPresent(archetypeLines, "- Request shape", workItem.bugContext?.api?.requestShape);
+  pushIfPresent(archetypeLines, "- Response shape", workItem.bugContext?.api?.responseShape);
+  (workItem.bugContext?.api?.schemaPaths || []).forEach((value) =>
+    archetypeLines.push(`- Schema path: ${value}`)
+  );
+  pushIfPresent(archetypeLines, "- Benchmark", workItem.bugContext?.performance?.benchmark);
+  pushIfPresent(archetypeLines, "- Metric", workItem.bugContext?.performance?.metric);
+  pushIfPresent(archetypeLines, "- Baseline", workItem.bugContext?.performance?.baseline);
+  pushIfPresent(archetypeLines, "- Regression", workItem.bugContext?.performance?.regression);
+  pushIfPresent(
+    archetypeLines,
+    "- Device context",
+    workItem.bugContext?.performance?.deviceContext
+  );
+  (workItem.bugContext?.refactor?.touchedSystems || []).forEach((value) =>
+    archetypeLines.push(`- Touched system: ${value}`)
+  );
+  (workItem.bugContext?.refactor?.contractSurfaces || []).forEach((value) =>
+    archetypeLines.push(`- Contract surface: ${value}`)
+  );
+  (workItem.bugContext?.refactor?.migrationRisks || []).forEach((value) =>
+    archetypeLines.push(`- Migration risk: ${value}`)
+  );
 
   if (workItem.page) {
     flowLines.push(`- Work item page: ${workItem.page}`);
@@ -657,6 +699,7 @@ export const buildCodexCopyText = ({
       getFieldText(descriptionFields, "description", "__freeform__") || MISSING_TODO
     }`,
     `- Proposed fix: ${getFieldText(descriptionFields, "proposed fix") || MISSING_TODO}`,
+    ...archetypeLines,
   ]);
   pushSection(
     lines,
@@ -687,37 +730,76 @@ export const buildCodexCopyText = ({
   pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[6], [
     "Latest runtime context:",
     ...(runtimeContextLines.length > 0 ? runtimeContextLines : MISSING_TODO_LIST),
+    ...(variant === "fast"
+      ? []
+      : [
+          "",
+          "Source notes:",
+          ...formatBulletsOrTodo(
+            [
+              getFieldText(descriptionFields, "workflow impact"),
+              getFieldText(descriptionFields, "engineering impact"),
+              getFieldText(descriptionFields, "risk if unchanged"),
+              getFieldText(
+                descriptionFields,
+                "why it saves codex time or improves accuracy"
+              ),
+              implementationContext.summary,
+            ].filter(Boolean)
+          ),
+          "",
+          "Confirmed links:",
+          ...formatBulletsOrTodo(
+            (implementationContext.confirmed || []).map(
+              (link) =>
+                `[${link.type}] ${link.path}${link.label ? ` | ${link.label}` : ""}${
+                  link.note ? ` | ${link.note}` : ""
+                }`
+            )
+          ),
+          "",
+          "Inferred links:",
+          ...formatBulletsOrTodo(
+            (implementationContext.inferred || []).map(
+              (link) =>
+                `[${link.type}] ${link.path}${link.label ? ` | ${link.label}` : ""}${
+                  link.note ? ` | ${link.note}` : ""
+                }`
+            )
+          ),
+        ]),
     "",
-    "Source notes:",
+    "Auto-generated intelligence:",
     ...formatBulletsOrTodo(
       [
-        getFieldText(descriptionFields, "workflow impact"),
-        getFieldText(descriptionFields, "engineering impact"),
-        getFieldText(descriptionFields, "risk if unchanged"),
-        getFieldText(
-          descriptionFields,
-          "why it saves codex time or improves accuracy"
-        ),
-        implementationContext.summary,
+        ...(derivedContext?.likelyFilePaths || []).map((value) => `Likely file: ${value}`),
+        ...(derivedContext?.ownershipHints || []).map((value) => `Ownership hint: ${value}`),
+        ...(derivedContext?.stackClues || []).map((value) => `Stack clue: ${value}`),
+        ...(derivedContext?.runtimeProvenance || []).map((value) => value),
+        ...(variant === "fast"
+          ? []
+          : (derivedContext?.recentCommits || []).map(
+              (entry) =>
+                `Recent commit: ${entry.sha} ${entry.summary}${
+                  entry.file ? ` (${entry.file})` : ""
+                }`
+            )),
       ].filter(Boolean)
     ),
-    "",
-    "Confirmed links:",
-    ...formatBulletsOrTodo(
-      (implementationContext.confirmed || []).map(
-        (link) => `[${link.type}] ${link.path}${link.label ? ` | ${link.label}` : ""}`
-      )
-    ),
-    "",
-    "Inferred links:",
-    ...formatBulletsOrTodo(
-      (implementationContext.inferred || []).map(
-        (link) => `[${link.type}] ${link.path}${link.label ? ` | ${link.label}` : ""}`
-      )
-    ),
-    "",
-    "Linked evidence:",
-    ...evidenceLines,
+    ...(variant === "investigator"
+      ? [
+          "",
+          "Open questions:",
+          ...formatBulletsOrTodo(derivedContext?.openQuestions || []),
+        ]
+      : []),
+    ...(variant === "fast"
+      ? []
+      : [
+          "",
+          "Linked evidence:",
+          ...evidenceLines,
+        ]),
   ]);
   pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[7], [
     ...(verificationPack.summary
@@ -737,6 +819,14 @@ export const buildCodexCopyText = ({
           (check) => `- Manual verification: ${check}`
         )
       : ["- Manual verification: TODO: missing from the current work item."]),
+    ...(workItem.resolution?.shippedSummary
+      ? [`- Shipped work: ${workItem.resolution.shippedSummary}`]
+      : []),
+    ...(workItem.resolution?.deferredFollowUps?.length
+      ? workItem.resolution.deferredFollowUps.map(
+          (entry) => `- Deferred follow-up: ${entry}`
+        )
+      : []),
     ...regressionChecklist.map((entry) =>
       `- Regression checklist: ${entry.label} = ${entry.outcome}${
         entry.notes ? ` (${entry.notes})` : ""
@@ -749,14 +839,33 @@ export const buildCodexCopyText = ({
     "- Front-end audits and end-to-end workflow checks should be evaluated against production functionality whenever possible.",
   ]);
   pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[8], [
+    ...(workItem.scopeGuardrails?.inScope || []).map((value) => `- In scope: ${value}`),
+    ...(workItem.scopeGuardrails?.outOfScope || []).map((value) => `- Out of scope: ${value}`),
+    ...(workItem.scopeGuardrails?.nonGoals || []).map((value) => `- Non-goal: ${value}`),
+    ...(workItem.scopeGuardrails?.allowedTouchAreas || []).map(
+      (value) => `- Allowed touch area: ${value}`
+    ),
     "- Keep the implementation brief headings and field order stable for every bug work item export.",
     "- Do not silently omit required sections; show explicit TODO markers when source data is missing.",
     "- Limit this change to the brief formatter, related workflow wiring, and tests unless a blocking dependency requires more.",
   ]);
-  pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[9], [
-    `- Fingerprint: ${workItem.fingerprint || MISSING_TODO}`,
-    ...relatedWorkLines,
-  ]);
+  pushSection(
+    lines,
+    CODEX_COPY_BRIEF_SECTIONS[9],
+    variant === "fast"
+      ? [`- Fingerprint: ${workItem.fingerprint || MISSING_TODO}`]
+      : [
+          `- Fingerprint: ${workItem.fingerprint || MISSING_TODO}`,
+          ...relatedWorkLines,
+          ...(workItem.followUps || []).flatMap((entry, index) => [
+            `- Follow-up ${index + 1}: ${entry.title || MISSING_TODO}`,
+            `  Type: ${entry.type || MISSING_TODO}`,
+            `  Status: ${entry.status || MISSING_TODO}`,
+            `  Linked work item ID: ${String(entry.workItemId || "") || MISSING_TODO}`,
+            `  Notes: ${entry.notes || MISSING_TODO}`,
+          ]),
+        ]
+  );
   pushSection(lines, CODEX_COPY_BRIEF_SECTIONS[10], [
     "- Keep this work item's ticket status updated in the database while you are working on it and when the work is done.",
     "- When the work is complete, move this work item to the appropriate status.",
@@ -770,6 +879,14 @@ export const buildCodexCopyText = ({
     "- Add or update tests needed to cover the change and ensure relevant tests pass.",
     "- Please inspect the relevant code, implement the fix, run appropriate verification, and summarize what changed.",
   ]);
+
+  if (variant === "investigator") {
+    lines.push(
+      "",
+      "Investigator emphasis:",
+      "- Prioritize the unknowns, evidence quality, and auto-generated intelligence before converging on a fix."
+    );
+  }
 
   return lines.join("\n");
 };

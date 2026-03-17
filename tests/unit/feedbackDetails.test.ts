@@ -249,6 +249,82 @@ describe("feedback details helpers", () => {
     expect(copyText).toContain("Copy details and confirm the new sections are present.");
   });
 
+  it("renders archetype-specific details, scope guardrails, and auto-generated labels", () => {
+    const workItem = {
+      _id: "work-archetype",
+      type: "bug",
+      title: "API error details are missing",
+      latestDescription: "Description: API contract drift needs better bug templates.",
+      fingerprint: "wrk_api",
+      occurrenceCount: 1,
+      triageStatus: "new",
+      page: "/bugs",
+      bugArchetype: "api",
+      bugContext: {
+        api: {
+          endpoint: "/api/feedback",
+          method: "PATCH",
+          requestShape: "{ triageStatus, bugArchetype }",
+          schemaPaths: ["utils/types.ts"],
+        },
+      },
+      scopeGuardrails: {
+        inScope: ["Bug workflow metadata model"],
+        outOfScope: ["Workout scheduling paths"],
+      },
+      implementationContext: {
+        summary: "Bug workflow page and API route.",
+        confirmed: [{ type: "route", path: "pages/bugs.tsx", label: "Bugs inbox" }],
+        inferred: [{ type: "api", path: "pages/api/feedback.ts", label: "Feedback API" }],
+        derived: {
+          likelyFilePaths: ["pages/bugs.tsx", "pages/api/feedback.ts"],
+          ownershipHints: ["pages/bugs.tsx", "pages/api"],
+          stackClues: ["pages/api/feedback.ts"],
+          runtimeProvenance: ["Environment: local", "Build commit: abc123"],
+        },
+      },
+    } as unknown as FeedbackWorkItemDoc;
+
+    const copyText = buildCodexCopyText({ workItem, evidence: [] });
+
+    expect(copyText).toContain("Bug archetype: api");
+    expect(copyText).toContain("API endpoint: /api/feedback");
+    expect(copyText).toContain("Auto-generated intelligence:");
+    expect(copyText).toContain("Likely file: pages/bugs.tsx");
+    expect(copyText).toContain("In scope: Bug workflow metadata model");
+    expect(copyText).toContain("Out of scope: Workout scheduling paths");
+  });
+
+  it("supports fast-path and investigator copy variants", () => {
+    const workItem = {
+      _id: "work-copy-variants",
+      type: "bug",
+      title: "Variant copy test",
+      latestDescription: "Description: Validate multiple copy formats.",
+      fingerprint: "wrk_variant",
+      occurrenceCount: 1,
+      triageStatus: "new",
+      page: "/bugs",
+      implementationContext: {
+        summary: "Rich context for full and investigator variants.",
+        confirmed: [{ type: "route", path: "pages/bugs.tsx", label: "Bugs inbox" }],
+        inferred: [{ type: "hook", path: "utils/feedbackDetails.ts", label: "Formatter" }],
+      },
+    } as unknown as FeedbackWorkItemDoc;
+
+    const fastText = buildCodexCopyText({ workItem, evidence: [], variant: "fast" });
+    const investigatorText = buildCodexCopyText({
+      workItem,
+      evidence: [],
+      variant: "investigator",
+    });
+
+    expect(fastText).toContain("## Verification plan");
+    expect(fastText).not.toContain("Linked evidence:");
+    expect(investigatorText).toContain("Open questions:");
+    expect(investigatorText).toContain("Investigator emphasis:");
+  });
+
   it("finds related work using shared route, stack signature, and code-area clues", () => {
     const workItems = [
       {

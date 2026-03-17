@@ -5,6 +5,11 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import { workoutFrequencyOptions } from "../../utils/profileSetup";
 import { routinesPanelRadius } from "./panelStyles";
+import {
+  buildRoutineSemanticButtonSx,
+  buildRoutineSemanticChipSx,
+  buildRoutineSemanticPanelSx,
+} from "../../utils/routinesSemanticStyles";
 
 const WorkoutHeaderSummary = ({
   comebackGuide,
@@ -38,6 +43,75 @@ const WorkoutHeaderSummary = ({
     }}
   >
     <Stack spacing={1.5}>
+      {shouldShowNextSummary ? (
+        <Paper
+          elevation={0}
+          sx={{
+            ...buildRoutineSemanticPanelSx("activeWorkout", darkMode),
+            p: 1.5,
+            borderRadius: routinesPanelRadius.section,
+            boxShadow: darkMode
+              ? "0 18px 42px rgba(15,23,42,0.34)"
+              : "0 20px 40px rgba(37,99,235,0.12)",
+          }}
+        >
+          <Stack spacing={1.1}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.2}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Box>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography
+                    variant="overline"
+                    sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
+                  >
+                    Next Action
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={statusChip.label}
+                    sx={buildRoutineSemanticChipSx("activeWorkout", "outline", darkMode)}
+                  />
+                </Stack>
+                <Typography variant="h5" sx={{ mt: 0.35, lineHeight: 1.05 }}>
+                  {nextExercise?.name}
+                </Typography>
+                <Typography sx={{ mt: 0.55, color: "text.secondary" }}>
+                  {statusChip.label?.toLowerCase?.().includes("in progress")
+                    ? "Resume the next incomplete set and keep the session moving."
+                    : "Start here so the workout begins with the first real lift, not the surrounding dashboard."}
+                </Typography>
+              </Box>
+
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<PlayArrowIcon />}
+                onClick={onOpenNextSet}
+                sx={{
+                  ...buildRoutineSemanticButtonSx("activeWorkout", "contained", darkMode),
+                  minHeight: 56,
+                  minWidth: { xs: "100%", sm: 210 },
+                  px: 3,
+                  borderRadius: 999,
+                  fontWeight: 800,
+                  boxShadow: darkMode
+                    ? "0 16px 34px rgba(59,130,246,0.28)"
+                    : "0 18px 34px rgba(37,99,235,0.24)",
+                }}
+              >
+                {statusChip.label?.toLowerCase?.().includes("in progress")
+                  ? "Open Next Set"
+                  : "Start Lift"}
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+      ) : null}
+
       {weeklyConsistency ? (
         <Paper
           elevation={0}
@@ -54,6 +128,8 @@ const WorkoutHeaderSummary = ({
             backgroundColor: darkMode
               ? "rgba(15,23,42,0.52)"
               : "rgba(248,250,252,0.9)",
+            opacity: shouldShowNextSummary ? 0.72 : 1,
+            transform: shouldShowNextSummary ? "scale(0.995)" : "none",
           }}
         >
           <Stack spacing={1.15}>
@@ -139,6 +215,7 @@ const WorkoutHeaderSummary = ({
             background: darkMode
               ? "linear-gradient(145deg, rgba(30,41,59,0.82), rgba(15,23,42,0.74))"
               : "linear-gradient(145deg, rgba(239,246,255,0.94), rgba(255,255,255,0.96))",
+            opacity: shouldShowNextSummary ? 0.74 : 1,
           }}
         >
           <Stack spacing={1.15}>
@@ -210,6 +287,7 @@ const WorkoutHeaderSummary = ({
             border: "1px solid",
             borderColor: "divider",
             backgroundColor: darkMode ? "rgba(15,23,42,0.58)" : "rgba(248,250,252,0.92)",
+            opacity: shouldShowNextSummary ? 0.7 : 1,
           }}
         >
           <Stack spacing={1.15}>
@@ -296,44 +374,7 @@ const WorkoutHeaderSummary = ({
         ) : null}
       </Box>
 
-      {shouldShowNextSummary ? (
-        <Box
-          sx={{
-            py: 1.1,
-            px: 0.1,
-            borderTop: "1px solid",
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: { xs: "flex-start", sm: "center" },
-              flexDirection: { xs: "column", sm: "row" },
-              gap: 1.25,
-            }}
-          >
-            <Box>
-              <Typography
-                variant="overline"
-                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-              >
-                Up Next
-              </Typography>
-              <Typography variant="h6">{nextExercise?.name}</Typography>
-              <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
-                Open this exercise to keep moving through today's plan.
-              </Typography>
-            </Box>
-
-            <Button variant="contained" startIcon={<PlayArrowIcon />} onClick={onOpenNextSet}>
-              Open Next Set
-            </Button>
-          </Box>
-        </Box>
-      ) : isWorkoutComplete ? (
+      {!shouldShowNextSummary ? isWorkoutComplete ? (
         <Box
           sx={{
             py: 1.1,
@@ -367,7 +408,44 @@ const WorkoutHeaderSummary = ({
             <CheckCircleOutlineIcon color="success" />
           </Box>
         </Box>
-      ) : null}
+      ) : null : (
+        <Box
+          sx={{
+            py: 1.1,
+            px: 0.1,
+            borderTop: "1px solid",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 1.25,
+            }}
+          >
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+              >
+                Secondary Summary
+              </Typography>
+              <Typography variant="h6">{nextExercise?.name}</Typography>
+              <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
+                Your main workout CTA stays pinned while this summary remains visible as backup context.
+              </Typography>
+            </Box>
+
+            <Button variant="outlined" startIcon={<PlayArrowIcon />} onClick={onOpenNextSet}>
+              Open Next Set
+            </Button>
+          </Box>
+        </Box>
+      )}
     </Stack>
   </Paper>
 );

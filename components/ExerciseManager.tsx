@@ -19,14 +19,15 @@ import { createExerciseSetId } from "../utils/exerciseSetIds";
 import { parseLocalDateInput } from "../utils/localDate";
 import { normalizeWeightUnit } from "../utils/weightUnits";
 import { hasEntitlement } from "../utils/entitlements";
+import { ExerciseCatalogDoc, UserDoc, WorkoutEntryDoc, WorkoutExerciseView } from "../utils/types";
 
 interface ExerciseManagerProps {
   index: number;
   darkMode: boolean;
   currentWorkoutTitle: string;
-  currentExercises?: any[];
+  currentExercises?: unknown[];
   setIsAddingExercise: (value: boolean) => void;
-  setExercises: (value: any) => void;
+  setExercises: React.Dispatch<React.SetStateAction<unknown[]>>;
   userId: string;
   date: string;
   onQuickAddComplete?: (exerciseIdentity: string) => void;
@@ -36,9 +37,38 @@ interface ExerciseManagerProps {
   } | null;
 }
 
+type ExerciseCatalogSelection = Partial<ExerciseCatalogDoc> & {
+  _id?: string;
+  id?: string;
+  entryInstanceId?: string;
+  name: string;
+  type?: "timed" | "weight";
+  exerciseId?: string;
+  equipment?: string[] | string;
+  rest?: number;
+  max?: number;
+  defaultRest?: number;
+  defaultMax?: number;
+};
+
+type ExerciseDraft = WorkoutExerciseView & {
+  id?: string;
+  userId: string;
+  date: string;
+  isRecurring?: boolean;
+  clientDraftId?: string;
+  recommendationPending?: boolean;
+};
+
+const toWorkoutEntryPayload = (value: Record<string, unknown>) =>
+  value as unknown as WorkoutEntryDoc;
+
+const asExerciseDraftList = (value: unknown[]): ExerciseDraft[] =>
+  value as ExerciseDraft[];
+
 const DEFAULT_TIMED_SECONDS = 60;
 
-const getTimedExerciseProfile = (exercise: any) => {
+const getTimedExerciseProfile = (exercise: ExerciseCatalogSelection) => {
   const name = String(exercise?.name ?? "").toLowerCase();
   const equipment = Array.isArray(exercise?.equipment)
     ? exercise.equipment.join(" ").toLowerCase()
@@ -75,7 +105,7 @@ const getTimedExerciseProfile = (exercise: any) => {
   return { sets: 1, hours: 0, minutes: 5, seconds: 0 };
 };
 
-const getDefaultRestSeconds = (exercise: any) => {
+const getDefaultRestSeconds = (exercise: ExerciseCatalogSelection) => {
   const name = String(exercise?.name ?? "").toLowerCase();
   const equipment = Array.isArray(exercise?.equipment)
     ? exercise.equipment.join(" ").toLowerCase()
@@ -112,7 +142,7 @@ const createWeightSets = ({
 }: {
   setCount: number;
   reps: number;
-  weight: number | null;
+  weight: number | undefined;
   weightUnit: "lb" | "kg";
 }) =>
   Array.from({ length: setCount }, (_, index) => ({
@@ -163,14 +193,14 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 }) => {
   const preferredUnits = normalizeWeightUnit(userProfile?.preferredUnits);
   const progressionRecommendationsEnabled = hasEntitlement(
-    userProfile as any,
+    userProfile,
     "progressionRecommendations"
   );
   const recurringSchedulingEnabled = hasEntitlement(
-    userProfile as any,
+    userProfile,
     "recurringWorkoutScheduling"
   );
-  const [selectedExercise, setSelectedExercise] = useState<any>(null);
+  const [selectedExercise, setSelectedExercise] = useState<ExerciseDraft | null>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const parsedBaseDate = parseLocalDateInput(date) ?? new Date(date);
@@ -189,7 +219,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   );
   const [repeatEndDate, setRepeatEndDate] = useState("");
 
-  const normalizeExerciseId = (exercise: any) => {
+  const normalizeExerciseId = (exercise: ExerciseCatalogSelection | ExerciseDraft) => {
     if (!exercise) {
       throw new Error("Exercise is required");
     }
@@ -202,10 +232,10 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     );
   };
 
-  const resolveExerciseType = (exercise: any) =>
+  const resolveExerciseType = (exercise: ExerciseCatalogSelection | ExerciseDraft) =>
     exercise.type === "timed" ? "timed" : "weight";
 
-  const buildExerciseDraft = async (exercise: any) => {
+  const buildExerciseDraft = async (exercise: ExerciseCatalogSelection) => {
     const baseDraft = buildExerciseDraftFromDefaults(exercise);
     const exerciseType = resolveExerciseType(exercise);
     if (exerciseType !== "weight" || !progressionRecommendationsEnabled) {
@@ -230,7 +260,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     return applyRecommendationToDraft(baseDraft, recommendation);
   };
 
-  const buildExerciseDraftFromDefaults = (exercise: any) => {
+  const buildExerciseDraftFromDefaults = (exercise: ExerciseCatalogSelection): ExerciseDraft => {
     const exerciseType = resolveExerciseType(exercise);
     const normalizedExerciseId = normalizeExerciseId(exercise);
     const profile = getExerciseProfile(exercise);
@@ -254,6 +284,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       routineName: currentWorkoutTitle,
       userId,
       date,
+      complete: false,
       isRecurring,
       recurrenceType: isRecurring ? recurrenceType : undefined,
       interval: isRecurring ? repeatInterval : undefined,
@@ -285,7 +316,10 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     };
   };
 
-  const applyRecommendationToDraft = (draft: any, recommendation: any) => {
+  const applyRecommendationToDraft = (
+    draft: ExerciseDraft,
+    recommendation: NonNullable<Awaited<ReturnType<typeof fetchExerciseProgress>>>["recommendation"]
+  ): ExerciseDraft => {
     if (draft.type !== "weight") {
       return {
         ...draft,
@@ -316,7 +350,10 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     };
   };
 
-  const canHydrateRecommendation = (currentExercise: any, baseExercise: any) => {
+  const canHydrateRecommendation = (
+    currentExercise: ExerciseDraft,
+    baseExercise: ExerciseDraft
+  ) => {
     if (!currentExercise || currentExercise.type !== "weight") {
       return false;
     }
@@ -328,7 +365,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     return JSON.stringify(currentExercise.sets ?? []) === JSON.stringify(baseExercise.sets ?? []);
   };
 
-  const hydrateQuickAddRecommendation = async (baseExercise: any) => {
+  const hydrateQuickAddRecommendation = async (baseExercise: ExerciseDraft) => {
     if (baseExercise.type !== "weight" || !progressionRecommendationsEnabled) {
       return;
     }
@@ -339,8 +376,8 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     ).catch(() => null);
     const recommendation = progress?.recommendation ?? null;
 
-    setExercises((prev: any[]) => {
-      const nextExercises = Array.isArray(prev) ? [...prev] : [];
+    setExercises((prev) => {
+      const nextExercises = Array.isArray(prev) ? [...asExerciseDraftList(prev)] : [];
       const exerciseIndex = nextExercises.findIndex(
         (exercise) =>
           String(exercise?.clientDraftId ?? "") === String(baseExercise.clientDraftId ?? "")
@@ -355,6 +392,9 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       }
 
       const currentExercise = nextExercises[exerciseIndex];
+      if (!currentExercise) {
+        return nextExercises;
+      }
       if (!canHydrateRecommendation(currentExercise, baseExercise)) {
         nextExercises[exerciseIndex] = {
           ...currentExercise,
@@ -372,7 +412,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     });
   };
 
-  const persistExercise = async (updatedExercise: any) => {
+  const persistExercise = async (updatedExercise: ExerciseDraft): Promise<ExerciseDraft> => {
     const {
       clientDraftId: _clientDraftId,
       recommendationPending: _recommendationPending,
@@ -394,7 +434,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       const schedule = normalizeRecurringSchedule(
         {
           recurrenceType:
-            (persistableExercise.recurrenceType as any) ?? recurrenceType,
+            persistableExercise.recurrenceType ?? recurrenceType,
           interval: persistableExercise.interval ?? repeatInterval,
           dayOfWeek: persistableExercise.dayOfWeek ?? repeatDayOfWeek,
           daysOfWeek:
@@ -426,18 +466,18 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         defaultMax: persistableExercise.max,
         defaultRest: persistableExercise.rest,
         active: true,
-      } as any);
+      });
 
       return {
         ...persistableExercise,
         isRepeating: true,
         ruleId: String(savedRule?._id ?? persistableExercise.ruleId ?? ""),
-      };
+      } as ExerciseDraft;
     } else {
-      const savedEntry = await saveWorkoutEntry({
+      const savedEntry = await saveWorkoutEntry(toWorkoutEntryPayload({
         ...persistableExercise,
         exerciseId: normalizeExerciseId(persistableExercise),
-      });
+      }));
 
       return {
         ...persistableExercise,
@@ -446,12 +486,12 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
           savedEntry?.entryInstanceId ??
           persistableExercise.entryInstanceId ??
           persistableExercise._id,
-      };
+      } as ExerciseDraft;
     }
   };
 
   // When an exercise is added, default it to one set and open the modal for editing.
-  const handleAddExercise = async (exercise: any) => {
+  const handleAddExercise = async (exercise: ExerciseCatalogSelection) => {
     emitDevBugInteraction({
       type: "click",
       kind: "semantic",
@@ -465,7 +505,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     setOpenEditModal(true);
   };
 
-  const handleQuickAddExercise = async (exercise: any) => {
+  const handleQuickAddExercise = async (exercise: ExerciseCatalogSelection) => {
     emitDevBugInteraction({
       type: "click",
       kind: "semantic",
@@ -485,7 +525,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     try {
       const persistedExercise = await persistExercise(baseExercise);
       let nextExerciseIdentity = "";
-      setExercises((prev: any[]) =>
+      setExercises((prev) =>
         (Array.isArray(prev) ? prev : []).map((currentExercise) => {
           if (
             String(currentExercise?.clientDraftId ?? "") === clientDraftId
@@ -512,7 +552,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         clientDraftId,
       });
     } catch (error) {
-      setExercises((prev: any[]) =>
+      setExercises((prev) =>
         (Array.isArray(prev) ? prev : []).filter(
           (currentExercise) =>
             String(currentExercise?.clientDraftId ?? "") !== clientDraftId
@@ -524,7 +564,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   };
 
   // When saving, call updateExercise so the parent can update the existing exercise.
-  const handleSaveEdit = async (updatedExercise: any) => {
+  const handleSaveEdit = async (updatedExercise: ExerciseDraft) => {
     emitDevBugInteraction({
       type: "submit",
       kind: "semantic",
@@ -534,7 +574,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
       status: "info",
     });
     const persistedExercise = await persistExercise(updatedExercise);
-    setExercises((prev: any[]) => {
+    setExercises((prev) => {
       const nextExercises = Array.isArray(prev) ? [...prev] : [];
       const existingIndex = nextExercises.findIndex(
         (exercise) =>

@@ -22,6 +22,7 @@ import GoogleIcon from "@mui/icons-material/Google";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import {
   clearPendingLandingCta,
+  getOrCreateAnonymousFunnelId,
   readPendingLandingCta,
 } from "../utils/betaFunnelClient";
 
@@ -59,6 +60,7 @@ const SignUp: React.FC = () => {
           username,
           password,
           landingCtaAt: readPendingLandingCta(),
+          anonymousFunnelId: getOrCreateAnonymousFunnelId(),
         }),
       });
       const data = await response.json().catch(() => null);

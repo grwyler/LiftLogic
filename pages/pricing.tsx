@@ -184,12 +184,14 @@ const PricingPage: React.FC = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || pricingViewTrackedRef.current) {
+    if (pricingViewTrackedRef.current) {
       return;
     }
 
     pricingViewTrackedRef.current = true;
-    void trackBetaFunnelMilestone("pricing_page_viewed").catch((error) => {
+    void trackBetaFunnelMilestone("pricing_page_viewed", {
+      source: isAuthenticated ? "pricing_page_authenticated" : "pricing_page_anonymous",
+    }).catch((error) => {
       pricingViewTrackedRef.current = false;
       console.error("Error tracking pricing page view:", error);
     });
@@ -239,6 +241,9 @@ const PricingPage: React.FC = () => {
     try {
       setActionLoading(interval);
       setBillingError("");
+      await trackBetaFunnelMilestone("checkout_started", {
+        source: `pricing_checkout_${interval}`,
+      });
       const { url } = await createBillingCheckoutSession(interval);
       window.location.assign(url);
     } catch (error) {
@@ -335,6 +340,15 @@ const PricingPage: React.FC = () => {
               href={primaryCta.href}
               variant="contained"
               endIcon={<ArrowForwardIcon />}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  void trackBetaFunnelMilestone("pricing_cta_clicked", {
+                    source: "pricing_header_primary_cta",
+                  }).catch((error) => {
+                    console.error("Error tracking pricing CTA click:", error);
+                  });
+                }
+              }}
             >
               {primaryCta.label}
             </Button>
@@ -554,6 +568,13 @@ const PricingPage: React.FC = () => {
                   href="/signup"
                   variant="contained"
                   endIcon={<ArrowForwardIcon />}
+                  onClick={() => {
+                    void trackBetaFunnelMilestone("pricing_cta_clicked", {
+                      source: "pricing_plan_card_signup",
+                    }).catch((error) => {
+                      console.error("Error tracking plan card pricing CTA:", error);
+                    });
+                  }}
                 >
                   Create account to upgrade
                 </Button>
@@ -768,6 +789,15 @@ const PricingPage: React.FC = () => {
                   href={primaryCta.href}
                   variant="contained"
                   endIcon={<ArrowForwardIcon />}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      void trackBetaFunnelMilestone("pricing_cta_clicked", {
+                        source: "pricing_footer_primary_cta",
+                      }).catch((error) => {
+                        console.error("Error tracking footer pricing CTA:", error);
+                      });
+                    }
+                  }}
                   sx={{
                     minHeight: 52,
                     minWidth: { sm: 190 },

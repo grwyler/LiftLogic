@@ -19,6 +19,7 @@ import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { rememberLandingCta } from "../utils/betaFunnelClient";
+import { trackBetaFunnelMilestone } from "../utils/helpers";
 
 const landingRadius = {
   panel: "28px",
@@ -74,8 +75,19 @@ const HomePage: React.FC = () => {
     }
   }, [router, status]);
 
-  const handleLandingCtaClick = () => {
-    rememberLandingCta();
+  useEffect(() => {
+    void trackBetaFunnelMilestone("landing_page_viewed", {
+      source: "landing_page",
+    }).catch((error) => {
+      console.error("Error tracking landing page view:", error);
+    });
+  }, []);
+
+  const handleLandingCtaClick = (source = "landing_cta") => {
+    rememberLandingCta(new Date(), source);
+    void trackBetaFunnelMilestone("landing_cta", { source }).catch((error) => {
+      console.error("Error tracking landing CTA:", error);
+    });
   };
 
   return (
@@ -138,7 +150,7 @@ const HomePage: React.FC = () => {
               href="/signup"
               variant="contained"
               endIcon={<ArrowForwardIcon />}
-              onClick={handleLandingCtaClick}
+              onClick={() => handleLandingCtaClick("hero_nav_start_free_beta")}
               fullWidth
             >
               Start free beta
@@ -245,7 +257,7 @@ const HomePage: React.FC = () => {
                 variant="contained"
                 size="large"
                 endIcon={<ArrowForwardIcon />}
-                onClick={handleLandingCtaClick}
+                onClick={() => handleLandingCtaClick("hero_primary_create_account")}
                 sx={{ borderRadius: landingRadius.button }}
               >
                 Create account
@@ -566,7 +578,7 @@ const HomePage: React.FC = () => {
                     borderRadius: landingRadius.button,
                   }}
                   endIcon={<ArrowForwardIcon />}
-                  onClick={handleLandingCtaClick}
+                  onClick={() => handleLandingCtaClick("footer_start_free_beta")}
                 >
                   Start free beta
                 </Button>

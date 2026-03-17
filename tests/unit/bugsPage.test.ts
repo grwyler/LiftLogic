@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createWorkflowDraft,
   getWorkItemClosureWarnings,
   getWorkflowDraftResolution,
 } from "../../utils/bugsWorkflow";
@@ -7,13 +8,17 @@ import {
 describe("bugs inbox workflow helpers", () => {
   it("turns draft verification inputs into structured resolution metadata", () => {
     const resolution = getWorkflowDraftResolution({
-      title: "Workout log failed",
-      latestDescription: "Latest description",
+      ...createWorkflowDraft({
+        title: "Workout log failed",
+        latestDescription: "Latest description",
+      }),
       fixThreadId: "thread-42",
       fixCommitSha: "abc123def",
       verificationOwner: "qa@liftlogic",
       resolvedAppVersion: "1.2.3",
       resolvedDeployId: "",
+      shippedSummary: "",
+      deferredFollowUpsText: "",
       validatedCommandsText: "npm run test:unit -- tests/unit/bugsPage.test.ts",
       manualChecksText: "Opened /bugs and reviewed the verification panel",
       regressionChecklist: [
@@ -27,6 +32,8 @@ describe("bugs inbox workflow helpers", () => {
       verificationOwner: "qa@liftlogic",
       resolvedAppVersion: "1.2.3",
       resolvedDeployId: undefined,
+      shippedSummary: undefined,
+      deferredFollowUps: [],
       validatedCommands: ["npm run test:unit -- tests/unit/bugsPage.test.ts"],
       manualChecks: ["Opened /bugs and reviewed the verification panel"],
       regressionChecklist: [
@@ -39,13 +46,17 @@ describe("bugs inbox workflow helpers", () => {
 
   it("warns when a work item is missing required closure evidence", () => {
     const warnings = getWorkItemClosureWarnings({
-      title: "Workout log failed",
-      latestDescription: "Latest description",
+      ...createWorkflowDraft({
+        title: "Workout log failed",
+        latestDescription: "Latest description",
+      }),
       fixThreadId: "",
       fixCommitSha: "",
       verificationOwner: "",
       resolvedAppVersion: "",
       resolvedDeployId: "",
+      shippedSummary: "",
+      deferredFollowUpsText: "",
       validatedCommandsText: "",
       manualChecksText: "",
       regressionChecklist: [

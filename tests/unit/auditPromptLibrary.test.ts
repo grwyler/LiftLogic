@@ -12,9 +12,16 @@ describe("audit prompt library", () => {
     expect(runner).toContain("Sprint Closeout Audit Orchestrator");
     expect(runner).toContain("Applicability matrix");
     expect(runner).toContain("Backlog");
+    expect(runner).toContain("Data Integrity");
+    expect(runner).toContain("Release Readiness");
+    expect(runner).toContain("Subscription");
+    expect(runner).toContain("Accessibility");
+    expect(runner).toContain("Analytics");
+    expect(runner).toContain("Mandatory trigger rules");
     expect(runner).toContain("Cross-audit dedupe protocol");
     expect(runner).toContain("Umbrella-ticket rules");
     expect(runner).toContain("Final output requirements");
+    expect(runner).toContain("Ship, ship with conditions, or no-ship recommendation");
   });
 
   it("requires every audit to capture evidence, confidence, affected scope, and duplicate handling", () => {
@@ -25,6 +32,11 @@ describe("audit prompt library", () => {
       "retention-behavior-product-coherence-audit.md",
       "code-quality-maintainability-audit.md",
       "backlog-audit.md",
+      "data-integrity-state-recovery-audit.md",
+      "release-readiness-audit.md",
+      "subscription-paywall-conversion-audit.md",
+      "accessibility-mobile-ergonomics-audit.md",
+      "analytics-instrumentation-quality-audit.md",
     ];
 
     auditFiles.forEach((fileName) => {
@@ -39,6 +51,20 @@ describe("audit prompt library", () => {
     expect(readAudit("code-quality-maintainability-audit.md")).toContain(
       "implementation-ready or explicitly `needs-investigation`"
     );
+    expect(readAudit("data-integrity-state-recovery-audit.md")).toContain(
+      "visual lag, actual persistence corruption, or both"
+    );
+    expect(readAudit("release-readiness-audit.md")).toContain("ship with conditions");
+    expect(readAudit("release-readiness-audit.md")).toContain("Blocking issues before");
+    expect(readAudit("subscription-paywall-conversion-audit.md")).toContain(
+      "manipulative or beginner-hostile upgrade patterns"
+    );
+    expect(readAudit("accessibility-mobile-ergonomics-audit.md")).toContain(
+      "legal or compliance risk"
+    );
+    expect(readAudit("analytics-instrumentation-quality-audit.md")).toContain(
+      "concrete observability gaps"
+    );
   });
 
   it("adds a final runner note that forces cross-audit dedupe before ticket generation", () => {
@@ -46,6 +72,8 @@ describe("audit prompt library", () => {
 
     expect(notes).toContain("Final dedupe checkpoint");
     expect(notes).toContain("Merge duplicate root-cause findings into an umbrella ticket");
+    expect(notes).toContain("ship with conditions");
+    expect(notes).toContain("release-readiness audit consumed upstream findings");
     expect(notes).toContain("Do not finish the audit run until this checkpoint is complete.");
   });
 });

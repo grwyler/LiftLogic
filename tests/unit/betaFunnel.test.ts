@@ -3,6 +3,7 @@ import {
   applyWorkoutMilestones,
   getDistinctWorkoutDates,
   markBetaFunnelMilestone,
+  mergeBetaFunnels,
   summarizeMonetizationFunnel,
 } from "../../utils/betaFunnel";
 
@@ -80,6 +81,8 @@ describe("beta funnel analytics", () => {
             pricingPageViewedAt: "2026-03-10T00:00:00.000Z",
             checkoutStartedAt: "2026-03-10T00:05:00.000Z",
             checkoutCompletedAt: "2026-03-10T00:10:00.000Z",
+            pricingPageViewSources: { pricing_page_authenticated: 1 },
+            checkoutStartSources: { pricing_checkout_month: 1 },
           },
           paid: true,
         },
@@ -87,8 +90,12 @@ describe("beta funnel analytics", () => {
           betaFunnel: {
             pricingPageViewedAt: "2026-03-11T00:00:00.000Z",
             upgradePromptViewedAt: "2026-03-11T00:01:00.000Z",
+            upgradePromptClickedAt: "2026-03-11T00:01:30.000Z",
             manualProGrantAppliedAt: "2026-03-11T00:02:00.000Z",
             cancelRequestedAt: "2026-03-14T00:00:00.000Z",
+            pricingPageViewSources: { pricing_page_authenticated: 1 },
+            upgradePromptViewSources: { recurring_schedule: 1 },
+            upgradePromptClickSources: { recurring_schedule: 1 },
           },
           paid: true,
         },
@@ -99,12 +106,24 @@ describe("beta funnel analytics", () => {
           paid: false,
         },
       ] as Array<{ betaFunnel?: unknown; paid: boolean }>,
+      anonymousFunnels: [
+        {
+          betaFunnel: {
+            landingPageViewedAt: "2026-03-09T00:00:00.000Z",
+            pricingPageViewedAt: "2026-03-09T00:02:00.000Z",
+            landingPageViewSources: { landing_page: 1 },
+            landingCtaSources: { hero_primary_create_account: 1 },
+            pricingPageViewSources: { pricing_page_anonymous: 1 },
+          },
+        },
+      ],
       hasPaidAccess: (user) => Boolean((user as any).paid),
     });
 
     expect(summary).toEqual({
       pricingPageViews: 2,
       upgradePromptViews: 1,
+      upgradePromptClicks: 1,
       checkoutStarts: 1,
       checkoutCompletions: 1,
       manualProGrants: 1,
@@ -116,6 +135,58 @@ describe("beta funnel analytics", () => {
       pricingToPaidRate: 1,
       checkoutCompletionRate: 1,
       cancellationRate: 0.5,
+      anonymousStage: {
+        landingPageViews: 1,
+        pricingPageViews: 1,
+        upgradePromptViews: 0,
+        upgradePromptClicks: 0,
+        checkoutStarts: 0,
+      },
+      authenticatedStage: {
+        pricingPageViews: 2,
+        upgradePromptViews: 1,
+        upgradePromptClicks: 1,
+        checkoutStarts: 1,
+      },
+      sourceBreakdown: {
+        landingPageViews: { landing_page: 1 },
+        landingCtas: { hero_primary_create_account: 1 },
+        pricingPageViews: {
+          pricing_page_anonymous: 1,
+          pricing_page_authenticated: 2,
+        },
+        pricingCtas: {},
+        upgradePromptViews: { recurring_schedule: 1 },
+        upgradePromptClicks: { recurring_schedule: 1 },
+        checkoutStarts: { pricing_checkout_month: 1 },
+      },
+    });
+  });
+
+  it("merges anonymous funnel context into an authenticated funnel", () => {
+    const merged = mergeBetaFunnels({
+      base: {
+        signupCompletedAt: "2026-03-12T00:00:00.000Z",
+      },
+      incoming: {
+        anonymousFunnelId: "anon_123",
+        landingPageViewedAt: "2026-03-10T00:00:00.000Z",
+        pricingPageViewedAt: "2026-03-10T00:05:00.000Z",
+        landingPageViewSources: { landing_page: 1 },
+        pricingPageViewSources: { pricing_page_anonymous: 1 },
+      },
+      mergedAt: "2026-03-12T00:05:00.000Z",
+    });
+
+    expect(merged.anonymousFunnelId).toBe("anon_123");
+    expect(new Date(String(merged.landingPageViewedAt)).toISOString()).toBe(
+      "2026-03-10T00:00:00.000Z"
+    );
+    expect(new Date(String(merged.anonymousMergedAt)).toISOString()).toBe(
+      "2026-03-12T00:05:00.000Z"
+    );
+    expect(merged.pricingPageViewSources).toEqual({
+      pricing_page_anonymous: 1,
     });
   });
 });

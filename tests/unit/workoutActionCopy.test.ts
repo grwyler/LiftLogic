@@ -22,8 +22,10 @@ describe("workout action copy", () => {
     );
 
     expect(exerciseItemSource).toContain("Start Lift");
+    expect(exerciseItemSource).toContain('buildRoutineSemanticButtonSx("activeWorkout", "contained", darkMode)');
     expect(exerciseItemSource).toContain("Edit repeat");
     expect(loggingDialogSource).toContain("Repeat Lift");
+    expect(loggingDialogSource).toContain('variant="outlined"');
     expect(restTimerOverlaySource).toContain("Save Rest Time");
     expect(restTimerOverlaySource).toContain("Pause timer");
     expect(restTimerOverlaySource).toContain("Resume timer");

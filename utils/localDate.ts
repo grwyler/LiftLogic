@@ -13,6 +13,13 @@ export const parseLocalDateKey = (value: unknown) => {
   }
 
   const [year, month, day] = raw.split("-").map(Number);
+  if (
+    year === undefined ||
+    month === undefined ||
+    day === undefined
+  ) {
+    return null;
+  }
   const parsed = new Date(year, month - 1, day);
 
   return Number.isNaN(parsed.getTime()) ? null : parsed;
