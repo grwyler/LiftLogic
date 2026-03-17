@@ -21,26 +21,22 @@ import {
   getAppBuildMetadata,
   getReporterRole,
 } from "../../utils/feedbackMetadata";
+import {
+  getSessionUserId,
+  getSessionUserProfile,
+  isBugWorkflowAdminSession,
+} from "../../utils/adminAuthorization";
+import {
+  getResolutionClosureWarnings,
+  sanitizeResolutionMetadata,
+} from "../../utils/feedbackResolution";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
-const ADMIN_USERNAME = "grwyler";
-const ADMIN_EMAIL = "grwyler@gmail.com";
 const MAX_STORED_REPORT_IDS = 25;
 
 let feedbackIndexesReady = false;
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
-};
 
 const ensureFeedbackWorkflowIndexes = async (db: Db) => {
   if (feedbackIndexesReady) {
@@ -60,14 +56,6 @@ const ensureFeedbackWorkflowIndexes = async (db: Db) => {
 
   feedbackIndexesReady = true;
 };
-
-const getSessionUserContext = (session: any) => ({
-  userId: sanitizeText(session?.user?._id || session?.token?.user?._id),
-  username: sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ),
-  email: sanitizeText(session?.user?.email || session?.token?.user?.email),
-});
 
 const sanitizeReporterRole = (value: unknown) =>
   value === "admin" || value === "user" ? value : undefined;
@@ -352,9 +340,10 @@ const buildFeedbackDoc = ({
   session: any;
   now: Date;
 }) => {
-  const { userId, username, email } = getSessionUserContext(session);
+  const { _id: userId, username, email, roles, permissions } =
+    getSessionUserProfile(session);
   const reporterRole =
-    getReporterRole({ username, email }) ||
+    getReporterRole({ username, email, roles, permissions }) ||
     sanitizeReporterRole(feedback.reporterRole);
   const type =
     feedback.type === "feature" || feedback.type === "bug"
@@ -568,7 +557,7 @@ const sendFeedbackEmail = async ({
   const secure = String(process.env.SMTP_SECURE || "").toLowerCase() === "true";
   const from =
     sanitizeText(process.env.SMTP_FROM) || user || "no-reply@lift-logic.local";
-  const to = sanitizeText(process.env.BUG_ALERT_EMAIL_TO) || ADMIN_EMAIL;
+  const to = sanitizeText(process.env.BUG_ALERT_EMAIL_TO) || user;
   const appUrl =
     sanitizeText(process.env.NEXTAUTH_URL) || "http://localhost:3000";
   const workItemId = String(workItem._id || "");
@@ -734,8 +723,8 @@ export default async function handler(
     if (req.method === "GET") {
       const { userId } = req.query;
       const normalizedUserId = Array.isArray(userId) ? userId[0] : userId;
-      const requesterId = getSessionUserContext(session).userId;
-      const admin = isAdminSession(session);
+      const requesterId = getSessionUserId(session);
+      const admin = isBugWorkflowAdminSession(session);
 
       if (!session) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -815,6 +804,7 @@ export default async function handler(
         status: workItem.status,
         fixThreadId: workItem.fixThreadId,
         fixCommitSha: workItem.fixCommitSha,
+        resolution: workItem.resolution,
         resolvedAt: workItem.resolvedAt,
         notificationStatus: shouldSendNotification ? "pending" : "skipped",
         lastNotificationError: shouldSendNotification
@@ -884,7 +874,7 @@ export default async function handler(
     }
 
     if (req.method === "PATCH") {
-      if (!session || !isAdminSession(session)) {
+      if (!session || !isBugWorkflowAdminSession(session)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -893,6 +883,7 @@ export default async function handler(
         triageStatus,
         fixThreadId,
         fixCommitSha,
+        resolution,
         title,
         latestDescription,
       } = req.body as {
@@ -900,6 +891,7 @@ export default async function handler(
         triageStatus?: FeedbackTriageStatus;
         fixThreadId?: string;
         fixCommitSha?: string;
+        resolution?: FeedbackWorkItemDoc["resolution"];
         title?: string;
         latestDescription?: string;
       };
@@ -926,9 +918,23 @@ export default async function handler(
       const now = new Date();
       const normalizedFixThreadId = sanitizeText(fixThreadId) || undefined;
       const normalizedFixCommitSha = sanitizeText(fixCommitSha) || undefined;
+      const normalizedResolution =
+        sanitizeResolutionMetadata(resolution) || existing.resolution;
       const normalizedTitle = sanitizeText(title) || existing.title;
       const normalizedDescription =
         sanitizeText(latestDescription) || existing.latestDescription;
+      const closureWarnings =
+        normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
+          ? getResolutionClosureWarnings(normalizedResolution)
+          : [];
+
+      if (closureWarnings.length > 0) {
+        return res.status(400).json({
+          message: "Resolution metadata is incomplete.",
+          warnings: closureWarnings,
+        });
+      }
+
       const nextResolvedAt =
         normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
           ? existing.resolvedAt || now
@@ -940,6 +946,7 @@ export default async function handler(
         status: getLegacyStatusFromTriage(normalizedTriageStatus),
         fixThreadId: normalizedFixThreadId,
         fixCommitSha: normalizedFixCommitSha,
+        resolution: normalizedResolution,
         resolvedAt: nextResolvedAt,
         updatedAt: now,
       };
@@ -959,6 +966,7 @@ export default async function handler(
               status: update.status,
               fixThreadId: update.fixThreadId,
               fixCommitSha: update.fixCommitSha,
+              resolution: update.resolution,
               resolvedAt: update.resolvedAt,
               updatedAt: now,
             },
@@ -977,7 +985,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!session || !isAdminSession(session)) {
+      if (!session || !isBugWorkflowAdminSession(session)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 

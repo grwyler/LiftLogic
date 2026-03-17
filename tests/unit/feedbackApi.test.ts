@@ -46,8 +46,11 @@ const userSession = {
 const adminSession = {
   user: {
     _id: "admin-1",
-    username: "grwyler",
-    email: "grwyler@gmail.com",
+    username: "workflow-admin",
+    email: "admin@example.com",
+    permissions: {
+      bugWorkflowAdmin: true,
+    },
   },
 };
 
@@ -640,6 +643,19 @@ describe("feedback API route", () => {
         triageStatus: "resolved",
         fixThreadId: "thread-42",
         fixCommitSha: "abc123def",
+        resolution: {
+          verificationOwner: "qa@liftlogic",
+          resolvedAppVersion: "1.2.3",
+          validatedCommands: [
+            "npm run test:unit -- tests/unit/feedbackApi.test.ts",
+          ],
+          manualChecks: ["Reviewed /bugs and confirmed the resolved banner."],
+          regressionChecklist: [
+            { label: "Reported flow re-checked", outcome: "passed" },
+            { label: "Copy details output reviewed", outcome: "passed" },
+            { label: "Closure workflow verified", outcome: "not_applicable" },
+          ],
+        },
         title: "Updated login failure summary",
         latestDescription: "Admins clarified the repro steps during triage.",
       },
@@ -654,6 +670,12 @@ describe("feedback API route", () => {
     expect(patchRes.body.workItem.status).toBe("resolved");
     expect(patchRes.body.workItem.fixThreadId).toBe("thread-42");
     expect(patchRes.body.workItem.fixCommitSha).toBe("abc123def");
+    expect(patchRes.body.workItem.resolution).toMatchObject({
+      verificationOwner: "qa@liftlogic",
+      resolvedAppVersion: "1.2.3",
+      validatedCommands: ["npm run test:unit -- tests/unit/feedbackApi.test.ts"],
+      manualChecks: ["Reviewed /bugs and confirmed the resolved banner."],
+    });
     expect(patchRes.body.workItem.title).toBe("Updated login failure summary");
     expect(patchRes.body.workItem.latestDescription).toBe(
       "Admins clarified the repro steps during triage."
@@ -664,6 +686,53 @@ describe("feedback API route", () => {
     expect(linkedFeedback.status).toBe("resolved");
     expect(linkedFeedback.fixThreadId).toBe("thread-42");
     expect(linkedFeedback.fixCommitSha).toBe("abc123def");
+    expect(linkedFeedback.resolution).toMatchObject({
+      verificationOwner: "qa@liftlogic",
+      resolvedAppVersion: "1.2.3",
+    });
+  });
+
+  it("rejects closing a work item when required verification fields are empty", async () => {
+    const postReq = createMockRequest({
+      method: "POST",
+      body: validBugPayload,
+    });
+    const postRes = createMockResponse();
+    await handler(postReq, postRes as any);
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const patchReq = createMockRequest({
+      method: "PATCH",
+      body: {
+        workItemId: postRes.body.workItem._id.toString(),
+        triageStatus: "resolved",
+        resolution: {
+          verificationOwner: "",
+          resolvedAppVersion: "",
+          resolvedDeployId: "",
+          validatedCommands: [],
+          manualChecks: [],
+          regressionChecklist: [
+            { label: "Reported flow re-checked", outcome: "passed" },
+            { label: "Copy details output reviewed", outcome: "pending" },
+            { label: "Closure workflow verified", outcome: "pending" },
+          ],
+        },
+      },
+    });
+    const patchRes = createMockResponse();
+
+    await handler(patchReq, patchRes as any);
+
+    expect(patchRes.statusCode).toBe(400);
+    expect(patchRes.body.message).toBe("Resolution metadata is incomplete.");
+    expect(patchRes.body.warnings).toEqual([
+      "Add a verification owner.",
+      "Record the resolved app version or deploy.",
+      "List at least one validating command.",
+      "List at least one completed manual check.",
+      "Complete the regression checklist outcomes.",
+    ]);
   });
 
   it("deletes an entire work item and its linked feedback through DELETE", async () => {
