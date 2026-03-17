@@ -436,7 +436,9 @@ const UserHomePage: React.FC<UserPageProps> = ({
       if (fallbackNotice) {
         toast.info(fallbackNotice);
       } else {
-        toast.success("Workout plan generated");
+        toast.success(
+          "Your first workout plan is ready. Open today's session to review or adjust it."
+        );
       }
     } catch (error) {
       console.error("Error generating workout plan:", error);

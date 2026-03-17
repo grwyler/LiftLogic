@@ -55,7 +55,7 @@ describe("milestone celebrations", () => {
 
   it("renders both milestone celebrations and milestone history in the workout flow", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutCompletionRecap.tsx"),
       "utf8"
     );
 

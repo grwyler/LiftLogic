@@ -11,7 +11,7 @@ import { Session } from "next-auth";
 import DaySwitcher from "./DaySwitcher";
 import WorkoutDisplay from "./WorkoutDisplay";
 import LoadingIndicator from "./LoadingIndicator";
-import { Box } from "@mui/material";
+import { Box, Paper, Typography } from "@mui/material";
 import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
@@ -330,36 +330,73 @@ const WorkoutsManager: React.FC<{
             calendarStatusMap={calendarStatusMap}
           />
 
-          {isLoadingWorkout || !currentWorkout ? (
+          {!currentWorkout ? (
             <LoadingIndicator />
           ) : (
-            <WorkoutDisplay
-              exercises={exercises}
-              currentWorkout={currentWorkout}
-              currentExerciseIndex={currentExerciseIndex}
-              setCurrentExerciseIndex={setCurrentExerciseIndex}
-              currentDate={currentDate}
-              formattedDate={formattedDate}
-              routineName={currentWorkout.title}
-              setIsAddingExercise={setIsAddingExercise}
-              setExercises={setExercises}
-              darkMode={darkMode}
-              setRefetchExercises={setRefetchExercises}
-              refreshCalendarStatuses={refreshCalendarStatuses}
-              userProfile={userProfile}
-              weeklyConsistency={weeklyConsistency}
-              comebackGuide={comebackGuide}
-              milestoneSummary={milestoneSummary}
-              onWeeklyTargetChange={onWeeklyTargetChange}
-              lastQuickAddedExerciseIdentity={lastQuickAddedExerciseIdentity}
-              clearLastQuickAddedExerciseIdentity={() =>
-                setLastQuickAddedExerciseIdentity(null)
-              }
-              onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
-              onRequestProgressionUpgradePrompt={
-                onRequestProgressionUpgradePrompt
-              }
-            />
+            <Box sx={{ position: "relative" }}>
+              <WorkoutDisplay
+                exercises={exercises}
+                currentWorkout={currentWorkout}
+                currentExerciseIndex={currentExerciseIndex}
+                setCurrentExerciseIndex={setCurrentExerciseIndex}
+                currentDate={currentDate}
+                formattedDate={formattedDate}
+                routineName={currentWorkout.title}
+                setIsAddingExercise={setIsAddingExercise}
+                setExercises={setExercises}
+                darkMode={darkMode}
+                setRefetchExercises={setRefetchExercises}
+                refreshCalendarStatuses={refreshCalendarStatuses}
+                userProfile={userProfile}
+                weeklyConsistency={weeklyConsistency}
+                comebackGuide={comebackGuide}
+                milestoneSummary={milestoneSummary}
+                onWeeklyTargetChange={onWeeklyTargetChange}
+                lastQuickAddedExerciseIdentity={lastQuickAddedExerciseIdentity}
+                clearLastQuickAddedExerciseIdentity={() =>
+                  setLastQuickAddedExerciseIdentity(null)
+                }
+                onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
+                onRequestProgressionUpgradePrompt={
+                  onRequestProgressionUpgradePrompt
+                }
+              />
+              {isLoadingWorkout ? (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                    pt: 1,
+                  }}
+                >
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      px: 1.5,
+                      py: 0.8,
+                      borderRadius: 999,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: darkMode
+                        ? "rgba(15,23,42,0.88)"
+                        : "rgba(255,255,255,0.92)",
+                      backdropFilter: "blur(12px)",
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary", fontWeight: 700 }}
+                    >
+                      Loading next day...
+                    </Typography>
+                  </Paper>
+                </Box>
+              ) : null}
+            </Box>
           )}
         </Box>
       )}
@@ -422,6 +459,7 @@ const useWorkoutsManagerState = (
   >({});
   const [historyEntries, setHistoryEntries] = useState<WorkoutEntryDoc[]>([]);
   const [historyLoadedThroughKey, setHistoryLoadedThroughKey] = useState<string | null>(null);
+  const [historyUserId, setHistoryUserId] = useState<string | null>(null);
   const sessionUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id;
   const currentMonthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
@@ -647,36 +685,31 @@ const useWorkoutsManagerState = (
   }, [monthSummaryCache, visibleMonthKey]);
 
   useEffect(() => {
+    if (userId !== historyUserId) {
+      setHistoryEntries([]);
+      setHistoryLoadedThroughKey(null);
+      setHistoryUserId(userId ?? null);
+    }
+  }, [historyUserId, userId]);
+
+  useEffect(() => {
     if (!userId) {
       setHistoryEntries([]);
       setHistoryLoadedThroughKey(null);
       return;
     }
 
-    if (historyLoadedThroughKey && currentDate <= new Date(`${historyLoadedThroughKey}T23:59:59`)) {
+    if (historyLoadedThroughKey) {
       return;
     }
 
     let cancelled = false;
     const nextLoadedThroughKey = toLocalDateKey(currentDate);
-    const fetchStartDate = historyLoadedThroughKey
-      ? new Date(`${historyLoadedThroughKey}T00:00:00`)
-      : HISTORY_START_DATE;
 
-    if (historyLoadedThroughKey) {
-      fetchStartDate.setDate(fetchStartDate.getDate() + 1);
-    }
-
-    void fetchWorkoutEntriesRange(userId, fetchStartDate, currentDate)
+    void fetchWorkoutEntriesRange(userId, HISTORY_START_DATE, currentDate)
       .then((entries) => {
         if (!cancelled) {
-          setHistoryEntries((previousEntries) =>
-            historyLoadedThroughKey
-              ? [...previousEntries, ...entries].sort(
-                  (left, right) => +new Date(left.date) - +new Date(right.date)
-                )
-              : entries
-          );
+          setHistoryEntries(entries);
           setHistoryLoadedThroughKey(nextLoadedThroughKey);
         }
       })

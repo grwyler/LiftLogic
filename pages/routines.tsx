@@ -660,7 +660,9 @@ const RoutinesPage = ({
         setGeneratedCoachSource(undefined);
         setGeneratedCoachSourceDetail(undefined);
         setShowSetupDialog(false);
-        toast.success("Profile setup saved");
+        toast.success(
+          "Your preferences are saved. You can build a plan anytime from setup."
+        );
       } else {
         toast.error("Your setup was not saved. Check your connection and try again.");
       }
@@ -694,7 +696,9 @@ const RoutinesPage = ({
         setGeneratedCoachSource(undefined);
         setGeneratedCoachSourceDetail(undefined);
         setShowSetupDialog(false);
-        toast.success("Tracker mode is ready");
+        toast.success(
+          "Tracker mode is ready. Start logging workouts whenever you're ready."
+        );
       } else {
         toast.error("Failed to save your preference");
       }
@@ -746,7 +750,9 @@ const RoutinesPage = ({
       if (fallbackNotice) {
         toast.info(fallbackNotice);
       } else {
-        toast.success("Workout plan generated");
+          toast.success(
+            "Your first workout plan is ready. Open today's session to review or adjust it."
+          );
       }
     } catch (error) {
       console.error("Error generating workout plan:", error);
@@ -1509,7 +1515,7 @@ const RoutinesPage = ({
               >
                 <Box>
                   <Typography sx={{ fontWeight: 700 }}>
-                    Ready to generate
+                    Plan draft readiness
                   </Typography>
                   <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
                     {setupReadyToGenerate
@@ -1846,7 +1852,7 @@ const RoutinesPage = ({
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                 <Button variant="outlined" onClick={() => setShowSetupDialog(false)}>
-                  Skip for now
+                  Close setup for now
                 </Button>
                 <Button
                   variant="contained"
@@ -1865,8 +1871,8 @@ const RoutinesPage = ({
                     ? generatingWorkout
                       ? "Generating..."
                       : hasProgramExercises
-                      ? "Generate and replace plan"
-                      : "Generate first workout"
+                      ? "Build and replace plan"
+                      : "Build my first plan"
                     : "Upgrade for Pro Beta"}
                 </Button>
                 <Button

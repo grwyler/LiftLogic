@@ -31,6 +31,29 @@ const OVERLAY_KEYBOARD_OFFSET_CSS_VAR = "--liftlogic-keyboard-offset";
 const STALE_ASSET_RECOVERY_KEY = "liftlogic-stale-asset-recovery-at";
 const STALE_ASSET_RECOVERY_WINDOW_MS = 30_000;
 
+const getAssetSourceFromEventTarget = (target: EventTarget | null) => {
+  if (!target || typeof target !== "object") {
+    return "";
+  }
+
+  const candidate = target as {
+    src?: unknown;
+    href?: unknown;
+    currentSrc?: unknown;
+    tagName?: unknown;
+    getAttribute?: (name: string) => string | null;
+  };
+
+  return String(
+    candidate.currentSrc ??
+      candidate.src ??
+      candidate.href ??
+      candidate.getAttribute?.("src") ??
+      candidate.getAttribute?.("href") ??
+      ""
+  );
+};
+
 const isStaleAssetLoadError = (value: unknown) => {
   if (!value) {
     return false;
@@ -52,10 +75,21 @@ const isStaleAssetLoadError = (value: unknown) => {
       ? String((value as { name?: unknown }).name ?? "")
       : "";
 
+  const source =
+    typeof value === "object" && value
+      ? String(
+          (value as { source?: unknown; filename?: unknown }).source ??
+            (value as { source?: unknown; filename?: unknown }).filename ??
+            ""
+        )
+      : "";
+
   return (
     name === "ChunkLoadError" ||
     message.includes("Loading chunk") ||
     message.includes("Failed to fetch dynamically imported module") ||
+    message.includes("Failed to load resource") ||
+    source.includes("/_next/static/") ||
     message.includes("/_next/static/")
   );
 };
@@ -464,11 +498,19 @@ function MyApp({ Component, pageProps }: AppProps) {
 
     const handleResourceLoadError = (event: Event) => {
       const target = event.target;
+      const assetSource = getAssetSourceFromEventTarget(target);
 
       if (
-        target instanceof HTMLScriptElement &&
-        typeof target.src === "string" &&
-        target.src.includes("/_next/static/")
+        isStaleAssetLoadError(event) ||
+        ((target instanceof HTMLScriptElement ||
+          target instanceof HTMLLinkElement ||
+          (typeof target === "object" &&
+            target !== null &&
+            "tagName" in target &&
+            ["SCRIPT", "LINK"].includes(
+              String((target as { tagName?: unknown }).tagName ?? "").toUpperCase()
+            ))) &&
+          assetSource.includes("/_next/static/"))
       ) {
         void recoverFromStaleAssets();
       }

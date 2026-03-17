@@ -35,8 +35,6 @@ import {
   roundToWeightIncrement,
 } from "../utils/weightUnits";
 
-const DEFAULT_MAX_WEIGHT = 35; // fallback value if weight is missing
-
 const SelectedSetItem = ({
   routineName,
   set,
@@ -78,12 +76,14 @@ const SelectedSetItem = ({
   // Compute an initial weight value.
   // The planning view rounds to the user's active unit increment so the
   // initial value matches the labels shown elsewhere in the workout flow.
+  const initialDisplayWeight =
+    getDisplayWeightFromSet(set, "actual", weightUnit) ??
+    getDisplayWeightFromSet(set, "planned", weightUnit) ??
+    (typeof weight === "number" && weight > 0
+      ? roundToWeightIncrement(weight, weightUnit)
+      : null);
   const initialWeightValue =
-    formatWeightValue(
-      getDisplayWeightFromSet(set, "actual", weightUnit) ??
-        getDisplayWeightFromSet(set, "planned", weightUnit) ??
-        roundToWeightIncrement(DEFAULT_MAX_WEIGHT, weightUnit)
-    );
+    initialDisplayWeight == null ? "" : formatWeightValue(initialDisplayWeight);
 
   // Initialize states
   const [hours, setHours] = useState(
@@ -160,12 +160,14 @@ const SelectedSetItem = ({
   }, []);
 
   useEffect(() => {
+    const displayWeight =
+      getDisplayWeightFromSet(set, "actual", weightUnit) ??
+      getDisplayWeightFromSet(set, "planned", weightUnit) ??
+      (typeof weight === "number" && weight > 0
+        ? roundToWeightIncrement(weight, weightUnit)
+        : null);
     const nextWeightValue =
-      formatWeightValue(
-        getDisplayWeightFromSet(set, "actual", weightUnit) ??
-          getDisplayWeightFromSet(set, "planned", weightUnit) ??
-          roundToWeightIncrement(weight || DEFAULT_MAX_WEIGHT, weightUnit)
-      );
+      displayWeight == null ? "" : formatWeightValue(displayWeight);
 
     setSetName(name);
     setCurrentSetWeight(nextWeightValue);
@@ -380,13 +382,41 @@ const SelectedSetItem = ({
     /* ------------------------------------------------------------------ */
     const updatedExercises = [...(Array.isArray(exercises) ? exercises : [])];
     updatedExercises[currentExerciseIndex] = updatedExercise;
+    const previousExercise = currentExercise;
+    const previousExercises = [...(Array.isArray(exercises) ? exercises : [])];
+    const nextExerciseIndexAfterLog = exerciseComplete
+      ? updatedExercises.findIndex(
+          (ex, i) => i > currentExerciseIndex && !ex.complete
+        )
+      : -1;
+    const nextSetIndexAfterLog =
+      nextSetIndex === -1 ? adjustedSets.length : nextSetIndex;
 
     /* ------------------------------------------------------------------ */
-    /* 5. Persist to the DB before advancing local workout state          */
+    /* 5. Advance local workout state before persistence completes        */
     /* ------------------------------------------------------------------ */
     try {
       setLoggingSet(true);
       setLogSetError(null);
+      setLiveAdjustment(adjustedResult.adjustment);
+      setCurrentExercise(updatedExercise);
+      setExercises?.(updatedExercises);
+
+      if (exerciseComplete) {
+        if (nextExerciseIndexAfterLog !== -1) {
+          setCurrentExerciseIndex(nextExerciseIndexAfterLog);
+
+          const firstOpenSet = updatedExercises[nextExerciseIndexAfterLog].sets.findIndex(
+            (s) => !s.complete
+          );
+          setCurrentSetIndex(firstOpenSet === -1 ? 0 : firstOpenSet);
+        } else {
+          workout.complete = true; // whole routine finished
+          setCurrentSetIndex(adjustedSets.length);
+        }
+      } else {
+        setCurrentSetIndex(nextSetIndexAfterLog);
+      }
 
       if (!currentUserId) {
         throw new Error("Missing userId while logging set");
@@ -416,29 +446,9 @@ const SelectedSetItem = ({
         ruleId: updatedExercise.ruleId,
       });
 
-      setLiveAdjustment(adjustedResult.adjustment);
-      setCurrentExercise(updatedExercise);
-      setExercises?.(updatedExercises);
-
       if (exerciseComplete) {
         onStartRestTimer?.(0);
-        const nextExerciseIndex = updatedExercises.findIndex(
-          (ex, i) => i > currentExerciseIndex && !ex.complete
-        );
-
-        if (nextExerciseIndex !== -1) {
-          setCurrentExerciseIndex(nextExerciseIndex);
-
-          const firstOpenSet = updatedExercises[nextExerciseIndex].sets.findIndex(
-            (s) => !s.complete
-          );
-          setCurrentSetIndex(firstOpenSet === -1 ? 0 : firstOpenSet);
-        } else {
-          workout.complete = true; // whole routine finished
-          setCurrentSetIndex(adjustedSets.length);
-        }
       } else {
-        setCurrentSetIndex(nextSetIndex === -1 ? adjustedSets.length : nextSetIndex);
         if (nextSetIndex !== -1) {
           onStartRestTimer?.(currentExercise.rest ?? 0);
         }
@@ -448,6 +458,12 @@ const SelectedSetItem = ({
       onLogSetPersisted?.();
     } catch (error) {
       console.error("Failed to log set", error);
+      workout.complete = false;
+      setLiveAdjustment(null);
+      setCurrentExercise(previousExercise);
+      setExercises?.(previousExercises);
+      setCurrentExerciseIndex(currentExerciseIndex);
+      setCurrentSetIndex(setIndex);
       setLogSetError("This set was not saved. Check your connection and try again.");
       onLogSetFailed?.(
         error instanceof Error ? error.message : "The set did not save."
@@ -621,7 +637,9 @@ const SelectedSetItem = ({
                   weightValidationErrors.find((message) =>
                     message.toLowerCase().includes("weight")
                   ) ??
-                  `Use ${formatWeightValue(weightInputConfig.step)} ${weightUnit} increments, ${formatWeightValue(weightInputConfig.min)}-${formatWeightValue(weightInputConfig.max)} ${weightUnit}.`
+                  (currentSetWeight
+                    ? `Use ${formatWeightValue(weightInputConfig.step)} ${weightUnit} increments, ${formatWeightValue(weightInputConfig.min)}-${formatWeightValue(weightInputConfig.max)} ${weightUnit}.`
+                    : `Start with the empty bar or a light warm-up load, then pick a weight that leaves about 2-3 reps in reserve.`)
                 }
                 inputProps={{
                   min: weightInputConfig.min,

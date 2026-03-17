@@ -55,6 +55,7 @@ const triageTone: Record<
   "default" | "success" | "warning" | "info"
 > = {
   new: "warning",
+  "details copied": "info",
   duplicate: "default",
   queued: "info",
   fixing: "warning",
@@ -84,7 +85,13 @@ type QueueSortMode =
   | "latest"
   | "oldest"
   | "reports"
-  | "severity";
+  | "severity"
+  | "title";
+
+type WorkItemFilterType = "all" | "bug" | "feature";
+type WorkItemListScope = "active" | "completed" | "all";
+type WorkItemStatusFilter = "all" | FeedbackTriageStatus;
+type WorkItemSeverityFilter = "all" | "high" | "medium" | "low" | "unset";
 
 type FoundingBetaUserRecord = {
   _id: string;
@@ -119,6 +126,7 @@ const inactiveTriageStatuses: FeedbackTriageStatus[] = [
 
 const triageLabel: Record<FeedbackTriageStatus, string> = {
   new: "New",
+  "details copied": "Details Copied",
   duplicate: "Closed as Duplicate",
   queued: "Triaged",
   fixing: "In Progress",
@@ -144,11 +152,12 @@ const formatRate = (value?: number) => `${Math.round((value || 0) * 100)}%`;
 
 const triageSortOrder: Record<FeedbackTriageStatus, number> = {
   fixing: 0,
-  queued: 1,
-  new: 2,
-  resolved: 3,
-  duplicate: 4,
-  verified: 5,
+  "details copied": 1,
+  queued: 2,
+  new: 3,
+  resolved: 4,
+  duplicate: 5,
+  verified: 6,
 };
 
 const severitySortOrder: Record<string, number> = {
@@ -171,6 +180,8 @@ const compareWorkItems = (
   const byTitle = String(left.title || "").localeCompare(String(right.title || ""));
 
   switch (sortMode) {
+    case "title":
+      return byTitle || byNewestActivity;
     case "latest":
       return byNewestActivity || byTitle;
     case "oldest":
@@ -203,6 +214,8 @@ const compareWorkItems = (
 
 const isInactiveWorkItem = (item: FeedbackWorkItemDoc) =>
   inactiveTriageStatuses.includes(item.triageStatus);
+
+const isActiveWorkItem = (item: FeedbackWorkItemDoc) => !isInactiveWorkItem(item);
 
 const createDraftMap = (
   items: FeedbackWorkItemDoc[],
@@ -246,6 +259,15 @@ const BugsPage = () => {
   >({});
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [queueSortMode, setQueueSortMode] = useState<QueueSortMode>("workflow");
+  const [workItemSearch, setWorkItemSearch] = useState("");
+  const [workItemTypeFilter, setWorkItemTypeFilter] =
+    useState<WorkItemFilterType>("all");
+  const [workItemListScope, setWorkItemListScope] =
+    useState<WorkItemListScope>("active");
+  const [workItemStatusFilter, setWorkItemStatusFilter] =
+    useState<WorkItemStatusFilter>("all");
+  const [workItemSeverityFilter, setWorkItemSeverityFilter] =
+    useState<WorkItemSeverityFilter>("all");
   const [showCompletedSection, setShowCompletedSection] = useState(false);
   const [foundingBetaUsers, setFoundingBetaUsers] = useState<FoundingBetaUserRecord[]>([]);
   const [foundingBetaDrafts, setFoundingBetaDrafts] = useState<
@@ -417,18 +439,8 @@ const BugsPage = () => {
     };
   }, [isAdmin, session]);
 
-  const bugItems = useMemo(
-    () =>
-      [...workItems]
-        .filter((item) => item.type === "bug")
-        .sort((left, right) => compareWorkItems(left, right, queueSortMode)),
-    [queueSortMode, workItems]
-  );
-  const featureItems = useMemo(
-    () =>
-      [...workItems]
-        .filter((item) => item.type === "feature")
-        .sort((left, right) => compareWorkItems(left, right, queueSortMode)),
+  const sortedWorkItems = useMemo(
+    () => [...workItems].sort((left, right) => compareWorkItems(left, right, queueSortMode)),
     [queueSortMode, workItems]
   );
   const selectedWorkItem = useMemo(
@@ -445,22 +457,84 @@ const BugsPage = () => {
       }),
     [feedbackItems, selectedWorkItem]
   );
-  const activeBugItems = useMemo(
-    () => bugItems.filter((item) => !isInactiveWorkItem(item)),
-    [bugItems]
+  const activeWorkItems = useMemo(
+    () => sortedWorkItems.filter((item) => isActiveWorkItem(item)),
+    [sortedWorkItems]
   );
-  const inactiveBugItems = useMemo(
-    () => bugItems.filter((item) => isInactiveWorkItem(item)),
-    [bugItems]
+  const completedWorkItems = useMemo(
+    () => sortedWorkItems.filter((item) => isInactiveWorkItem(item)),
+    [sortedWorkItems]
   );
-  const activeFeatureItems = useMemo(
-    () => featureItems.filter((item) => !isInactiveWorkItem(item)),
-    [featureItems]
+  const activeBugCount = useMemo(
+    () => activeWorkItems.filter((item) => item.type === "bug").length,
+    [activeWorkItems]
   );
-  const inactiveFeatureItems = useMemo(
-    () => featureItems.filter((item) => isInactiveWorkItem(item)),
-    [featureItems]
+  const activeFeatureCount = useMemo(
+    () => activeWorkItems.filter((item) => item.type === "feature").length,
+    [activeWorkItems]
   );
+  const completedBugCount = useMemo(
+    () => completedWorkItems.filter((item) => item.type === "bug").length,
+    [completedWorkItems]
+  );
+  const completedFeatureCount = useMemo(
+    () => completedWorkItems.filter((item) => item.type === "feature").length,
+    [completedWorkItems]
+  );
+  const matchesWorkItemFilters = (item: FeedbackWorkItemDoc) => {
+    const normalizedSearch = workItemSearch.trim().toLowerCase();
+    const matchesSearch =
+      !normalizedSearch ||
+      [
+        item.title,
+        item.latestDescription,
+        item.page,
+        item.fingerprint,
+        item.fixThreadId,
+        item.fixCommitSha,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+    const matchesType =
+      workItemTypeFilter === "all" || item.type === workItemTypeFilter;
+    const matchesStatus =
+      workItemStatusFilter === "all" || item.triageStatus === workItemStatusFilter;
+    const matchesSeverity =
+      workItemSeverityFilter === "all"
+        ? true
+        : workItemSeverityFilter === "unset"
+        ? !item.severity
+        : item.severity === workItemSeverityFilter;
+
+    return matchesSearch && matchesType && matchesStatus && matchesSeverity;
+  };
+  const filteredActiveWorkItems = useMemo(
+    () => activeWorkItems.filter(matchesWorkItemFilters),
+    [
+      activeWorkItems,
+      workItemSearch,
+      workItemTypeFilter,
+      workItemStatusFilter,
+      workItemSeverityFilter,
+    ]
+  );
+  const filteredCompletedWorkItems = useMemo(
+    () => completedWorkItems.filter(matchesWorkItemFilters),
+    [
+      completedWorkItems,
+      workItemSearch,
+      workItemTypeFilter,
+      workItemStatusFilter,
+      workItemSeverityFilter,
+    ]
+  );
+  const currentPrimaryListItems = useMemo(() => {
+    if (workItemListScope === "completed") {
+      return filteredCompletedWorkItems;
+    }
+
+    return filteredActiveWorkItems;
+  }, [filteredActiveWorkItems, filteredCompletedWorkItems, workItemListScope]);
 
   const renderMetadataRows = (
     rows: Array<{ label: string; value?: string | number | boolean | null }>
@@ -510,15 +584,52 @@ const BugsPage = () => {
     }));
   };
 
+  const applyUpdatedWorkItem = (
+    workItemId: string,
+    updatedWorkItem: FeedbackWorkItemDoc
+  ) => {
+    setWorkItems((previous) =>
+      previous.map((entry) =>
+        String(entry._id) === workItemId ? updatedWorkItem : entry
+      )
+    );
+    setFeedbackItems((previous) =>
+      previous.map((entry) =>
+        String(entry.workItemId || "") === workItemId
+          ? {
+              ...entry,
+              triageStatus: updatedWorkItem.triageStatus,
+              status: updatedWorkItem.status,
+              severity: updatedWorkItem.severity,
+              fixThreadId: updatedWorkItem.fixThreadId,
+              fixCommitSha: updatedWorkItem.fixCommitSha,
+              resolvedAt: updatedWorkItem.resolvedAt,
+            }
+          : entry
+      )
+    );
+    setDrafts((previous) => ({
+      ...previous,
+      [workItemId]: {
+        title: updatedWorkItem.title || "",
+        latestDescription: updatedWorkItem.latestDescription || "",
+        fixThreadId: updatedWorkItem.fixThreadId || "",
+        fixCommitSha: updatedWorkItem.fixCommitSha || "",
+      },
+    }));
+  };
+
   const handleWorkflowUpdate = async (
     item: FeedbackWorkItemDoc,
     {
       triageStatus,
+      severity,
       title,
       latestDescription,
       successMessage,
     }: {
       triageStatus: FeedbackTriageStatus;
+      severity?: "low" | "medium" | "high";
       title?: string;
       latestDescription?: string;
       successMessage?: string;
@@ -547,6 +658,7 @@ const BugsPage = () => {
       const response = await updateFeedbackWorkItem({
         workItemId,
         triageStatus,
+        severity,
         title: title ?? draft.title,
         latestDescription: latestDescription ?? draft.latestDescription,
         fixThreadId: draft.fixThreadId || undefined,
@@ -555,34 +667,7 @@ const BugsPage = () => {
 
       const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
       if (updatedWorkItem) {
-        setWorkItems((previous) =>
-          previous.map((entry) =>
-            String(entry._id) === workItemId ? updatedWorkItem : entry
-          )
-        );
-        setFeedbackItems((previous) =>
-          previous.map((entry) =>
-            String(entry.workItemId || "") === workItemId
-              ? {
-                  ...entry,
-                  triageStatus: updatedWorkItem.triageStatus,
-                  status: updatedWorkItem.status,
-                  fixThreadId: updatedWorkItem.fixThreadId,
-                  fixCommitSha: updatedWorkItem.fixCommitSha,
-                  resolvedAt: updatedWorkItem.resolvedAt,
-                }
-              : entry
-          )
-        );
-        setDrafts((previous) => ({
-          ...previous,
-          [workItemId]: {
-            title: updatedWorkItem.title || "",
-            latestDescription: updatedWorkItem.latestDescription || "",
-            fixThreadId: updatedWorkItem.fixThreadId || "",
-            fixCommitSha: updatedWorkItem.fixCommitSha || "",
-          },
-        }));
+        applyUpdatedWorkItem(workItemId, updatedWorkItem);
       }
 
       toast.success(
@@ -636,6 +721,7 @@ const BugsPage = () => {
   };
 
   const handleCopyDetails = async (item: FeedbackWorkItemDoc) => {
+    const workItemId = String(item._id || "");
     const evidence = getFeedbackEvidenceForWorkItem({
       workItem: item,
       feedbackItems,
@@ -652,10 +738,108 @@ const BugsPage = () => {
 
     try {
       await navigator.clipboard.writeText(copyText);
-      toast.success("Copied issue details.");
+      setSavingId(workItemId);
+      try {
+        const response = await updateFeedbackWorkItem({
+          workItemId,
+          triageStatus: "details copied",
+          severity: item.severity,
+          title: item.title,
+          latestDescription: item.latestDescription,
+          fixThreadId: item.fixThreadId || undefined,
+          fixCommitSha: item.fixCommitSha || undefined,
+        });
+        const updatedWorkItem = response?.workItem as FeedbackWorkItemDoc | undefined;
+        if (updatedWorkItem) {
+          applyUpdatedWorkItem(workItemId, updatedWorkItem);
+        }
+        toast.success("Copied issue details and marked the ticket as details copied.");
+      } catch (statusError) {
+        console.error("Copied work item details but failed to update status:", statusError);
+        toast.warning("Copied issue details, but couldn't update the ticket status.");
+      }
     } catch (error) {
       console.error("Failed to copy work item details:", error);
       toast.error("Couldn't copy the work item details.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleCopyTopFiveDetails = async () => {
+    const itemsToCopy = currentPrimaryListItems.slice(0, 5);
+
+    if (itemsToCopy.length === 0) {
+      toast.info("No work items match the current filters.");
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      toast.error("Clipboard copy is not available in this browser.");
+      return;
+    }
+
+    const combinedText = itemsToCopy
+      .map((item, index) => {
+        const evidence = getFeedbackEvidenceForWorkItem({
+          workItem: item,
+          feedbackItems,
+        });
+
+        return [
+          `Issue ${index + 1} of ${itemsToCopy.length}`,
+          buildCodexCopyText({
+            workItem: item,
+            evidence,
+          }),
+        ].join("\n");
+      })
+      .join("\n\n----------------------------------------\n\n");
+
+    try {
+      await navigator.clipboard.writeText(combinedText);
+      const results = await Promise.allSettled(
+        itemsToCopy.map((item) =>
+          updateFeedbackWorkItem({
+            workItemId: String(item._id || ""),
+            triageStatus: "details copied",
+            severity: item.severity,
+            title: item.title,
+            latestDescription: item.latestDescription,
+            fixThreadId: item.fixThreadId || undefined,
+            fixCommitSha: item.fixCommitSha || undefined,
+          })
+        )
+      );
+
+      let updatedCount = 0;
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          const updatedWorkItem = result.value?.workItem as FeedbackWorkItemDoc | undefined;
+          if (updatedWorkItem) {
+            applyUpdatedWorkItem(String(itemsToCopy[index]._id || ""), updatedWorkItem);
+            updatedCount += 1;
+          }
+          return;
+        }
+
+        console.error("Failed to update copied work item status:", result.reason);
+      });
+
+      if (updatedCount === itemsToCopy.length) {
+        toast.success(`Copied the top ${itemsToCopy.length} issues and marked them as details copied.`);
+      } else if (updatedCount > 0) {
+        toast.warning(
+          `Copied ${itemsToCopy.length} issues, but only updated ${updatedCount} ticket statuses.`
+        );
+      } else {
+        toast.warning(
+          `Copied the top ${itemsToCopy.length} issues, but couldn't update their ticket statuses.`
+        );
+      }
+    } catch (error) {
+      console.error("Failed to copy top work item details:", error);
+      toast.error("Couldn't copy the top filtered work item details.");
     }
   };
 
@@ -787,11 +971,7 @@ const BugsPage = () => {
     );
   }
 
-  const renderWorkItems = (
-    items: FeedbackWorkItemDoc[],
-    emptyMessage: string,
-    typeLabel: string
-  ) => {
+  const renderWorkItems = (items: FeedbackWorkItemDoc[], emptyMessage: string) => {
     if (items.length === 0) {
       return <Alert severity="info">{emptyMessage}</Alert>;
     }
@@ -834,7 +1014,7 @@ const BugsPage = () => {
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <Chip
                     size="small"
-                    label={typeLabel}
+                    label={item.type === "bug" ? "Bug" : "Feature"}
                     color={item.type === "bug" ? "warning" : "info"}
                     variant="outlined"
                   />
@@ -905,6 +1085,7 @@ const BugsPage = () => {
                   onChange={(event) =>
                     handleWorkflowUpdate(item, {
                       triageStatus: event.target.value as FeedbackTriageStatus,
+                      severity: item.severity,
                     })
                   }
                   disabled={savingId === workItemId}
@@ -915,6 +1096,29 @@ const BugsPage = () => {
                       {label}
                     </MenuItem>
                   ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Priority"
+                  value={item.severity || "unset"}
+                  onChange={(event) =>
+                    handleWorkflowUpdate(item, {
+                      triageStatus: item.triageStatus,
+                      severity:
+                        event.target.value === "unset"
+                          ? undefined
+                          : (event.target.value as "low" | "medium" | "high"),
+                      successMessage: "Priority updated",
+                    })
+                  }
+                  disabled={savingId === workItemId}
+                  sx={{ minWidth: 150 }}
+                >
+                  <MenuItem value="unset">Unset</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="low">Low</MenuItem>
                 </TextField>
                 <Button
                   variant="text"
@@ -1395,128 +1599,187 @@ const BugsPage = () => {
           }}
         >
           <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", sm: "center" }}
+            spacing={2}
           >
-            <Box>
-              <Typography variant="h6">Bug queue</Typography>
-              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Only bugs that still need attention stay here. Fixed, closed,
-                and duplicate items live in the completed section below.
-              </Typography>
-            </Box>
             <Stack
               direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              alignItems={{ xs: "stretch", sm: "center" }}
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
             >
+              <Box>
+                <Typography variant="h6">Work queue</Typography>
+                <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                  Bugs and features now stay in one sortable list so you can triage,
+                  reprioritize, and hand work off faster. Use the filters to narrow
+                  the queue without losing the separate bug and feature totals.
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip
+                  icon={<BugReportOutlinedIcon />}
+                  label={`${activeBugCount} open bug${activeBugCount === 1 ? "" : "s"}`}
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${activeFeatureCount} open feature${
+                    activeFeatureCount === 1 ? "" : "s"
+                  }`}
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${completedBugCount} closed bug${
+                    completedBugCount === 1 ? "" : "s"
+                  }`}
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${completedFeatureCount} closed feature${
+                    completedFeatureCount === 1 ? "" : "s"
+                  }`}
+                  variant="outlined"
+                />
+              </Stack>
+            </Stack>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={1}
+              alignItems={{ xs: "stretch", md: "center" }}
+              useFlexGap
+              flexWrap="wrap"
+            >
+              <TextField
+                size="small"
+                label="Search"
+                value={workItemSearch}
+                onChange={(event) => setWorkItemSearch(event.target.value)}
+                placeholder="Title, page, fingerprint, thread..."
+                sx={{ minWidth: { xs: "100%", md: 260 } }}
+              />
               <TextField
                 select
                 size="small"
-                label="Sort queue"
+                label="Type"
+                value={workItemTypeFilter}
+                onChange={(event) =>
+                  setWorkItemTypeFilter(event.target.value as WorkItemFilterType)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 150 } }}
+              >
+                <MenuItem value="all">All types</MenuItem>
+                <MenuItem value="bug">Bugs</MenuItem>
+                <MenuItem value="feature">Features</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="List"
+                value={workItemListScope}
+                onChange={(event) =>
+                  setWorkItemListScope(event.target.value as WorkItemListScope)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 150 } }}
+              >
+                <MenuItem value="active">Open only</MenuItem>
+                <MenuItem value="completed">Closed only</MenuItem>
+                <MenuItem value="all">Open and closed</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Status"
+                value={workItemStatusFilter}
+                onChange={(event) =>
+                  setWorkItemStatusFilter(event.target.value as WorkItemStatusFilter)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 170 } }}
+              >
+                <MenuItem value="all">All statuses</MenuItem>
+                {Object.entries(triageLabel).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Priority"
+                value={workItemSeverityFilter}
+                onChange={(event) =>
+                  setWorkItemSeverityFilter(event.target.value as WorkItemSeverityFilter)
+                }
+                sx={{ minWidth: { xs: "100%", sm: 150 } }}
+              >
+                <MenuItem value="all">All priorities</MenuItem>
+                <MenuItem value="high">High</MenuItem>
+                <MenuItem value="medium">Medium</MenuItem>
+                <MenuItem value="low">Low</MenuItem>
+                <MenuItem value="unset">Unset</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Sort"
                 value={queueSortMode}
                 onChange={(event) =>
                   setQueueSortMode(event.target.value as QueueSortMode)
                 }
-                sx={{ minWidth: { xs: "100%", sm: 220 } }}
+                sx={{ minWidth: { xs: "100%", sm: 170 } }}
               >
                 <MenuItem value="workflow">Workflow priority</MenuItem>
+                <MenuItem value="severity">Highest priority</MenuItem>
+                <MenuItem value="reports">Most reports</MenuItem>
                 <MenuItem value="latest">Latest activity</MenuItem>
                 <MenuItem value="oldest">Oldest first</MenuItem>
-                <MenuItem value="reports">Most reports</MenuItem>
-                <MenuItem value="severity">Highest severity</MenuItem>
+                <MenuItem value="title">Title</MenuItem>
               </TextField>
-              <Chip
-                icon={<BugReportOutlinedIcon />}
-                label={`${activeBugItems.length} active${
-                  activeBugItems.length === 1 ? "" : "s"
-                }`}
+              <Button
                 variant="outlined"
-              />
-              {inactiveBugItems.length > 0 ? (
-                <Chip
-                  label={`${inactiveBugItems.length} completed`}
-                  variant="outlined"
-                />
-              ) : null}
+                onClick={() => void handleCopyTopFiveDetails()}
+                disabled={currentPrimaryListItems.length === 0}
+              >
+                Copy Details Of Top 5
+              </Button>
             </Stack>
           </Stack>
         </Paper>
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          {renderWorkItems(
-            activeBugItems,
-            "No active bug work items found.",
-            "Bug"
-          )}
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", sm: "center" }}
+        {(workItemListScope === "active" || workItemListScope === "all") ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
           >
-            <Box>
-              <Typography variant="h6">Feature queue</Typography>
-              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                Only active feature work stays here. Completed and closed
-                items are separated below with the finished bug history.
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip
-                label={`${activeFeatureItems.length} active${
-                  activeFeatureItems.length === 1 ? "" : "s"
-                }`}
-                variant="outlined"
-              />
-              {inactiveFeatureItems.length > 0 ? (
+            <Stack spacing={1.5}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Typography variant="h6">Open work items</Typography>
                 <Chip
-                  label={`${inactiveFeatureItems.length} completed`}
+                  label={`${filteredActiveWorkItems.length} match${
+                    filteredActiveWorkItems.length === 1 ? "" : "es"
+                  }`}
                   variant="outlined"
                 />
-              ) : null}
+              </Stack>
+              {renderWorkItems(
+                filteredActiveWorkItems,
+                "No open work items match the current filters."
+              )}
             </Stack>
-          </Stack>
-        </Paper>
+          </Paper>
+        ) : null}
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          {renderWorkItems(
-            activeFeatureItems,
-            "No active feature work items found.",
-            "Feature"
-          )}
-        </Paper>
-
-        {inactiveBugItems.length > 0 || inactiveFeatureItems.length > 0 ? (
+        {(workItemListScope === "completed" || workItemListScope === "all") &&
+        completedWorkItems.length > 0 ? (
           <>
             <Paper
               elevation={0}
@@ -1536,13 +1799,15 @@ const BugsPage = () => {
                 <Box>
                   <Typography variant="h6">Completed / Closed</Typography>
                   <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                    Fixed, verified, and duplicate items live here so the main
-                    queue stays focused on active work.
+                    Resolved, verified, and duplicate items stay available for reference
+                    without crowding the live queue.
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <Chip
-                    label={`${inactiveBugItems.length + inactiveFeatureItems.length} total`}
+                    label={`${filteredCompletedWorkItems.length} match${
+                      filteredCompletedWorkItems.length === 1 ? "" : "es"
+                    }`}
                     variant="outlined"
                   />
                   <Button
@@ -1557,39 +1822,20 @@ const BugsPage = () => {
             </Paper>
 
             {showCompletedSection ? (
-              <>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 2, sm: 2.5 },
-                    borderRadius: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  {renderWorkItems(
-                    inactiveBugItems,
-                    "No completed bug work items found.",
-                    "Bug"
-                  )}
-                </Paper>
-
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 2, sm: 2.5 },
-                    borderRadius: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  {renderWorkItems(
-                    inactiveFeatureItems,
-                    "No completed feature work items found.",
-                    "Feature"
-                  )}
-                </Paper>
-              </>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: { xs: 2, sm: 2.5 },
+                  borderRadius: 3,
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                {renderWorkItems(
+                  filteredCompletedWorkItems,
+                  "No closed work items match the current filters."
+                )}
+              </Paper>
             ) : null}
           </>
         ) : null}
@@ -1646,6 +1892,7 @@ const BugsPage = () => {
                     onChange={(event) =>
                       handleWorkflowUpdate(selectedWorkItem, {
                         triageStatus: event.target.value as FeedbackTriageStatus,
+                        severity: selectedWorkItem.severity,
                       })
                     }
                     disabled={savingId === String(selectedWorkItem._id)}
@@ -1656,6 +1903,29 @@ const BugsPage = () => {
                         {label}
                       </MenuItem>
                     ))}
+                  </TextField>
+                  <TextField
+                    select
+                    size="small"
+                    label="Priority"
+                    value={selectedWorkItem.severity || "unset"}
+                    onChange={(event) =>
+                      handleWorkflowUpdate(selectedWorkItem, {
+                        triageStatus: selectedWorkItem.triageStatus,
+                        severity:
+                          event.target.value === "unset"
+                            ? undefined
+                            : (event.target.value as "low" | "medium" | "high"),
+                        successMessage: "Priority updated",
+                      })
+                    }
+                    disabled={savingId === String(selectedWorkItem._id)}
+                    sx={{ maxWidth: 220 }}
+                  >
+                    <MenuItem value="unset">Unset</MenuItem>
+                    <MenuItem value="high">High</MenuItem>
+                    <MenuItem value="medium">Medium</MenuItem>
+                    <MenuItem value="low">Low</MenuItem>
                   </TextField>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip

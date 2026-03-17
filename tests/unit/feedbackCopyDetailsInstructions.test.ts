@@ -22,5 +22,8 @@ describe("feedback copy details instructions", () => {
     expect(text).toContain(
       "Front-end audits and end-to-end workflow checks should be evaluated against production functionality whenever possible"
     );
+    expect(text).toContain(
+      "Keep this work item's ticket status updated in the database while you are working on it and when the work is done."
+    );
   });
 });

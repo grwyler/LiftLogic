@@ -40,7 +40,7 @@ describe("comeback guidance", () => {
 
   it("shows supportive comeback actions in the workout flow", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutHeaderSummary.tsx"),
       "utf8"
     );
 

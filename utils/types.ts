@@ -265,6 +265,7 @@ export type FeedbackLegacyStatus =
 
 export type FeedbackTriageStatus =
   | "new"
+  | "details copied"
   | "duplicate"
   | "queued"
   | "fixing"

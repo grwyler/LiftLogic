@@ -1,0 +1,565 @@
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⚠ Cross origin request detected from 127.0.0.1 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\client-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\client-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:679:1]
+ [2m676[0m | 
+ [2m677[0m |       const msg = await res.text();
+ [2m678[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m679[0m |     } else {
+     : [35;1m      ^[0m
+ [2m680[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m681[0m |     }
+ [2m681[0m |   } catch (err) {
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:679:1]
+ [2m676[0m | 
+ [2m677[0m |       const msg = await res.text();
+ [2m678[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m679[0m |     } else {
+     : [35;1m      ^^^^[0m
+ [2m680[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m681[0m |     }
+ [2m681[0m |   } catch (err) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:678:1]
+ [2m675[0m |     await deactivateRecurringRuleClient(ruleId);
+ [2m676[0m | 
+ [2m677[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m678[0m |     } else {
+     : [35;1m      ^[0m
+ [2m679[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m680[0m |     }
+ [2m680[0m |   } catch (err) {
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:678:1]
+ [2m675[0m |     await deactivateRecurringRuleClient(ruleId);
+ [2m676[0m | 
+ [2m677[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m678[0m |     } else {
+     : [35;1m      ^^^^[0m
+ [2m679[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m680[0m |     }
+ [2m680[0m |   } catch (err) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:678:1]
+ [2m675[0m |     await deactivateRecurringRuleClient(ruleId);
+ [2m676[0m | 
+ [2m677[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m678[0m |     } else {
+     : [35;1m      ^[0m
+ [2m679[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m680[0m |     }
+ [2m680[0m |   } catch (err) {
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:678:1]
+ [2m675[0m |     await deactivateRecurringRuleClient(ruleId);
+ [2m676[0m | 
+ [2m677[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m678[0m |     } else {
+     : [35;1m      ^^^^[0m
+ [2m679[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m680[0m |     }
+ [2m680[0m |   } catch (err) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:680:1]
+ [2m677[0m |     const msg = "";
+ [2m678[0m | 
+ [2m679[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m680[0m |     } else {
+     : [35;1m      ^[0m
+ [2m681[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m682[0m |     }
+ [2m682[0m |   } catch (err) {
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:680:1]
+ [2m677[0m |     const msg = "";
+ [2m678[0m | 
+ [2m679[0m |       console.error("[deactivateRecurringRule] ❌", res.status, msg);
+ [2m680[0m |     } else {
+     : [35;1m      ^^^^[0m
+ [2m681[0m |       console.info("[deactivateRecurringRule] ✅");
+ [2m682[0m |     }
+ [2m682[0m |   } catch (err) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz'
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:866:1]
+ [2m863[0m |         status: "failure",
+ [2m864[0m |       });
+ [2m865[0m |       return { success: false };
+ [2m866[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:869:1]
+ [2m866[0m |   } catch (error) {
+ [2m867[0m |     console.error("Error saving user inputs:", error);
+ [2m868[0m |   }
+ [2m869[0m | };
+     : [35;1m ^[0m
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   }
+ [2m869[0m | };
+ [2m870[0m | 
+ [2m871[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m872[0m |   const response = await fetch("/api/billing/summary");
+ [2m873[0m | 
+ [2m874[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:867:1]
+ [2m864[0m |         status: "failure",
+ [2m865[0m |       });
+ [2m866[0m |       return { success: false };
+ [2m867[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m868[0m |     console.error("Error saving user inputs:", error);
+ [2m869[0m |   }
+ [2m870[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:870:1]
+ [2m867[0m |   } catch (error) {
+ [2m868[0m |     console.error("Error saving user inputs:", error);
+ [2m869[0m |   }
+ [2m870[0m | };
+     : [35;1m ^[0m
+ [2m871[0m | 
+ [2m872[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m873[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:872:1]
+ [2m869[0m |   }
+ [2m870[0m | };
+ [2m871[0m | 
+ [2m872[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m873[0m |   const response = await fetch("/api/billing/summary");
+ [2m874[0m | 
+ [2m875[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+ ⨯ ./utils/helpers.ts
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:868:1]
+ [2m865[0m |         status: "failure",
+ [2m866[0m |       });
+ [2m867[0m |       return { success: false };
+ [2m868[0m |   } catch (error) {
+     : [35;1m    ^^^^^[0m
+ [2m869[0m |     console.error("Error saving user inputs:", error);
+ [2m870[0m |   }
+ [2m871[0m | };
+     `----
+  [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:871:1]
+ [2m868[0m |   } catch (error) {
+ [2m869[0m |     console.error("Error saving user inputs:", error);
+ [2m870[0m |   }
+ [2m871[0m | };
+     : [35;1m ^[0m
+ [2m872[0m | 
+ [2m873[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+ [2m874[0m |   const response = await fetch("/api/billing/summary");
+     `----
+  [31mx[0m 'import', and 'export' cannot be used outside of module code
+     ,-[[36;1;4mC:\Users\Grwyl\VSCode Projects\lift-logic\utils\helpers.ts[0m:873:1]
+ [2m870[0m |   }
+ [2m871[0m | };
+ [2m872[0m | 
+ [2m873[0m | export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
+     : [35;1m^^^^^^[0m
+ [2m874[0m |   const response = await fetch("/api/billing/summary");
+ [2m875[0m | 
+ [2m876[0m |   if (!response.ok) {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./utils/helpers.ts
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\client-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\client-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Grwyl\\VSCode Projects\\lift-logic\\.next\\server\\pages\\_document.js',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Grwyl\\VSCode Projects\\lift-logic\\.next\\server\\pages\\_document.js'
+}
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ShadowPortal (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\client\components\react-dev-overlay\ui\components\shadow-portal.tsx:5:32)
+    at DevOverlay (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\client\components\react-dev-overlay\ui\dev-overlay.tsx:14:3)
+    at ReactDevOverlay (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\server\dev\next-dev-server.ts:82:10)
+    at div
+    at Body (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\server\render.tsx:1263:19)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ShadowPortal (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\client\components\react-dev-overlay\ui\components\shadow-portal.tsx:5:32)
+    at DevOverlay (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\client\components\react-dev-overlay\ui\dev-overlay.tsx:14:3)
+    at ReactDevOverlay (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\server\dev\next-dev-server.ts:82:10)
+    at div
+    at Body (C:\Users\Grwyl\VSCode Projects\lift-logic\node_modules\next\src\server\render.tsx:1263:19)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\1.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+ ⨯ ./components/WorkoutDisplay.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\WorkoutDisplay.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/WorkoutDisplay.tsx
+./components/WorkoutsManager.tsx
+ ⨯ ./components/WorkoutDisplay.tsx
+Error: Failed to read source code from C:\Users\Grwyl\VSCode Projects\lift-logic\components\WorkoutDisplay.tsx
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/WorkoutDisplay.tsx
+./components/WorkoutsManager.tsx
+./pages/routines.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: unexpected end of file
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'

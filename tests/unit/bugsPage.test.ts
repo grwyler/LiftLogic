@@ -3,15 +3,25 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 describe("bugs page workflow actions", () => {
-  it("uses the inline status selector flow instead of a removed primary action helper", () => {
+  it("keeps bugs and features in one filtered work list with inline status and priority controls", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "pages", "bugs.tsx"),
       "utf8"
     );
 
     expect(source).not.toContain("getPrimaryAction(");
+    expect(source).toContain("Work queue");
+    expect(source).toContain('label="Search"');
+    expect(source).toContain('label="Type"');
+    expect(source).toContain('label="List"');
+    expect(source).toContain('label="Priority"');
+    expect(source).toContain("Copy Details Of Top 5");
+    expect(source).toContain("handleCopyTopFiveDetails");
+    expect(source).toContain("currentPrimaryListItems.slice(0, 5)");
+    expect(source).toContain("Open work items");
     expect(source).toContain('label="Status"');
     expect(source).toContain("handleWorkflowUpdate(item, {");
+    expect(source).toContain('triageStatus: "details copied"');
     expect(source).toContain("Founding beta access");
     expect(source).toContain("Monetization summary");
     expect(source).toContain("fetchMonetizationSummary");

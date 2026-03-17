@@ -21,7 +21,7 @@ describe("quick add auto-open flow", () => {
     expect(managerSource).toContain("setIsAddingExercise(false);");
     expect(workoutsManagerSource).toContain("lastQuickAddedExerciseIdentity");
     expect(workoutsManagerSource).toContain("onQuickAddComplete={(exerciseIdentity) => {");
-    expect(workoutDisplaySource).toContain("setCurrentExerciseIndex(nextExerciseIndex);");
+    expect(workoutDisplaySource).toContain("setCurrentExerciseIndex(reopenedExerciseIndex);");
   });
 
   it("focuses the first incomplete set when the exercise opens", () => {
@@ -31,7 +31,7 @@ describe("quick add auto-open flow", () => {
     );
 
     expect(source).toContain("if (!isOpen) {");
-    expect(source).toContain("findIndex((set) => !set.complete)");
-    expect(source).toContain("setCurrentSetIndex(nextSetIndex >= 0 ? nextSetIndex : 0);");
+    expect(source).toContain("const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);");
+    expect(source).toContain("setCurrentSetIndex(nextSetIndex !== -1 ? nextSetIndex : 0);");
   });
 });

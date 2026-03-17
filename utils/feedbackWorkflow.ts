@@ -7,6 +7,7 @@ import {
 
 export const FEEDBACK_TRIAGE_STATUSES: FeedbackTriageStatus[] = [
   "new",
+  "details copied",
   "duplicate",
   "queued",
   "fixing",
@@ -86,6 +87,8 @@ export const getLegacyStatusFromTriage = (
   triageStatus: FeedbackTriageStatus
 ): FeedbackLegacyStatus => {
   switch (triageStatus) {
+    case "details copied":
+      return "planned";
     case "queued":
       return "planned";
     case "fixing":

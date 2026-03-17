@@ -8,6 +8,10 @@ describe("completed exercise styling", () => {
       path.join(process.cwd(), "components", "ExerciseItem.tsx"),
       "utf8"
     );
+    const feedbackPanelsSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "exercise-item", "ExerciseFeedbackPanels.tsx"),
+      "utf8"
+    );
     const completedSetSource = fs.readFileSync(
       path.join(process.cwd(), "components", "CompletedSetItem.tsx"),
       "utf8"
@@ -16,7 +20,7 @@ describe("completed exercise styling", () => {
     expect(exerciseItemSource).toContain('panel: "28px"');
     expect(exerciseItemSource).toContain('section: "22px"');
     expect(exerciseItemSource).toContain("borderRadius: completedExerciseRadius.panel");
-    expect(exerciseItemSource).toContain("borderRadius: completedExerciseRadius.section");
+    expect(feedbackPanelsSource).toContain("borderRadius: completedExerciseRadius.section");
     expect(completedSetSource).toContain('card: "20px"');
     expect(completedSetSource).toContain("borderRadius: completedSetRadius.card");
   });

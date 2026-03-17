@@ -10,10 +10,12 @@ describe("workouts manager history fetch strategy", () => {
     );
 
     expect(source).toContain("const [historyLoadedThroughKey, setHistoryLoadedThroughKey] = useState<string | null>(null);");
-    expect(source).toContain('if (historyLoadedThroughKey && currentDate <= new Date(`${historyLoadedThroughKey}T23:59:59`)) {');
-    expect(source).toContain("const fetchStartDate = historyLoadedThroughKey");
-    expect(source).toContain("historyLoadedThroughKey");
-    expect(source).not.toContain("}, [currentDate, dayRefreshTick, userId]);");
+    expect(source).toContain("const [historyUserId, setHistoryUserId] = useState<string | null>(null);");
+    expect(source).toContain("if (userId !== historyUserId) {");
+    expect(source).toContain("if (historyLoadedThroughKey) {");
+    expect(source).toContain("fetchWorkoutEntriesRange(userId, HISTORY_START_DATE, currentDate)");
+    expect(source).not.toContain('if (historyLoadedThroughKey && currentDate <= new Date(`${historyLoadedThroughKey}T23:59:59`)) {');
+    expect(source).not.toContain("const fetchStartDate = historyLoadedThroughKey");
     expect(source).toContain("}, [currentDate, historyLoadedThroughKey, userId]);");
   });
 

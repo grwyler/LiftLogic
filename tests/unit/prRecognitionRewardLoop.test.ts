@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 describe("PR recognition reward loop", () => {
   it("surfaces recent PR history in the workout flow and recap", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
+      path.join(process.cwd(), "components", "workout-display", "WorkoutCompletionRecap.tsx"),
       "utf8"
     );
 
@@ -17,7 +17,7 @@ describe("PR recognition reward loop", () => {
 
   it("announces new personal records inside the completed exercise view", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "components", "ExerciseItem.tsx"),
+      path.join(process.cwd(), "components", "exercise-item", "ExerciseFeedbackPanels.tsx"),
       "utf8"
     );
 

@@ -31,6 +31,10 @@ yarn-error.log*
 
 # local env files
 .env*.local
+android/local.properties
+android/keystore/
+*.jks
+*.keystore
 
 # vercel
 .vercel

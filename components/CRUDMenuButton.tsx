@@ -66,10 +66,14 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
   return (
     <>
       <IconButton
-        size="small"
         onClick={handleOpen}
+        aria-label="Exercise actions"
         sx={{
-          ml: 1,
+          ml: 0.25,
+          minWidth: 44,
+          minHeight: 44,
+          width: 44,
+          height: 44,
           border: "1px solid",
           borderColor: open ? "divider" : "transparent",
           backgroundColor: open
@@ -86,7 +90,7 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
           transition: "background-color 0.2s ease, border-color 0.2s ease",
         }}
       >
-        <MoreHorizIcon fontSize="small" />
+        <MoreHorizIcon />
       </IconButton>
 
       <Menu
@@ -110,11 +114,10 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
           },
         }}
         MenuListProps={{
-          dense: true,
           onClick: (event) => event.stopPropagation(),
         }}
       >
-        <MenuItem onClick={handleEdit}>
+        <MenuItem onClick={handleEdit} sx={{ minHeight: 44 }}>
           <ListItemIcon>
             <EditOutlinedIcon fontSize="small" />
           </ListItemIcon>
@@ -122,7 +125,7 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
         </MenuItem>
 
         {handleSkipToday ? (
-          <MenuItem onClick={handleSkipClick}>
+          <MenuItem onClick={handleSkipClick} sx={{ minHeight: 44 }}>
             <ListItemIcon>
               <SkipNextOutlinedIcon fontSize="small" />
             </ListItemIcon>
@@ -132,12 +135,12 @@ const CRUDMenuButton: React.FC<ExerciseMenuProps> = ({
 
         <MenuItem
           onClick={handleDeleteClick}
-          sx={{ color: "error.main" }}
+          sx={{ minHeight: 44 }}
         >
           <ListItemIcon sx={{ color: "error.main" }}>
             <DeleteOutlineIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>{deleteLabel}</ListItemText>
+          <ListItemText sx={{ color: "error.main" }}>{deleteLabel}</ListItemText>
         </MenuItem>
       </Menu>
     </>

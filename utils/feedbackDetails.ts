@@ -174,6 +174,7 @@ export const buildCodexCopyText = ({
     "For testing and validation, prefer observing real production behavior over a local run unless this is specifically a code audit.",
     "Front-end audits and end-to-end workflow checks should be evaluated against production functionality whenever possible; use local execution mainly for code-level investigation, debugging, or implementation work.",
     "Add or update tests needed to cover the change and ensure relevant tests pass.",
+    "Keep this work item's ticket status updated in the database while you are working on it and when the work is done.",
     "When the work is complete, move this work item to the appropriate status.",
     "If you identify related bugs, edge cases, or follow-up work that should not be handled in this same change, create additional bug reports or feature requests for them.",
     "Clearly distinguish what was completed from any follow-up items.",

@@ -17,6 +17,11 @@ type GeneratedWorkoutDay = {
   exercises: GeneratedExercise[];
 };
 
+type TimedDayContext = {
+  timedExerciseCount: number;
+  totalExerciseCount: number;
+};
+
 export type GeneratedWorkoutPlan = {
   summary: string;
   days: GeneratedWorkoutDay[];
@@ -344,7 +349,7 @@ const isLightDumbbellHomeProfile = (profile: SetupFormValues) => {
 
 const getWeightDefaults = (goal: string, timed = false) => {
   if (timed) {
-    return { sets: 1, minutes: goal === "conditioning" ? 30 : 20, rest: 0 };
+    return { sets: 1, minutes: goal === "conditioning" ? 20 : 10, rest: 0 };
   }
 
   switch (goal) {
@@ -364,7 +369,6 @@ const getWeightDefaults = (goal: string, timed = false) => {
 
 const getTargetWeight = (exercise: any, profile: SetupFormValues) => {
   const name = normalizeName(exercise.name);
-  const maxDumbbellWeight = parsePositiveNumber(profile.maxDumbbellWeight);
   const normalizedEquipment = exercise.equipment.map(normalizeEquipmentText);
 
   if (
@@ -374,34 +378,18 @@ const getTargetWeight = (exercise: any, profile: SetupFormValues) => {
     return 0;
   }
 
-  if (normalizedEquipment.some((item: string) => item.includes("dumbbell"))) {
-    const target = /goblet squat|walking lunge|bulgarian|step-up|romanian deadlift|farmer carry/.test(
-      name
-    )
-      ? 25
-      : /bench|press|row/.test(name)
-      ? 20
-      : 15;
-
-    return maxDumbbellWeight ? Math.min(maxDumbbellWeight, target) : target;
+  if (
+    normalizedEquipment.some((item: string) =>
+      ["dumbbell", "barbell", "cable", "machine"].some((tag) =>
+        item.includes(tag)
+      )
+    ) ||
+    usesMachineEquipment(exercise.equipment)
+  ) {
+    return null;
   }
 
-  if (normalizedEquipment.some((item: string) => item.includes("barbell"))) {
-    if (/deadlift|squat/.test(name)) return 95;
-    if (/bench/.test(name)) return 75;
-    if (/press/.test(name)) return 55;
-    return 65;
-  }
-
-  if (normalizedEquipment.some((item: string) => item.includes("cable"))) {
-    return 50;
-  }
-
-  if (usesMachineEquipment(exercise.equipment)) {
-    return 70;
-  }
-
-  return 0;
+  return null;
 };
 
 const getRepTarget = (goal: string, exercise: any, profile: SetupFormValues) => {
@@ -465,6 +453,87 @@ const getRestTarget = (goal: string, exercise: any) => {
   return goal === "conditioning" ? 45 : 75;
 };
 
+const getWorkoutLengthBudget = (profile: SetupFormValues) =>
+  parsePositiveNumber(profile.workoutLength) ?? 40;
+
+const getTimedMinutesTarget = (
+  goal: string,
+  profile: SetupFormValues,
+  context: TimedDayContext
+) => {
+  const workoutLengthBudget = getWorkoutLengthBudget(profile);
+  const isDedicatedConditioningDay =
+    context.timedExerciseCount > 0 &&
+    context.timedExerciseCount === context.totalExerciseCount;
+
+  if (isDedicatedConditioningDay) {
+    if (goal === "conditioning") {
+      if (workoutLengthBudget <= 30) return 12;
+      if (workoutLengthBudget <= 45) return 16;
+      if (workoutLengthBudget <= 60) return 20;
+      if (workoutLengthBudget <= 75) return 24;
+      return 28;
+    }
+
+    if (workoutLengthBudget <= 30) return 10;
+    if (workoutLengthBudget <= 45) return 12;
+    if (workoutLengthBudget <= 60) return 15;
+    return 18;
+  }
+
+  if (workoutLengthBudget <= 30) return 6;
+  if (workoutLengthBudget <= 45) return 8;
+  if (workoutLengthBudget <= 60) return goal === "conditioning" ? 10 : 8;
+  if (workoutLengthBudget <= 75) return goal === "conditioning" ? 12 : 10;
+  return goal === "conditioning" ? 14 : 12;
+};
+
+const getTimedExerciseDefaults = (
+  exercise: any,
+  goal: string,
+  profile: SetupFormValues,
+  context: TimedDayContext
+) => {
+  const name = normalizeName(exercise.name);
+  const cardioMinutes = getTimedMinutesTarget(goal, profile, context);
+
+  if (/plank|wall sit|support hold|hang|superman hold/.test(name)) {
+    return { sets: 3, hours: 0, minutes: 1, seconds: 0, rest: 30 };
+  }
+
+  if (/dead bug|bird dog/.test(name)) {
+    return { sets: 2, hours: 0, minutes: 1, seconds: 0, rest: 30 };
+  }
+
+  if (/carry/.test(name)) {
+    return {
+      sets: 2,
+      hours: 0,
+      minutes: Math.max(1, Math.min(6, Math.round(cardioMinutes / 2))),
+      seconds: 0,
+      rest: 45,
+    };
+  }
+
+  if (/stretch|mobility|warmup|warm-up|yoga/.test(name)) {
+    return {
+      sets: 1,
+      hours: 0,
+      minutes: Math.max(5, Math.min(12, Math.round(cardioMinutes * 0.6))),
+      seconds: 0,
+      rest: 0,
+    };
+  }
+
+  return {
+    sets: 1,
+    hours: 0,
+    minutes: cardioMinutes,
+    seconds: 0,
+    rest: 0,
+  };
+};
+
 const inferExerciseType = (name: string): "weight" | "timed" =>
   /run|row|bike|cycle|walk|jump rope|plank|carry|treadmill|elliptical|stair|cardio|interval|hold|hang|wall sit|support hold/.test(
     normalizeName(name)
@@ -481,21 +550,18 @@ const createFallbackExerciseDefinition = (name: string) => ({
 });
 
 const buildExercise = (
-  name: string,
+  resolvedExercise: any,
   goal: string,
   profile: SetupFormValues,
-  excludedNames: Set<string> = new Set()
+  timedContext: TimedDayContext
 ): GeneratedExercise => {
-  const catalogExercise =
-    resolveExerciseForProfile(name, profile, excludedNames) ??
-    ((!profile.equipmentAccess.length || profile.equipmentAccess.includes("Full gym"))
-      ? resolveCatalogExercise(name)
-      : null);
-  const resolvedExercise =
-    catalogExercise ?? createFallbackExerciseDefinition(name);
-
   if (resolvedExercise.type === "timed") {
-    const timedDefaults = getWeightDefaults(goal, true);
+    const timedDefaults = getTimedExerciseDefaults(
+      resolvedExercise,
+      goal,
+      profile,
+      timedContext
+    );
     return {
       name: resolvedExercise.name,
       type: "timed",
@@ -503,10 +569,13 @@ const buildExercise = (
       complete: false,
       sets: Array.from({ length: timedDefaults.sets }, (_, index) => ({
         name: `Timed Set ${index + 1}`,
-        hours: 0,
+        hours: timedDefaults.hours,
         minutes: timedDefaults.minutes,
-        seconds: 0,
-        totalSeconds: timedDefaults.minutes * 60,
+        seconds: timedDefaults.seconds,
+        totalSeconds:
+          timedDefaults.hours * 3600 +
+          timedDefaults.minutes * 60 +
+          timedDefaults.seconds,
         complete: false,
       })),
     };
@@ -520,13 +589,13 @@ const buildExercise = (
   return {
     name: resolvedExercise.name,
     type: "weight",
-    max: targetWeight,
+    max: targetWeight ?? undefined,
     rest: restTarget,
     complete: false,
     sets: Array.from({ length: setTarget }, (_, index) => ({
       name: `Working Set ${index + 1}`,
       reps: repTarget,
-      weight: targetWeight,
+      weight: targetWeight ?? null,
       complete: false,
     })),
   };
@@ -538,12 +607,25 @@ const buildExercisesForDay = (
   profile: SetupFormValues
 ) => {
   const usedNames = new Set<string>();
-
-  return exerciseNames.map((name) => {
-    const exercise = buildExercise(name, goal, profile, usedNames);
+  const resolvedExercises = exerciseNames.map((name) => {
+    const catalogExercise =
+      resolveExerciseForProfile(name, profile, usedNames) ??
+      ((!profile.equipmentAccess.length || profile.equipmentAccess.includes("Full gym"))
+        ? resolveCatalogExercise(name)
+        : null);
+    const exercise = catalogExercise ?? createFallbackExerciseDefinition(name);
     usedNames.add(normalizeName(exercise.name));
     return exercise;
   });
+  const timedContext = {
+    timedExerciseCount: resolvedExercises.filter((exercise) => exercise.type === "timed")
+      .length,
+    totalExerciseCount: resolvedExercises.length,
+  };
+
+  return resolvedExercises.map((exercise) =>
+    buildExercise(exercise, goal, profile, timedContext)
+  );
 };
 
 const pickDays = (profile: SetupFormValues) => {
@@ -576,10 +658,389 @@ const pickDays = (profile: SetupFormValues) => {
   return defaultsByCount[count] ?? defaultsByCount[3];
 };
 
+type SplitTemplate = {
+  title: string;
+  exerciseNames: string[];
+};
+
+const getHighFrequencyRecommendation = (
+  profile: SetupFormValues,
+  sessionCount: number
+) => {
+  if (sessionCount < 5) {
+    return null;
+  }
+
+  const lowerReadiness =
+    profile.experienceLevel === "beginner" ||
+    profile.experienceLevel === "" ||
+    ["starting_out", "getting_back_into_it", "active_but_inconsistent"].includes(
+      profile.currentFitnessLevel
+    );
+  const longSessions = Number(profile.workoutLength || 0) >= 55;
+
+  if (!lowerReadiness && !(sessionCount === 6 && longSessions)) {
+    return null;
+  }
+
+  return "I kept the extra sessions lighter, but 4 days per week is probably the more recoverable baseline for your current training background if fatigue starts to stack up.";
+};
+
+const getFirstSessionLoadGuidance = (plan: GeneratedWorkoutPlan) => {
+  const hasUnspecifiedWeightTargets = plan.days.some((day) =>
+    day.exercises.some(
+      (exercise) =>
+        exercise.type === "weight" &&
+        exercise.sets.some((set: any) => set.weight == null)
+    )
+  );
+
+  if (!hasUnspecifiedWeightTargets) {
+    return null;
+  }
+
+  return "For your first session, start with the empty bar or a light warm-up load and build up until the working sets feel like about 2-3 reps in reserve. Log what you actually use so later recommendations can anchor to your performance instead of a generic starter weight.";
+};
+
+const buildHighFrequencySplit = (
+  profileType: "default" | "home_dumbbell" | "bodyweight",
+  goal: string,
+  sessionCount: number
+): SplitTemplate[] | null => {
+  if (sessionCount < 4 || sessionCount > 6) {
+    return null;
+  }
+
+  const libraries: Record<
+    "default" | "home_dumbbell" | "bodyweight",
+    Record<string, Record<number, SplitTemplate[]>>
+  > = {
+    default: {
+      strength: {
+        4: [
+          { title: "Lower Strength", exerciseNames: ["Back Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+          { title: "Upper Strength", exerciseNames: ["Bench Press", "Barbell Row", "Overhead Press", "Assisted Pull-Up"] },
+          { title: "Lower Volume", exerciseNames: ["Front Squat", "Hip Thrust", "Leg Press", "Dead Bug"] },
+          { title: "Upper Volume", exerciseNames: ["Incline Bench Press", "Lat Pulldown", "Lateral Raise", "Face Pull"] },
+        ],
+        5: [
+          { title: "Lower Strength", exerciseNames: ["Back Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+          { title: "Upper Strength", exerciseNames: ["Bench Press", "Barbell Row", "Overhead Press", "Assisted Pull-Up"] },
+          { title: "Posterior Chain", exerciseNames: ["Deadlift", "Hip Thrust", "Back Extension", "Farmer Carry"] },
+          { title: "Upper Volume", exerciseNames: ["Incline Bench Press", "Lat Pulldown", "Lateral Raise", "Face Pull"] },
+          { title: "Recovery + Core", exerciseNames: ["Cycling", "Sled Push", "Dead Bug"] },
+        ],
+        6: [
+          { title: "Lower Strength", exerciseNames: ["Back Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+          { title: "Upper Strength", exerciseNames: ["Bench Press", "Barbell Row", "Overhead Press", "Assisted Pull-Up"] },
+          { title: "Lower Volume", exerciseNames: ["Front Squat", "Hip Thrust", "Leg Press", "Dead Bug"] },
+          { title: "Upper Volume", exerciseNames: ["Incline Bench Press", "Lat Pulldown", "Lateral Raise", "Face Pull"] },
+          { title: "Posterior Chain", exerciseNames: ["Deadlift", "Back Extension", "Farmer Carry", "Hammer Curl"] },
+          { title: "Technique + Core", exerciseNames: ["Cycling", "Sled Push", "Plank"] },
+        ],
+      },
+      muscle: {
+        4: [
+          { title: "Upper Push", exerciseNames: ["Bench Press", "Incline Bench Press", "Lateral Raise", "Triceps Pushdown"] },
+          { title: "Upper Pull", exerciseNames: ["Barbell Row", "Lat Pulldown", "Face Pull", "Barbell Curl"] },
+          { title: "Lower Quad Bias", exerciseNames: ["Back Squat", "Leg Press", "Leg Extension", "Calf Raise"] },
+          { title: "Lower Posterior Bias", exerciseNames: ["Romanian Deadlift", "Hip Thrust", "Hamstring Curl", "Walking Lunge"] },
+        ],
+        5: [
+          { title: "Push Heavy", exerciseNames: ["Bench Press", "Incline Bench Press", "Overhead Press", "Triceps Pushdown"] },
+          { title: "Pull Heavy", exerciseNames: ["Barbell Row", "Lat Pulldown", "Chest Supported Row", "Barbell Curl"] },
+          { title: "Legs Heavy", exerciseNames: ["Back Squat", "Romanian Deadlift", "Leg Press", "Hamstring Curl"] },
+          { title: "Upper Pump", exerciseNames: ["Machine Chest Press", "Cable Row", "Lateral Raise", "Face Pull"] },
+          { title: "Lower Pump + Core", exerciseNames: ["Walking Lunge", "Leg Extension", "Calf Raise", "Plank"] },
+        ],
+        6: [
+          { title: "Push Heavy", exerciseNames: ["Bench Press", "Incline Bench Press", "Overhead Press", "Triceps Pushdown"] },
+          { title: "Pull Heavy", exerciseNames: ["Barbell Row", "Lat Pulldown", "Chest Supported Row", "Barbell Curl"] },
+          { title: "Legs Heavy", exerciseNames: ["Back Squat", "Romanian Deadlift", "Leg Press", "Hamstring Curl"] },
+          { title: "Push Pump", exerciseNames: ["Machine Chest Press", "Lateral Raise", "Cable Fly", "Overhead Triceps Extension"] },
+          { title: "Pull Pump", exerciseNames: ["Cable Row", "Face Pull", "Rear Delt Fly", "Hammer Curl"] },
+          { title: "Legs Pump + Core", exerciseNames: ["Walking Lunge", "Leg Extension", "Calf Raise", "Plank"] },
+        ],
+      },
+      conditioning: {
+        4: [
+          { title: "Intervals + Core", exerciseNames: ["Cycling", "Plank", "Dead Bug"] },
+          { title: "Full Body Circuit", exerciseNames: ["Goblet Squat", "Push-Up", "Assisted Pull-Up", "Jump Rope"] },
+          { title: "Aerobic Base", exerciseNames: ["Rowing", "Walking Lunge", "Farmer Carry"] },
+          { title: "Tempo + Mobility", exerciseNames: ["Treadmill", "Dead Bug", "Plank"] },
+        ],
+        5: [
+          { title: "Power Intervals", exerciseNames: ["Cycling", "Jump Rope", "Plank"] },
+          { title: "Full Body Circuit", exerciseNames: ["Goblet Squat", "Push-Up", "Assisted Pull-Up", "Jump Rope"] },
+          { title: "Aerobic Base", exerciseNames: ["Rowing", "Walking Lunge", "Farmer Carry"] },
+          { title: "Threshold Builder", exerciseNames: ["Treadmill", "Dead Bug", "Mountain Climber"] },
+          { title: "Recovery Engine", exerciseNames: ["Cycling", "Plank", "Dead Bug"] },
+        ],
+        6: [
+          { title: "Power Intervals", exerciseNames: ["Cycling", "Jump Rope", "Plank"] },
+          { title: "Circuit Builder", exerciseNames: ["Goblet Squat", "Push-Up", "Assisted Pull-Up", "Jump Rope"] },
+          { title: "Aerobic Base", exerciseNames: ["Rowing", "Walking Lunge", "Farmer Carry"] },
+          { title: "Threshold Builder", exerciseNames: ["Treadmill", "Dead Bug", "Mountain Climber"] },
+          { title: "Mixed Modal Conditioning", exerciseNames: ["Bike / cycling", "Walking Lunge", "Farmer Carry"] },
+          { title: "Recovery Engine", exerciseNames: ["Cycling", "Plank", "Dead Bug"] },
+        ],
+      },
+      fat_loss: {
+        4: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Lat Pulldown", "Cycling"] },
+          { title: "Full Body Conditioning", exerciseNames: ["Romanian Deadlift", "Push-Up", "Seated Cable Row", "Jump Rope"] },
+          { title: "Lower + Core", exerciseNames: ["Walking Lunge", "Leg Press", "Hamstring Curl", "Plank"] },
+          { title: "Upper + Carry", exerciseNames: ["Overhead Press", "Assisted Pull-Up", "Farmer Carry", "Cycling"] },
+        ],
+        5: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Lat Pulldown", "Cycling"] },
+          { title: "Metabolic Push", exerciseNames: ["Push-Up", "Walking Lunge", "Farmer Carry", "Jump Rope"] },
+          { title: "Full Body Pull", exerciseNames: ["Romanian Deadlift", "Seated Cable Row", "Plank", "Cycling"] },
+          { title: "Lower Volume", exerciseNames: ["Leg Press", "Hamstring Curl", "Calf Raise", "Dead Bug"] },
+          { title: "Recovery Circuit", exerciseNames: ["Bike / cycling", "Dead Bug", "Plank"] },
+        ],
+        6: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Lat Pulldown", "Cycling"] },
+          { title: "Metabolic Push", exerciseNames: ["Push-Up", "Walking Lunge", "Farmer Carry", "Jump Rope"] },
+          { title: "Full Body Pull", exerciseNames: ["Romanian Deadlift", "Seated Cable Row", "Plank", "Cycling"] },
+          { title: "Lower Volume", exerciseNames: ["Leg Press", "Hamstring Curl", "Calf Raise", "Dead Bug"] },
+          { title: "Upper Volume", exerciseNames: ["Overhead Press", "Assisted Pull-Up", "Lateral Raise", "Farmer Carry"] },
+          { title: "Recovery Circuit", exerciseNames: ["Bike / cycling", "Dead Bug", "Plank"] },
+        ],
+      },
+      consistency: {
+        4: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Seated Cable Row", "Plank"] },
+          { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Lat Pulldown", "Cycling"] },
+          { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+          { title: "Upper + Conditioning", exerciseNames: ["Overhead Press", "Assisted Pull-Up", "Farmer Carry", "Jump Rope"] },
+        ],
+        5: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Seated Cable Row", "Plank"] },
+          { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Lat Pulldown", "Cycling"] },
+          { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+          { title: "Upper + Carry", exerciseNames: ["Overhead Press", "Assisted Pull-Up", "Farmer Carry", "Jump Rope"] },
+          { title: "Recovery Circuit", exerciseNames: ["Cycling", "Plank", "Dead Bug"] },
+        ],
+        6: [
+          { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Bench Press", "Seated Cable Row", "Plank"] },
+          { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Lat Pulldown", "Cycling"] },
+          { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+          { title: "Upper + Carry", exerciseNames: ["Overhead Press", "Assisted Pull-Up", "Farmer Carry", "Jump Rope"] },
+          { title: "Full Body Volume", exerciseNames: ["Leg Press", "Machine Chest Press", "Cable Row", "Plank"] },
+          { title: "Recovery Circuit", exerciseNames: ["Cycling", "Dead Bug", "Plank"] },
+        ],
+      },
+    },
+    home_dumbbell: {},
+    bodyweight: {},
+  };
+
+  libraries.home_dumbbell = {
+    strength: {
+      4: [
+        { title: "Lower Strength", exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+        { title: "Upper Strength", exerciseNames: ["Dumbbell Floor Press", "One-Arm Dumbbell Row", "Standing Dumbbell Shoulder Press", "Farmer Carry"] },
+        { title: "Lower Volume", exerciseNames: ["Goblet Squat", "Glute Bridge", "Step-Up", "Dead Bug"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "One-Arm Dumbbell Row", "Lateral Raise", "Rear Delt Fly"] },
+      ],
+      5: [
+        { title: "Lower Strength", exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+        { title: "Upper Strength", exerciseNames: ["Dumbbell Floor Press", "One-Arm Dumbbell Row", "Standing Dumbbell Shoulder Press", "Farmer Carry"] },
+        { title: "Posterior Chain", exerciseNames: ["Romanian Deadlift", "Glute Bridge", "Rear Delt Fly", "Farmer Carry"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "One-Arm Dumbbell Row", "Lateral Raise", "Hammer Curl"] },
+        { title: "Recovery + Core", exerciseNames: ["Jump Rope", "Plank", "Dead Bug"] },
+      ],
+      6: [
+        { title: "Lower Strength", exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Plank"] },
+        { title: "Upper Strength", exerciseNames: ["Dumbbell Floor Press", "One-Arm Dumbbell Row", "Standing Dumbbell Shoulder Press", "Farmer Carry"] },
+        { title: "Lower Volume", exerciseNames: ["Goblet Squat", "Glute Bridge", "Step-Up", "Dead Bug"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "One-Arm Dumbbell Row", "Lateral Raise", "Rear Delt Fly"] },
+        { title: "Posterior Chain", exerciseNames: ["Romanian Deadlift", "Glute Bridge", "Hammer Curl", "Farmer Carry"] },
+        { title: "Technique + Core", exerciseNames: ["Jump Rope", "Plank", "Dead Bug"] },
+      ],
+    },
+    muscle: {
+      4: [
+        { title: "Upper Push", exerciseNames: ["Dumbbell Floor Press", "Push-Up", "Lateral Raise", "Overhead Dumbbell Triceps Extension"] },
+        { title: "Upper Pull", exerciseNames: ["One-Arm Dumbbell Row", "Shrug", "Rear Delt Fly", "Hammer Curl"] },
+        { title: "Lower Quad Bias", exerciseNames: ["Goblet Squat", "Walking Lunge", "Step-Up", "Calf Raise"] },
+        { title: "Lower Posterior Bias", exerciseNames: ["Romanian Deadlift", "Glute Bridge", "Walking Lunge", "Farmer Carry"] },
+      ],
+      5: [
+        { title: "Push Heavy", exerciseNames: ["Dumbbell Floor Press", "Push-Up", "Standing Dumbbell Shoulder Press", "Overhead Dumbbell Triceps Extension"] },
+        { title: "Pull Heavy", exerciseNames: ["One-Arm Dumbbell Row", "Shrug", "Rear Delt Fly", "Hammer Curl"] },
+        { title: "Legs Heavy", exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Farmer Carry"] },
+        { title: "Upper Pump", exerciseNames: ["Push-Up", "Lateral Raise", "Rear Delt Fly", "Hammer Curl"] },
+        { title: "Lower Pump + Core", exerciseNames: ["Walking Lunge", "Step-Up", "Calf Raise", "Plank"] },
+      ],
+      6: [
+        { title: "Push Heavy", exerciseNames: ["Dumbbell Floor Press", "Push-Up", "Standing Dumbbell Shoulder Press", "Overhead Dumbbell Triceps Extension"] },
+        { title: "Pull Heavy", exerciseNames: ["One-Arm Dumbbell Row", "Shrug", "Rear Delt Fly", "Hammer Curl"] },
+        { title: "Legs Heavy", exerciseNames: ["Goblet Squat", "Romanian Deadlift", "Walking Lunge", "Farmer Carry"] },
+        { title: "Push Pump", exerciseNames: ["Push-Up", "Lateral Raise", "Standing Dumbbell Shoulder Press", "Overhead Dumbbell Triceps Extension"] },
+        { title: "Pull Pump", exerciseNames: ["One-Arm Dumbbell Row", "Rear Delt Fly", "Shrug", "Hammer Curl"] },
+        { title: "Legs Pump + Core", exerciseNames: ["Walking Lunge", "Step-Up", "Calf Raise", "Plank"] },
+      ],
+    },
+    conditioning: libraries.default.conditioning,
+    fat_loss: {
+      4: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Jump Rope"] },
+        { title: "Full Body Conditioning", exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Plank"] },
+        { title: "Lower + Core", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+        { title: "Upper + Carry", exerciseNames: ["Standing Dumbbell Shoulder Press", "Hammer Curl", "Farmer Carry", "Jump Rope"] },
+      ],
+      5: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Jump Rope"] },
+        { title: "Metabolic Push", exerciseNames: ["Push-Up", "Walking Lunge", "Farmer Carry", "Jump Rope"] },
+        { title: "Full Body Pull", exerciseNames: ["Romanian Deadlift", "Hammer Curl", "Plank", "Jump Rope"] },
+        { title: "Lower Volume", exerciseNames: ["Step-Up", "Walking Lunge", "Calf Raise", "Dead Bug"] },
+        { title: "Recovery Circuit", exerciseNames: ["Jump Rope", "Dead Bug", "Plank"] },
+      ],
+      6: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Jump Rope"] },
+        { title: "Metabolic Push", exerciseNames: ["Push-Up", "Walking Lunge", "Farmer Carry", "Jump Rope"] },
+        { title: "Full Body Pull", exerciseNames: ["Romanian Deadlift", "Hammer Curl", "Plank", "Jump Rope"] },
+        { title: "Lower Volume", exerciseNames: ["Step-Up", "Walking Lunge", "Calf Raise", "Dead Bug"] },
+        { title: "Upper Volume", exerciseNames: ["Standing Dumbbell Shoulder Press", "One-Arm Dumbbell Row", "Lateral Raise", "Farmer Carry"] },
+        { title: "Recovery Circuit", exerciseNames: ["Jump Rope", "Dead Bug", "Plank"] },
+      ],
+    },
+    consistency: {
+      4: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Farmer Carry"] },
+        { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+        { title: "Upper + Conditioning", exerciseNames: ["Standing Dumbbell Shoulder Press", "Hammer Curl", "Farmer Carry", "Jump Rope"] },
+      ],
+      5: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Farmer Carry"] },
+        { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+        { title: "Upper + Carry", exerciseNames: ["Standing Dumbbell Shoulder Press", "Hammer Curl", "Farmer Carry", "Jump Rope"] },
+        { title: "Recovery Circuit", exerciseNames: ["Jump Rope", "Plank", "Dead Bug"] },
+      ],
+      6: [
+        { title: "Full Body Strength", exerciseNames: ["Goblet Squat", "Dumbbell Floor Press", "One-Arm Dumbbell Row", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Romanian Deadlift", "Push-Up", "Walking Lunge", "Farmer Carry"] },
+        { title: "Lower + Balance", exerciseNames: ["Walking Lunge", "Step-Up", "Dead Bug", "Calf Raise"] },
+        { title: "Upper + Carry", exerciseNames: ["Standing Dumbbell Shoulder Press", "Hammer Curl", "Farmer Carry", "Jump Rope"] },
+        { title: "Full Body Volume", exerciseNames: ["Goblet Squat", "Push-Up", "One-Arm Dumbbell Row", "Plank"] },
+        { title: "Recovery Circuit", exerciseNames: ["Jump Rope", "Dead Bug", "Plank"] },
+      ],
+    },
+  };
+
+  libraries.bodyweight = {
+    strength: {
+      4: [
+        { title: "Lower Strength", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"] },
+        { title: "Upper Strength", exerciseNames: ["Push-Up", "Pike Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Lower Volume", exerciseNames: ["Reverse Lunge", "Glute Bridge", "Wall Sit", "Dead Bug"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "Prone Back Extension", "Bird Dog", "Mountain Climber"] },
+      ],
+      5: [
+        { title: "Lower Strength", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"] },
+        { title: "Upper Strength", exerciseNames: ["Push-Up", "Pike Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Posterior Chain", exerciseNames: ["Glute Bridge", "Prone Back Extension", "Bird Dog", "Superman Hold"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "Pike Push-Up", "Bird Dog", "Mountain Climber"] },
+        { title: "Recovery + Core", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+      6: [
+        { title: "Lower Strength", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"] },
+        { title: "Upper Strength", exerciseNames: ["Push-Up", "Pike Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Lower Volume", exerciseNames: ["Reverse Lunge", "Glute Bridge", "Wall Sit", "Dead Bug"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "Prone Back Extension", "Bird Dog", "Mountain Climber"] },
+        { title: "Posterior Chain", exerciseNames: ["Glute Bridge", "Prone Back Extension", "Superman Hold", "Bird Dog"] },
+        { title: "Technique + Core", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+    },
+    muscle: {
+      4: [
+        { title: "Upper Push", exerciseNames: ["Push-Up", "Pike Push-Up", "Bodyweight Squat", "Wall Sit"] },
+        { title: "Upper Pull + Core", exerciseNames: ["Prone Back Extension", "Bird Dog", "Plank", "Dead Bug"] },
+        { title: "Lower Quad Bias", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Wall Sit", "Mountain Climber"] },
+        { title: "Lower Posterior Bias", exerciseNames: ["Glute Bridge", "Reverse Lunge", "Bird Dog", "Plank"] },
+      ],
+      5: [
+        { title: "Push Heavy", exerciseNames: ["Push-Up", "Pike Push-Up", "Bodyweight Squat", "Wall Sit"] },
+        { title: "Pull + Posture", exerciseNames: ["Prone Back Extension", "Bird Dog", "Plank", "Dead Bug"] },
+        { title: "Legs Heavy", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"] },
+        { title: "Upper Pump", exerciseNames: ["Push-Up", "Pike Push-Up", "Mountain Climber", "Plank"] },
+        { title: "Lower Pump + Core", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+      ],
+      6: [
+        { title: "Push Heavy", exerciseNames: ["Push-Up", "Pike Push-Up", "Bodyweight Squat", "Wall Sit"] },
+        { title: "Pull + Posture", exerciseNames: ["Prone Back Extension", "Bird Dog", "Plank", "Dead Bug"] },
+        { title: "Legs Heavy", exerciseNames: ["Bodyweight Squat", "Reverse Lunge", "Glute Bridge", "Wall Sit"] },
+        { title: "Push Pump", exerciseNames: ["Push-Up", "Pike Push-Up", "Mountain Climber", "Plank"] },
+        { title: "Pull Pump", exerciseNames: ["Prone Back Extension", "Bird Dog", "Dead Bug", "Plank"] },
+        { title: "Legs Pump + Core", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+      ],
+    },
+    conditioning: libraries.default.conditioning,
+    fat_loss: {
+      4: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Mountain Climber"] },
+        { title: "Full Body Conditioning", exerciseNames: ["Reverse Lunge", "Pike Push-Up", "Glute Bridge", "Plank"] },
+        { title: "Lower + Core", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Upper + Engine", exerciseNames: ["Push-Up", "Prone Back Extension", "Mountain Climber", "Plank"] },
+      ],
+      5: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Mountain Climber"] },
+        { title: "Metabolic Push", exerciseNames: ["Push-Up", "Reverse Lunge", "Mountain Climber", "Plank"] },
+        { title: "Full Body Pull", exerciseNames: ["Glute Bridge", "Prone Back Extension", "Bird Dog", "Dead Bug"] },
+        { title: "Lower Volume", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Recovery Circuit", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+      6: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Mountain Climber"] },
+        { title: "Metabolic Push", exerciseNames: ["Push-Up", "Reverse Lunge", "Mountain Climber", "Plank"] },
+        { title: "Full Body Pull", exerciseNames: ["Glute Bridge", "Prone Back Extension", "Bird Dog", "Dead Bug"] },
+        { title: "Lower Volume", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Upper Volume", exerciseNames: ["Push-Up", "Pike Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Recovery Circuit", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+    },
+    consistency: {
+      4: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Reverse Lunge", "Glute Bridge", "Bird Dog", "Mountain Climber"] },
+        { title: "Lower + Balance", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Upper + Conditioning", exerciseNames: ["Pike Push-Up", "Push-Up", "Mountain Climber", "Plank"] },
+      ],
+      5: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Reverse Lunge", "Glute Bridge", "Bird Dog", "Mountain Climber"] },
+        { title: "Lower + Balance", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Upper + Conditioning", exerciseNames: ["Pike Push-Up", "Push-Up", "Mountain Climber", "Plank"] },
+        { title: "Recovery Circuit", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+      6: [
+        { title: "Full Body Strength", exerciseNames: ["Bodyweight Squat", "Push-Up", "Prone Back Extension", "Plank"] },
+        { title: "Full Body Hinge", exerciseNames: ["Reverse Lunge", "Glute Bridge", "Bird Dog", "Mountain Climber"] },
+        { title: "Lower + Balance", exerciseNames: ["Reverse Lunge", "Wall Sit", "Dead Bug", "Bird Dog"] },
+        { title: "Upper + Conditioning", exerciseNames: ["Pike Push-Up", "Push-Up", "Mountain Climber", "Plank"] },
+        { title: "Full Body Volume", exerciseNames: ["Bodyweight Squat", "Push-Up", "Bird Dog", "Dead Bug"] },
+        { title: "Recovery Circuit", exerciseNames: ["Dead Bug", "Plank", "Bird Dog"] },
+      ],
+    },
+  };
+
+  const family = libraries[profileType];
+  return family[goal]?.[sessionCount] ?? family.consistency?.[sessionCount] ?? null;
+};
+
 const buildFallbackSplit = (profile: SetupFormValues) => {
   const goal = profile.trainingGoal || "consistency";
   const normalizedGoal = normalizeGoalForProgramming(goal);
   const days = pickDays(profile);
+  const profileType = isBodyweightOnlyProfile(profile)
+    ? "bodyweight"
+    : isHomeDumbbellProfile(profile)
+    ? "home_dumbbell"
+    : "default";
 
   const defaultTemplates: Record<string, { title: string; exerciseNames: string[] }[]> = {
     strength: [
@@ -836,10 +1297,13 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
     : isHomeDumbbellProfile(profile)
     ? homeDumbbellTemplates
     : defaultTemplates;
-  const split = templates[normalizedGoal] ?? templates.consistency;
+  const split =
+    buildHighFrequencySplit(profileType, normalizedGoal, days.length) ??
+    templates[normalizedGoal] ??
+    templates.consistency;
 
   return days.map((dayKey, index) => {
-    const template = split[index % split.length];
+    const template = split[index] ?? split[split.length - 1];
     return {
       dayKey,
       title: template.title,
@@ -878,9 +1342,20 @@ export const buildFallbackWorkoutPlan = (
   profile: SetupFormValues
 ): GeneratedWorkoutPlan => {
   const days = buildFallbackSplit(profile);
+  const frequencyRecommendation = getHighFrequencyRecommendation(
+    profile,
+    days.length
+  );
   return {
-    summary:
-      "Built a practical weekly plan from your goal, weekly frequency, and available equipment.",
+    summary: [
+      "Built a baseline weekly draft from your goal, weekly frequency, and available equipment.",
+      days.length >= 5
+        ? "The higher-frequency layout redistributes stress with lighter sessions instead of repeating the same workout."
+        : null,
+      frequencyRecommendation,
+    ]
+      .filter(Boolean)
+      .join(" "),
     days,
   };
 };
@@ -994,6 +1469,11 @@ export const buildWorkoutCoachResponse = (
     ? profile.trainingGoal.replace(/_/g, " ")
     : "consistency";
   const sessionCount = plan.days.length;
+  const frequencyRecommendation = getHighFrequencyRecommendation(
+    profile,
+    sessionCount
+  );
+  const firstSessionLoadGuidance = getFirstSessionLoadGuidance(plan);
   const plannedDays = plan.days.map((day) => {
     const exerciseCount = day.exercises.length;
     return `${day.title} on ${
@@ -1032,14 +1512,11 @@ export const buildWorkoutCoachResponse = (
           " "
         )}.`
       : null,
-    profile.currentFitnessLevel
-      ? `The starting difficulty was shaped around your current fitness baseline: ${profile.currentFitnessLevel.replace(
-          /_/g,
-          " "
-        )}.`
-      : null,
     profile.workoutDaysPerWeek
       ? `It matches your weekly target of about ${profile.workoutDaysPerWeek} sessions.`
+      : null,
+    sessionCount >= 5
+      ? "The weekly stress is redistributed across heavier, volume, and lighter days instead of repeating the same three sessions."
       : null,
     profile.workoutLength
       ? `Exercise count was kept practical for sessions around ${profile.workoutLength} minutes.`
@@ -1057,15 +1534,17 @@ export const buildWorkoutCoachResponse = (
   const tips = [
     "Start by opening the first scheduled day and adjusting any exercise you know you want to swap.",
     "Treat the first week as a baseline and use your logged performance to refine the recommendations.",
+    firstSessionLoadGuidance,
+    frequencyRecommendation,
     profile.notes
       ? `Keep your own priority in mind as you run the plan: ${profile.notes}.`
       : "If a day feels too long, trim one accessory first instead of skipping the whole session.",
-  ];
+  ].filter(Boolean) as string[];
 
   return {
     headline: "Your workout plan is ready",
     summary: plan.summary,
-    openingMessage: `I mapped out a ${sessionCount}-day plan aimed at ${goalLabel} and kept it realistic for the schedule, equipment, and training context you gave me.`,
+    openingMessage: `I mapped out a ${sessionCount}-day baseline draft aimed at ${goalLabel}. It is shaped mainly by your goal, schedule, and equipment so you have something practical to start from and adjust.`,
     plannedDays,
     planSnapshot,
     why,

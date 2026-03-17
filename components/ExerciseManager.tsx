@@ -6,9 +6,12 @@ import {
   createWorkoutEntryInstanceId,
   fetchExerciseProgress,
   getWorkoutEntryIdentity,
-  saveRecurringRule,
   saveWorkoutEntry,
 } from "../utils/helpers";
+import {
+  normalizeRecurringSchedule,
+  saveRecurringRule,
+} from "../utils/recurringRuleService";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import { DEFAULT_MAX_WEIGHT, getExerciseProfile } from "../utils/exerciseDrafts";
 import { toast } from "react-toastify";
@@ -117,7 +120,7 @@ const createWeightSets = ({
 }: {
   setCount: number;
   reps: number;
-  weight: number;
+  weight: number | null;
   weightUnit: "lb" | "kg";
 }) =>
   Array.from({ length: setCount }, (_, index) => ({
@@ -271,7 +274,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         : undefined,
       dayOfMonth: isRecurring ? repeatDayOfMonth : undefined,
       endDate: isRecurring && repeatEndDate ? repeatEndDate : undefined,
-      max: exercise.max ?? exercise.defaultMax ?? baseWeight,
+      max: exercise.max ?? exercise.defaultMax ?? baseWeight ?? undefined,
       weightUnit: preferredUnits,
       rest:
         exercise.rest ??
@@ -309,7 +312,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
 
     return {
       ...draft,
-      max: draft.max ?? recommendedWeight,
+      max: draft.max ?? recommendedWeight ?? undefined,
       weightUnit: recommendation?.weightUnit ?? preferredUnits,
       sets: createWeightSets({
         setCount: recommendedSetCount,
@@ -394,27 +397,37 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         throw new Error(`Invalid recurring date: ${persistableExercise.date}`);
       }
 
+      const schedule = normalizeRecurringSchedule(
+        {
+          recurrenceType:
+            (persistableExercise.recurrenceType as any) ?? recurrenceType,
+          interval: persistableExercise.interval ?? repeatInterval,
+          dayOfWeek: persistableExercise.dayOfWeek ?? repeatDayOfWeek,
+          daysOfWeek:
+            (persistableExercise.daysOfWeek as number[] | undefined) ??
+            ((persistableExercise.recurrenceType ?? recurrenceType) === "custom"
+              ? repeatDaysOfWeek
+              : [persistableExercise.dayOfWeek ?? repeatDayOfWeek]),
+          dayOfMonth: persistableExercise.dayOfMonth ?? repeatDayOfMonth,
+          endDate: persistableExercise.endDate ?? (repeatEndDate || undefined),
+        },
+        parsedDate
+      );
+
       const savedRule = await saveRecurringRule({
         userId: persistableExercise.userId,
         exerciseId: normalizeExerciseId(persistableExercise),
         exerciseName: persistableExercise.name,
         exerciseType: resolveExerciseType(persistableExercise),
         routineName: persistableExercise.routineName,
-        recurrenceType: persistableExercise.recurrenceType ?? recurrenceType,
-        interval: persistableExercise.interval ?? repeatInterval,
-        dayOfWeek: persistableExercise.dayOfWeek ?? repeatDayOfWeek,
-        daysOfWeek:
-          persistableExercise.daysOfWeek ??
-          (persistableExercise.recurrenceType ?? recurrenceType) === "custom"
-            ? repeatDaysOfWeek
-            : [persistableExercise.dayOfWeek ?? repeatDayOfWeek],
-        dayOfMonth: persistableExercise.dayOfMonth ?? repeatDayOfMonth,
-        intervalWeeks:
-          persistableExercise.intervalWeeks ??
-          persistableExercise.interval ??
-          repeatInterval,
+        recurrenceType: schedule.recurrenceType,
+        interval: schedule.interval,
+        dayOfWeek: schedule.dayOfWeek,
+        daysOfWeek: schedule.daysOfWeek,
+        dayOfMonth: schedule.dayOfMonth,
+        intervalWeeks: schedule.interval,
         startDate: parsedDate,
-        endDate: persistableExercise.endDate ?? (repeatEndDate || undefined),
+        endDate: schedule.endDate,
         templateSets: persistableExercise.sets,
         defaultMax: persistableExercise.max,
         defaultRest: persistableExercise.rest,
