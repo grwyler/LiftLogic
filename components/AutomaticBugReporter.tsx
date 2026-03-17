@@ -3,7 +3,7 @@
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
-import { submitFeedback } from "../utils/helpers";
+import { submitFeedback, trackObservabilityEvent } from "../utils/helpers";
 import {
   getClientDeviceType,
   getClientRuntimeContext,
@@ -75,10 +75,6 @@ export default function AutomaticBugReporter({
     const email = session?.user?.email || session?.token?.user?.email || "";
     const reporterRole = getReporterRole({ username, email });
 
-    if (!userId) {
-      return;
-    }
-
     const submitAutoBug = async ({
       titlePrefix,
       message,
@@ -147,19 +143,37 @@ export default function AutomaticBugReporter({
             .join("\n")
         );
 
-        await submitFeedback({
-          userId,
-          username: username || undefined,
-          email: email || undefined,
-          reporterRole,
-          type: "bug",
-          title: sanitizeTitle(titlePrefix, normalizedMessage),
-          description,
-          severity,
-          page: router.asPath || window.location.pathname,
-          deviceType: getClientDeviceType(),
-          runtimeContext,
-        });
+        await trackObservabilityEvent({
+          kind: "client_error",
+          status: "failure",
+          route: router.asPath || window.location.pathname,
+          source: titlePrefix,
+          message: normalizedMessage,
+          userId: userId || undefined,
+          metadata: {
+            severity,
+            reporterRole,
+            viewport,
+            deviceType: getClientDeviceType(),
+            detail,
+          },
+        }).catch(() => undefined);
+
+        if (userId) {
+          await submitFeedback({
+            userId,
+            username: username || undefined,
+            email: email || undefined,
+            reporterRole,
+            type: "bug",
+            title: sanitizeTitle(titlePrefix, normalizedMessage),
+            description,
+            severity,
+            page: router.asPath || window.location.pathname,
+            deviceType: getClientDeviceType(),
+            runtimeContext,
+          });
+        }
       } catch (error) {
         // Avoid recursive reporting loops.
         console.warn("Automatic bug reporter failed to submit feedback.", error);

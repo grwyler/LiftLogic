@@ -5,6 +5,7 @@ import { connectToDatabase } from "../../utils/mongodb";
 import { authOptions } from "./auth/[...nextauth]";
 import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
 import { resolveUserAccess } from "../../utils/entitlements";
+import { normalizeReminderPreferences } from "../../utils/reminders";
 
 const ADMIN_USERNAME = "grwyler";
 const ADMIN_EMAIL = "grwyler@gmail.com";
@@ -140,6 +141,15 @@ const buildUserUpdate = (user: Record<string, unknown>) => {
 
   if ("setupCompleted" in user) {
     update.setupCompleted = Boolean(user.setupCompleted);
+  }
+
+  if ("reminderPreferences" in user) {
+    update.reminderPreferences = normalizeReminderPreferences(
+      user.reminderPreferences,
+      sanitizeText(
+        (user.reminderPreferences as Record<string, unknown> | undefined)?.timezone
+      ) || "UTC"
+    );
   }
 
   return update;

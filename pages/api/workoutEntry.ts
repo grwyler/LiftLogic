@@ -478,6 +478,31 @@ export default async function handler(
         previousEntry: existingEntry,
         nextEntry: savedEntry,
       });
+      if (savedEntry?.userId) {
+        try {
+          await db.collection("reminderDeliveries").updateMany(
+            {
+              userId: savedEntry.userId,
+              deliveredAt: {
+                $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+              },
+              postReminderWorkoutStartedAt: { $exists: false },
+            },
+            {
+              $set: {
+                postReminderWorkoutStartedAt: new Date(),
+                postReminderWorkoutEntryId: String(
+                  savedEntry._id ?? result.upsertedId ?? rawEntryId ?? ""
+                ),
+              },
+            }
+          );
+        } catch (error) {
+          if (process.env.NODE_ENV !== "test") {
+            console.warn("Unable to backfill reminder conversion metadata:", error);
+          }
+        }
+      }
 
       return res
         .status(result.upsertedCount ? 201 : 200)

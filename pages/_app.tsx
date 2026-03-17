@@ -6,16 +6,23 @@ import "../styles/global.css";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-toastify/dist/ReactToastify.css";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Instrument_Sans, Manrope } from "next/font/google";
 import { ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import DevBugRecorder from "../components/DevBugRecorder";
 import AutomaticBugReporter from "../components/AutomaticBugReporter";
 import AppVersionBadge from "../components/AppVersionBadge";
+import {
+  acknowledgeReminder,
+  fetchPendingReminders,
+  trackObservabilityEvent,
+} from "../utils/helpers";
+import { SLOW_ROUTE_TRANSITION_MS } from "../utils/observability";
 import {
   AppearanceDensity,
   InterfaceScale,
@@ -123,6 +130,10 @@ const manrope = Manrope({
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
+  const routeTransitionStartRef = useRef<{ startedAt: number; route: string }>({
+    startedAt: 0,
+    route: "",
+  });
   const [themePreference, setThemePreference] = useState<ThemePreference>("light");
   const [appearanceDensity, setAppearanceDensity] =
     useState<AppearanceDensity>("comfortable");
@@ -160,6 +171,86 @@ function MyApp({ Component, pageProps }: AppProps) {
 
     setDeveloperChromeEnabled(Boolean(internalRoute || explicitFlag));
   }, [router.pathname, router.query.devtools]);
+
+  useEffect(() => {
+    if (!router?.events) {
+      return;
+    }
+
+    const handleRouteStart = (url: string) => {
+      routeTransitionStartRef.current.startedAt = Date.now();
+      routeTransitionStartRef.current.route = url;
+    };
+
+    const handleRouteComplete = (url: string) => {
+      const startedAt = routeTransitionStartRef.current.startedAt;
+      if (!startedAt) {
+        return;
+      }
+
+      const durationMs = Date.now() - startedAt;
+      routeTransitionStartRef.current.startedAt = 0;
+      routeTransitionStartRef.current.route = "";
+
+      if (durationMs < SLOW_ROUTE_TRANSITION_MS) {
+        return;
+      }
+
+      void trackObservabilityEvent({
+        kind: "route_performance",
+        status: "warning",
+        route: url,
+        source: "router.events.routeChangeComplete",
+        message: `Slow route transition detected for ${url}`,
+        durationMs,
+      }).catch(() => undefined);
+    };
+
+    const handleRouteError = (error: unknown, url: string) => {
+      routeTransitionStartRef.current.startedAt = 0;
+      routeTransitionStartRef.current.route = "";
+      void trackObservabilityEvent({
+        kind: "client_error",
+        status: "failure",
+        route: url,
+        source: "router.events.routeChangeError",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Route transition failed before completion.",
+      }).catch(() => undefined);
+    };
+
+    router.events.on("routeChangeStart", handleRouteStart);
+    router.events.on("routeChangeComplete", handleRouteComplete);
+    router.events.on("routeChangeError", handleRouteError);
+
+    return () => {
+      router.events.off("routeChangeStart", handleRouteStart);
+      router.events.off("routeChangeComplete", handleRouteComplete);
+      router.events.off("routeChangeError", handleRouteError);
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    void fetchPendingReminders()
+      .then((reminders) => {
+        reminders.slice(0, 2).forEach((reminder) => {
+          toast.info(reminder.message, {
+            onOpen: () => {
+              if (reminder._id) {
+                void acknowledgeReminder(String(reminder._id)).catch(() => undefined);
+              }
+            },
+          });
+        });
+      })
+      .catch(() => undefined);
+  }, [router.pathname]);
 
   const applyThemePreference = useCallback(
     (value: ThemePreference | ((previous: ThemePreference) => ThemePreference)) => {

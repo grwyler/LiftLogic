@@ -27,6 +27,7 @@ import TuneIcon from "@mui/icons-material/Tune";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import WorkspacePremiumOutlinedIcon from "@mui/icons-material/WorkspacePremiumOutlined";
+import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 import { toast } from "react-toastify";
 import {
   AIResponseSourceDetail,
@@ -63,6 +64,7 @@ import {
   THEME_OPTIONS,
   ThemePreference,
 } from "../utils/themePreferences";
+import { normalizeReminderPreferences } from "../utils/reminders";
 
 interface UserPageProps {
   setThemePreference: React.Dispatch<React.SetStateAction<ThemePreference>>;
@@ -100,6 +102,17 @@ type UserProfile = {
   setupPromptSeen?: boolean;
   setupCompleted?: boolean;
   notes?: string;
+  reminderPreferences?: {
+    enabled?: boolean;
+    scheduledWorkoutRemindersEnabled?: boolean;
+    scheduledWorkoutReminderTime?: string;
+    scheduledWorkoutReminderDays?: string[];
+    quietHoursStart?: string;
+    quietHoursEnd?: string;
+    comebackNudgesEnabled?: boolean;
+    comebackThresholdDays?: number;
+    timezone?: string;
+  };
 };
 
 const defaultForm = {
@@ -121,6 +134,18 @@ const defaultForm = {
   preferredTrainingDays: [] as string[],
   limitations: "",
   notes: "",
+  remindersEnabled: false,
+  scheduledWorkoutRemindersEnabled: true,
+  scheduledWorkoutReminderTime: "18:00",
+  scheduledWorkoutReminderDays: [] as string[],
+  quietHoursStart: "21:30",
+  quietHoursEnd: "07:00",
+  comebackNudgesEnabled: true,
+  comebackThresholdDays: "4",
+  reminderTimezone:
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+      : "UTC",
 };
 
 const getStoredThemePreference = (profile: Pick<UserProfile, "themePreference" | "darkMode">) => {
@@ -137,6 +162,14 @@ const getStoredAppearanceDensity = (
 
 const getStoredInterfaceScale = (profile: Pick<UserProfile, "interfaceScale">) =>
   isInterfaceScale(profile.interfaceScale) ? profile.interfaceScale : "normal";
+
+const getStoredReminderPreferences = (profile: Pick<UserProfile, "reminderPreferences">) =>
+  normalizeReminderPreferences(
+    profile.reminderPreferences,
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+      : "UTC"
+  );
 
 const UserHomePage: React.FC<UserPageProps> = ({
   setThemePreference,
@@ -183,6 +216,8 @@ const UserHomePage: React.FC<UserPageProps> = ({
   useEffect(() => {
     if (!user) return;
 
+    const reminderPreferences = getStoredReminderPreferences(user);
+
     const nextForm = {
       themePreference: getStoredThemePreference(user),
       appearanceDensity: getStoredAppearanceDensity(user),
@@ -204,6 +239,24 @@ const UserHomePage: React.FC<UserPageProps> = ({
         : [],
       limitations: user.limitations || "",
       notes: user.notes || "",
+      remindersEnabled: Boolean(reminderPreferences.enabled),
+      scheduledWorkoutRemindersEnabled: Boolean(
+        reminderPreferences.scheduledWorkoutRemindersEnabled
+      ),
+      scheduledWorkoutReminderTime:
+        reminderPreferences.scheduledWorkoutReminderTime || "18:00",
+      scheduledWorkoutReminderDays: Array.isArray(
+        reminderPreferences.scheduledWorkoutReminderDays
+      )
+        ? reminderPreferences.scheduledWorkoutReminderDays
+        : [],
+      quietHoursStart: reminderPreferences.quietHoursStart || "21:30",
+      quietHoursEnd: reminderPreferences.quietHoursEnd || "07:00",
+      comebackNudgesEnabled: Boolean(reminderPreferences.comebackNudgesEnabled),
+      comebackThresholdDays: String(
+        reminderPreferences.comebackThresholdDays || 4
+      ),
+      reminderTimezone: reminderPreferences.timezone || defaultForm.reminderTimezone,
     };
 
     setForm(nextForm);
@@ -234,7 +287,21 @@ const UserHomePage: React.FC<UserPageProps> = ({
       JSON.stringify(user.preferredTrainingDays || []) !==
         JSON.stringify(form.preferredTrainingDays) ||
       (user.limitations || "") !== form.limitations ||
-      (user.notes || "") !== form.notes
+      (user.notes || "") !== form.notes ||
+      JSON.stringify(getStoredReminderPreferences(user)) !==
+        JSON.stringify({
+          enabled: form.remindersEnabled,
+          scheduledWorkoutRemindersEnabled:
+            form.scheduledWorkoutRemindersEnabled,
+          scheduledWorkoutReminderTime: form.scheduledWorkoutReminderTime,
+          scheduledWorkoutReminderDays: form.scheduledWorkoutReminderDays,
+          quietHoursStart: form.quietHoursStart,
+          quietHoursEnd: form.quietHoursEnd,
+          comebackNudgesEnabled: form.comebackNudgesEnabled,
+          comebackThresholdDays: Number(form.comebackThresholdDays || 4),
+          timezone: form.reminderTimezone,
+          deliveryChannel: "in_app",
+        })
     );
   }, [form, user]);
 
@@ -251,7 +318,13 @@ const UserHomePage: React.FC<UserPageProps> = ({
     };
 
   const toggleListValue =
-    (field: "equipmentAccess" | "preferredTrainingDays", value: string) => {
+    (
+      field:
+        | "equipmentAccess"
+        | "preferredTrainingDays"
+        | "scheduledWorkoutReminderDays",
+      value: string
+    ) => {
       setForm((prev) => {
         const currentValues = prev[field];
         return {
@@ -277,6 +350,19 @@ const UserHomePage: React.FC<UserPageProps> = ({
     setForm((prev) => ({ ...prev, interfaceScale: nextInterfaceScale }));
     setInterfaceScale(nextInterfaceScale);
   };
+
+  const buildReminderPreferencesFromForm = () => ({
+    enabled: form.remindersEnabled,
+    scheduledWorkoutRemindersEnabled: form.scheduledWorkoutRemindersEnabled,
+    scheduledWorkoutReminderTime: form.scheduledWorkoutReminderTime,
+    scheduledWorkoutReminderDays: form.scheduledWorkoutReminderDays,
+    quietHoursStart: form.quietHoursStart,
+    quietHoursEnd: form.quietHoursEnd,
+    comebackNudgesEnabled: form.comebackNudgesEnabled,
+    comebackThresholdDays: Number(form.comebackThresholdDays || 4),
+    timezone: form.reminderTimezone || defaultForm.reminderTimezone,
+    deliveryChannel: "in_app" as const,
+  });
 
   const handleReset = () => {
     if (!user) return;
@@ -311,6 +397,26 @@ const UserHomePage: React.FC<UserPageProps> = ({
         : [],
       limitations: user.limitations || "",
       notes: user.notes || "",
+      remindersEnabled: Boolean(getStoredReminderPreferences(user).enabled),
+      scheduledWorkoutRemindersEnabled: Boolean(
+        getStoredReminderPreferences(user).scheduledWorkoutRemindersEnabled
+      ),
+      scheduledWorkoutReminderTime:
+        getStoredReminderPreferences(user).scheduledWorkoutReminderTime || "18:00",
+      scheduledWorkoutReminderDays:
+        getStoredReminderPreferences(user).scheduledWorkoutReminderDays || [],
+      quietHoursStart:
+        getStoredReminderPreferences(user).quietHoursStart || "21:30",
+      quietHoursEnd:
+        getStoredReminderPreferences(user).quietHoursEnd || "07:00",
+      comebackNudgesEnabled: Boolean(
+        getStoredReminderPreferences(user).comebackNudgesEnabled
+      ),
+      comebackThresholdDays: String(
+        getStoredReminderPreferences(user).comebackThresholdDays || 4
+      ),
+      reminderTimezone:
+        getStoredReminderPreferences(user).timezone || defaultForm.reminderTimezone,
     });
     setThemePreference(getStoredThemePreference(user));
     setAppearanceDensity(getStoredAppearanceDensity(user));
@@ -345,6 +451,7 @@ const UserHomePage: React.FC<UserPageProps> = ({
       setupPromptSeen: true,
       setupCompleted: true,
       notes: form.notes,
+      reminderPreferences: buildReminderPreferencesFromForm(),
     };
 
     try {
@@ -413,6 +520,7 @@ const UserHomePage: React.FC<UserPageProps> = ({
       setupPromptSeen: true,
       setupCompleted: true,
       notes: form.notes,
+      reminderPreferences: buildReminderPreferencesFromForm(),
     };
 
     try {
@@ -467,6 +575,7 @@ const UserHomePage: React.FC<UserPageProps> = ({
       interfaceScale: form.interfaceScale,
       setupPromptSeen: true,
       setupCompleted: true,
+      reminderPreferences: buildReminderPreferencesFromForm(),
     };
 
     setForm((prev) => ({
@@ -1061,6 +1170,138 @@ const UserHomePage: React.FC<UserPageProps> = ({
                   multiline
                   minRows={4}
                   placeholder="Examples: prioritize deadlift, keep sessions under 45 minutes, shoulder-friendly pressing only."
+                />
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "background.paper",
+              }}
+            >
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <NotificationsActiveOutlinedIcon color="primary" />
+                  <Typography variant="h6">Reminders and comeback nudges</Typography>
+                </Box>
+
+                <Typography sx={{ color: "text.secondary" }}>
+                  Beta reminders are delivered in-app. They respect quiet hours,
+                  your local timezone, and recent completed workouts so the app
+                  nudges instead of nags.
+                </Typography>
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label={form.remindersEnabled ? "Reminders on" : "Reminders off"}
+                    color={form.remindersEnabled ? "primary" : "default"}
+                    variant={form.remindersEnabled ? "filled" : "outlined"}
+                    clickable
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        remindersEnabled: !prev.remindersEnabled,
+                      }))
+                    }
+                  />
+                  <Chip
+                    label={
+                      form.comebackNudgesEnabled
+                        ? "Comeback nudges on"
+                        : "Comeback nudges off"
+                    }
+                    color={form.comebackNudgesEnabled ? "primary" : "default"}
+                    variant={form.comebackNudgesEnabled ? "filled" : "outlined"}
+                    clickable
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        comebackNudgesEnabled: !prev.comebackNudgesEnabled,
+                      }))
+                    }
+                  />
+                </Stack>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="Reminder time"
+                    type="time"
+                    value={form.scheduledWorkoutReminderTime}
+                    onChange={handleFieldChange("scheduledWorkoutReminderTime")}
+                    fullWidth
+                    inputProps={{ step: 60 }}
+                  />
+                  <TextField
+                    label="Timezone"
+                    value={form.reminderTimezone}
+                    onChange={handleFieldChange("reminderTimezone")}
+                    fullWidth
+                    helperText="Use your local timezone so reminders stay aligned while traveling."
+                  />
+                </Stack>
+
+                <Box>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "text.secondary", fontWeight: 600 }}
+                  >
+                    Scheduled reminder days
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {weekdayOptions.map((day) => (
+                      <Chip
+                        key={day}
+                        label={day}
+                        clickable
+                        color={
+                          form.scheduledWorkoutReminderDays.includes(day)
+                            ? "primary"
+                            : "default"
+                        }
+                        variant={
+                          form.scheduledWorkoutReminderDays.includes(day)
+                            ? "filled"
+                            : "outlined"
+                        }
+                        onClick={() =>
+                          toggleListValue("scheduledWorkoutReminderDays", day)
+                        }
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="Quiet hours start"
+                    type="time"
+                    value={form.quietHoursStart}
+                    onChange={handleFieldChange("quietHoursStart")}
+                    fullWidth
+                    inputProps={{ step: 60 }}
+                  />
+                  <TextField
+                    label="Quiet hours end"
+                    type="time"
+                    value={form.quietHoursEnd}
+                    onChange={handleFieldChange("quietHoursEnd")}
+                    fullWidth
+                    inputProps={{ step: 60 }}
+                  />
+                </Stack>
+
+                <TextField
+                  label="Comeback nudge after this many days"
+                  type="number"
+                  value={form.comebackThresholdDays}
+                  onChange={handleFieldChange("comebackThresholdDays")}
+                  inputProps={{ min: 1, max: 14 }}
+                  helperText="Only used when no recent completed workout was logged."
                 />
               </Stack>
             </Paper>

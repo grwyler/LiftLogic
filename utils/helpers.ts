@@ -15,6 +15,8 @@ import {
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
   WorkoutExerciseView,
+  ObservabilityEventDoc,
+  ReminderDeliveryDoc,
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
@@ -146,32 +148,73 @@ export const saveWorkoutEntry = async (
     actual: "Sending workout entry request.",
     status: "info",
   });
-  const res = await fetch("/api/workoutEntry", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entry: payloadEntry } satisfies WorkoutEntryApiRequest),
-  });
-  if (!res.ok) {
-    const message = await res.text();
-    emitDevBugRequest({
-      label: `Workout entry save failed for ${payloadEntry.name || payloadEntry.exerciseId || "exercise"}`,
-      expected: "Workout entry saves successfully.",
-      actual: `Request failed with ${res.status}: ${message}`,
-      status: "failure",
+  try {
+    const res = await fetch("/api/workoutEntry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry: payloadEntry } satisfies WorkoutEntryApiRequest),
     });
-    throw new Error(
-      res.status === 409
-        ? `saveWorkoutEntry ${res.status}: Workout data changed in another session. Refresh before retrying.`
-        : `saveWorkoutEntry ${res.status}: ${message}`
-    );
+    if (!res.ok) {
+      const message = await res.text();
+      const failureMessage =
+        res.status === 409
+          ? `saveWorkoutEntry ${res.status}: Workout data changed in another session. Refresh before retrying.`
+          : `saveWorkoutEntry ${res.status}: ${message}`;
+      emitDevBugRequest({
+        label: `Workout entry save failed for ${payloadEntry.name || payloadEntry.exerciseId || "exercise"}`,
+        expected: "Workout entry saves successfully.",
+        actual: `Request failed with ${res.status}: ${message}`,
+        status: "failure",
+      });
+      void trackObservabilityEvent({
+        kind: "workout_save_failure",
+        status: "failure",
+        route:
+          typeof window !== "undefined"
+            ? window.location.pathname
+            : "/routines",
+        source: "saveWorkoutEntry",
+        message: failureMessage,
+        metadata: {
+          routineName: payloadEntry.routineName,
+          exerciseId: String(payloadEntry.exerciseId ?? ""),
+          entryInstanceId: payloadEntry.entryInstanceId,
+          statusCode: res.status,
+        },
+      }).catch(() => undefined);
+      throw new Error(failureMessage);
+    }
+    emitDevBugRequest({
+      label: `Workout entry save returned ${res.status}`,
+      expected: "Server confirms the workout entry save.",
+      actual: `Workout entry request completed with ${res.status}.`,
+      status: "success",
+    });
+    return res.json() as Promise<WorkoutEntryApiResponse>;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.startsWith("saveWorkoutEntry")) {
+      void trackObservabilityEvent({
+        kind: "workout_save_failure",
+        status: "failure",
+        route:
+          typeof window !== "undefined"
+            ? window.location.pathname
+            : "/routines",
+        source: "saveWorkoutEntry",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown network failure while saving workout entry.",
+        metadata: {
+          routineName: payloadEntry.routineName,
+          exerciseId: String(payloadEntry.exerciseId ?? ""),
+          entryInstanceId: payloadEntry.entryInstanceId,
+        },
+      }).catch(() => undefined);
+    }
+
+    throw error;
   }
-  emitDevBugRequest({
-    label: `Workout entry save returned ${res.status}`,
-    expected: "Server confirms the workout entry save.",
-    actual: `Workout entry request completed with ${res.status}.`,
-    status: "success",
-  });
-  return res.json() as Promise<WorkoutEntryApiResponse>;
 };
 
 export const createWorkoutEntryInstanceId = () => {
@@ -1033,6 +1076,42 @@ export const trackBetaFunnelMilestone = async (
 
   return response.json() as Promise<{ success: true }>;
 };
+
+export const trackObservabilityEvent = async (
+  event: Partial<ObservabilityEventDoc>
+) =>
+  requestJson<{ success: true; alertsCreated: number }>("/api/observability", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      event,
+    }),
+  });
+
+export const fetchPendingReminders = async () => {
+  const response = await requestJson<{ reminders: ReminderDeliveryDoc[] }>(
+    "/api/reminders",
+    {
+      fallback: { reminders: [] },
+    }
+  );
+
+  return response.reminders ?? [];
+};
+
+export const acknowledgeReminder = async (reminderId: string) =>
+  requestJson<{ success: true }>("/api/reminders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "acknowledge",
+      reminderId,
+    }),
+  });
 
 export const mergeAnonymousBetaFunnel = async (anonymousFunnelId?: string) => {
   const resolvedAnonymousFunnelId =

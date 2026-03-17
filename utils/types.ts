@@ -262,6 +262,83 @@ export interface MonetizationSummaryResponse {
   };
 }
 
+export type ObservabilityEventKind =
+  | "client_error"
+  | "route_performance"
+  | "workout_save_failure"
+  | "checkout_failure"
+  | "checkout_success";
+
+export type ObservabilityEventStatus =
+  | "info"
+  | "warning"
+  | "failure"
+  | "success";
+
+export interface ObservabilityEventDoc {
+  _id?: ObjectId;
+  kind: ObservabilityEventKind;
+  status: ObservabilityEventStatus;
+  fingerprint?: string;
+  route?: string;
+  source?: string;
+  message?: string;
+  environment?: string;
+  releaseVersion?: string;
+  commitSha?: string;
+  userId?: string;
+  durationMs?: number;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+}
+
+export interface ObservabilityAlertDoc {
+  _id?: ObjectId;
+  kind: ObservabilityEventKind;
+  fingerprint: string;
+  route?: string;
+  message?: string;
+  count: number;
+  status: "open" | "resolved";
+  firstTriggeredAt: Date;
+  lastTriggeredAt: Date;
+  latestEventAt: Date;
+}
+
+export type ReminderDeliveryChannel = "in_app";
+
+export interface ReminderPreferences {
+  enabled?: boolean;
+  scheduledWorkoutRemindersEnabled?: boolean;
+  scheduledWorkoutReminderTime?: string;
+  scheduledWorkoutReminderDays?: string[];
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  comebackNudgesEnabled?: boolean;
+  comebackThresholdDays?: number;
+  timezone?: string;
+  deliveryChannel?: ReminderDeliveryChannel;
+}
+
+export interface ReminderDeliveryDoc {
+  _id?: ObjectId;
+  userId: string;
+  kind: "scheduled_workout" | "comeback_nudge";
+  reminderKey: string;
+  title: string;
+  message: string;
+  route?: string;
+  deliveryChannel: ReminderDeliveryChannel;
+  scheduledForLocal?: string;
+  timezone?: string;
+  deliveredAt: Date;
+  openedAt?: Date;
+  readAt?: Date;
+  postReminderWorkoutStartedAt?: Date;
+  postReminderWorkoutEntryId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface UserDoc {
   _id?: ObjectId;
   username: string;
@@ -302,6 +379,7 @@ export interface UserDoc {
     | "citrus";
   appearanceDensity?: "comfortable" | "compact";
   interfaceScale?: "normal" | "large";
+  reminderPreferences?: ReminderPreferences;
   billingPlan?: BillingPlan;
   productPlan?: ProductPlan;
   entitlements?: UserEntitlements;

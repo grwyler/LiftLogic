@@ -28,6 +28,7 @@ import {
   createBillingCheckoutSession,
   createBillingPortalSession,
   fetchBillingSummary,
+  trackObservabilityEvent,
   trackBetaFunnelMilestone,
 } from "../utils/helpers";
 
@@ -250,6 +251,16 @@ const PricingPage: React.FC = () => {
       console.error("Error starting checkout:", error);
       const message =
         error instanceof Error ? error.message : "Unable to start checkout.";
+      void trackObservabilityEvent({
+        kind: "checkout_failure",
+        status: "failure",
+        route: "/pricing",
+        source: `pricing_checkout_${interval}`,
+        message,
+        metadata: {
+          interval,
+        },
+      }).catch(() => undefined);
       setBillingError(message);
       toast.error(message);
     } finally {
