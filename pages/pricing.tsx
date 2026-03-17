@@ -424,7 +424,7 @@ const PricingPage: React.FC = () => {
               borderRadius: pricingRadius.inset,
               border: "1px solid",
               borderColor: "divider",
-              backgroundColor: "rgba(255,255,255,0.62)",
+              backgroundColor: "rgba(255,255,255,0.9)",
             }}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -630,7 +630,7 @@ const PricingPage: React.FC = () => {
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: pricingRadius.inset,
-                  backgroundColor: "rgba(255,255,255,0.5)",
+                  backgroundColor: "rgba(255,255,255,0.84)",
                 }}
               >
                 <Box

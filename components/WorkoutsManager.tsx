@@ -16,6 +16,7 @@ import ExerciseManager from "./ExerciseManager";
 import { RecurringRuleDoc, WorkoutEntryDoc } from "../utils/types";
 import { reconcilePendingLogAttempt } from "../utils/devBugRecorder";
 import { buildMilestoneSummary } from "../utils/milestones";
+import { parseLocalDateKey, toLocalDateKey } from "../utils/localDate";
 
 type Workout = {
   title: string;
@@ -81,13 +82,6 @@ export type ComebackGuideState = {
   supportingCopy: string;
 };
 
-const toLocalDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 const isScheduledDay = (dayStatus?: CalendarDayStatus | null) =>
   Boolean(dayStatus && (dayStatus.hasRecurring || dayStatus.exerciseCount > 0));
 
@@ -124,7 +118,7 @@ export const buildComebackGuide = ({
       continue;
     }
 
-    const parsed = new Date(`${key}T00:00:00`);
+    const parsed = parseLocalDateKey(key) ?? new Date(`${key}T00:00:00`);
     if (Number.isNaN(parsed.getTime()) || parsed > today) {
       continue;
     }

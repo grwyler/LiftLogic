@@ -16,6 +16,7 @@ import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import { DEFAULT_MAX_WEIGHT, getExerciseProfile } from "../utils/exerciseDrafts";
 import { toast } from "react-toastify";
 import { createExerciseSetId } from "../utils/exerciseSetIds";
+import { parseLocalDateInput } from "../utils/localDate";
 import { normalizeWeightUnit } from "../utils/weightUnits";
 import { hasEntitlement } from "../utils/entitlements";
 
@@ -103,15 +104,6 @@ const getDefaultRestSeconds = (exercise: any) => {
   return 90;
 };
 
-const parseLocalDate = (value: string) => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split("-").map(Number);
-    return new Date(year, month - 1, day);
-  }
-
-  return new Date(value);
-};
-
 const createWeightSets = ({
   setCount,
   reps,
@@ -181,7 +173,7 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
-  const parsedBaseDate = parseLocalDate(date);
+  const parsedBaseDate = parseLocalDateInput(date) ?? new Date(date);
   const [recurrenceType, setRecurrenceType] = useState<
     "daily" | "weekly" | "custom" | "monthly"
   >("weekly");
@@ -392,7 +384,9 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
         throw new Error("Pro Beta is required to schedule recurring workouts.");
       }
 
-      const parsedDate = parseLocalDate(persistableExercise.date);
+      const parsedDate =
+        parseLocalDateInput(persistableExercise.date) ??
+        new Date(persistableExercise.date);
       if (isNaN(parsedDate.getTime())) {
         throw new Error(`Invalid recurring date: ${persistableExercise.date}`);
       }

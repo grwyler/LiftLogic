@@ -24,8 +24,9 @@ describe("routines performance refresh flow", () => {
       "utf8"
     );
 
-    expect(source).toContain("const persistedExercise = await persistExercise(newExercise);");
-    expect(source).toContain("setExercises([...currentExercises, persistedExercise]);");
+    expect(source).toContain("setExercises([...currentExercises, baseExercise]);");
+    expect(source).toContain("const persistedExercise = await persistExercise(baseExercise);");
+    expect(source).toContain("setExercises((prev: any[]) =>");
     expect(source).not.toContain("setRefetchExercises((prev) => !prev);");
   });
 

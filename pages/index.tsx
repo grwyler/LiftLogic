@@ -286,7 +286,7 @@ const HomePage: React.FC = () => {
                 borderColor: "divider",
                 borderRadius: landingRadius.panel,
                 background:
-                  "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,247,255,0.88) 100%)",
+                  "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(236,244,255,0.96) 100%)",
               }}
             >
               <Typography variant="overline" sx={{ letterSpacing: "0.12em" }}>
@@ -321,7 +321,7 @@ const HomePage: React.FC = () => {
                   borderRadius: landingRadius.inset,
                   border: "1px solid",
                   borderColor: "divider",
-                  backgroundColor: "rgba(255,255,255,0.76)",
+                  backgroundColor: "rgba(255,255,255,0.92)",
                 }}
               >
                 <Typography variant="overline" sx={{ color: "text.secondary" }}>
@@ -435,7 +435,7 @@ const HomePage: React.FC = () => {
                     border: "1px solid",
                     borderColor: "divider",
                     borderRadius: landingRadius.card,
-                    backgroundColor: "rgba(255,255,255,0.46)",
+                    backgroundColor: "rgba(255,255,255,0.82)",
                   }}
                 >
                   <Stack direction="row" spacing={1} alignItems="center">

@@ -10,10 +10,11 @@ import {
   getCanonicalWeightFromSet,
   normalizeWeightUnit,
 } from "../utils/weightUnits";
+import { radiusTokens } from "../styles/radiusTokens";
 
 const completedSetRadius = {
-  card: "20px",
-  badge: "999px",
+  card: radiusTokens.card,
+  badge: radiusTokens.pill,
 } as const;
 
 const SetItem = ({

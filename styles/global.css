@@ -2,13 +2,18 @@
   --app-bg:
     radial-gradient(circle at top, rgba(148, 163, 184, 0.14), transparent 28%),
     linear-gradient(180deg, #f9fbfd 0%, #eff4f9 48%, #e7edf5 100%);
-  --app-surface: rgba(255, 255, 255, 0.84);
-  --app-surface-strong: rgba(255, 255, 255, 0.94);
-  --app-border: rgba(15, 23, 42, 0.09);
+  --app-surface: rgba(255, 255, 255, 0.94);
+  --app-surface-strong: rgba(255, 255, 255, 0.98);
+  --app-border: rgba(15, 23, 42, 0.14);
   --app-text: #101828;
-  --app-muted: #667085;
-  --app-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
-  --app-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --app-muted: #475467;
+  --app-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+  --app-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.09);
+  --radius-compact: 6px;
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-panel: 28px;
+  --radius-pill: 999px;
   --liftlogic-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --liftlogic-keyboard-offset: 0px;
   --liftlogic-overlay-bottom-offset: calc(
@@ -72,7 +77,7 @@ select {
 .search-input {
   padding: 11px 14px;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   margin-left: 8px;
   flex: 1;
   font-size: 15px;
@@ -96,7 +101,7 @@ select {
   background-color: rgba(255, 255, 255, 0.82);
   color: var(--app-text);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -125,7 +130,7 @@ select {
   left: 0;
   background-color: var(--app-surface-strong);
   border: 1px solid var(--app-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   box-shadow: var(--app-shadow-soft);
   padding: 10px;
   z-index: 100;
@@ -138,7 +143,7 @@ select {
 
 .form-control {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: var(--app-shadow-soft);
 }
 

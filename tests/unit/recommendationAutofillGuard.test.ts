@@ -20,10 +20,11 @@ describe("recommendation autofill guard", () => {
       "utf8"
     );
 
-    expect(source).toContain("Recommended targets");
-    expect(source).toContain("Your planned sets stay unchanged until you apply this recommendation.");
-    expect(source).toContain("Apply recommendation");
-    expect(source).toContain("Recommendation applied to this session");
+    expect(source).toContain("const handleApplyRecommendation = async () => {");
+    expect(source).toContain("<ExerciseRecommendationPanel");
+    expect(source).toContain("handleApplyRecommendation={handleApplyRecommendation}");
+    expect(source).toContain("buildRecommendedIncompleteSets");
     expect(source).toContain("await saveWorkoutEntry({");
+    expect(source).toContain("Recommendation applied to this session");
   });
 });

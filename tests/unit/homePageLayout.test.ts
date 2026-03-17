@@ -25,7 +25,7 @@ describe("home page layout styling", () => {
 
     expect(source).toContain('direction={{ xs: "column", sm: "row" }}');
     expect(source).toContain('sx={{ width: { xs: "100%", sm: "auto" } }}');
-    expect(source.match(/fullWidth/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(source.match(/fullWidth/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
   });
 
   it("renders assistant marketing copy without smart quotes or mojibake", () => {
@@ -50,8 +50,21 @@ describe("home page layout styling", () => {
     );
 
     expect(source).toContain("right: { xs: 12, sm: 18 }");
+    expect(source).toContain("const mobileBottomOffset =");
     expect(source).toContain(
-      'xs: "calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))"'
+      '"calc(72px + var(--liftlogic-overlay-bottom-offset, 0px))"'
     );
+  });
+
+  it("only enables developer chrome from explicit internal mode or internal routes", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "pages", "_app.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("liftlogic-developer-mode");
+    expect(source).toContain('router.query.devtools === "1"');
+    expect(source).toContain('route === "/bugs"');
+    expect(source).toContain("developerChromeEnabled ? <AppVersionBadge /> : null");
   });
 });

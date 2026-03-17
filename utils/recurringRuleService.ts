@@ -1,5 +1,7 @@
 import { ObjectId } from "mongodb";
 import { ensureExerciseSetIds } from "./exerciseSetIds";
+import { requestJson } from "./apiClient";
+import { parseLocalDateKey, toLocalDateKey } from "./localDate";
 import { ExerciseSet, RecurringRuleDoc, WorkoutEntryDoc } from "./types";
 
 export type RecurrenceType = "daily" | "weekly" | "custom" | "monthly";
@@ -109,31 +111,18 @@ const normalizeDateString = (value?: string | Date | null) => {
     return undefined;
   }
 
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
+  if (typeof value === "string") {
+    const parsedKey = parseLocalDateKey(value);
+    if (parsedKey) {
+      return value;
+    }
   }
 
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return Number.isNaN(parsed.getTime()) ? undefined : toLocalDateKey(parsed);
 };
 
-export const parseRecurringDateKey = (value: unknown) => {
-  const raw = String(value ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return null;
-  }
-
-  const [year, month, day] = raw.split("-").map(Number);
-  const parsed = new Date(year, month - 1, day);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
+export const parseRecurringDateKey = parseLocalDateKey;
 
 export const normalizeRecurringSchedule = (
   schedule: RecurringScheduleInput,
@@ -212,17 +201,6 @@ export const buildRecurringRuleUpsertDoc = (
     defaultRest: rule.defaultRest,
     active: rule.active ?? true,
   };
-};
-
-const requestJson = async <TResponse>(input: RequestInfo, init: RequestInit) => {
-  const response = await fetch(input, init);
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${init.method ?? "GET"} ${String(input)} ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<TResponse>;
 };
 
 export const saveRecurringRule = async (

@@ -1,5 +1,7 @@
+import { radiusTokens } from "../../styles/radiusTokens";
+
 export const routinesPanelRadius = {
-  shell: 2.25,
-  section: 1.5,
-  pill: 999,
+  shell: radiusTokens.panel,
+  section: radiusTokens.card,
+  pill: radiusTokens.pill,
 } as const;

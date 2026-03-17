@@ -386,6 +386,14 @@ describe("feedback API route", () => {
     expect(res.body.workItem.occurrenceCount).toBe(1);
     expect(res.body.workItem.type).toBe("bug");
     expect(res.body.workItem.latestReporterRole).toBe("user");
+    expect(res.body.workItem.structuredRepro).toMatchObject({
+      actualBehavior: "Workout log failed",
+      affectedFlow: "/routines",
+    });
+    expect(res.body.workItem.implementationContext.confirmed[0].path).toBe(
+      "pages/routines.tsx"
+    );
+    expect(res.body.workItem.verificationPack.items.length).toBeGreaterThan(0);
     expect(res.body.workItem.latestRuntimeContext).toMatchObject({
       appVersion: "1.0.0",
       commitSha: "commit-sha-123456",
@@ -642,6 +650,34 @@ describe("feedback API route", () => {
         fixCommitSha: "abc123def",
         title: "Updated login failure summary",
         latestDescription: "Admins clarified the repro steps during triage.",
+        structuredRepro: {
+          actualBehavior: "The current bug lacks a stable summary.",
+          expectedBehavior: "The summary should be clear before fixing starts.",
+          reproSteps: ["Open the work item", "Review the current summary"],
+          affectedFlow: "/bugs",
+        },
+        implementationContext: {
+          summary: "Start with the bugs inbox and the feedback helpers.",
+          confirmed: [{ type: "route", path: "pages/bugs.tsx", label: "Bugs inbox" }],
+          inferred: [{ type: "test", path: "tests/unit/feedbackApi.test.ts", label: "API test" }],
+        },
+        verificationPack: {
+          summary: "Run workflow tests and review the bug detail modal.",
+          items: [
+            {
+              id: "command-bugs-tests",
+              kind: "command",
+              label: "Run bug tests",
+              command: "npm run test:unit -- tests/unit/feedbackApi.test.ts",
+            },
+            {
+              id: "done-brief",
+              kind: "done",
+              label: "The copied brief matches the saved fields.",
+            },
+          ],
+        },
+        completedVerificationIds: ["done-brief"],
       },
     });
     const patchRes = createMockResponse();
@@ -658,12 +694,49 @@ describe("feedback API route", () => {
     expect(patchRes.body.workItem.latestDescription).toBe(
       "Admins clarified the repro steps during triage."
     );
+    expect(patchRes.body.workItem.structuredRepro.actualBehavior).toBe(
+      "The current bug lacks a stable summary."
+    );
+    expect(patchRes.body.workItem.completedVerificationIds).toEqual(["done-brief"]);
 
     const linkedFeedback = db.feedbackDocs[0];
     expect(linkedFeedback.triageStatus).toBe("resolved");
     expect(linkedFeedback.status).toBe("resolved");
     expect(linkedFeedback.fixThreadId).toBe("thread-42");
     expect(linkedFeedback.fixCommitSha).toBe("abc123def");
+    expect(linkedFeedback.structuredRepro.actualBehavior).toBe(
+      "The current bug lacks a stable summary."
+    );
+  });
+
+  it("blocks queued or fixing status when structured repro details are missing", async () => {
+    const postRes = createMockResponse();
+    await handler(
+      createMockRequest({ method: "POST", body: validBugPayload }),
+      postRes as any
+    );
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const patchRes = createMockResponse();
+    await handler(
+      createMockRequest({
+        method: "PATCH",
+        body: {
+          workItemId: postRes.body.workItem._id.toString(),
+          triageStatus: "queued",
+          structuredRepro: {
+            actualBehavior: "",
+            expectedBehavior: "",
+            reproSteps: [],
+            affectedFlow: "",
+          },
+        },
+      }),
+      patchRes as any
+    );
+
+    expect(patchRes.statusCode).toBe(400);
+    expect(patchRes.body.message).toContain("must be filled in or explicitly marked Unknown");
   });
 
   it("deletes an entire work item and its linked feedback through DELETE", async () => {
