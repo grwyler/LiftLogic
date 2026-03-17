@@ -454,7 +454,10 @@ const ExerciseItem = ({
       weight: Number(lastSet.weight ?? 0) * 1.05,
       actualWeight: "",
       actualReps: "",
+      actualRpe: "",
       complete: false,
+      notes: "",
+      setType: "working" as const,
       name: `Working Set ${newSetNumber}`,
     };
     setCurrentExercise({ ...currentExercise, sets: [...sets, newSet] });

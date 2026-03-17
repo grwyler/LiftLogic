@@ -25,6 +25,13 @@ describe("pricing page positioning", () => {
     expect(source).toContain("Start with a real {trialDays}-day Pro trial");
     expect(source).toContain("What happens after the trial?");
     expect(source).toContain("pricing_trial_${option.interval}");
+    expect(source).toContain("Premium Proof");
+    expect(source).toContain("Show me the coaching layer, not just the feature list.");
+    expect(source).toContain("pricing_proof_sample_plan");
+    expect(source).toContain("pricing_proof_recommendation_preview");
+    expect(source).toContain("pricing_proof_schedule_adjustment");
+    expect(source).toContain("Buyer FAQ");
+    expect(source).toContain("Trust signals before checkout");
   });
 
   it("links pricing from landing, signup, routines, and settings", () => {

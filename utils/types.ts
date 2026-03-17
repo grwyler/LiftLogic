@@ -6,6 +6,9 @@ export type WeightUnit = "lb" | "kg";
 export interface ExerciseSet {
   id?: string;
   name: string;
+  setType?: "warm_up" | "working" | "drop" | "failure";
+  notes?: string;
+  actualRpe?: number | string;
   weightUnit?: WeightUnit;
   actualWeightUnit?: WeightUnit;
   weightInLb?: number;

@@ -14,6 +14,7 @@ import {
   Typography,
   Button,
   Chip,
+  Stack,
 } from "@mui/material";
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -35,6 +36,33 @@ import {
   normalizeWeightUnit,
   roundToWeightIncrement,
 } from "../utils/weightUnits";
+
+const setTypeOptions = [
+  { value: "warm_up", label: "Warm-up" },
+  { value: "working", label: "Working" },
+  { value: "drop", label: "Drop" },
+  { value: "failure", label: "Failure" },
+] as const;
+
+const formatSetTypeLabel = (value?: string) => {
+  switch (value) {
+    case "warm_up":
+      return "Warm-up";
+    case "working":
+      return "Working";
+    case "drop":
+      return "Drop";
+    case "failure":
+      return "Failure";
+    default:
+      return "Working";
+  }
+};
+
+const isBarbellExercise = (exerciseName: string) =>
+  /barbell|bench press|deadlift|squat|overhead press|romanian deadlift|bent-over row|front squat/i.test(
+    exerciseName
+  );
 
 const SelectedSetItem = ({
   routineName,
@@ -104,6 +132,17 @@ const SelectedSetItem = ({
   const [setName, setSetName] = useState(name);
   const [currentSetWeight, setCurrentSetWeight] = useState(initialWeightValue);
   const [currentSetReps, setCurrentSetReps] = useState(actualReps || reps);
+  const [currentSetType, setCurrentSetType] = useState(
+    (set as any).setType ||
+      (/warm[\s-]?up/i.test(String(name)) ? "warm_up" : "working")
+  );
+  const [currentSetNotes, setCurrentSetNotes] = useState((set as any).notes || "");
+  const [currentSetRpe, setCurrentSetRpe] = useState(
+    (set as any).actualRpe?.toString?.() || ""
+  );
+  const [showAdvancedFields, setShowAdvancedFields] = useState(
+    Boolean((set as any).notes || (set as any).actualRpe)
+  );
   const repsInputRef = useRef(null);
   const weightInputRef = useRef(null);
   const { data: session } = useSession() as {
@@ -141,6 +180,19 @@ const SelectedSetItem = ({
       : [];
   const activeValidationMessage =
     weightValidationErrors[0] ?? timedValidationErrors[0] ?? null;
+  const previousCompletedSet = [...sets]
+    .slice(0, setIndex)
+    .reverse()
+    .find((existingSet) => existingSet.complete);
+  const currentWeightNumber = Number.parseFloat(String(currentSetWeight || ""));
+  const showPlateMath =
+    currentExercise.type === "weight" &&
+    isBarbellExercise(currentExercise.name) &&
+    Number.isFinite(currentWeightNumber) &&
+    currentWeightNumber > 0;
+  const plateMathBreakdown = showPlateMath
+    ? calculateWeights(currentWeightNumber, weightUnit)
+    : "";
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -174,6 +226,13 @@ const SelectedSetItem = ({
     setSetName(name);
     setCurrentSetWeight(nextWeightValue);
     setCurrentSetReps(actualReps || reps);
+    setCurrentSetType(
+      (set as any).setType ||
+        (/warm[\s-]?up/i.test(String(name)) ? "warm_up" : "working")
+    );
+    setCurrentSetNotes((set as any).notes || "");
+    setCurrentSetRpe((set as any).actualRpe?.toString?.() || "");
+    setShowAdvancedFields(Boolean((set as any).notes || (set as any).actualRpe));
     setHours(
       actualHours === "" ? parseInt(set.hours) || 0 : parseInt(actualHours) || 0
     );
@@ -193,6 +252,7 @@ const SelectedSetItem = ({
     actualReps,
     actualSeconds,
     actualWeight,
+    set,
     name,
     reps,
     set.hours,
@@ -273,6 +333,57 @@ const SelectedSetItem = ({
     }
   }, [countdown, totalSeconds, timerActive, initialTimerActive]);
 
+  const adjustWeightQuickly = (direction: -1 | 1) => {
+    const startingWeight = Number.parseFloat(String(currentSetWeight || ""));
+    const safeWeight = Number.isFinite(startingWeight)
+      ? startingWeight
+      : Number.parseFloat(
+          String(getDisplayWeightFromSet(set, "planned", weightUnit) || 0)
+        );
+    const nextWeight = Math.max(
+      weightInputConfig.min,
+      roundToWeightIncrement(
+        safeWeight + direction * weightInputConfig.step,
+        weightUnit
+      )
+    );
+
+    setCurrentSetWeight(formatWeightValue(nextWeight));
+  };
+
+  const adjustRepsQuickly = (direction: -1 | 1) => {
+    const startingReps = Number.parseInt(String(currentSetReps || reps || 0), 10) || 0;
+    const nextReps = Math.min(
+      WORKOUT_VALUE_LIMITS.reps.max,
+      Math.max(WORKOUT_VALUE_LIMITS.reps.min, startingReps + direction)
+    );
+
+    setCurrentSetReps(String(nextReps));
+  };
+
+  const copyPreviousSet = () => {
+    if (!previousCompletedSet) {
+      return;
+    }
+
+    const previousWeight =
+      getDisplayWeightFromSet(previousCompletedSet, "actual", weightUnit) ??
+      getDisplayWeightFromSet(previousCompletedSet, "planned", weightUnit);
+
+    setCurrentSetWeight(
+      previousWeight == null ? "" : formatWeightValue(previousWeight)
+    );
+    setCurrentSetReps(
+      String(previousCompletedSet.actualReps || previousCompletedSet.reps || "")
+    );
+    setCurrentSetType((previousCompletedSet as any).setType || "working");
+    setCurrentSetRpe((previousCompletedSet as any).actualRpe?.toString?.() || "");
+    setCurrentSetNotes((previousCompletedSet as any).notes || "");
+    setShowAdvancedFields(
+      Boolean((previousCompletedSet as any).notes || (previousCompletedSet as any).actualRpe)
+    );
+  };
+
   const handleLogSet = async () => {
     if (loggingSet) {
       return;
@@ -325,6 +436,9 @@ const SelectedSetItem = ({
       return {
         ...s,
         name: setName,
+        setType: currentSetType,
+        notes: currentSetNotes.trim() || undefined,
+        actualRpe: currentSetRpe.trim() || undefined,
         ...(currentExercise.type === "weight"
           ? {
               actualWeight: currentSetWeight,
@@ -583,6 +697,43 @@ const SelectedSetItem = ({
         </Typography>
       ) : null}
 
+      {previousCompletedSet ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.25,
+            mb: 1.25,
+            borderRadius: 2,
+            backgroundColor: darkMode ? "rgba(30,41,59,0.72)" : "rgba(248,250,252,0.92)",
+            borderColor: darkMode ? "rgba(148,163,184,0.14)" : "rgba(17,24,39,0.08)",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            Previous performance context
+          </Typography>
+          <Typography sx={{ mt: 0.6 }}>
+            Last logged: {formatSetTypeLabel((previousCompletedSet as any).setType)} set at{" "}
+            {formatWeight(
+              getDisplayWeightFromSet(previousCompletedSet, "actual", weightUnit) ??
+                getDisplayWeightFromSet(previousCompletedSet, "planned", weightUnit),
+              weightUnit
+            )}{" "}
+            x {previousCompletedSet.actualReps || previousCompletedSet.reps || "?"}
+            {(previousCompletedSet as any).actualRpe
+              ? `, RPE ${(previousCompletedSet as any).actualRpe}`
+              : ""}
+          </Typography>
+          {(previousCompletedSet as any).notes ? (
+            <Typography sx={{ mt: 0.6, color: "text.secondary" }}>
+              Note: {(previousCompletedSet as any).notes}
+            </Typography>
+          ) : null}
+          <Button variant="text" size="small" sx={{ mt: 0.75 }} onClick={copyPreviousSet}>
+            Copy last set
+          </Button>
+        </Paper>
+      ) : null}
+
       {currentExercise.type === "weight" && isRestTimerBlocking ? (
         <Typography sx={{ mb: 1.25, color: "text.secondary" }}>
           Rest timer is active. Let it finish, pause it, or skip it before
@@ -626,9 +777,36 @@ const SelectedSetItem = ({
                 Next sets updated to {formatWeight(liveAdjustment.weight, weightUnit)} x {liveAdjustment.reps}.
               </Typography>
             )}
+            {showPlateMath ? (
+              <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                Plate math: {plateMathBreakdown}
+              </Typography>
+            ) : null}
           </Paper>
 
           <Divider sx={{ mb: 1 }} />
+
+          <Box sx={{ mb: 1.25 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 700, mb: 1, display: "block" }}
+            >
+              Set type
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {setTypeOptions.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  clickable
+                  color={currentSetType === option.value ? "primary" : "default"}
+                  variant={currentSetType === option.value ? "filled" : "outlined"}
+                  onClick={() => setCurrentSetType(option.value)}
+                />
+              ))}
+            </Stack>
+          </Box>
 
           <Box sx={{ mb: 1 }}>
             <Typography
@@ -742,6 +920,50 @@ const SelectedSetItem = ({
                 <Typography variant="button">reps</Typography>
               </Box>
             </Box>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              <Button variant="outlined" size="small" onClick={() => adjustWeightQuickly(-1)}>
+                - {formatWeightValue(weightInputConfig.step)} {weightUnit}
+              </Button>
+              <Button variant="outlined" size="small" onClick={() => adjustWeightQuickly(1)}>
+                + {formatWeightValue(weightInputConfig.step)} {weightUnit}
+              </Button>
+              <Button variant="outlined" size="small" onClick={() => adjustRepsQuickly(-1)}>
+                -1 rep
+              </Button>
+              <Button variant="outlined" size="small" onClick={() => adjustRepsQuickly(1)}>
+                +1 rep
+              </Button>
+            </Stack>
+            <Button
+              variant="text"
+              size="small"
+              sx={{ mt: 1 }}
+              onClick={() => setShowAdvancedFields((previous) => !previous)}
+            >
+              {showAdvancedFields ? "Hide notes and RPE" : "Add notes or RPE"}
+            </Button>
+            {showAdvancedFields ? (
+              <Stack spacing={1} sx={{ mt: 1 }}>
+                <TextField
+                  type="number"
+                  value={currentSetRpe}
+                  onChange={(event) => setCurrentSetRpe(event.target.value)}
+                  label="RPE (optional)"
+                  inputProps={{ min: 1, max: 10, step: 0.5 }}
+                  helperText="Use 1-10 if you want a quick effort note."
+                  size="small"
+                />
+                <TextField
+                  value={currentSetNotes}
+                  onChange={(event) => setCurrentSetNotes(event.target.value)}
+                  label="Set note (optional)"
+                  multiline
+                  minRows={2}
+                  placeholder="Grip felt off, paused reps, moved fast..."
+                  size="small"
+                />
+              </Stack>
+            ) : null}
           </Box>
         </>
       )}

@@ -131,6 +131,28 @@ const SetItem = ({
         </Box>
       </Box>
 
+      {set.setType || set.actualRpe || set.notes ? (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 0.85 }}>
+          {set.setType ? (
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600 }}>
+              {set.setType === "warm_up"
+                ? "Warm-up"
+                : set.setType === "working"
+                ? "Working"
+                : set.setType === "drop"
+                ? "Drop"
+                : "Failure"}{" "}
+              set
+            </Typography>
+          ) : null}
+          {set.actualRpe ? (
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600 }}>
+              RPE {set.actualRpe}
+            </Typography>
+          ) : null}
+        </Box>
+      ) : null}
+
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
         {shouldRenderWeightMetrics && (
           <Fragment>
@@ -162,6 +184,10 @@ const SetItem = ({
           </Typography>
         )}
       </Box>
+
+      {set.notes ? (
+        <Typography sx={{ mt: 0.85, color: "text.secondary" }}>{set.notes}</Typography>
+      ) : null}
     </Paper>
   );
 };

@@ -111,6 +111,63 @@ const comparisonRows = [
   },
 ];
 
+const premiumProofModules = [
+  {
+    title: "See the plan before you pay",
+    eyebrow: "Sample generated week",
+    source: "pricing_proof_sample_plan",
+    bullets: [
+      "Mon: Lower strength, Wed: Upper strength, Fri: Full-body progression",
+      "Uses your training days, equipment access, and session length to keep the week realistic",
+      "Pairs core lifts with accessories that fit the time budget instead of dumping a generic template",
+    ],
+  },
+  {
+    title: "Preview the recommendation layer",
+    eyebrow: "Next-session recommendation",
+    source: "pricing_proof_recommendation_preview",
+    bullets: [
+      "Bench press next week: 155 lb x 6 for 3 working sets after a 135 / 145 ramp-up",
+      "Reasoning: you hit all prior targets with room left, so the app nudges load without blowing up fatigue",
+      "If you undershoot, Pro adapts the next recommendation instead of pretending the plan never met real life",
+    ],
+  },
+  {
+    title: "Watch the week adapt to real life",
+    eyebrow: "Before vs after schedule change",
+    source: "pricing_proof_schedule_adjustment",
+    bullets: [
+      "Before: Tue / Thu / Sat gym split with full equipment",
+      "After: Wed / Fri / Sun, 45-minute sessions, hotel dumbbells only",
+      "Pro rewrites the week around the new constraint set without forcing you to start over",
+    ],
+  },
+];
+
+const premiumTrustSignals = [
+  "You keep your workout history, setup, and logs even if you cancel after the trial.",
+  "Free logging remains useful on its own, so you are not paying just to access your past training.",
+  "The paid layer is specifically the coaching logic: plan generation, revisions, recurring schedules, and recommendations.",
+];
+
+const premiumFaqItems = [
+  {
+    question: "What do I actually get that Free does not?",
+    answer:
+      "Free keeps the daily logging flow clean. Pro Beta is what drafts the week, revises it around your constraints, and turns your logged performance into updated recommendations.",
+  },
+  {
+    question: "What happens if my schedule changes after I buy?",
+    answer:
+      "That is one of the main reasons Pro exists. You can regenerate around fewer days, shorter sessions, different equipment, or new limitations instead of rebuilding manually.",
+  },
+  {
+    question: "What if I try the trial and decide it is not worth it?",
+    answer:
+      "Your account falls back to free logging, and you keep your workout history, setup, and completed sessions. The trial is meant to let the adaptive layer prove itself first.",
+  },
+];
+
 const defaultPriceOptions: BillingPriceOption[] = [
   {
     interval: "month",
@@ -316,6 +373,31 @@ const PricingPage: React.FC = () => {
     } finally {
       setActionLoading("");
     }
+  };
+
+  const handleProofInteraction = (source: string) => {
+    void trackBetaFunnelMilestone("pricing_cta_clicked", {
+      source,
+    }).catch((error) => {
+      console.error("Error tracking pricing proof interaction:", error);
+    });
+  };
+
+  const handleProofCheckout = async (
+    interval: "month" | "year",
+    source: string
+  ) => {
+    handleProofInteraction(source);
+
+    if (!isAuthenticated) {
+      void router.push("/signup");
+      return;
+    }
+
+    await handleCheckout(interval, {
+      trialRequested: true,
+      source,
+    });
   };
 
   return (
@@ -874,6 +956,145 @@ const PricingPage: React.FC = () => {
               </Paper>
             ))}
           </Stack>
+        </Paper>
+
+        <Paper
+          elevation={0}
+          sx={{
+            mt: { xs: 3, sm: 4 },
+            p: { xs: 2.25, sm: 2.75 },
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: pricingRadius.panel,
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.94) 100%)",
+          }}
+        >
+          <Typography variant="overline" sx={{ letterSpacing: "0.14em" }}>
+            Premium Proof
+          </Typography>
+          <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 720 }}>
+            Show me the coaching layer, not just the feature list.
+          </Typography>
+          <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
+            Pro Beta should feel concrete before checkout. These examples show the
+            kinds of outputs the paid layer is responsible for: a drafted week, a
+            recommendation update, and a real-life schedule rewrite.
+          </Typography>
+
+          <Box
+            sx={{
+              mt: 2.25,
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
+              gap: 1.5,
+            }}
+          >
+            {premiumProofModules.map((module, index) => (
+              <Paper
+                key={module.title}
+                elevation={0}
+                sx={{
+                  p: 1.75,
+                  borderRadius: pricingRadius.inset,
+                  border: "1px solid",
+                  borderColor:
+                    index === 1 ? "rgba(59,130,246,0.32)" : "divider",
+                  backgroundColor:
+                    index === 1 ? "rgba(239,246,255,0.9)" : "rgba(255,255,255,0.82)",
+                }}
+              >
+                <Typography variant="overline" sx={{ color: "text.secondary" }}>
+                  {module.eyebrow}
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 0.5, lineHeight: 1.15 }}>
+                  {module.title}
+                </Typography>
+                <Stack spacing={1} sx={{ mt: 1.25 }}>
+                  {module.bullets.map((bullet) => (
+                    <Typography key={bullet} sx={{ color: "text.secondary" }}>
+                      {bullet}
+                    </Typography>
+                  ))}
+                </Stack>
+                <Button
+                  variant={index === 1 ? "contained" : "outlined"}
+                  sx={{ mt: 1.5 }}
+                  onClick={() =>
+                    void handleProofCheckout(
+                      index === 2 ? "year" : "month",
+                      module.source
+                    )
+                  }
+                  disabled={Boolean(actionLoading) || (isAuthenticated && !checkoutEnabled)}
+                >
+                  {isAuthenticated
+                    ? `Start ${trialDays}-day trial from this example`
+                    : "Use this as my reason to sign up"}
+                </Button>
+              </Paper>
+            ))}
+          </Box>
+
+          <Box
+            sx={{
+              mt: 2.25,
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", lg: "1.1fr 0.9fr" },
+              gap: 1.5,
+            }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.75,
+                borderRadius: pricingRadius.inset,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "rgba(255,255,255,0.82)",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Trust signals before checkout
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 1.25 }}>
+                {premiumTrustSignals.map((signal) => (
+                  <Stack key={signal} direction="row" spacing={1} alignItems="flex-start">
+                    <CheckCircleOutlineIcon
+                      fontSize="small"
+                      sx={{ mt: "2px", color: "text.primary" }}
+                    />
+                    <Typography sx={{ color: "text.secondary" }}>{signal}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.75,
+                borderRadius: pricingRadius.inset,
+                border: "1px solid",
+                borderColor: "divider",
+                backgroundColor: "rgba(255,255,255,0.82)",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Buyer FAQ
+              </Typography>
+              <Stack spacing={1.25} sx={{ mt: 1.25 }}>
+                {premiumFaqItems.map((item) => (
+                  <Box key={item.question}>
+                    <Typography sx={{ fontWeight: 700 }}>{item.question}</Typography>
+                    <Typography sx={{ mt: 0.45, color: "text.secondary" }}>
+                      {item.answer}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
+          </Box>
         </Paper>
 
         <Paper
