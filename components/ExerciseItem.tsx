@@ -108,6 +108,23 @@ type ExerciseItemProps = {
       averageReps?: number;
       setsCompleted?: number;
     };
+    comparison?: {
+      previousWeight?: number | null;
+      previousReps?: number | null;
+      currentTargetWeight?: number | null;
+      currentTargetReps?: number | null;
+      deltaWeight?: number | null;
+      benchmarkDate?: string | null;
+      firstBenchmark?: boolean;
+      summary?: string;
+    };
+    fatigue?: {
+      score: number;
+      state: "fresh" | "building" | "high" | "deload";
+      consecutiveHighFatigueExposures: number;
+      deloadTriggered: boolean;
+      signalReasons: string[];
+    } | null;
   } | null;
   progressSummary?: {
     bestRepPerformance?: unknown;

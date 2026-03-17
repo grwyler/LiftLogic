@@ -7,6 +7,23 @@ import {
 import { getPersonalRecordHighlights } from "../../utils/performance";
 import { getExerciseExecutionGuidance } from "../../utils/workoutGuidance";
 
+const metricDefinitionRows = [
+  {
+    label: "Estimated 1RM",
+    detail:
+      "A calculated max from your best logged weight and reps, not a true one-rep test.",
+  },
+  {
+    label: "Volume load",
+    detail: "Weight times reps across completed sets. It shows total work, not just the top set.",
+  },
+  {
+    label: "PR",
+    detail:
+      "A PR can mean estimated 1RM, heaviest weight, or best rep performance depending on what you beat.",
+  },
+] as const;
+
 export const CompletedExercisePerformancePanel = ({
   currentExercise,
   darkMode,
@@ -79,6 +96,16 @@ export const CompletedExercisePerformancePanel = ({
     progressSummary,
     preferredUnits
   );
+  const latestBestRep = progressSummary?.bestRepPerformance ?? null;
+  const previousBestRep = progressSummary?.previousBestRepPerformance ?? null;
+  const visibleLoadDelta =
+    latestBestRep?.weight && previousBestRep?.weight
+      ? Math.round(
+          (fromCanonicalWeightLb(latestBestRep.weight, preferredUnits) -
+            fromCanonicalWeightLb(previousBestRep.weight, preferredUnits)) *
+            10
+        ) / 10
+      : null;
   const trendLabel =
     progressSummary?.latestWorkoutBrokePR && hasPriorBenchmark
       ? "PR"
@@ -247,6 +274,45 @@ export const CompletedExercisePerformancePanel = ({
               x {progressSummary.bestRepPerformance.reps}.
             </Typography>
           ) : null}
+          {latestBestRep ? (
+            <Typography sx={{ mt: 0.8, color: "text.secondary" }}>
+              {previousBestRep
+                ? `Last comparable set ${formatWeight(
+                    fromCanonicalWeightLb(previousBestRep.weight, preferredUnits),
+                    preferredUnits
+                  )} x ${previousBestRep.reps}, today ${formatWeight(
+                    fromCanonicalWeightLb(latestBestRep.weight, preferredUnits),
+                    preferredUnits
+                  )} x ${latestBestRep.reps}${
+                    visibleLoadDelta !== null
+                      ? `, ${visibleLoadDelta > 0 ? "+" : ""}${visibleLoadDelta} ${preferredUnits}`
+                      : ""
+                  }.`
+                : "This session set the first comparable benchmark for this lift."}
+            </Typography>
+          ) : null}
+          <Paper
+            elevation={0}
+            sx={{
+              mt: 1.1,
+              p: 1.1,
+              borderRadius: completedExerciseRadius.section,
+              border: "1px solid",
+              borderColor: "divider",
+              backgroundColor: darkMode ? "rgba(15,23,42,0.5)" : "rgba(255,255,255,0.88)",
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Metric guide
+            </Typography>
+            <Box sx={{ mt: 0.8, display: "grid", gap: 0.65 }}>
+              {metricDefinitionRows.map((row) => (
+                <Typography key={row.label} sx={{ color: "text.secondary" }}>
+                  <strong>{row.label}:</strong> {row.detail}
+                </Typography>
+              ))}
+            </Box>
+          </Paper>
         </>
       ) : (
         <Typography sx={{ mt: 1, color: "text.secondary" }}>
@@ -417,7 +483,20 @@ export const ExerciseRecommendationPanel = ({
           label={`${recommendation.recommendedReps} reps`}
           variant="outlined"
         />
+        {recommendation.comparison?.deltaWeight !== null ? (
+          <Chip
+            label={`${recommendation.comparison.deltaWeight > 0 ? "+" : ""}${
+              recommendation.comparison.deltaWeight
+            } ${recommendation.weightUnit ?? preferredUnits} vs last`}
+            color={recommendation.comparison.deltaWeight > 0 ? "success" : "warning"}
+            variant="outlined"
+          />
+        ) : null}
       </Box>
+      <Typography sx={{ mt: 0.85, color: "text.secondary" }}>
+        {recommendation.comparison?.summary ??
+          "Log this workout cleanly to unlock a clearer session-to-session comparison."}
+      </Typography>
 
       <Paper
         elevation={0}
@@ -482,7 +561,77 @@ export const ExerciseRecommendationPanel = ({
             .
           </Typography>
         ) : null}
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 1,
+            p: 1,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: darkMode ? "rgba(30,41,59,0.52)" : "rgba(248,250,252,0.92)",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Metric guide
+          </Typography>
+          <Box sx={{ mt: 0.5, display: "grid", gap: 0.45 }}>
+            {metricDefinitionRows.map((row) => (
+              <Typography key={row.label} sx={{ color: "text.secondary" }}>
+                <strong>{row.label}:</strong> {row.detail}
+              </Typography>
+            ))}
+          </Box>
+        </Paper>
       </Paper>
+
+      {recommendation.fatigue ? (
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 1.1,
+            p: 1.1,
+            borderRadius: completedExerciseRadius.section,
+            border: "1px solid",
+            borderColor:
+              recommendation.fatigue.state === "deload"
+                ? darkMode
+                  ? "rgba(250,204,21,0.24)"
+                  : "rgba(202,138,4,0.24)"
+                : "divider",
+            backgroundColor:
+              recommendation.fatigue.state === "deload"
+                ? darkMode
+                  ? "rgba(69,26,3,0.34)"
+                  : "rgba(255,251,235,0.92)"
+                : darkMode
+                ? "rgba(15,23,42,0.5)"
+                : "rgba(255,255,255,0.88)",
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Recovery and fatigue
+          </Typography>
+          <Typography sx={{ mt: 0.65, color: "text.secondary" }}>
+            {recommendation.fatigue.state === "deload"
+              ? "Fatigue stayed elevated across multiple sessions, so Lift Logic prescribed a lighter deload exposure."
+              : recommendation.fatigue.state === "high"
+              ? "Recent sessions show elevated fatigue, so this target is slightly more conservative."
+              : recommendation.fatigue.state === "building"
+              ? "A mild fatigue signal is building, but progression is still moving."
+              : "Recent sessions do not show a strong fatigue warning."}
+          </Typography>
+          {recommendation.fatigue.signalReasons?.length ? (
+            <Box sx={{ mt: 0.75, display: "grid", gap: 0.4 }}>
+              {recommendation.fatigue.signalReasons.map((reason: string) => (
+                <Typography key={reason} sx={{ color: "text.secondary" }}>
+                  {`\u2022 ${reason}`}
+                </Typography>
+              ))}
+            </Box>
+          ) : null}
+        </Paper>
+      ) : null}
 
       <Paper
         elevation={0}

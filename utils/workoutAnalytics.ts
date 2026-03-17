@@ -33,7 +33,7 @@ export type TrainingAnalyticsSummary = {
   }>;
 };
 
-export type ExerciseHistoryRange = "30d" | "90d" | "all";
+export type ExerciseHistoryRange = "7d" | "30d" | "90d" | "all";
 
 export type ExerciseHistoryChartPoint = {
   label: string;
@@ -48,6 +48,11 @@ export type ExerciseHistorySummary = {
   lifetimeBestLoad: number | null;
   lifetimeBestRepSet: string | null;
   lifetimeBestEstimatedStrength: number | null;
+  topSetTrend: Array<{
+    date: string;
+    label: string;
+    topSet: string | null;
+  }>;
   chartPoints: ExerciseHistoryChartPoint[];
   recentSessions: Array<{
     date: string;
@@ -312,7 +317,10 @@ export const buildExerciseHistorySummary = ({
   const cutoff =
     range === "all"
       ? null
-      : new Date(Date.now() - (range === "30d" ? 30 : 90) * DAY_MS);
+      : new Date(
+          Date.now() -
+            (range === "7d" ? 7 : range === "30d" ? 30 : 90) * DAY_MS
+        );
 
   const filteredEntries = sortedEntries.filter((entry) => {
     if (!cutoff) {
@@ -382,6 +390,26 @@ export const buildExerciseHistorySummary = ({
             fromCanonicalWeightLb(lifetimeBestEstimatedStrength, normalizedUnits) * 10
           ) / 10
         : null,
+    topSetTrend: filteredEntries.slice(0, 8).map((entry) => {
+      const completedSets = getCompletedSets(entry);
+      const repSet = getRepresentativeRepSet(completedSets);
+      const date = parseDate(entry.date);
+
+      return {
+        date: date?.toISOString() ?? "",
+        label:
+          date?.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          }) ?? "Unknown",
+        topSet: repSet
+          ? `${formatWeight(
+              fromCanonicalWeightLb(repSet.weight, normalizedUnits),
+              normalizedUnits
+            )} x ${repSet.reps}`
+          : null,
+      };
+    }),
     chartPoints,
     recentSessions: filteredEntries.slice(0, 6).map((entry) => {
       const completedSets = getCompletedSets(entry);

@@ -70,6 +70,23 @@ export type ExerciseRecommendation = {
   } | null;
   daysSinceLastWorkout: number | null;
   progressionStyle: "strength" | "hypertrophy" | "endurance";
+  comparison: {
+    previousWeight: number | null;
+    previousReps: number | null;
+    currentTargetWeight: number | null;
+    currentTargetReps: number | null;
+    deltaWeight: number | null;
+    benchmarkDate: string | null;
+    firstBenchmark: boolean;
+    summary: string;
+  } | null;
+  fatigue: {
+    score: number;
+    state: "fresh" | "building" | "high" | "deload";
+    consecutiveHighFatigueExposures: number;
+    deloadTriggered: boolean;
+    signalReasons: string[];
+  } | null;
 };
 
 export type InWorkoutAdjustment = {
@@ -632,6 +649,94 @@ const getHistoricalBaselineSummaries = (summaries: EntryPerformanceSummary[]) =>
   return summaries;
 };
 
+const getSessionGapDays = (
+  newer: EntryPerformanceSummary | null,
+  older: EntryPerformanceSummary | null
+) => {
+  if (!newer?.date || !older?.date) {
+    return null;
+  }
+
+  return Math.max(
+    0,
+    Math.round((newer.date.getTime() - older.date.getTime()) / DAY_MS)
+  );
+};
+
+const getFatigueState = (
+  recentSummaries: EntryPerformanceSummary[]
+): ExerciseRecommendation["fatigue"] => {
+  if (!recentSummaries.length) {
+    return {
+      score: 0,
+      state: "fresh",
+      consecutiveHighFatigueExposures: 0,
+      deloadTriggered: false,
+      signalReasons: [],
+    };
+  }
+
+  let score = 0;
+  const signalReasons: string[] = [];
+  const exposures = recentSummaries.map((summary, index) => {
+    const previous = recentSummaries[index + 1] ?? null;
+    const gapDays = getSessionGapDays(summary, previous);
+    const previousMedian = previous?.medianEstimated1RM ?? null;
+    const currentMedian = summary.medianEstimated1RM ?? null;
+    const declinePct =
+      previousMedian && currentMedian
+        ? (previousMedian - currentMedian) / previousMedian
+        : 0;
+
+    let highFatigue = false;
+
+    if (summary.signal.status === "underperformed") {
+      score += 2;
+      highFatigue = true;
+      signalReasons.push("recent session underperformed the planned target");
+    }
+
+    if (gapDays !== null && gapDays <= 2) {
+      score += 1;
+      signalReasons.push("sessions were stacked close together");
+    }
+
+    if (declinePct >= 0.04) {
+      score += 1;
+      highFatigue = true;
+      signalReasons.push("estimated strength dipped versus the prior exposure");
+    }
+
+    return highFatigue;
+  });
+
+  let consecutiveHighFatigueExposures = 0;
+  for (const exposure of exposures) {
+    if (!exposure) {
+      break;
+    }
+    consecutiveHighFatigueExposures += 1;
+  }
+
+  const deloadTriggered = consecutiveHighFatigueExposures >= 2;
+  const state =
+    deloadTriggered
+      ? "deload"
+      : consecutiveHighFatigueExposures >= 1 && score >= 4
+      ? "high"
+      : score >= 1
+      ? "building"
+      : "fresh";
+
+  return {
+    score,
+    state,
+    consecutiveHighFatigueExposures,
+    deloadTriggered,
+    signalReasons: Array.from(new Set(signalReasons)).slice(0, 3),
+  };
+};
+
 const applyBaseProgression = (
   baseWeight: number,
   status: "success" | "aggressive" | "underperformed",
@@ -711,6 +816,8 @@ export const buildNextExerciseRecommendation = (
       basedOn: null,
       daysSinceLastWorkout: null,
       progressionStyle: profile.label,
+      comparison: null,
+      fatigue: null,
     };
   }
 
@@ -727,6 +834,7 @@ export const buildNextExerciseRecommendation = (
     completedSetCount: completedSets.length,
   });
   const baselineSummaries = getHistoricalBaselineSummaries(recentSummaries);
+  const hasPriorComparableSession = recentSummaries.length > 1;
   const baselineWeight =
     getMedian(
       baselineSummaries
@@ -762,6 +870,8 @@ export const buildNextExerciseRecommendation = (
       basedOn: null,
       daysSinceLastWorkout,
       progressionStyle: profile.label,
+      comparison: null,
+      fatigue: getFatigueState(recentSummaries),
     };
   }
 
@@ -804,6 +914,14 @@ export const buildNextExerciseRecommendation = (
       ? repeatedUnderperformanceReps
       : latestRepBaseline;
   const recommendedSets = setCountResolution.recommendedSets;
+  const fatigue = getFatigueState(recentSummaries);
+  const fatigueLoadMultiplier =
+    fatigue.state === "deload"
+      ? 0.9
+      : fatigue.state === "high"
+      ? 0.96
+      : 1;
+  const fatigueSetDelta = fatigue.state === "deload" ? -1 : 0;
   const outlierNote =
     latestSummary.removedOutlierSetCount > 0
       ? ` Outlier rejection ignored ${latestSummary.removedOutlierSetCount} noisy set${
@@ -817,17 +935,73 @@ export const buildNextExerciseRecommendation = (
       ? " A single low day can trim load slightly, but reps stay steady until the miss repeats."
       : "";
 
+  const fatigueAdjustedWeight = recommendedWeight
+    ? roundRecommendedWeight(
+        cappedWeight * fatigueLoadMultiplier,
+        profile,
+        normalizedPreferredUnits
+      )
+    : recommendedWeight;
+  const fatigueAdjustedSets =
+    typeof recommendedSets === "number"
+      ? Math.max(1, recommendedSets + fatigueSetDelta)
+      : recommendedSets;
+  const comparisonDelta =
+    fatigueAdjustedWeight !== null && representativeSet.actualWeight !== null
+      ? Math.round(
+          (fatigueAdjustedWeight -
+            fromCanonicalWeightLb(
+              representativeSet.actualWeight,
+              normalizedPreferredUnits
+            )) *
+            10
+        ) / 10
+      : null;
+  const comparisonSummary =
+    !hasPriorComparableSession
+      ? "This is your first benchmark for this lift. Log another clean session to unlock a true session-to-session delta."
+      : fatigueAdjustedWeight !== null
+      ? representativeSet
+        ? `Last time ${Math.round(
+            fromCanonicalWeightLb(
+              representativeSet.actualWeight,
+              normalizedPreferredUnits
+            ) * 10
+          ) / 10} x ${representativeSet.actualReps}, today ${fatigueAdjustedWeight} x ${recommendedReps}${
+            comparisonDelta !== null
+              ? `, ${comparisonDelta > 0 ? "+" : ""}${comparisonDelta} ${normalizedPreferredUnits}`
+              : ""
+          }.`
+        : "This is your first benchmark for this lift."
+      : "This is your first benchmark for this lift.";
+
   return {
-    recommendedWeight,
+    recommendedWeight: fatigueAdjustedWeight,
     weightUnit: normalizedPreferredUnits,
     recommendedReps,
-    recommendedSets,
-    reason: `Using a rolling ${baselineSummaries.length}-session baseline with ${Math.round(
+    recommendedSets: fatigueAdjustedSets,
+    reason: `Next target: ${fatigueAdjustedWeight ?? "log one clean set first"}${
+      recommendedReps ? ` x ${recommendedReps}` : ""
+    }${
+      fatigueAdjustedSets ? ` for ${fatigueAdjustedSets} set${fatigueAdjustedSets === 1 ? "" : "s"}` : ""
+    }. Recommended from your last logged session: you completed ${Math.round(
       fromCanonicalWeightLb(
         representativeSet.actualWeight,
         normalizedPreferredUnits
       ) * 10
-    ) / 10} x ${representativeSet.actualReps} from the latest completed workout, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}`,
+    ) / 10} x ${representativeSet.actualReps}, so Lift Logic ${
+      comparisonDelta !== null && comparisonDelta > 0
+        ? `nudged the load up by ${comparisonDelta} ${normalizedPreferredUnits}`
+        : comparisonDelta !== null && comparisonDelta < 0
+        ? `pulled the load back by ${Math.abs(comparisonDelta)} ${normalizedPreferredUnits}`
+        : "held the target steady"
+    }. Using a rolling ${baselineSummaries.length}-session baseline, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}${
+      fatigue.state === "deload"
+        ? " Fatigue stayed elevated across multiple sessions, so this recommendation prescribes a deload."
+        : fatigue.state === "high"
+        ? " Recent fatigue signals kept the recommendation slightly conservative."
+        : ""
+    }`,
     basedOn: {
       topSetWeight: fromCanonicalWeightLb(
         representativeSet.actualWeight,
@@ -844,6 +1018,23 @@ export const buildNextExerciseRecommendation = (
     },
     daysSinceLastWorkout,
     progressionStyle: profile.label,
+    comparison: {
+      previousWeight:
+        Math.round(
+          fromCanonicalWeightLb(
+            representativeSet.actualWeight,
+            normalizedPreferredUnits
+          ) * 10
+        ) / 10,
+      previousReps: representativeSet.actualReps,
+      currentTargetWeight: fatigueAdjustedWeight,
+      currentTargetReps: recommendedReps,
+      deltaWeight: comparisonDelta,
+      benchmarkDate: toIsoDate(latestDate),
+      firstBenchmark: !hasPriorComparableSession,
+      summary: comparisonSummary,
+    },
+    fatigue,
   };
 };
 

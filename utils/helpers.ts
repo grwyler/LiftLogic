@@ -3,6 +3,7 @@ import {
   WorkoutEntryDoc,
   RecurringRuleDoc,
   ExerciseCatalogDoc,
+  ExerciseRecommendationFeedbackDoc,
   Exercise,
   ExerciseSet,
   FeedbackBugArchetype,
@@ -289,6 +290,7 @@ export const fetchExerciseProgress = async (
   summary: ExerciseProgressSummary;
   recommendation: ExerciseRecommendation;
   entries: WorkoutEntryDoc[];
+  latestFeedback?: ExerciseRecommendationFeedbackDoc | null;
 } | null> => {
   const trimmedExerciseId = String(exerciseId ?? "").trim();
 

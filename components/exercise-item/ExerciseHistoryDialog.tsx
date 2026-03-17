@@ -17,6 +17,7 @@ import {
 } from "../../utils/workoutAnalytics";
 
 const rangeOptions: Array<{ value: ExerciseHistoryRange; label: string }> = [
+  { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
   { value: "all", label: "All time" },
@@ -35,7 +36,7 @@ const ExerciseHistoryDialog = ({
   entries: WorkoutEntryDoc[];
   preferredUnits?: "lb" | "kg";
 }) => {
-  const [range, setRange] = useState<ExerciseHistoryRange>("30d");
+  const [range, setRange] = useState<ExerciseHistoryRange>("7d");
   const historySummary = useMemo(
     () =>
       buildExerciseHistorySummary({
@@ -89,6 +90,52 @@ const ExerciseHistoryDialog = ({
               />
             ) : null}
           </Stack>
+
+          <Paper variant="outlined" sx={{ p: 1.25 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              What the metrics mean
+            </Typography>
+            <Stack spacing={0.55} sx={{ mt: 0.8 }}>
+              <Typography color="text.secondary">
+                <strong>Estimated strength:</strong> a calculated 1RM from logged weight and reps.
+              </Typography>
+              <Typography color="text.secondary">
+                <strong>Top set:</strong> your heaviest comparable completed set from that session.
+              </Typography>
+              <Typography color="text.secondary">
+                <strong>Volume:</strong> weight times reps across all completed sets in that workout.
+              </Typography>
+            </Stack>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: 1.25 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Top-set trend
+            </Typography>
+            <Stack spacing={0.7} sx={{ mt: 1 }}>
+              {historySummary.topSetTrend.length > 0 ? (
+                historySummary.topSetTrend.map((point) => (
+                  <Stack
+                    key={`${point.date}-${point.label}`}
+                    direction="row"
+                    justifyContent="space-between"
+                    spacing={1}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      {point.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {point.topSet ?? "No completed top set"}
+                    </Typography>
+                  </Stack>
+                ))
+              ) : (
+                <Typography color="text.secondary">
+                  Log at least one completed weighted session to unlock the top-set trend.
+                </Typography>
+              )}
+            </Stack>
+          </Paper>
 
           {(["load", "reps", "volume", "estimatedStrength"] as const).map((metric) => (
             <Paper key={metric} variant="outlined" sx={{ p: 1.25 }}>

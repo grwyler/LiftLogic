@@ -101,6 +101,9 @@ const WorkoutSecondaryInsights = ({
                     <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
                       Check workload, muscle balance, and consistency without opening each workout one by one.
                     </Typography>
+                    <Typography sx={{ mt: 0.45, color: "text.secondary" }}>
+                      Volume here means weight times reps across completed sets. Trend callouts use visible logged history, not a hidden score.
+                    </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
                     <Button
@@ -588,6 +591,9 @@ const WorkoutSecondaryInsights = ({
                 </Typography>
                 <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
                   {progressTrendSummary.supportingCopy}
+                </Typography>
+                <Typography sx={{ mt: 0.45, color: "text.secondary" }}>
+                  Estimated strength is a calculated 1RM from logged reps and weight, while PR tags call out whether the win came from estimated 1RM, heaviest load, or best rep set.
                 </Typography>
               </Box>
               <Chip
