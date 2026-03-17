@@ -29,5 +29,6 @@ describe("feedback copy details instructions", () => {
     );
     expect(text).toContain("## Implementation context");
     expect(text).toContain("## Verification plan");
+    expect(text).toContain("increment version, commit, push, redeploy to prod");
   });
 });
