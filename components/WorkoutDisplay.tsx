@@ -654,14 +654,6 @@ const WorkoutDisplay = ({
           </Paper>
         ) : null}
 
-        <MuscleRecoveryMap
-          exercises={exercises}
-          userId={currentUserId}
-          sex={userProfile?.sex}
-          currentDate={currentDate}
-          darkMode={darkMode}
-        />
-
         {visiblePlannedExercises.length > 0 ? (
           <ExerciseListSection
             activeRestTimer={activeRestTimer}
@@ -826,6 +818,14 @@ const WorkoutDisplay = ({
           </Paper>
         ) : null}
 
+        <MuscleRecoveryMap
+          exercises={exercises}
+          userId={currentUserId}
+          sex={userProfile?.sex}
+          currentDate={currentDate}
+          darkMode={darkMode}
+        />
+
         <WorkoutSecondaryInsights
           comebackGuide={comebackGuide}
           darkMode={darkMode}
@@ -890,21 +890,6 @@ const WorkoutDisplay = ({
               alignItems: "stretch",
             }}
           >
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsAddingExercise(true);
-              }}
-              startIcon={<AddIcon />}
-              sx={{
-                display: { xs: mobilePrimaryAction === "add_first_exercise" ? "none" : "inline-flex", sm: "none" },
-                flex: 1,
-                minHeight: 52,
-                borderRadius: 10,
-              }}
-            >
-              Add
-            </Button>
             {shouldShowNextSummary ? (
               <Button
                 variant="contained"
@@ -912,7 +897,7 @@ const WorkoutDisplay = ({
                 onClick={handleOpenNextSet}
                 sx={{
                   display: { xs: "inline-flex", sm: "none" },
-                  flex: 1.35,
+                  flex: 1,
                   ...mobilePrimaryButtonSx,
                 }}
               >
@@ -935,22 +920,24 @@ const WorkoutDisplay = ({
                 {hasExercises ? "Add Exercise" : "Add First Exercise"}
               </Button>
             ) : null}
+            {shouldShowNextSummary ? null : (
               <Button
-              variant="outlined"
-              onClick={() => {
-                setIsAddingExercise(true);
-              }}
-              startIcon={<AddIcon />}
-              sx={{
-                display: { xs: "none", sm: hasExercises ? "inline-flex" : "none" },
-                px: 2.5,
-                py: 1.1,
-                minHeight: 58,
-                borderRadius: 999,
-              }}
-            >
-              Add Exercise
-            </Button>
+                variant="outlined"
+                onClick={() => {
+                  setIsAddingExercise(true);
+                }}
+                startIcon={<AddIcon />}
+                sx={{
+                  display: { xs: "none", sm: hasExercises ? "inline-flex" : "none" },
+                  px: 2.5,
+                  py: 1.1,
+                  minHeight: 58,
+                  borderRadius: 999,
+                }}
+              >
+                Add Exercise
+              </Button>
+            )}
             <Button
               variant="contained"
               onClick={

@@ -15,6 +15,7 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import FitnessCenterIcon from "@mui/icons-material/FitnessCenter";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
@@ -307,6 +308,145 @@ const HomePage: React.FC = () => {
             <Paper
               elevation={0}
               sx={{
+                p: { xs: 2, sm: 2.4 },
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: landingRadius.panel,
+                overflow: "hidden",
+                position: "relative",
+                background:
+                  "linear-gradient(145deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.96) 52%, rgba(249,115,22,0.18) 100%)",
+                color: "#f8fafc",
+                minHeight: 340,
+              }}
+            >
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "radial-gradient(circle at 18% 18%, rgba(34,197,94,0.16), transparent 34%), radial-gradient(circle at 82% 22%, rgba(96,165,250,0.22), transparent 32%), radial-gradient(circle at 50% 100%, rgba(249,115,22,0.24), transparent 42%)",
+                }}
+              />
+              <Stack
+                spacing={1.4}
+                sx={{ position: "relative", zIndex: 1, maxWidth: 220 }}
+              >
+                <Typography variant="overline" sx={{ color: "rgba(226,232,240,0.78)", letterSpacing: "0.16em" }}>
+                  Flagship Product Moment
+                </Typography>
+                <Typography variant="h4" sx={{ lineHeight: 0.98 }}>
+                  Adaptive Session Studio
+                </Typography>
+                <Typography sx={{ color: "rgba(226,232,240,0.76)", lineHeight: 1.65 }}>
+                  A cleaner next-step workout flow, visible recovery timing, and recommendation logic that feels like a coach instead of hidden math.
+                </Typography>
+              </Stack>
+
+              <Box
+                sx={{
+                  position: "absolute",
+                  right: { xs: -8, sm: 22 },
+                  bottom: { xs: -6, sm: 20 },
+                  width: { xs: 250, sm: 288 },
+                  transform: { xs: "rotate(-4deg)", sm: "rotate(-6deg)" },
+                }}
+              >
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "30px",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.82))",
+                    boxShadow: "0 28px 80px rgba(2,6,23,0.34)",
+                  }}
+                >
+                  <Stack spacing={1.2}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Typography variant="overline" sx={{ color: "rgba(191,219,254,0.78)", letterSpacing: "0.14em" }}>
+                        Live Workout
+                      </Typography>
+                      <Chip
+                        icon={<PlayArrowRoundedIcon fontSize="small" />}
+                        label="Set 2"
+                        size="small"
+                        sx={{
+                          borderRadius: landingRadius.chip,
+                          backgroundColor: "rgba(34,197,94,0.18)",
+                          color: "#dcfce7",
+                        }}
+                      />
+                    </Box>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.35,
+                        borderRadius: landingRadius.card,
+                        background: "linear-gradient(135deg, rgba(30,64,175,0.52), rgba(15,23,42,0.88))",
+                        border: "1px solid rgba(191,219,254,0.16)",
+                      }}
+                    >
+                      <Typography variant="overline" sx={{ color: "rgba(191,219,254,0.7)" }}>
+                        Next Target
+                      </Typography>
+                      <Typography variant="h5" sx={{ mt: 0.3 }}>
+                        Bench Press 135 x 8
+                      </Typography>
+                      <Typography sx={{ mt: 0.55, color: "rgba(226,232,240,0.74)" }}>
+                        Last time 130 x 8 moved cleanly, so Lift Logic nudged the load by 5 lb.
+                      </Typography>
+                    </Paper>
+                    <Stack direction="row" spacing={1}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          flex: 1,
+                          p: 1.1,
+                          borderRadius: landingRadius.inset,
+                          backgroundColor: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: "rgba(226,232,240,0.7)" }}>
+                          Recovery HUD
+                        </Typography>
+                        <Typography variant="h5" sx={{ mt: 0.35 }}>
+                          01:32
+                        </Typography>
+                      </Paper>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          flex: 1,
+                          p: 1.1,
+                          borderRadius: landingRadius.inset,
+                          backgroundColor: "rgba(249,115,22,0.12)",
+                          border: "1px solid rgba(249,115,22,0.18)",
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: "rgba(254,215,170,0.82)" }}>
+                          Weekly Signal
+                        </Typography>
+                        <Typography variant="h6" sx={{ mt: 0.35 }}>
+                          Volume +8%
+                        </Typography>
+                      </Paper>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              </Box>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
                 p: 2.25,
                 border: "1px solid",
                 borderColor: "divider",
@@ -414,7 +554,7 @@ const HomePage: React.FC = () => {
                     Bench press recommendation: +5 lb
                   </Typography>
                   <Typography sx={{ color: "text.secondary" }}>
-                    Based on your last completed session.
+                    Last time 130 x 8 moved cleanly, so today starts at 135 x 8.
                   </Typography>
                 </Stack>
               </Paper>

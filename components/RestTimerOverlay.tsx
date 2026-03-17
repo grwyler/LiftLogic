@@ -201,7 +201,7 @@ const RestTimerOverlay: React.FC<Props> = ({
         bottom: {
           xs:
             "calc(86px + env(safe-area-inset-bottom, 0px) + var(--liftlogic-keyboard-offset, 0px))",
-          sm: "calc(20px + env(safe-area-inset-bottom, 0px))",
+          sm: "calc(28px + env(safe-area-inset-bottom, 0px))",
         },
         zIndex: 1350,
         display: "flex",
@@ -213,9 +213,9 @@ const RestTimerOverlay: React.FC<Props> = ({
         elevation={0}
         sx={{
           pointerEvents: "auto",
-          width: { xs: "100%", sm: 380 },
+          width: { xs: "100%", sm: 408 },
           p: { xs: 1.5, sm: 1.75 },
-          borderRadius: 4,
+          borderRadius: 4.5,
           border: "1px solid",
           borderColor: darkMode
             ? "rgba(148,163,184,0.2)"
@@ -228,6 +228,18 @@ const RestTimerOverlay: React.FC<Props> = ({
           overflow: "hidden",
         }}
       >
+        <Box
+          sx={{
+            mb: 1.1,
+            height: 5,
+            borderRadius: 999,
+            background:
+              timerState === "running"
+                ? `linear-gradient(90deg, ${statePalette.accent}, rgba(255,255,255,0.82))`
+                : statePalette.ring,
+            opacity: timerState === "running" ? 1 : 0.72,
+          }}
+        />
         <Box
           sx={{
             display: "flex",
@@ -317,8 +329,21 @@ const RestTimerOverlay: React.FC<Props> = ({
                   : "rgba(15,23,42,0.58)",
                 letterSpacing: "0.14em",
                 fontWeight: 800,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.75,
               }}
             >
+              <Box
+                component="span"
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  backgroundColor: statePalette.accent,
+                  boxShadow: `0 0 0 6px ${statePalette.ring}`,
+                }}
+              />
               Recovery HUD
             </Typography>
             <Typography

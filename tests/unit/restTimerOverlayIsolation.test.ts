@@ -25,6 +25,7 @@ describe("rest timer overlay isolation", () => {
     expect(overlaySource).toContain("const interval = window.setInterval(() => {");
     expect(overlaySource).toContain("position: \"fixed\"");
     expect(overlaySource).toContain("Recovery HUD");
+    expect(overlaySource).toContain("boxShadow: `0 0 0 6px ${statePalette.ring}`");
     expect(overlaySource).toContain("Rest running");
     expect(overlaySource).toContain("Rest paused");
     expect(overlaySource).toContain("Rest finished");

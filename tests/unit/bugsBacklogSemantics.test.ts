@@ -12,6 +12,9 @@ describe("bugs queue semantics", () => {
     expect(source).toContain("const activeWorkItems = useMemo(");
     expect(source).toContain("const activeBugCount = useMemo(");
     expect(source).toContain("const activeFeatureCount = useMemo(");
+    expect(source).toContain("const initiativeSummaries = useMemo(");
+    expect(source).toContain("Initiative backlog structure");
+    expect(source).toContain("Suggested execution-sized slices");
     expect(source).toContain("Open work items");
   });
 
@@ -26,5 +29,7 @@ describe("bugs queue semantics", () => {
     expect(source).toContain('label="Status"');
     expect(source).toContain("<MenuItem value=\"all\">All statuses</MenuItem>");
     expect(source).toContain("const currentPrimaryListItems = useMemo(");
+    expect(source).toContain("Merge candidate");
+    expect(source).toContain("Child slice");
   });
 });

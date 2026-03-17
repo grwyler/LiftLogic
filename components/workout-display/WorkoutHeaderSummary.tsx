@@ -3,6 +3,7 @@ import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RepeatIcon from "@mui/icons-material/Repeat";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { routinesPanelRadius } from "./panelStyles";
 import {
   buildRoutineSemanticButtonSx,
@@ -87,6 +88,9 @@ const WorkoutHeaderSummary = ({
                     ? "Resume the next incomplete set and keep the session moving."
                     : "Start here so the workout begins with the first real lift, not the surrounding dashboard."}
                 </Typography>
+                <Typography variant="body2" sx={{ mt: 0.75, color: "text.secondary" }}>
+                  Planning controls stay available below the logging flow so the next lift remains the only obvious move.
+                </Typography>
               </Box>
 
               <Button
@@ -127,44 +131,6 @@ const WorkoutHeaderSummary = ({
         </Paper>
       ) : null}
 
-      {shouldShowNextSummary ? (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1.4,
-            borderRadius: routinesPanelRadius.section,
-            border: "1px solid",
-            borderColor: "divider",
-            backgroundColor: darkMode ? "rgba(15,23,42,0.58)" : "rgba(248,250,252,0.92)",
-          }}
-        >
-          <Stack spacing={1.15}>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", sm: "center" }}
-            >
-              <Box>
-                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
-                  Secondary Summary
-                </Typography>
-                <Typography variant="h6" sx={{ mt: 0.25 }}>
-                  {nextExercise?.name}
-                </Typography>
-                <Typography sx={{ mt: 0.35, color: "text.secondary" }}>
-                  Your main workout CTA stays pinned while consistency, comeback, and progress details move lower in the page.
-                </Typography>
-              </Box>
-
-              <Button variant="outlined" startIcon={<PlayArrowIcon />} onClick={onOpenNextSet}>
-                Open Next Set
-              </Button>
-            </Stack>
-          </Stack>
-        </Paper>
-      ) : null}
-
       <Box
         sx={{
           display: "flex",
@@ -176,8 +142,20 @@ const WorkoutHeaderSummary = ({
       >
         <Chip size="small" label={statusChip.label} color={statusChip.color} variant="outlined" />
         {hasExercises ? (
-          <Button variant="outlined" size="small" startIcon={<RepeatIcon />} onClick={onOpenWorkoutRepeatDialog}>
-            {isWholeWorkoutRepeating ? "Edit workout schedule" : "Repeat this workout"}
+          <Button
+            variant="text"
+            size="small"
+            startIcon={shouldShowNextSummary ? <MoreHorizIcon /> : <RepeatIcon />}
+            onClick={onOpenWorkoutRepeatDialog}
+            sx={{ color: "text.secondary" }}
+          >
+            {shouldShowNextSummary
+              ? isWholeWorkoutRepeating
+                ? "Workout tools"
+                : "Planning tools"
+              : isWholeWorkoutRepeating
+              ? "Edit workout schedule"
+              : "Repeat this workout"}
           </Button>
         ) : null}
       </Box>

@@ -363,32 +363,67 @@ function MyApp({ Component, pageProps }: AppProps) {
         shape: {
           borderRadius: 18,
         },
-          typography: {
-            fontFamily: 'var(--font-body), "Instrument Sans", sans-serif',
-            fontSize: 14 * interfaceScaleFactor,
-            h3: {
-              fontFamily: 'var(--font-display), "Manrope", sans-serif',
-              fontWeight: 800,
+        spacing: 4 * densityScale,
+        typography: {
+          fontFamily: 'var(--font-body), "Instrument Sans", sans-serif',
+          fontSize: 14 * interfaceScaleFactor,
+          h3: {
+            fontFamily: 'var(--font-display), "Manrope", sans-serif',
+            fontWeight: 800,
             letterSpacing: "-0.05em",
+            lineHeight: 0.96,
           },
           h4: {
             fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 800,
             letterSpacing: "-0.04em",
+            lineHeight: 1.02,
           },
           h5: {
             fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 800,
             letterSpacing: "-0.03em",
+            lineHeight: 1.06,
           },
           h6: {
             fontFamily: 'var(--font-display), "Manrope", sans-serif',
             fontWeight: 700,
             letterSpacing: "-0.02em",
+            lineHeight: 1.1,
+          },
+          subtitle1: {
+            fontWeight: 700,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.35,
+          },
+          subtitle2: {
+            fontWeight: 700,
+            fontSize: 13 * interfaceScaleFactor,
+            letterSpacing: "0.01em",
+          },
+          body1: {
+            fontSize: 15 * interfaceScaleFactor,
+            lineHeight: 1.72,
+          },
+          body2: {
+            fontSize: 13.5 * interfaceScaleFactor,
+            lineHeight: 1.6,
+          },
+          caption: {
+            fontSize: 12 * interfaceScaleFactor,
+            letterSpacing: "0.01em",
+            lineHeight: 1.45,
+          },
+          overline: {
+            fontSize: 11 * interfaceScaleFactor,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            lineHeight: 1.25,
           },
           button: {
             fontWeight: 700,
             textTransform: "none",
+            letterSpacing: "-0.01em",
           },
         },
         components: {
@@ -397,9 +432,17 @@ function MyApp({ Component, pageProps }: AppProps) {
               body: {
                 backgroundImage: themeMeta.bodyBackground,
                 backgroundAttachment: "scroll",
+                letterSpacing: "-0.01em",
                 [DESKTOP_BACKGROUND_ATTACHMENT_MEDIA_QUERY]: {
                   backgroundAttachment: "fixed",
                 },
+              },
+              ":root": {
+                "--liftlogic-space-1": `${0.35 * densityScale}rem`,
+                "--liftlogic-space-2": `${0.75 * densityScale}rem`,
+                "--liftlogic-space-3": `${1.15 * densityScale}rem`,
+                "--liftlogic-space-4": `${1.75 * densityScale}rem`,
+                "--liftlogic-space-5": `${2.5 * densityScale}rem`,
               },
             },
           },
@@ -487,6 +530,13 @@ function MyApp({ Component, pageProps }: AppProps) {
             styleOverrides: {
               root: {
                 backgroundImage: "none",
+              },
+            },
+          },
+          MuiTypography: {
+            styleOverrides: {
+              root: {
+                textWrap: "pretty",
               },
             },
           },

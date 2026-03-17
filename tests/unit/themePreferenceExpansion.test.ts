@@ -17,4 +17,23 @@ describe("theme preference expansion", () => {
     expect(themeSource).toContain("getAppearanceDensityLabel");
     expect(themeSource).toContain("getInterfaceScaleLabel");
   });
+
+  it("keeps documented spacing and typography rhythm tokens in the app shell", () => {
+    const appSource = fs.readFileSync(
+      path.join(process.cwd(), "pages", "_app.tsx"),
+      "utf8"
+    );
+    const globalSource = fs.readFileSync(
+      path.join(process.cwd(), "styles", "global.css"),
+      "utf8"
+    );
+
+    expect(appSource).toContain("spacing: 4 * densityScale");
+    expect(appSource).toContain("subtitle1:");
+    expect(appSource).toContain("body1:");
+    expect(appSource).toContain("MuiTypography");
+    expect(globalSource).toContain("--type-display-xl");
+    expect(globalSource).toContain("--space-rhythm-5");
+    expect(globalSource).toContain("--measure-copy");
+  });
 });

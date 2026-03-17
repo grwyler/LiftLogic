@@ -20,6 +20,8 @@ describe("home page layout styling", () => {
     expect(source).toContain("borderRadius: landingRadius.panel");
     expect(source).toContain("borderRadius: landingRadius.card");
     expect(source).toContain("borderRadius: landingRadius.inset");
+    expect(source).toContain("Flagship Product Moment");
+    expect(source).toContain("Adaptive Session Studio");
   });
 
   it("stacks header actions vertically on narrow screens", () => {

@@ -235,6 +235,128 @@ const compareWorkItems = (
   }
 };
 
+type InitiativeDefinition = {
+  id: string;
+  label: string;
+  summary: string;
+  sequencing: string;
+};
+
+const initiativeDefinitions: InitiativeDefinition[] = [
+  {
+    id: "workout-focus",
+    label: "Workout focus and execution",
+    summary:
+      "Group active-session UX, next-step clarity, timer salience, and logging momentum under one initiative.",
+    sequencing:
+      "Sequence: simplify the active workout path, strengthen the next-step HUD, then polish supporting utilities.",
+  },
+  {
+    id: "visual-polish",
+    label: "Visual polish and brand system",
+    summary:
+      "Bundle hero visuals, typography rhythm, spacing cadence, and landing-page hierarchy into one design initiative.",
+    sequencing:
+      "Sequence: establish system tokens first, then ship hero moments and page-level layout upgrades.",
+  },
+  {
+    id: "monetization",
+    label: "Monetization and pricing proof",
+    summary:
+      "Keep pricing proof, experiments, acquisition tracking, and paid conversion changes under one umbrella.",
+    sequencing:
+      "Sequence: instrumentation, proof modules, then experiment-driven pricing variants.",
+  },
+  {
+    id: "progress-insights",
+    label: "Progress visibility and analytics",
+    summary:
+      "Tie exercise history, training reports, recommendation rationale, and trend views to one progress initiative.",
+    sequencing:
+      "Sequence: expose core metrics, then expand history, then add coaching and analytics layers.",
+  },
+  {
+    id: "adherence-support",
+    label: "Adherence and comeback support",
+    summary:
+      "Track comeback flows, low-energy options, retention loops, and habit support as one user adherence initiative.",
+    sequencing:
+      "Sequence: remove friction after missed workouts, then add review loops and recovery guidance.",
+  },
+  {
+    id: "workflow-platform",
+    label: "Workflow and audit platform",
+    summary:
+      "Treat backlog hygiene, audit prompts, workflow tooling, and regression defense as one operational initiative.",
+    sequencing:
+      "Sequence: fix queue structure, sharpen audits, then add rollout and experiment infrastructure.",
+  },
+];
+
+const inferInitiativeDefinition = (item: FeedbackWorkItemDoc) => {
+  const haystack = [
+    item.title,
+    item.page,
+    item.fingerprint,
+    item.latestDescription,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    haystack.includes("/pricing") ||
+    haystack.includes("pricing") ||
+    haystack.includes("checkout") ||
+    haystack.includes("paywall") ||
+    haystack.includes("upgrade") ||
+    haystack.includes("subscription")
+  ) {
+    return initiativeDefinitions.find((entry) => entry.id === "monetization")!;
+  }
+
+  if (
+    haystack.includes("/bugs") ||
+    haystack.includes("audit") ||
+    haystack.includes("workflow") ||
+    haystack.includes("backlog") ||
+    haystack.includes("experiment")
+  ) {
+    return initiativeDefinitions.find((entry) => entry.id === "workflow-platform")!;
+  }
+
+  if (
+    haystack.includes("/_app") ||
+    haystack.includes("typography") ||
+    haystack.includes("spacing") ||
+    haystack.includes("visual") ||
+    haystack.includes("brand")
+  ) {
+    return initiativeDefinitions.find((entry) => entry.id === "visual-polish")!;
+  }
+
+  if (
+    haystack.includes("progress") ||
+    haystack.includes("history") ||
+    haystack.includes("trend") ||
+    haystack.includes("analytics") ||
+    haystack.includes("recommendation")
+  ) {
+    return initiativeDefinitions.find((entry) => entry.id === "progress-insights")!;
+  }
+
+  if (
+    haystack.includes("comeback") ||
+    haystack.includes("retention") ||
+    haystack.includes("missed") ||
+    haystack.includes("adherence") ||
+    haystack.includes("minimum win")
+  ) {
+    return initiativeDefinitions.find((entry) => entry.id === "adherence-support")!;
+  }
+
+  return initiativeDefinitions.find((entry) => entry.id === "workout-focus")!;
+};
+
 const isInactiveWorkItem = (item: FeedbackWorkItemDoc) =>
   inactiveTriageStatuses.includes(item.triageStatus);
 
@@ -713,6 +835,97 @@ const BugsPage = () => {
 
     return filteredActiveWorkItems;
   }, [filteredActiveWorkItems, filteredCompletedWorkItems, workItemListScope]);
+  const initiativeMetaById = useMemo(() => {
+    const fingerprintCounts = workItems.reduce<Record<string, number>>(
+      (counts, item) => {
+        const key = String(item.fingerprint || "").trim().toLowerCase();
+        if (!key) {
+          return counts;
+        }
+
+        counts[key] = (counts[key] || 0) + 1;
+        return counts;
+      },
+      {}
+    );
+
+    const initiativeCounts = workItems.reduce<Record<string, number>>(
+      (counts, item) => {
+        const initiative = inferInitiativeDefinition(item);
+        counts[initiative.id] = (counts[initiative.id] || 0) + 1;
+        return counts;
+      },
+      {}
+    );
+
+    return workItems.reduce<
+      Record<
+        string,
+        {
+          initiative: InitiativeDefinition;
+          mergeCandidate: boolean;
+          childSlice: boolean;
+        }
+      >
+    >((accumulator, item) => {
+      const initiative = inferInitiativeDefinition(item);
+      const fingerprintKey = String(item.fingerprint || "")
+        .trim()
+        .toLowerCase();
+      const mergeCandidate =
+        (fingerprintKey && (fingerprintCounts[fingerprintKey] || 0) > 1) ||
+        initiativeCounts[initiative.id] > 3;
+
+      accumulator[String(item._id)] = {
+        initiative,
+        mergeCandidate: Boolean(mergeCandidate),
+        childSlice: initiativeCounts[initiative.id] > 1,
+      };
+
+      return accumulator;
+    }, {});
+  }, [workItems]);
+  const initiativeSummaries = useMemo(() => {
+    const grouped = filteredActiveWorkItems.reduce<
+      Record<
+        string,
+        {
+          initiative: InitiativeDefinition;
+          items: FeedbackWorkItemDoc[];
+          mergeCandidates: number;
+        }
+      >
+    >((accumulator, item) => {
+      const initiativeMeta = initiativeMetaById[String(item._id)];
+      const initiative =
+        initiativeMeta?.initiative || inferInitiativeDefinition(item);
+
+      if (!accumulator[initiative.id]) {
+        accumulator[initiative.id] = {
+          initiative,
+          items: [],
+          mergeCandidates: 0,
+        };
+      }
+
+      accumulator[initiative.id].items.push(item);
+      if (initiativeMeta?.mergeCandidate) {
+        accumulator[initiative.id].mergeCandidates += 1;
+      }
+
+      return accumulator;
+    }, {});
+
+    return Object.values(grouped)
+      .map((entry) => ({
+        ...entry,
+        highPriorityCount: entry.items.filter((item) => item.severity === "high")
+          .length,
+        suggestedSlices: entry.items.slice(0, 3).map((item) => item.title),
+      }))
+      .sort((left, right) => right.items.length - left.items.length)
+      .slice(0, 5);
+  }, [filteredActiveWorkItems, initiativeMetaById]);
 
   const renderMetadataRows = (
     rows: Array<{ label: string; value?: string | number | boolean | null }>
@@ -1438,6 +1651,7 @@ const BugsPage = () => {
           const anchorId = getWorkItemAnchorId(workItemId);
           const selected = activeAnchor === anchorId;
           const showAdvanced = Boolean(advancedOpenById[workItemId]);
+          const initiativeMeta = initiativeMetaById[workItemId];
 
           return (
             <Box
@@ -1497,6 +1711,24 @@ const BugsPage = () => {
                   ) : null}
                   {item.page ? (
                     <Chip size="small" label={item.page} variant="outlined" />
+                  ) : null}
+                  {initiativeMeta ? (
+                    <Chip
+                      size="small"
+                      label={`Initiative: ${initiativeMeta.initiative.label}`}
+                      variant="outlined"
+                    />
+                  ) : null}
+                  {initiativeMeta?.childSlice ? (
+                    <Chip size="small" label="Child slice" variant="outlined" />
+                  ) : null}
+                  {initiativeMeta?.mergeCandidate ? (
+                    <Chip
+                      size="small"
+                      label="Merge candidate"
+                      color="warning"
+                      variant="outlined"
+                    />
                   ) : null}
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
@@ -2358,6 +2590,94 @@ const BugsPage = () => {
             </Stack>
           </Stack>
         </Paper>
+
+        {initiativeSummaries.length > 0 ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="h6">Initiative backlog structure</Typography>
+                <Typography sx={{ mt: 0.75, color: "text.secondary", maxWidth: 860 }}>
+                  Open tickets are grouped into umbrella initiatives so duplicate variants stop competing in the main queue. Use these clusters to merge near-duplicates, select coherent sprint slices, and keep oversized themes sequenced instead of sprawling.
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" },
+                  gap: 1.5,
+                }}
+              >
+                {initiativeSummaries.map((entry) => (
+                  <Paper
+                    key={entry.initiative.id}
+                    variant="outlined"
+                    sx={{ p: 1.6, borderRadius: 2.5, display: "grid", gap: 1 }}
+                  >
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      justifyContent="space-between"
+                      alignItems={{ xs: "flex-start", sm: "center" }}
+                    >
+                      <Typography variant="subtitle1">{entry.initiative.label}</Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip
+                          label={`${entry.items.length} open slice${
+                            entry.items.length === 1 ? "" : "s"
+                          }`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          label={`${entry.mergeCandidates} merge candidate${
+                            entry.mergeCandidates === 1 ? "" : "s"
+                          }`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          label={`${entry.highPriorityCount} high priority`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </Stack>
+                    <Typography sx={{ color: "text.secondary" }}>
+                      {entry.initiative.summary}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      {entry.initiative.sequencing}
+                    </Typography>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Suggested execution-sized slices
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={{ mt: 0.6 }}
+                      >
+                        {entry.suggestedSlices.map((sliceTitle) => (
+                          <Chip key={sliceTitle} size="small" label={sliceTitle} />
+                        ))}
+                      </Stack>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            </Stack>
+          </Paper>
+        ) : null}
 
         {(workItemListScope === "active" || workItemListScope === "all") ? (
           <Paper

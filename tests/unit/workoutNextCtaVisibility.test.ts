@@ -21,6 +21,8 @@ describe("workout next-step CTA visibility", () => {
     expect(headerSource).toContain('buildRoutineSemanticPanelSx("activeWorkout", darkMode)');
     expect(headerSource).toContain("Open Next Set");
     expect(headerSource).toContain("Start Lift");
+    expect(headerSource).toContain("Planning controls stay available below the logging flow");
+    expect(headerSource).not.toContain("Secondary Summary");
     expect(displaySource).not.toContain("plannedExercises.length > 1");
   });
 
