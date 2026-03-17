@@ -623,3 +623,4 @@ Caused by:
 Import trace for requested module:
 ./components/UpgradePromptDialog.tsx
 ./pages/routines.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\Grwyl\VSCode Projects\lift-logic\.next\cache\webpack\server-development\0.pack.gz'
