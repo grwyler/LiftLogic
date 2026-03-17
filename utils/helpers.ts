@@ -1117,6 +1117,7 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha,
   title,
   latestDescription,
+  labels,
   structuredRepro,
   implementationContext,
   verificationPack,
@@ -1129,6 +1130,7 @@ export const updateFeedbackWorkItem = async ({
   fixCommitSha?: string;
   title?: string;
   latestDescription?: string;
+  labels?: string[];
   structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
   implementationContext?: FeedbackWorkItemDoc["implementationContext"];
   verificationPack?: FeedbackWorkItemDoc["verificationPack"];
@@ -1154,6 +1156,7 @@ export const updateFeedbackWorkItem = async ({
       fixCommitSha,
       title,
       latestDescription,
+      labels,
       structuredRepro,
       implementationContext,
       verificationPack,

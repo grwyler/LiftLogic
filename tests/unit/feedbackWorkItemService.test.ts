@@ -24,12 +24,14 @@ describe("feedbackWorkItemService", () => {
       fixCommitSha: "abc123",
       title: "New title",
       latestDescription: "New description",
+      labels: ["auth", "regression"],
       now: new Date("2026-03-16T12:00:00Z"),
     });
 
     expect(patch).toMatchObject({
       title: "New title",
       latestDescription: "New description",
+      labels: ["auth", "regression"],
       severity: "high",
       triageStatus: "resolved",
       status: "resolved",

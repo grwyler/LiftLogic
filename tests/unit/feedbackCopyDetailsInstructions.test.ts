@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildCodexCopyText } from "../../utils/feedbackDetails";
+import {
+  buildCodexCopyText,
+  buildTopFiveCopyFooter,
+} from "../../utils/feedbackDetails";
 
 describe("feedback copy details instructions", () => {
   it("tells auditors to prefer production behavior for frontend and e2e validation", () => {
@@ -29,6 +32,12 @@ describe("feedback copy details instructions", () => {
     );
     expect(text).toContain("## Implementation context");
     expect(text).toContain("## Verification plan");
-    expect(text).toContain("increment version, commit, push, redeploy to prod");
+    expect(text).not.toContain("increment version, commit, push, redeploy to prod");
+  });
+
+  it("adds the release checklist only for the top-five export footer", () => {
+    expect(buildTopFiveCopyFooter()).toContain("Release completion checklist:");
+    expect(buildTopFiveCopyFooter()).toContain("Increment version.");
+    expect(buildTopFiveCopyFooter()).toContain("Redeploy to prod.");
   });
 });

@@ -206,6 +206,7 @@ export default async function handler(
         fixCommitSha,
         title,
         latestDescription,
+        labels,
         structuredRepro,
         implementationContext,
         verificationPack,
@@ -218,6 +219,7 @@ export default async function handler(
         fixCommitSha?: string;
         title?: string;
         latestDescription?: string;
+        labels?: string[];
         structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
         implementationContext?: FeedbackWorkItemDoc["implementationContext"];
         verificationPack?: FeedbackWorkItemDoc["verificationPack"];
@@ -254,6 +256,7 @@ export default async function handler(
           fixCommitSha,
           title,
           latestDescription,
+          labels,
           structuredRepro,
           implementationContext,
           verificationPack,

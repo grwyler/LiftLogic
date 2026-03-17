@@ -724,8 +724,16 @@ export const buildCodexCopyText = ({
     "- Front-end audits and end-to-end workflow checks should be evaluated against production functionality whenever possible; use local execution mainly for code-level investigation, debugging, or implementation work.",
     "- Add or update tests needed to cover the change and ensure relevant tests pass.",
     "- Please inspect the relevant code, implement the fix, run appropriate verification, and summarize what changed.",
-    "- When the work is complete: increment version, commit, push, redeploy to prod.",
   ]);
 
   return lines.join("\n");
 };
+
+export const buildTopFiveCopyFooter = () =>
+  [
+    "Release completion checklist:",
+    "- Increment version.",
+    "- Commit.",
+    "- Push.",
+    "- Redeploy to prod.",
+  ].join("\n");

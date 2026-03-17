@@ -15,11 +15,16 @@ describe("bugs page workflow actions", () => {
     expect(source).toContain('label="Type"');
     expect(source).toContain('label="List"');
     expect(source).toContain('label="Priority"');
+    expect(source).toContain('label="Label"');
     expect(source).toContain("Copy Details Of Top 5");
     expect(source).toContain("handleCopyTopFiveDetails");
     expect(source).toContain("currentPrimaryListItems.slice(0, 5)");
+    expect(source).toContain("buildTopFiveCopyFooter()");
     expect(source).toContain("Open work items");
     expect(source).toContain('label="Status"');
+    expect(source).toContain('label="Labels"');
+    expect(source).toContain("VersionChangelogDialog");
+    expect(source).toContain("setSelectedChangelogVersion");
     expect(source).toContain("handleWorkflowUpdate(item, {");
     expect(source).toContain('triageStatus: "details copied"');
     expect(source).toContain("Founding beta access");

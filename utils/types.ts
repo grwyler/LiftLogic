@@ -406,6 +406,7 @@ export interface FeedbackWorkItemDoc {
   type: "bug" | "feature";
   title: string;
   latestDescription: string;
+  labels?: string[];
   page?: string;
   severity?: "low" | "medium" | "high";
   deviceType?: FeedbackDeviceType;
