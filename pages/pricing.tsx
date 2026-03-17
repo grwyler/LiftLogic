@@ -25,12 +25,14 @@ import {
   BillingSummaryResponse,
 } from "../utils/types";
 import {
+  trackObservabilityEvent,
+} from "../utils/helpers";
+import {
   createBillingCheckoutSession,
   createBillingPortalSession,
   fetchBillingSummary,
-  trackObservabilityEvent,
-  trackBetaFunnelMilestone,
-} from "../utils/helpers";
+} from "../utils/billingClient";
+import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
 import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
 const pricingRadius = brandRadii;
@@ -40,6 +42,13 @@ const freePlanFeatures = [
   "Daily workout flow with set logging",
   "Exercise library and profile settings",
   "Feedback and bug reporting tools",
+];
+
+const starterPlanFeatures = [
+  "One-time kickoff plan built from your setup",
+  "Four-week starter structure with two revision passes",
+  "Keeps your account, logs, and preferences intact for a later Pro upgrade",
+  "Good fit when you want a concrete plan before committing to a subscription",
 ];
 
 const proPlanFeatures = [
@@ -53,36 +62,43 @@ const comparisonRows = [
   {
     label: "Workout logging and quick add",
     free: "Included",
+    starter: "Included",
     pro: "Included",
   },
   {
     label: "Focused daily workout flow",
     free: "Included",
+    starter: "Included",
     pro: "Included",
   },
   {
     label: "Profile settings and feedback tools",
     free: "Included",
+    starter: "Included",
     pro: "Included",
   },
   {
     label: "Adaptive plan generation",
     free: "Pro Beta",
+    starter: "Starter kickoff build",
     pro: "Included",
   },
   {
     label: "Assistant-driven plan revisions",
     free: "Pro Beta",
+    starter: "Two revision passes",
     pro: "Included",
   },
   {
     label: "Recurring workout schedules",
     free: "Pro Beta",
+    starter: "Manual follow-through",
     pro: "Included",
   },
   {
     label: "Progress-based recommendations",
     free: "Pro Beta",
+    starter: "Upgrade path into Pro",
     pro: "Included",
   },
 ];
@@ -227,6 +243,10 @@ const PricingPage: React.FC = () => {
     status === "authenticated"
       ? { href: "/routines", label: "Open workouts" }
       : { href: "/signup", label: "Start free beta" };
+  const starterOfferHref =
+    status === "authenticated"
+      ? "/user?starterOffer=starter_kickoff"
+      : "/signup?plan=starter_kickoff";
 
   const billingPlan: BillingPlan = billingSummary?.billingPlan || "free";
   const portalEnabled = Boolean(billingSummary?.portalEnabled);
@@ -464,7 +484,7 @@ const PricingPage: React.FC = () => {
           sx={{
             mt: { xs: 3, sm: 4 },
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr 1.08fr" },
             gap: 2,
           }}
         >
@@ -509,6 +529,95 @@ const PricingPage: React.FC = () => {
               Best when you already know what you want to do and mainly want better
               execution.
             </Typography>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2.25, sm: 2.75 },
+              border: "1px solid",
+              borderColor: "rgba(245,158,11,0.45)",
+              borderRadius: pricingRadius.card,
+              position: "relative",
+              overflow: "hidden",
+              background:
+                "linear-gradient(180deg, rgba(255,251,235,0.96) 0%, rgba(255,247,237,0.92) 100%)",
+            }}
+          >
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Typography
+                variant="overline"
+                sx={{ letterSpacing: "0.14em", color: "text.secondary" }}
+              >
+                Lower-friction paid start
+              </Typography>
+              <Chip
+                label="Starter Kickoff"
+                sx={{
+                  borderRadius: pricingRadius.chip,
+                  backgroundColor: "rgba(245,158,11,0.14)",
+                  color: "text.primary",
+                  fontWeight: 700,
+                }}
+              />
+            </Stack>
+            <Typography variant="h4" sx={{ mt: 0.75 }}>
+              Starter Kickoff
+            </Typography>
+            <Typography sx={{ mt: 0.5, fontWeight: 700 }}>$29 one-time beta offer</Typography>
+            <Typography sx={{ mt: 1.25, color: "text.secondary" }}>
+              For users who want Lift Logic to build a serious starting point without
+              committing to recurring billing on day one.
+            </Typography>
+
+            <Stack spacing={1.1} sx={{ mt: 2 }}>
+              {starterPlanFeatures.map((feature) => (
+                <Stack key={feature} direction="row" spacing={1} alignItems="flex-start">
+                  <CheckCircleOutlineIcon
+                    fontSize="small"
+                    sx={{ mt: "2px", color: "text.primary" }}
+                  />
+                  <Typography>{feature}</Typography>
+                </Stack>
+              ))}
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography sx={{ color: "text.secondary" }}>
+              Best when you want a clear plan outcome first, then the option to
+              upgrade into full adaptive planning later without resetting your
+              account data.
+            </Typography>
+
+            <Stack spacing={1} sx={{ mt: 2.25 }}>
+              <Button
+                component={NextLink}
+                href={starterOfferHref}
+                variant="outlined"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => {
+                  void trackBetaFunnelMilestone("pricing_cta_clicked", {
+                    source: "pricing_starter_kickoff_cta",
+                  }).catch((error) => {
+                    console.error("Error tracking starter offer CTA:", error);
+                  });
+                }}
+              >
+                {status === "authenticated"
+                  ? "Use this account for Starter"
+                  : "Start with Starter Kickoff"}
+              </Button>
+              <Alert severity="info" sx={{ borderRadius: pricingRadius.inset }}>
+                Starter purchases are being tested as a beta offer, but they still use
+                the same account and setup data you would keep if you later move into
+                Pro Beta.
+              </Alert>
+            </Stack>
           </Paper>
 
           <Paper
@@ -664,7 +773,10 @@ const PricingPage: React.FC = () => {
                 <Box
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "1.5fr 0.7fr 0.7fr" },
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "1.4fr 0.8fr 0.8fr 0.8fr",
+                    },
                     gap: 1,
                     alignItems: "center",
                   }}
@@ -676,6 +788,14 @@ const PricingPage: React.FC = () => {
                     sx={{
                       borderRadius: pricingRadius.chip,
                       justifySelf: "flex-start",
+                    }}
+                  />
+                  <Chip
+                    label={`Starter: ${row.starter}`}
+                    sx={{
+                      borderRadius: pricingRadius.chip,
+                      justifySelf: "flex-start",
+                      backgroundColor: "rgba(245,158,11,0.12)",
                     }}
                   />
                   <Chip

@@ -10,6 +10,10 @@ import {
   summarizeMonetizationFunnel,
 } from "../../utils/betaFunnel";
 import {
+  getSessionUserId,
+  isBugWorkflowAdminSession,
+} from "../../utils/adminAuthorization";
+import {
   hasActiveBillingAccess,
 } from "../../server/billing/service";
 import { hasActiveManualProBetaAccess } from "../../utils/entitlements";
@@ -23,24 +27,10 @@ type AnonymousFunnelDoc = {
   updatedAt?: Date;
 };
 
-const parseSessionUserId = (session: any) =>
-  String(session?.user?._id || session?.token?.user?._id || "").trim();
-
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
 const ANONYMOUS_FUNNEL_COOKIE_KEY = "liftlogic_funnel_id";
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === "grwyler" || email === "grwyler@gmail.com";
-};
 
 export default async function handler(
   req: NextApiRequest,
@@ -50,7 +40,7 @@ export default async function handler(
   const db = await connectToDatabase();
 
   if (req.method === "GET") {
-    if (!session || !isAdminSession(session)) {
+    if (!session || !isBugWorkflowAdminSession(session)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
@@ -101,7 +91,7 @@ export default async function handler(
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
-  const userId = parseSessionUserId(session);
+  const userId = getSessionUserId(session);
   const isAuthenticated = Boolean(session && userId && ObjectId.isValid(userId));
   const action = sanitizeText(req.body?.action);
   const requestAnonymousFunnelId = sanitizeText(req.body?.anonymousFunnelId);

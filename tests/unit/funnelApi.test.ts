@@ -267,8 +267,11 @@ describe("funnel API", () => {
     mocks.getServerSession.mockResolvedValue({
       user: {
         _id: new ObjectId().toString(),
-        username: "grwyler",
-        email: "grwyler@gmail.com",
+        username: "workflow-admin",
+        email: "admin@example.com",
+        permissions: {
+          bugWorkflowAdmin: true,
+        },
       },
     });
 

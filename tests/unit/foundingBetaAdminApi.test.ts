@@ -180,8 +180,11 @@ describe("founding beta admin API", () => {
     mocks.getServerSession.mockResolvedValue({
       user: {
         _id: new ObjectId().toString(),
-        username: "grwyler",
-        email: "grwyler@gmail.com",
+        username: "beta-admin",
+        email: "admin@example.com",
+        permissions: {
+          foundingBetaAdmin: true,
+        },
       },
     });
     mocks.connectToDatabase.mockResolvedValue(db);

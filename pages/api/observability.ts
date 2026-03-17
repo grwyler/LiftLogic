@@ -9,24 +9,14 @@ import {
   shouldCreateObservabilityAlert,
   summarizeObservabilityAlerts,
 } from "../../utils/observability";
+import {
+  getSessionUserId,
+  isBugWorkflowAdminSession,
+} from "../../utils/adminAuthorization";
 import { ObservabilityAlertDoc, ObservabilityEventDoc } from "../../utils/types";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === "grwyler" || email === "grwyler@gmail.com";
-};
-
-const parseSessionUserId = (session: any) =>
-  sanitizeText(session?.user?._id || session?.token?.user?._id);
 
 export default async function handler(
   req: NextApiRequest,
@@ -38,7 +28,7 @@ export default async function handler(
   const alertsCollection = db.collection<ObservabilityAlertDoc>("observabilityAlerts");
 
   if (req.method === "GET") {
-    if (!session || !isAdminSession(session)) {
+    if (!session || !isBugWorkflowAdminSession(session)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
@@ -82,7 +72,7 @@ export default async function handler(
     return res.status(400).json({ message: "At least one event is required" });
   }
 
-  const sessionUserId = parseSessionUserId(session);
+  const sessionUserId = getSessionUserId(session);
   const normalizedEvents = incomingEvents.map((event) =>
     sanitizeObservabilityEvent({
       ...event,

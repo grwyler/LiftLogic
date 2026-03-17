@@ -99,6 +99,7 @@ type ExerciseItemProps = {
   recurringSchedulingEnabled?: boolean;
   onRequestRecurringUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
+  onRequestPersonalRecordUpgradePrompt?: () => void;
   isRestTimerBlocking?: boolean;
   openRestTimer?: (value: {
     exerciseKey: string;
@@ -142,6 +143,7 @@ const ExerciseItem = ({
   recurringSchedulingEnabled = true,
   onRequestRecurringUpgradePrompt,
   onRequestProgressionUpgradePrompt,
+  onRequestPersonalRecordUpgradePrompt,
   isRestTimerBlocking,
   openRestTimer,
 }: ExerciseItemProps) => {
@@ -231,6 +233,7 @@ const ExerciseItem = ({
         completedExerciseRadius={completedExerciseRadius}
         progressionRecommendationsEnabled={progressionRecommendationsEnabled}
         hasUnlockedProgressionRecommendation={hasUnlockedProgressionRecommendation}
+        onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
         onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
         progressSummary={progressSummary}
         loadingRecommendation={loadingRecommendation}

@@ -32,6 +32,7 @@ describe("workout upgrade prompt moments", () => {
     );
     expect(feedbackPanelsSource).toContain("See Pro Beta recommendation");
     expect(feedbackPanelsSource).toContain("See Pro Beta insights");
+    expect(feedbackPanelsSource).toContain("Extend this PR with Pro Beta");
 
     expect(coachPanelSource).toContain("patchResult && patchResult.applied === false");
     expect(coachPanelSource).toContain("coach-upgrade-");

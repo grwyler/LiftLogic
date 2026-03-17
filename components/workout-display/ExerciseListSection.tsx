@@ -24,6 +24,7 @@ const ExerciseListSection = ({
   handleExerciseDragEnd,
   items,
   loadingProgressById,
+  onRequestPersonalRecordUpgradePrompt,
   onRequestProgressionUpgradePrompt,
   onRequestRecurringUpgradePrompt,
   openRestTimer,
@@ -52,6 +53,7 @@ const ExerciseListSection = ({
   handleExerciseDragEnd: (...args: unknown[]) => void;
   items: WorkoutDisplayExercise[];
   loadingProgressById: Record<string, boolean>;
+  onRequestPersonalRecordUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
   onRequestRecurringUpgradePrompt?: () => void;
   openRestTimer: (value: {
@@ -105,6 +107,7 @@ const ExerciseListSection = ({
         loadingRecommendation={Boolean(loadingProgressById[getExerciseCacheKey(exercise)])}
         progressionRecommendationsEnabled={progressionRecommendationsEnabled}
         recurringSchedulingEnabled={recurringSchedulingEnabled}
+        onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
         onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
         onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
         isRestTimerBlocking={

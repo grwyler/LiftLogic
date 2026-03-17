@@ -4,11 +4,12 @@ import { ObjectId } from "mongodb";
 import { authOptions } from "../auth/[...nextauth]";
 import { connectToDatabase } from "../../../utils/mongodb";
 import { getEntitlementsForPlan, hasActiveManualProBetaAccess } from "../../../utils/entitlements";
+import {
+  getSessionUserProfile,
+  isFoundingBetaAdminSession,
+} from "../../../utils/adminAuthorization";
 import { UserDoc } from "../../../utils/types";
 import { markBetaFunnelMilestone } from "../../../utils/betaFunnel";
-
-const ADMIN_USERNAME = "grwyler";
-const ADMIN_EMAIL = "grwyler@gmail.com";
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "trialing",
   "active",
@@ -18,22 +19,6 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
-};
-
-const getRequesterIdentity = (session: any) => ({
-  userId: sanitizeText(session?.user?._id || session?.token?.user?._id),
-  email: sanitizeText(session?.user?.email || session?.token?.user?.email),
-});
 
 const parseOptionalDate = (value: unknown) => {
   const normalized = sanitizeText(value);
@@ -91,7 +76,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const session = await getServerSession(req, res, authOptions);
-  if (!session || !isAdminSession(session)) {
+  if (!session || !isFoundingBetaAdminSession(session)) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
@@ -171,14 +156,14 @@ export default async function handler(
     }
 
     const now = new Date();
-    const requester = getRequesterIdentity(session);
+    const requester = getSessionUserProfile(session);
     const currentManualAccess = existingUser.manualProBetaAccess || {};
     const nextManualAccess =
       operation === "revoke"
         ? {
             ...currentManualAccess,
             revokedAt: now,
-            revokedByUserId: requester.userId || undefined,
+            revokedByUserId: requester._id || undefined,
             revokedByEmail: requester.email || undefined,
             paymentCollectionNote:
               sanitizeText(paymentCollectionNote) ||
@@ -191,7 +176,7 @@ export default async function handler(
               operation === "grant" ? now : currentManualAccess.grantedAt || now,
             grantedByUserId:
               operation === "grant"
-                ? requester.userId || undefined
+                ? requester._id || undefined
                 : currentManualAccess.grantedByUserId,
             grantedByEmail:
               operation === "grant"

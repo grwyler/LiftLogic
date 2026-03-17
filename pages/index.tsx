@@ -19,7 +19,7 @@ import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { rememberLandingCta } from "../utils/betaFunnelClient";
-import { trackBetaFunnelMilestone } from "../utils/helpers";
+import { trackBetaFunnelMilestone } from "../utils/betaFunnelApi";
 import { brandBackgrounds, brandRadii } from "../utils/brandSystem";
 
 const landingRadius = brandRadii;

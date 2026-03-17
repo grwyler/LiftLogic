@@ -57,6 +57,7 @@ type WorkoutDisplayProps = {
   clearLastQuickAddedExerciseIdentity?: () => void;
   onRequestRecurringUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
+  onRequestPersonalRecordUpgradePrompt?: () => void;
 };
 
 const WorkoutDisplay = ({
@@ -81,6 +82,7 @@ const WorkoutDisplay = ({
   clearLastQuickAddedExerciseIdentity,
   onRequestRecurringUpgradePrompt,
   onRequestProgressionUpgradePrompt,
+  onRequestPersonalRecordUpgradePrompt,
 }: WorkoutDisplayProps) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [completionRecapDismissed, setCompletionRecapDismissed] = useState(false);
@@ -422,6 +424,7 @@ const WorkoutDisplay = ({
             handleExerciseDragEnd={handleExerciseDragEnd}
             items={plannedExercises}
             loadingProgressById={loadingProgressById}
+            onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
             onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
             onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
             openRestTimer={handleOpenRestTimer}
@@ -454,6 +457,7 @@ const WorkoutDisplay = ({
             handleExerciseDragEnd={handleExerciseDragEnd}
             items={completedExercises}
             loadingProgressById={loadingProgressById}
+            onRequestPersonalRecordUpgradePrompt={onRequestPersonalRecordUpgradePrompt}
             onRequestProgressionUpgradePrompt={onRequestProgressionUpgradePrompt}
             onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
             openRestTimer={handleOpenRestTimer}

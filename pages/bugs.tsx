@@ -27,12 +27,14 @@ import VersionChangelogDialog from "../components/VersionChangelogDialog";
 import {
   createFollowUpFeedbackWorkItem,
   deleteFeedbackWorkItem,
-  fetchMonetizationSummary,
-  fetchFoundingBetaUsers,
   fetchFeedbackWorkflow,
-  saveFoundingBetaAccess,
   updateFeedbackWorkItem,
-} from "../utils/helpers";
+} from "../utils/feedbackClient";
+import { fetchMonetizationSummary } from "../utils/betaFunnelApi";
+import {
+  fetchFoundingBetaUsers,
+  saveFoundingBetaAccess,
+} from "../utils/foundingBetaClient";
 import {
   FeedbackBugArchetype,
   FeedbackItemDoc,

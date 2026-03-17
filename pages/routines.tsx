@@ -13,9 +13,11 @@ import {
   saveRecurringRule,
   saveExercise,
   saveUser,
+} from "../utils/helpers";
+import {
   mergeAnonymousBetaFunnel,
   trackBetaFunnelMilestone,
-} from "../utils/helpers";
+} from "../utils/betaFunnelApi";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
@@ -96,7 +98,8 @@ type UpgradePromptKey =
   | "assistant_generation"
   | "coach_regeneration"
   | "recurring_schedule"
-  | "progression_recommendation";
+  | "progression_recommendation"
+  | "personal_record_celebration";
 
 type UpgradePromptConfig = {
   title: string;
@@ -240,9 +243,9 @@ const RoutinesPage = ({
         return;
       case "progression_recommendation":
         setUpgradePrompt({
-          title: "Unlock progression recommendations",
+          title: "Turn this momentum into next-session guidance",
           description:
-            "Your recent logs are enough to start generating next-session guidance. Pro Beta turns that logged performance into adaptive targets, while Free keeps the underlying tracking open.",
+            "You have enough logged progress to generate smarter next-session targets. Pro Beta turns that success into adaptive guidance, while Free keeps the base workout logging open.",
           benefits: [
             "See next-session sets, reps, and load recommendations from your logs.",
             "Review performance trends as your completed data grows.",
@@ -250,6 +253,20 @@ const RoutinesPage = ({
           ],
           continueLabel: "Keep logging free",
           upgradeLabel: "Upgrade for recommendations",
+        });
+        return;
+      case "personal_record_celebration":
+        setUpgradePrompt({
+          title: "Build on this personal record while it is fresh",
+          description:
+            "You just beat a prior benchmark. Pro Beta can turn that win into a tighter next block with updated targets, progression, and schedule follow-through.",
+          benefits: [
+            "Use today's PR to tighten next-session recommendations.",
+            "Carry the new benchmark into your next week instead of guessing.",
+            "Keep free workout logging intact even if you dismiss this.",
+          ],
+          continueLabel: "Stay on free logging",
+          upgradeLabel: "Extend this momentum",
         });
         return;
       default:
@@ -1253,6 +1270,9 @@ const RoutinesPage = ({
               }
               onRequestProgressionUpgradePrompt={() =>
                 openUpgradePrompt("progression_recommendation")
+              }
+              onRequestPersonalRecordUpgradePrompt={() =>
+                openUpgradePrompt("personal_record_celebration")
               }
             />
           </Box>

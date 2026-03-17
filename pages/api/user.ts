@@ -4,11 +4,12 @@ import { ObjectId } from "mongodb";
 import { connectToDatabase } from "../../utils/mongodb";
 import { authOptions } from "./auth/[...nextauth]";
 import { markBetaFunnelMilestone } from "../../utils/betaFunnel";
+import {
+  getSessionUserId,
+  isAppAdminSession,
+} from "../../utils/adminAuthorization";
 import { resolveUserAccess } from "../../utils/entitlements";
 import { normalizeReminderPreferences } from "../../utils/reminders";
-
-const ADMIN_USERNAME = "grwyler";
-const ADMIN_EMAIL = "grwyler@gmail.com";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
@@ -42,20 +43,6 @@ const sanitizeInterfaceScale = (value: unknown) => {
 
 const isDarkThemePreference = (value: string) =>
   value === "night" || value === "evergreen" || value === "graphite" || value === "ember";
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
-};
-
-const getRequesterId = (session: any) =>
-  sanitizeText(session?.user?._id || session?.token?.user?._id);
 
 const canAccessUser = ({
   requesterId,
@@ -161,8 +148,8 @@ export default async function handler(
 ) {
   try {
     const session = await getServerSession(req, res, authOptions);
-    const requesterId = getRequesterId(session);
-    const admin = isAdminSession(session);
+    const requesterId = getSessionUserId(session);
+    const admin = isAppAdminSession(session);
 
     if (!session || !requesterId) {
       return res.status(401).json({ message: "Authentication required" });

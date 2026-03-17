@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getSessionUserId,
+  isAppAdminSession,
+  isFoundingBetaAdminUser,
   isBugWorkflowAdminSession,
   isBugWorkflowAdminUser,
 } from "../../utils/adminAuthorization";
@@ -28,21 +30,41 @@ describe("admin authorization", () => {
     ).toBe(true);
   });
 
-  it("grants workflow admin access to the canonical admin username", () => {
+  it("does not grant workflow admin access from a hardcoded username alone", () => {
     expect(
       isBugWorkflowAdminSession({
         user: {
-          _id: "admin-2",
+          _id: "user-2",
           username: "grwyler",
+        },
+      })
+    ).toBe(false);
+  });
+
+  it("does not grant workflow admin access from a hardcoded email alone", () => {
+    expect(
+      isBugWorkflowAdminUser({
+        email: "grwyler@gmail.com",
+      })
+    ).toBe(false);
+  });
+
+  it("grants generic app admin access from the admin role", () => {
+    expect(
+      isAppAdminSession({
+        user: {
+          roles: ["admin"],
         },
       })
     ).toBe(true);
   });
 
-  it("grants workflow admin access to the canonical admin email", () => {
+  it("grants founding beta admin access from explicit permissions", () => {
     expect(
-      isBugWorkflowAdminUser({
-        email: "grwyler@gmail.com",
+      isFoundingBetaAdminUser({
+        permissions: {
+          foundingBetaAdmin: true,
+        },
       })
     ).toBe(true);
   });

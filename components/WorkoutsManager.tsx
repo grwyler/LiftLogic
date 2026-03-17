@@ -253,6 +253,7 @@ const WorkoutsManager: React.FC<{
   } | null;
   onRequestRecurringUpgradePrompt?: () => void;
   onRequestProgressionUpgradePrompt?: () => void;
+  onRequestPersonalRecordUpgradePrompt?: () => void;
   onWeeklyTargetChange?: (nextTarget: string) => Promise<void> | void;
 }> = ({
   routine,
@@ -261,6 +262,7 @@ const WorkoutsManager: React.FC<{
   userProfile,
   onRequestRecurringUpgradePrompt,
   onRequestProgressionUpgradePrompt,
+  onRequestPersonalRecordUpgradePrompt,
   onWeeklyTargetChange,
 }) => {
   const startDate = new Date();
@@ -489,6 +491,9 @@ const WorkoutsManager: React.FC<{
                 onRequestRecurringUpgradePrompt={onRequestRecurringUpgradePrompt}
                 onRequestProgressionUpgradePrompt={
                   onRequestProgressionUpgradePrompt
+                }
+                onRequestPersonalRecordUpgradePrompt={
+                  onRequestPersonalRecordUpgradePrompt
                 }
               />
               {isLoadingWorkout ? (

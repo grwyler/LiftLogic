@@ -13,7 +13,9 @@ describe("routines upgrade prompt moments", () => {
     expect(source).toContain('openUpgradePrompt("coach_regeneration")');
     expect(source).toContain('openUpgradePrompt("recurring_schedule")');
     expect(source).toContain('openUpgradePrompt("progression_recommendation")');
+    expect(source).toContain('openUpgradePrompt("personal_record_celebration")');
     expect(source).toContain("<UpgradePromptDialog");
     expect(source).toContain("Keep tracking free");
+    expect(source).toContain("Build on this personal record while it is fresh");
   });
 });

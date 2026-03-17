@@ -12,6 +12,7 @@ export const CompletedExercisePerformancePanel = ({
   completedExerciseRadius,
   progressionRecommendationsEnabled,
   hasUnlockedProgressionRecommendation,
+  onRequestPersonalRecordUpgradePrompt,
   onRequestProgressionUpgradePrompt,
   progressSummary,
   loadingRecommendation,
@@ -174,6 +175,15 @@ export const CompletedExercisePerformancePanel = ({
               You beat a prior benchmark on this lift. Lock it in while the effort is still
               fresh.
             </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              color="success"
+              sx={{ justifySelf: "flex-start" }}
+              onClick={() => onRequestPersonalRecordUpgradePrompt?.()}
+            >
+              Extend this PR with Pro Beta
+            </Button>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {personalRecordHighlights.map((highlight: any) => (
                 <Chip

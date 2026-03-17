@@ -33,9 +33,28 @@ import {
 } from "./recurringRuleService";
 import { requestJson } from "./apiClient";
 import { parseLocalDateKey, toLocalDateKey } from "./localDate";
-import { getOrCreateAnonymousFunnelId } from "./betaFunnelClient";
 
 export { parseLocalDateKey, toLocalDateKey } from "./localDate";
+export {
+  fetchBillingSummary,
+  createBillingCheckoutSession,
+  createBillingPortalSession,
+} from "./billingClient";
+export {
+  fetchMonetizationSummary,
+  mergeAnonymousBetaFunnel,
+  trackBetaFunnelMilestone,
+} from "./betaFunnelApi";
+export {
+  createFollowUpFeedbackWorkItem,
+  deleteFeedbackWorkItem,
+  fetchFeedbackWorkflow,
+  updateFeedbackWorkItem,
+} from "./feedbackClient";
+export {
+  fetchFoundingBetaUsers,
+  saveFoundingBetaAccess,
+} from "./foundingBetaClient";
 
 export const DEFAULT_ROUTINE = {
   days: {
@@ -1002,81 +1021,6 @@ export const saveUser = async (user) => {
   }
 };
 
-export const fetchBillingSummary = async (): Promise<BillingSummaryResponse> => {
-  const response = await fetch("/api/billing/summary");
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`fetchBillingSummary ${response.status}: ${message}`);
-  }
-
-  return response.json();
-};
-
-export const createBillingCheckoutSession = async (
-  interval: "month" | "year"
-) => {
-  const response = await fetch("/api/billing/create-checkout-session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ interval }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`createBillingCheckoutSession ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ url: string }>;
-};
-
-export const createBillingPortalSession = async () => {
-  const response = await fetch("/api/billing/create-portal-session", {
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`createBillingPortalSession ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ url: string }>;
-};
-
-export const trackBetaFunnelMilestone = async (
-  milestone: string,
-  options: {
-    occurredAt?: string;
-    source?: string;
-    anonymousFunnelId?: string;
-  } = {}
-) => {
-  const anonymousFunnelId =
-    options.anonymousFunnelId ||
-    (typeof window !== "undefined" ? getOrCreateAnonymousFunnelId() : "");
-  const response = await fetch("/api/funnel", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      milestone,
-      ...(options.occurredAt ? { occurredAt: options.occurredAt } : {}),
-      ...(options.source ? { source: options.source } : {}),
-      ...(anonymousFunnelId ? { anonymousFunnelId } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`trackBetaFunnelMilestone ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ success: true }>;
-};
-
 export const trackObservabilityEvent = async (
   event: Partial<ObservabilityEventDoc>
 ) =>
@@ -1112,96 +1056,6 @@ export const acknowledgeReminder = async (reminderId: string) =>
       reminderId,
     }),
   });
-
-export const mergeAnonymousBetaFunnel = async (anonymousFunnelId?: string) => {
-  const resolvedAnonymousFunnelId =
-    anonymousFunnelId ||
-    (typeof window !== "undefined" ? getOrCreateAnonymousFunnelId() : "");
-
-  if (!resolvedAnonymousFunnelId) {
-    return { success: false as const };
-  }
-
-  const response = await fetch("/api/funnel", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      action: "mergeAnonymousFunnel",
-      anonymousFunnelId: resolvedAnonymousFunnelId,
-    }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`mergeAnonymousBetaFunnel ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ success: true }>;
-};
-
-export const fetchMonetizationSummary =
-  async (): Promise<MonetizationSummaryResponse> => {
-    const response = await fetch("/api/funnel?summary=monetization");
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`fetchMonetizationSummary ${response.status}: ${message}`);
-    }
-
-    return response.json();
-  };
-
-export const fetchFoundingBetaUsers = async (search = "") => {
-  const query = new URLSearchParams();
-  if (search.trim()) {
-    query.set("search", search.trim());
-  }
-
-  const response = await fetch(
-    `/api/admin/founding-beta${query.toString() ? `?${query.toString()}` : ""}`
-  );
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`fetchFoundingBetaUsers ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ users: any[] }>;
-};
-
-export const saveFoundingBetaAccess = async ({
-  userId,
-  operation,
-  expiresAt,
-  paymentCollectionNote,
-}: {
-  userId: string;
-  operation: "grant" | "revoke" | "update";
-  expiresAt?: string;
-  paymentCollectionNote?: string;
-}) => {
-  const response = await fetch("/api/admin/founding-beta", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      userId,
-      operation,
-      expiresAt: expiresAt || "",
-      paymentCollectionNote,
-    }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`saveFoundingBetaAccess ${response.status}: ${message}`);
-  }
-
-  return response.json() as Promise<{ user: any }>;
-};
 
 export const submitFeedback = async (
   feedback: Omit<
@@ -1267,182 +1121,6 @@ export const fetchFeedback = async (userId?: string) => {
 
   const data = await response.json();
   return Array.isArray(data.feedback) ? data.feedback : [];
-};
-
-export const fetchFeedbackWorkflow = async () => {
-  const response = await fetch("/api/feedback");
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`fetchFeedbackWorkflow ${response.status}: ${message}`);
-  }
-
-  const data = await response.json();
-  return {
-    feedback: Array.isArray(data.feedback)
-      ? (data.feedback as FeedbackItemDoc[])
-      : [],
-    workItems: Array.isArray(data.workItems)
-      ? (data.workItems as FeedbackWorkItemDoc[])
-      : [],
-  };
-};
-
-export const updateFeedbackWorkItem = async ({
-  workItemId,
-  triageStatus,
-  severity,
-  fixThreadId,
-  fixCommitSha,
-  title,
-  latestDescription,
-  resolution,
-  bugArchetype,
-  bugContext,
-  scopeGuardrails,
-  implementationContext,
-  verificationPack,
-  completedVerificationIds,
-}: {
-  workItemId: string;
-  triageStatus: FeedbackTriageStatus;
-  severity?: "low" | "medium" | "high";
-  fixThreadId?: string;
-  fixCommitSha?: string;
-  title?: string;
-  latestDescription?: string;
-  resolution?: FeedbackWorkItemDoc["resolution"];
-  bugArchetype?: FeedbackBugArchetype;
-  bugContext?: FeedbackWorkItemDoc["bugContext"];
-  scopeGuardrails?: FeedbackScopeGuardrails;
-  implementationContext?: FeedbackWorkItemDoc["implementationContext"];
-  verificationPack?: FeedbackWorkItemDoc["verificationPack"];
-  completedVerificationIds?: string[];
-}) => {
-  emitDevBugRequest({
-    label: `Update work item ${workItemId}`,
-    expected: "The feedback work item status is updated successfully.",
-    actual: `Saving triage status ${triageStatus}.`,
-    status: "info",
-  });
-
-  const response = await fetch("/api/feedback", {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      workItemId,
-      triageStatus,
-      severity,
-      fixThreadId,
-      fixCommitSha,
-      title,
-      latestDescription,
-      resolution,
-      bugArchetype,
-      bugContext,
-      scopeGuardrails,
-      implementationContext,
-      verificationPack,
-      completedVerificationIds,
-    }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    emitDevBugRequest({
-      label: `Update work item ${workItemId} failed`,
-      expected: "The feedback work item status is updated successfully.",
-      actual: `Work item update failed with ${response.status}: ${message}`,
-      status: "failure",
-    });
-    throw new Error(`updateFeedbackWorkItem ${response.status}: ${message}`);
-  }
-
-  emitDevBugRequest({
-    label: `Updated work item ${workItemId}`,
-    expected: "The feedback work item status is updated successfully.",
-    actual: `Work item update completed with ${response.status}.`,
-    status: "success",
-  });
-
-  return response.json();
-};
-
-export const createFollowUpFeedbackWorkItem = async ({
-  title,
-  description,
-  type,
-  linkedWorkItemId,
-  severity,
-  page,
-}: {
-  title: string;
-  description: string;
-  type: "bug" | "feature";
-  linkedWorkItemId: string;
-  severity?: "low" | "medium" | "high";
-  page?: string;
-}) => {
-  const response = await fetch("/api/feedback", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      feedback: {
-        title,
-        description,
-        type,
-        severity,
-        page,
-        linkedWorkItemId,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`createFollowUpFeedbackWorkItem ${response.status}: ${message}`);
-  }
-
-  return response.json();
-};
-
-export const deleteFeedbackWorkItem = async (workItemId: string) => {
-  emitDevBugRequest({
-    label: "Delete feedback work item",
-    expected: "The selected work item and its linked reports are removed.",
-    actual: "Sending delete request for feedback work item.",
-    status: "info",
-  });
-  const response = await fetch("/api/feedback", {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ workItemId }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    emitDevBugRequest({
-      label: "Delete feedback work item failed",
-      expected: "The selected work item and its linked reports are removed.",
-      actual: `Delete request failed with ${response.status}: ${message}`,
-      status: "failure",
-    });
-    throw new Error(`deleteFeedbackWorkItem ${response.status}: ${message}`);
-  }
-
-  emitDevBugRequest({
-    label: "Deleted feedback work item",
-    expected: "The selected work item and its linked reports are removed.",
-    actual: `Delete request completed with ${response.status}.`,
-    status: "success",
-  });
-
-  return response.json();
 };
 
 export const deleteFeedback = async (feedbackId: string) => {

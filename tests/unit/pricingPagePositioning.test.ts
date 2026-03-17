@@ -12,6 +12,9 @@ describe("pricing page positioning", () => {
     expect(source).toContain(
       "Tracking stays free. Adaptive planning becomes Pro Beta."
     );
+    expect(source).toContain("Starter Kickoff");
+    expect(source).toContain("$29 one-time beta offer");
+    expect(source).toContain("pricing_starter_kickoff_cta");
     expect(source).toContain("Workout logging and quick add");
     expect(source).toContain("Adaptive plan generation");
     expect(source).toContain("Assistant-driven plan edits and schedule changes");

@@ -8,24 +8,14 @@ import {
   shouldDeliverComebackNudge,
   shouldDeliverScheduledWorkoutReminder,
 } from "../../utils/reminders";
+import {
+  getSessionUserId,
+  isBugWorkflowAdminSession,
+} from "../../utils/adminAuthorization";
 import { ReminderDeliveryDoc, UserDoc, WorkoutEntryDoc } from "../../utils/types";
 
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
-
-const parseSessionUserId = (session: any) =>
-  sanitizeText(session?.user?._id || session?.token?.user?._id);
-
-const isAdminSession = (session: any) => {
-  const username = sanitizeText(
-    session?.user?.username || session?.token?.user?.username
-  ).toLowerCase();
-  const email = sanitizeText(
-    session?.user?.email || session?.token?.user?.email
-  ).toLowerCase();
-
-  return username === "grwyler" || email === "grwyler@gmail.com";
-};
 
 const buildReminderMessage = ({
   username,
@@ -159,13 +149,13 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const session = await getServerSession(req, res, authOptions);
-  const userId = parseSessionUserId(session);
+  const userId = getSessionUserId(session);
   const db = await connectToDatabase();
   const deliveries = db.collection<ReminderDeliveryDoc>("reminderDeliveries");
 
   if (req.method === "GET") {
     if (sanitizeText(req.query.summary) === "retention") {
-      if (!session || !isAdminSession(session)) {
+      if (!session || !isBugWorkflowAdminSession(session)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -214,7 +204,7 @@ export default async function handler(
   const action = sanitizeText(req.body?.action);
 
   if (action === "dispatchDue") {
-    if (!session || !isAdminSession(session)) {
+    if (!session || !isBugWorkflowAdminSession(session)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
