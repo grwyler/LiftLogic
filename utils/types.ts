@@ -124,6 +124,45 @@ export interface WorkoutEntryDoc {
   updatedAt?: Date;
 }
 
+export interface WorkoutExerciseView {
+  name: string;
+  type: "timed" | "weight";
+  weightUnit?: WeightUnit;
+  max?: number;
+  rest: number;
+  complete: boolean;
+  sets: ExerciseSet[];
+  _id?: string;
+  userId?: string;
+  date?: Date | string;
+  entryInstanceId?: string;
+  exerciseId?: ObjectId | string;
+  sortOrder?: number;
+  isRepeating?: boolean;
+  recurrenceType?: RecurringRuleDoc["recurrenceType"];
+  interval?: number;
+  intervalWeeks?: number;
+  dayOfWeek?: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  endDate?: Date | string;
+  ruleId?: string | null;
+  routineName: string;
+}
+
+export interface WorkoutEntryApiRequest {
+  entry: WorkoutEntryDoc;
+}
+
+export interface WorkoutEntryApiResponse {
+  message: string;
+  entryId: string;
+  entryInstanceId?: string;
+  updatedAt?: Date | string;
+  deduped?: boolean;
+  conflict?: boolean;
+}
+
 export interface WorkoutEntryAuditDoc {
   _id?: ObjectId;
   workoutEntryId?: ObjectId | string;
@@ -187,6 +226,7 @@ export interface BillingSummaryResponse {
 export interface MonetizationSummaryResponse {
   pricingPageViews: number;
   upgradePromptViews: number;
+  upgradePromptClicks: number;
   checkoutStarts: number;
   checkoutCompletions: number;
   manualProGrants: number;
@@ -198,6 +238,28 @@ export interface MonetizationSummaryResponse {
   pricingToPaidRate: number;
   checkoutCompletionRate: number;
   cancellationRate: number;
+  anonymousStage?: {
+    landingPageViews: number;
+    pricingPageViews: number;
+    upgradePromptViews: number;
+    upgradePromptClicks: number;
+    checkoutStarts: number;
+  };
+  authenticatedStage?: {
+    pricingPageViews: number;
+    upgradePromptViews: number;
+    upgradePromptClicks: number;
+    checkoutStarts: number;
+  };
+  sourceBreakdown?: {
+    landingPageViews: Record<string, number>;
+    landingCtas: Record<string, number>;
+    pricingPageViews: Record<string, number>;
+    pricingCtas: Record<string, number>;
+    upgradePromptViews: Record<string, number>;
+    upgradePromptClicks: Record<string, number>;
+    checkoutStarts: Record<string, number>;
+  };
 }
 
 export interface UserDoc {
@@ -328,7 +390,82 @@ export interface FeedbackResolutionMetadata {
   verificationOwner?: string;
   resolvedAppVersion?: string;
   resolvedDeployId?: string;
+  shippedSummary?: string;
+  deferredFollowUps?: string[];
   regressionChecklist?: FeedbackRegressionCheck[];
+}
+
+export type FeedbackBugArchetype =
+  | "general"
+  | "ui"
+  | "api"
+  | "performance"
+  | "refactor";
+
+export interface FeedbackBugContextUi {
+  selectors?: string[];
+  screenshotUrls?: string[];
+  viewports?: string[];
+}
+
+export interface FeedbackBugContextApi {
+  endpoint?: string;
+  method?: string;
+  requestShape?: string;
+  responseShape?: string;
+  schemaPaths?: string[];
+}
+
+export interface FeedbackBugContextPerformance {
+  benchmark?: string;
+  metric?: string;
+  baseline?: string;
+  regression?: string;
+  deviceContext?: string;
+}
+
+export interface FeedbackBugContextRefactor {
+  touchedSystems?: string[];
+  contractSurfaces?: string[];
+  migrationRisks?: string[];
+}
+
+export interface FeedbackBugContext {
+  ui?: FeedbackBugContextUi;
+  api?: FeedbackBugContextApi;
+  performance?: FeedbackBugContextPerformance;
+  refactor?: FeedbackBugContextRefactor;
+}
+
+export interface FeedbackScopeGuardrails {
+  inScope?: string[];
+  outOfScope?: string[];
+  nonGoals?: string[];
+  allowedTouchAreas?: string[];
+}
+
+export interface FeedbackFollowUpItem {
+  title: string;
+  type?: "bug" | "feature";
+  status?: "proposed" | "tracked" | "resolved";
+  notes?: string;
+  workItemId?: ObjectId | string;
+  createdAt?: Date | string;
+}
+
+export interface FeedbackDerivedCommit {
+  sha: string;
+  summary: string;
+  file?: string;
+}
+
+export interface FeedbackDerivedContext {
+  likelyFilePaths?: string[];
+  ownershipHints?: string[];
+  stackClues?: string[];
+  runtimeProvenance?: string[];
+  recentCommits?: FeedbackDerivedCommit[];
+  openQuestions?: string[];
 }
 
 export interface FeedbackStructuredRepro {
@@ -352,6 +489,7 @@ export interface FeedbackImplementationContext {
   summary?: string;
   confirmed?: FeedbackImplementationLink[];
   inferred?: FeedbackImplementationLink[];
+  derived?: FeedbackDerivedContext;
 }
 
 export interface FeedbackVerificationItem {
@@ -382,6 +520,10 @@ export interface FeedbackItemDoc {
   deviceType?: FeedbackDeviceType;
   runtimeContext?: FeedbackRuntimeContext;
   structuredRepro?: FeedbackStructuredRepro;
+  bugArchetype?: FeedbackBugArchetype;
+  bugContext?: FeedbackBugContext;
+  scopeGuardrails?: FeedbackScopeGuardrails;
+  parentWorkItemId?: ObjectId | string;
   fingerprint?: string;
   workItemId?: ObjectId | string;
   notificationStatus?: FeedbackNotificationStatus;
@@ -449,6 +591,11 @@ export interface FeedbackWorkItemDoc {
   implementationContext?: FeedbackImplementationContext;
   verificationPack?: FeedbackVerificationPack;
   completedVerificationIds?: string[];
+  bugArchetype?: FeedbackBugArchetype;
+  bugContext?: FeedbackBugContext;
+  scopeGuardrails?: FeedbackScopeGuardrails;
+  followUps?: FeedbackFollowUpItem[];
+  parentWorkItemId?: ObjectId | string;
   fingerprint: string;
   occurrenceCount: number;
   status?: FeedbackLegacyStatus;

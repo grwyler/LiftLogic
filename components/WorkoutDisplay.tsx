@@ -20,7 +20,42 @@ import WorkoutCompletionRecap from "./workout-display/WorkoutCompletionRecap";
 import WorkoutHeaderSummary from "./workout-display/WorkoutHeaderSummary";
 import { toast } from "react-toastify";
 import { hasEntitlement } from "../utils/entitlements";
-import { buildRoutineSemanticPanelSx } from "../utils/routinesSemanticStyles";
+import {
+  buildRoutineSemanticButtonSx,
+  buildRoutineSemanticPanelSx,
+} from "../utils/routinesSemanticStyles";
+import { Exercise, UserDoc, WorkoutExerciseView } from "../utils/types";
+
+type WorkoutDisplayExercise = Exercise & Partial<WorkoutExerciseView>;
+
+type WorkoutDisplayProps = {
+  exercises: WorkoutDisplayExercise[];
+  currentWorkout: unknown;
+  currentExerciseIndex: number;
+  setCurrentExerciseIndex: React.Dispatch<React.SetStateAction<number>>;
+  currentDate: Date;
+  formattedDate: string;
+  routineName: string;
+  setIsAddingExercise: React.Dispatch<React.SetStateAction<boolean>>;
+  setExercises: React.Dispatch<React.SetStateAction<WorkoutDisplayExercise[]>>;
+  darkMode: boolean;
+  setRefetchExercises: React.Dispatch<React.SetStateAction<boolean>>;
+  refreshCalendarStatuses?: () => void;
+  userProfile?: Partial<UserDoc> | null;
+  weeklyConsistency?: {
+    target?: number | null;
+  } | null;
+  comebackGuide?: unknown;
+  milestoneSummary?: {
+    recentlyUnlocked?: unknown[];
+    unlocked?: unknown[];
+  } | null;
+  onWeeklyTargetChange?: (...args: unknown[]) => void;
+  lastQuickAddedExerciseIdentity?: string | null;
+  clearLastQuickAddedExerciseIdentity?: () => void;
+  onRequestRecurringUpgradePrompt?: () => void;
+  onRequestProgressionUpgradePrompt?: () => void;
+};
 
 const WorkoutDisplay = ({
   exercises,
@@ -44,7 +79,7 @@ const WorkoutDisplay = ({
   clearLastQuickAddedExerciseIdentity,
   onRequestRecurringUpgradePrompt,
   onRequestProgressionUpgradePrompt,
-}) => {
+}: WorkoutDisplayProps) => {
   const [shownMenuIndex, setShownMenuIndex] = useState(-1);
   const [completionRecapDismissed, setCompletionRecapDismissed] = useState(false);
   const completionStateRef = useRef(false);
@@ -55,11 +90,11 @@ const WorkoutDisplay = ({
   const currentUserId =
     session?.token?.user?._id ?? (session?.user as { _id?: string } | undefined)?._id ?? "";
   const progressionRecommendationsEnabled = hasEntitlement(
-    userProfile as any,
+    userProfile,
     "progressionRecommendations"
   );
   const recurringSchedulingEnabled = hasEntitlement(
-    userProfile as any,
+    userProfile,
     "recurringWorkoutScheduling"
   );
 
@@ -106,7 +141,7 @@ const WorkoutDisplay = ({
   } = useWorkoutScheduleActions({
     currentDate,
     currentUserId,
-    exercises,
+    exercises: exercises as WorkoutExerciseView[],
     recurringSchedulingEnabled,
     refreshCalendarStatuses,
     routineName,
@@ -169,7 +204,7 @@ const WorkoutDisplay = ({
     () =>
       exercises.reduce(
         (total, exercise) =>
-          total + (exercise.sets?.filter((set: any) => set.complete).length ?? 0),
+          total + (exercise.sets?.filter((set) => set.complete).length ?? 0),
         0
       ),
     [exercises]
@@ -180,6 +215,13 @@ const WorkoutDisplay = ({
   const shouldShowCompletionRecap = isWorkoutComplete && !completionRecapDismissed;
   const shouldShowNextSummary = Boolean(nextExercise);
   const remainingExerciseCount = plannedExercises.length;
+  const primaryActionLabel = !hasExercises
+    ? "Add First Exercise"
+    : shouldShowNextSummary
+    ? loggedSetCount > 0
+      ? "Open Next Set"
+      : "Start Lift"
+    : "Add Exercise";
   const mobilePrimaryAction = !hasExercises
     ? "add_first_exercise"
     : shouldShowNextSummary
@@ -226,7 +268,7 @@ const WorkoutDisplay = ({
     () =>
       exercises.reduce((total, exercise) => {
         const exerciseVolume =
-          exercise.sets?.reduce((setTotal: number, set: any) => {
+          exercise.sets?.reduce((setTotal: number, set) => {
             const reps = Number(set.actualReps ?? set.reps ?? 0);
             const weight = Number(set.actualWeight ?? set.weight ?? 0);
             if (!set.complete || !reps || !weight) {
@@ -464,7 +506,7 @@ const WorkoutDisplay = ({
         ) : null}
       </Stack>
 
-      <Box sx={{ height: { xs: 136, sm: 0 } }} />
+      <Box sx={{ height: { xs: 136, sm: 96 } }} />
       <Box
         sx={{
           position: { xs: "fixed", sm: "sticky" },
@@ -536,7 +578,7 @@ const WorkoutDisplay = ({
                   ...mobilePrimaryButtonSx,
                 }}
               >
-                Next set
+                {loggedSetCount > 0 ? "Next Set" : "Start Lift"}
               </Button>
             ) : null}
             {!shouldShowNextSummary ? (
@@ -555,28 +597,46 @@ const WorkoutDisplay = ({
                 {hasExercises ? "Add Exercise" : "Add First Exercise"}
               </Button>
             ) : null}
-            <Button
-              variant="contained"
+              <Button
+              variant="outlined"
               onClick={() => {
                 setIsAddingExercise(true);
               }}
               startIcon={<AddIcon />}
               sx={{
-                display: { xs: "none", sm: "inline-flex" },
-                px: 3,
+                display: { xs: "none", sm: hasExercises ? "inline-flex" : "none" },
+                px: 2.5,
                 py: 1.1,
-                borderRadius: 10,
-                backgroundColor: darkMode ? "rgba(255,255,255,0.08)" : "#111827",
-                color: darkMode ? "#f3f4f6" : "#f8fafc",
-                boxShadow: darkMode
-                  ? "0 18px 40px rgba(2,6,23,0.42)"
-                  : "0 16px 34px rgba(15,23,42,0.18)",
-                "&:hover": {
-                  backgroundColor: darkMode ? "rgba(255,255,255,0.14)" : "#000000",
-                },
+                minHeight: 58,
+                borderRadius: 999,
               }}
             >
-              {hasExercises ? "Add Exercise" : "Add First Exercise"}
+              Add Exercise
+            </Button>
+            <Button
+              variant="contained"
+              onClick={
+                shouldShowNextSummary
+                  ? handleOpenNextSet
+                  : () => {
+                      setIsAddingExercise(true);
+                    }
+              }
+              startIcon={shouldShowNextSummary ? <PlayArrowIcon /> : <AddIcon />}
+              sx={{
+                display: { xs: "none", sm: "inline-flex" },
+                ...buildRoutineSemanticButtonSx("activeWorkout", "contained", darkMode),
+                px: 3.25,
+                py: 1.2,
+                minHeight: 58,
+                borderRadius: 999,
+                fontWeight: 800,
+                boxShadow: darkMode
+                  ? "0 18px 40px rgba(37,99,235,0.3)"
+                  : "0 18px 36px rgba(37,99,235,0.24)",
+              }}
+            >
+              {primaryActionLabel}
             </Button>
           </Stack>
         </Paper>

@@ -5,11 +5,16 @@ import {
   ExerciseCatalogDoc,
   Exercise,
   ExerciseSet,
+  FeedbackBugArchetype,
+  WorkoutEntryApiResponse,
+  WorkoutEntryApiRequest,
   FeedbackItemDoc,
+  FeedbackScopeGuardrails,
   BillingSummaryResponse,
   MonetizationSummaryResponse,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
+  WorkoutExerciseView,
 } from "./types";
 import { ExerciseProgressSummary } from "./performance";
 import { ExerciseRecommendation } from "./progression";
@@ -26,6 +31,7 @@ import {
 } from "./recurringRuleService";
 import { requestJson } from "./apiClient";
 import { parseLocalDateKey, toLocalDateKey } from "./localDate";
+import { getOrCreateAnonymousFunnelId } from "./betaFunnelClient";
 
 export { parseLocalDateKey, toLocalDateKey } from "./localDate";
 
@@ -125,7 +131,9 @@ export const createWorkoutEntryRequestIdempotencyKey = (entry: WorkoutEntryDoc) 
   ].join("::");
 };
 
-export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
+export const saveWorkoutEntry = async (
+  entry: WorkoutEntryDoc
+): Promise<WorkoutEntryApiResponse> => {
   const payloadEntry: WorkoutEntryDoc = {
     ...entry,
     requestIdempotencyKey:
@@ -141,7 +149,7 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
   const res = await fetch("/api/workoutEntry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entry: payloadEntry }),
+    body: JSON.stringify({ entry: payloadEntry } satisfies WorkoutEntryApiRequest),
   });
   if (!res.ok) {
     const message = await res.text();
@@ -163,7 +171,7 @@ export const saveWorkoutEntry = async (entry: WorkoutEntryDoc) => {
     actual: `Workout entry request completed with ${res.status}.`,
     status: "success",
   });
-  return res.json();
+  return res.json() as Promise<WorkoutEntryApiResponse>;
 };
 
 export const createWorkoutEntryInstanceId = () => {
@@ -178,26 +186,9 @@ export const createWorkoutEntryInstanceId = () => {
   return `workout-entry-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-export type WorkoutExerciseView = Exercise & {
-  _id?: string;
-  entryInstanceId?: string;
-  exerciseId?: ObjectId | string;
-  max?: number;
-  rest?: number;
-  sortOrder?: number;
-  isRepeating?: boolean;
-  recurrenceType?: RecurringRuleDoc["recurrenceType"];
-  interval?: number;
-  intervalWeeks?: number;
-  dayOfWeek?: number;
-  daysOfWeek?: number[];
-  dayOfMonth?: number;
-  endDate?: Date | string;
-  ruleId?: string;
-  routineName: string;
-};
-
-export const getWorkoutEntryInstanceId = (entry: any) =>
+export const getWorkoutEntryInstanceId = (
+  entry: Partial<WorkoutExerciseView> | Partial<WorkoutEntryDoc> | null | undefined
+) =>
   String(
     entry?.entryInstanceId ??
       entry?._id?.toString?.() ??
@@ -205,7 +196,10 @@ export const getWorkoutEntryInstanceId = (entry: any) =>
       ""
   ).trim();
 
-export const getWorkoutEntryIdentity = (entry: any, fallback?: string | number) => {
+export const getWorkoutEntryIdentity = (
+  entry: Partial<WorkoutExerciseView> | Partial<WorkoutEntryDoc> | null | undefined,
+  fallback?: string | number
+) => {
   const entryInstanceId = getWorkoutEntryInstanceId(entry);
   if (entryInstanceId) {
     return entryInstanceId;
@@ -525,24 +519,24 @@ export const fetchDay = async (
   /* 3. Apply recurrence filter                                          */
   /* ------------------------------------------------------------------ */
   const targetDate = parseLocalDateKey(dateISO) ?? new Date(dateISO);
-  const recurringToday = rules.filter((r: any) =>
-    doesRecurringRuleMatchDate(r, targetDate)
+  const recurringToday = rules.filter((rule) =>
+    doesRecurringRuleMatchDate(rule, targetDate)
   );
 
   const skippedKeys = new Set(
     entries
-      .filter((e: any) => e.skipped)
-      .map((e: any) => `${e.ruleId ?? e.exerciseId}::${e.routineName}`)
+      .filter((entry) => entry.skipped)
+      .map((entry) => `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}`)
   );
 
-  const visibleEntries = entries.filter((e: any) => !e.skipped);
+  const visibleEntries = entries.filter((entry) => !entry.skipped);
   const materializedRecurringKeys = new Set(
     visibleEntries
-      .filter((e: any) => e.ruleId || e.exerciseId)
+      .filter((entry) => entry.ruleId || entry.exerciseId)
       .map(
-        (e: any) =>
-          `${e.ruleId ?? e.exerciseId}::${e.routineName}::${
-            e.exerciseId ?? ""
+        (entry) =>
+          `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}::${
+            entry.exerciseId ?? ""
           }`
       )
   );
@@ -552,23 +546,28 @@ export const fetchDay = async (
   /* 4. Merge & tag                                                      */
   /* ------------------------------------------------------------------ */
   const all = [
-    ...visibleEntries.map((e: any) => ({
-      ...e,
-      sets: ensureExerciseSetIds(e?.sets),
-      isRepeating: Boolean(e.isRepeating || e.ruleId),
+    ...visibleEntries.map((entry) => ({
+      ...entry,
+      _id: entry._id?.toString?.() ?? String(entry._id ?? ""),
+      name: entry.name ?? "Exercise",
+      type: entry.type ?? "weight",
+      rest: entry.rest ?? 0,
+      complete: entry.complete ?? false,
+      sets: ensureExerciseSetIds(entry.sets),
+      isRepeating: Boolean(entry.ruleId),
       kind: "entry" as const,
     })),
     ...recurringToday
-      .filter((r: any) => {
-        const ruleId = r._id?.toString?.() ?? r._id ?? r.exerciseId;
-        const key = `${ruleId}::${r.routineName}`;
-        const materializedKey = `${ruleId}::${r.routineName}::${r.exerciseId ?? ""}`;
+      .filter((rule) => {
+        const ruleId = rule._id?.toString?.() ?? rule._id ?? rule.exerciseId;
+        const key = `${ruleId}::${rule.routineName}`;
+        const materializedKey = `${ruleId}::${rule.routineName}::${rule.exerciseId ?? ""}`;
         return (
           !skippedKeys.has(key) &&
           !materializedRecurringKeys.has(materializedKey)
         );
       })
-      .map((r: any) => ruleToExercise(r, dateISO)),
+      .map((rule) => ruleToExercise(rule, dateISO)),
   ];
 
   console.debug("[fetchDay] merged total", all.length);
@@ -576,14 +575,14 @@ export const fetchDay = async (
   /* ------------------------------------------------------------------ */
   /* 5. Group back into UI shape                                         */
   /* ------------------------------------------------------------------ */
-  const grouped: Record<string, Exercise[]> = {};
+  const grouped: Record<string, WorkoutExerciseView[]> = {};
   all.forEach((ex) => {
     const key = ex.routineName;
     (grouped[key] ??= []).push(ex);
   });
 
   Object.values(grouped).forEach((group) => {
-    group.sort((a: any, b: any) => {
+    group.sort((a, b) => {
       const sortDelta =
         Number(a?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
         Number(b?.sortOrder ?? Number.MAX_SAFE_INTEGER);
@@ -621,30 +620,35 @@ export const buildDayWorkoutsFromEntriesAndRules = (
 
   const skippedKeys = new Set(
     entries
-      .filter((entry: any) => entry.skipped)
-      .map((entry: any) => `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}`)
+      .filter((entry) => entry.skipped)
+      .map((entry) => `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}`)
   );
 
-  const visibleEntries = entries.filter((entry: any) => !entry.skipped);
+  const visibleEntries = entries.filter((entry) => !entry.skipped);
   const materializedRecurringKeys = new Set(
     visibleEntries
-      .filter((entry: any) => entry.ruleId || entry.exerciseId)
+      .filter((entry) => entry.ruleId || entry.exerciseId)
       .map(
-        (entry: any) =>
+        (entry) =>
           `${entry.ruleId ?? entry.exerciseId}::${entry.routineName}::${
             entry.exerciseId ?? ""
           }`
       )
   );
   const all = [
-    ...visibleEntries.map((entry: any) => ({
+    ...visibleEntries.map((entry) => ({
       ...entry,
-      sets: ensureExerciseSetIds(entry?.sets),
-      isRepeating: Boolean(entry.isRepeating || entry.ruleId),
+      _id: entry._id?.toString?.() ?? String(entry._id ?? ""),
+      name: entry.name ?? "Exercise",
+      type: entry.type ?? "weight",
+      rest: entry.rest ?? 0,
+      complete: entry.complete ?? false,
+      sets: ensureExerciseSetIds(entry.sets),
+      isRepeating: Boolean(entry.ruleId),
       kind: "entry" as const,
     })),
     ...recurringToday
-      .filter((rule: any) => {
+      .filter((rule) => {
         const ruleId = rule._id?.toString?.() ?? rule._id ?? rule.exerciseId;
         const key = `${ruleId}::${rule.routineName}`;
         const materializedKey = `${ruleId}::${rule.routineName}::${rule.exerciseId ?? ""}`;
@@ -653,17 +657,17 @@ export const buildDayWorkoutsFromEntriesAndRules = (
           !materializedRecurringKeys.has(materializedKey)
         );
       })
-      .map((rule: any) => ruleToExercise(rule, dateISO)),
+      .map((rule) => ruleToExercise(rule, dateISO)),
   ];
 
-  const grouped: Record<string, Exercise[]> = {};
+  const grouped: Record<string, WorkoutExerciseView[]> = {};
   all.forEach((exercise) => {
     const key = exercise.routineName;
     (grouped[key] ??= []).push(exercise);
   });
 
   Object.values(grouped).forEach((group) => {
-    group.sort((a: any, b: any) => {
+    group.sort((a, b) => {
       const sortDelta =
         Number(a?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
         Number(b?.sortOrder ?? Number.MAX_SAFE_INTEGER);
@@ -1000,8 +1004,15 @@ export const createBillingPortalSession = async () => {
 
 export const trackBetaFunnelMilestone = async (
   milestone: string,
-  occurredAt?: string
+  options: {
+    occurredAt?: string;
+    source?: string;
+    anonymousFunnelId?: string;
+  } = {}
 ) => {
+  const anonymousFunnelId =
+    options.anonymousFunnelId ||
+    (typeof window !== "undefined" ? getOrCreateAnonymousFunnelId() : "");
   const response = await fetch("/api/funnel", {
     method: "POST",
     headers: {
@@ -1009,13 +1020,43 @@ export const trackBetaFunnelMilestone = async (
     },
     body: JSON.stringify({
       milestone,
-      ...(occurredAt ? { occurredAt } : {}),
+      ...(options.occurredAt ? { occurredAt: options.occurredAt } : {}),
+      ...(options.source ? { source: options.source } : {}),
+      ...(anonymousFunnelId ? { anonymousFunnelId } : {}),
     }),
   });
 
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`trackBetaFunnelMilestone ${response.status}: ${message}`);
+  }
+
+  return response.json() as Promise<{ success: true }>;
+};
+
+export const mergeAnonymousBetaFunnel = async (anonymousFunnelId?: string) => {
+  const resolvedAnonymousFunnelId =
+    anonymousFunnelId ||
+    (typeof window !== "undefined" ? getOrCreateAnonymousFunnelId() : "");
+
+  if (!resolvedAnonymousFunnelId) {
+    return { success: false as const };
+  }
+
+  const response = await fetch("/api/funnel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "mergeAnonymousFunnel",
+      anonymousFunnelId: resolvedAnonymousFunnelId,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`mergeAnonymousBetaFunnel ${response.status}: ${message}`);
   }
 
   return response.json() as Promise<{ success: true }>;
@@ -1176,6 +1217,12 @@ export const updateFeedbackWorkItem = async ({
   title,
   latestDescription,
   resolution,
+  bugArchetype,
+  bugContext,
+  scopeGuardrails,
+  implementationContext,
+  verificationPack,
+  completedVerificationIds,
 }: {
   workItemId: string;
   triageStatus: FeedbackTriageStatus;
@@ -1185,6 +1232,12 @@ export const updateFeedbackWorkItem = async ({
   title?: string;
   latestDescription?: string;
   resolution?: FeedbackWorkItemDoc["resolution"];
+  bugArchetype?: FeedbackBugArchetype;
+  bugContext?: FeedbackWorkItemDoc["bugContext"];
+  scopeGuardrails?: FeedbackScopeGuardrails;
+  implementationContext?: FeedbackWorkItemDoc["implementationContext"];
+  verificationPack?: FeedbackWorkItemDoc["verificationPack"];
+  completedVerificationIds?: string[];
 }) => {
   emitDevBugRequest({
     label: `Update work item ${workItemId}`,
@@ -1207,6 +1260,12 @@ export const updateFeedbackWorkItem = async ({
       title,
       latestDescription,
       resolution,
+      bugArchetype,
+      bugContext,
+      scopeGuardrails,
+      implementationContext,
+      verificationPack,
+      completedVerificationIds,
     }),
   });
 
@@ -1227,6 +1286,46 @@ export const updateFeedbackWorkItem = async ({
     actual: `Work item update completed with ${response.status}.`,
     status: "success",
   });
+
+  return response.json();
+};
+
+export const createFollowUpFeedbackWorkItem = async ({
+  title,
+  description,
+  type,
+  linkedWorkItemId,
+  severity,
+  page,
+}: {
+  title: string;
+  description: string;
+  type: "bug" | "feature";
+  linkedWorkItemId: string;
+  severity?: "low" | "medium" | "high";
+  page?: string;
+}) => {
+  const response = await fetch("/api/feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      feedback: {
+        title,
+        description,
+        type,
+        severity,
+        page,
+        linkedWorkItemId,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`createFollowUpFeedbackWorkItem ${response.status}: ${message}`);
+  }
 
   return response.json();
 };

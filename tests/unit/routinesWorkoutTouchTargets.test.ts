@@ -16,6 +16,10 @@ describe("routines workout touch targets", () => {
       path.join(process.cwd(), "components", "SetItem.tsx"),
       "utf8"
     );
+    const selectedSetSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "SelectedSetItem.tsx"),
+      "utf8"
+    );
     const menuButtonSource = fs.readFileSync(
       path.join(process.cwd(), "components", "CRUDMenuButton.tsx"),
       "utf8"
@@ -23,10 +27,12 @@ describe("routines workout touch targets", () => {
 
     expect(exerciseItemSource).toContain("const mobileTouchTarget = 44;");
     expect(exerciseItemSource).toContain('minHeight: mobileTouchTarget');
-    expect(exerciseItemSource).toContain('minWidth: { xs: "100%", sm: 140 }');
+    expect(exerciseItemSource).toContain('minWidth: { xs: "100%", sm: 176 }');
     expect(loggingDialogSource).toContain("Repeat Lift");
     expect(setItemSource).toContain("Delete set");
     expect(setItemSource).toContain("minHeight: 44");
+    expect(selectedSetSource).toContain("minHeight: 52");
+    expect(selectedSetSource).toContain('minWidth: { xs: "100%", sm: 168 }');
     expect(menuButtonSource).toContain("aria-label=\"Exercise actions\"");
     expect(menuButtonSource).toContain("minHeight: 44");
   });

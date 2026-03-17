@@ -494,7 +494,8 @@ const SelectedSetItem = ({
         sx={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "stretch", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
           gap: 1,
           flexWrap: "wrap",
           mb: 1.5,
@@ -524,10 +525,16 @@ const SelectedSetItem = ({
             size="small"
             onClick={handleLogSet}
             sx={{
-              borderRadius: 10,
-              px: 1.75,
+              minHeight: 52,
+              minWidth: { xs: "100%", sm: 168 },
+              borderRadius: 12,
+              px: 2.25,
+              fontWeight: 800,
               backgroundColor: darkMode ? "#e5e7eb" : "#111827",
               color: darkMode ? "#111827" : "#f9fafb",
+              boxShadow: darkMode
+                ? "0 18px 34px rgba(148,163,184,0.16)"
+                : "0 16px 32px rgba(17,24,39,0.16)",
               "&:hover": {
                 backgroundColor: darkMode ? "#f3f4f6" : "#000000",
               },

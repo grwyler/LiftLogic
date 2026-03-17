@@ -32,7 +32,10 @@ import {
   getDisplayWeightFromSet,
   normalizeWeightUnit,
 } from "../utils/weightUnits";
-import { buildRoutineSemanticIconButtonSx } from "../utils/routinesSemanticStyles";
+import {
+  buildRoutineSemanticButtonSx,
+  buildRoutineSemanticIconButtonSx,
+} from "../utils/routinesSemanticStyles";
 import { useExerciseItemState } from "./exercise-item/useExerciseItemState";
 import ExerciseDialogs from "./exercise-item/ExerciseDialogs";
 import ExerciseLoggingDialog from "./exercise-item/ExerciseLoggingDialog";
@@ -46,6 +49,62 @@ import {
   saveExerciseRepeatSchedule,
 } from "../utils/exerciseScheduleActions";
 import { radiusTokens } from "../styles/radiusTokens";
+import { Exercise, UserDoc, WorkoutEntryDoc, WorkoutExerciseView } from "../utils/types";
+
+type SessionWithUserId = Session & {
+  token?: {
+    user?: {
+      _id?: string;
+    };
+  };
+  user?: Session["user"] & {
+    _id?: string;
+  };
+};
+
+type ExerciseItemView = WorkoutExerciseView & {
+  userId?: string;
+  recommendationPending?: boolean;
+  clientDraftId?: string;
+};
+
+type ExerciseItemProps = {
+  exercise: ExerciseItemView;
+  exerciseIndex: number;
+  exercises: ExerciseItemView[];
+  workout: unknown;
+  setCurrentExerciseIndex: React.Dispatch<React.SetStateAction<number>>;
+  isOpen: boolean;
+  formattedDate: string;
+  routineName: string;
+  setExercises: React.Dispatch<React.SetStateAction<ExerciseItemView[]>>;
+  shownMenuIndex: number;
+  setShownMenuIndex: React.Dispatch<React.SetStateAction<number>>;
+  darkMode: boolean;
+  setRefetchExercises: React.Dispatch<React.SetStateAction<boolean>>;
+  refreshCalendarStatuses?: () => void;
+  userProfile?: Partial<UserDoc> | null;
+  recommendation?: {
+    recommendedWeight?: number;
+    recommendedReps?: number;
+    recommendedSets?: number;
+    weightUnit?: "lb" | "kg";
+  } | null;
+  progressSummary?: {
+    bestRepPerformance?: unknown;
+    latestEstimated1RM?: number;
+  } | null;
+  loadingRecommendation?: boolean;
+  progressionRecommendationsEnabled?: boolean;
+  recurringSchedulingEnabled?: boolean;
+  onRequestRecurringUpgradePrompt?: () => void;
+  onRequestProgressionUpgradePrompt?: () => void;
+  isRestTimerBlocking?: boolean;
+  openRestTimer?: () => void;
+};
+
+const toWorkoutEntryPayload = (value: Record<string, unknown>) =>
+  value as unknown as WorkoutEntryDoc;
 
 const completedExerciseRadius = {
   panel: radiusTokens.panel,
@@ -80,9 +139,9 @@ const ExerciseItem = ({
   onRequestProgressionUpgradePrompt,
   isRestTimerBlocking,
   openRestTimer,
-}) => {
+}: ExerciseItemProps) => {
   const { data: session } = useSession() as {
-    data: (Session & { token: { user } }) | null;
+    data: SessionWithUserId | null;
   };
 
   const exerciseIdentity = String(
@@ -125,8 +184,8 @@ const ExerciseItem = ({
     isOpen,
   });
   const currentUserId =
-    (session as any)?.token?.user?._id ??
-    (session as any)?.user?._id ??
+    session?.token?.user?._id ??
+    session?.user?._id ??
     currentExercise?.userId ??
     exercise?.userId;
   const preferredUnits = normalizeWeightUnit(
@@ -176,6 +235,10 @@ const ExerciseItem = ({
   };
 
   const buildRecommendedIncompleteSets = () => {
+    const safeRecommendation = recommendation;
+    if (!safeRecommendation) {
+      return currentExercise?.sets ?? [];
+    }
     const completedSets = (currentExercise?.sets ?? []).filter((set) => set.complete);
     const incompleteTemplate =
       (currentExercise?.sets ?? []).find((set) => !set.complete) ??
@@ -185,14 +248,14 @@ const ExerciseItem = ({
       };
 
     const recommendedIncompleteSets = Array.from(
-      { length: recommendation.recommendedSets },
+      { length: safeRecommendation.recommendedSets ?? 0 },
       (_, index) => ({
         ...incompleteTemplate,
         id: createExerciseSetId(),
         name: `Working Set ${index + 1}`,
-        reps: recommendation.recommendedReps,
-        weight: recommendation.recommendedWeight,
-        weightUnit: recommendation.weightUnit ?? preferredUnits,
+        reps: safeRecommendation.recommendedReps,
+        weight: safeRecommendation.recommendedWeight,
+        weightUnit: safeRecommendation.weightUnit ?? preferredUnits,
         actualWeight: "",
         actualReps: "",
         complete: false,
@@ -220,7 +283,7 @@ const ExerciseItem = ({
     try {
       setApplyingRecommendation(true);
       setCurrentExercise(nextExercise);
-      await saveWorkoutEntry({
+      await saveWorkoutEntry(toWorkoutEntryPayload({
         _id: nextExercise._id,
         entryInstanceId:
           nextExercise.entryInstanceId ??
@@ -238,8 +301,8 @@ const ExerciseItem = ({
         complete: nextExercise.complete ?? false,
         sets: nextSets,
         ruleId: nextExercise.ruleId,
-      } as any);
-      setExercises((prev: any[]) =>
+      }));
+      setExercises((prev) =>
         (Array.isArray(prev) ? prev : []).map((exerciseItem, index) =>
           index === exerciseIndex
             ? {
@@ -287,7 +350,7 @@ const ExerciseItem = ({
     openRepeatDialog();
   };
 
-  const handleWorkoutButtonClick = (index) => {
+  const handleWorkoutButtonClick = (index: number) => {
     setCurrentExerciseIndex((prevIndex) => (prevIndex === index ? -1 : index));
     setShownMenuIndex(-1);
     const nextSetIndex = exercise.sets.findIndex((s) => !s.complete);
@@ -360,11 +423,14 @@ const ExerciseItem = ({
     const sets = [...currentExercise.sets];
     if (sets.length === 0) return;
     const lastSet = sets[sets.length - 1];
+    if (!lastSet) {
+      return;
+    }
     const newSetNumber = sets.length + 1;
     const newSet = {
       ...lastSet,
       id: createExerciseSetId(),
-      weight: lastSet.weight + lastSet.weight * 0.05,
+      weight: Number(lastSet.weight ?? 0) * 1.05,
       actualWeight: "",
       actualReps: "",
       complete: false,
@@ -373,7 +439,7 @@ const ExerciseItem = ({
     setCurrentExercise({ ...currentExercise, sets: [...sets, newSet] });
   };
 
-  const handleDeleteSet = (setId) => {
+  const handleDeleteSet = (setId: string) => {
     const sets = [...currentExercise.sets];
     setCurrentExercise({
       ...currentExercise,
@@ -383,7 +449,7 @@ const ExerciseItem = ({
 
   const handleSkipToday = async () => {
     try {
-      await saveWorkoutEntry({
+      await saveWorkoutEntry(toWorkoutEntryPayload({
         _id: currentExercise._id,
         entryInstanceId:
           currentExercise.entryInstanceId ??
@@ -401,7 +467,7 @@ const ExerciseItem = ({
         sets: [],
         ruleId: currentExercise.ruleId,
         skipped: true,
-      });
+      }));
 
       setShowSkipTodayDialog(false);
       setRefetchExercises((prev) => !prev);
@@ -439,9 +505,9 @@ const ExerciseItem = ({
     setIsEditing(true);
   };
 
-  const handleExerciseSave = (updatedExercise) => {
+  const handleExerciseSave = (updatedExercise: ExerciseItemView) => {
     setIsEditing(false);
-    saveWorkoutEntry({
+    saveWorkoutEntry(toWorkoutEntryPayload({
       ...updatedExercise,
       _id: updatedExercise._id ?? currentExercise._id,
       entryInstanceId:
@@ -456,7 +522,7 @@ const ExerciseItem = ({
       exerciseId: updatedExercise.exerciseId ?? updatedExercise._id,
       routineName: updatedExercise.routineName ?? routineName,
       date: updatedExercise.date ?? formattedDate,
-    });
+    }));
     setRefetchExercises((prev) => !prev);
     refreshCalendarStatuses?.();
   };
@@ -480,7 +546,7 @@ const ExerciseItem = ({
       onRequestRecurringUpgradePrompt?.();
       return;
     }
-    syncRepeatScheduleState(currentExercise as any);
+    syncRepeatScheduleState(currentExercise);
     setShowRepeatDialog(true);
   };
 
@@ -893,14 +959,15 @@ const ExerciseItem = ({
             sx={{
               order: { xs: 2, sm: 3 },
               justifySelf: { xs: "stretch", sm: "end" },
-              minWidth: { xs: "100%", sm: 140 },
-              minHeight: mobileTouchTarget,
-              px: 2,
+              minWidth: { xs: "100%", sm: 176 },
+              minHeight: 52,
+              px: 2.5,
               borderRadius: 999,
-              fontWeight: 700,
+              fontWeight: 800,
+              ...buildRoutineSemanticButtonSx("activeWorkout", "contained", darkMode),
               boxShadow: darkMode
-                ? "0 12px 28px rgba(37,99,235,0.22)"
-                : "0 14px 26px rgba(37,99,235,0.18)",
+                ? "0 16px 34px rgba(37,99,235,0.26)"
+                : "0 16px 30px rgba(37,99,235,0.22)",
             }}
           >
             Start Lift

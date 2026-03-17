@@ -4,9 +4,12 @@ import { getServerSession } from "next-auth/next";
 import nodemailer from "nodemailer";
 import { connectToDatabase } from "../../utils/mongodb";
 import {
+  FeedbackBugArchetype,
+  FeedbackBugContext,
   FeedbackDeviceType,
   FeedbackItemDoc,
   FeedbackNotificationStatus,
+  FeedbackScopeGuardrails,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
 } from "../../utils/types";
@@ -33,7 +36,9 @@ import {
 import {
   buildImplementationContext,
   buildVerificationPack,
+  getBugArchetypeRequirementMessage,
   inferStructuredRepro,
+  hasMinimumStructuredRepro,
 } from "../../utils/feedbackWorkItemContext";
 import {
   getResolutionClosureWarnings,
@@ -303,6 +308,104 @@ const sanitizeTriageStatus = (
     ? (value as FeedbackTriageStatus)
     : undefined;
 
+const sanitizeBugArchetype = (
+  value: unknown
+): FeedbackBugArchetype | undefined =>
+  value === "general" ||
+  value === "ui" ||
+  value === "api" ||
+  value === "performance" ||
+  value === "refactor"
+    ? value
+    : undefined;
+
+const sanitizeStringList = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((entry) => sanitizeText(entry)).filter(Boolean)
+    : [];
+
+const sanitizeBugContext = (value: unknown): FeedbackBugContext | undefined => {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const context = value as Record<string, unknown>;
+
+  return {
+    ui:
+      context.ui && typeof context.ui === "object"
+        ? {
+            selectors: sanitizeStringList((context.ui as Record<string, unknown>).selectors),
+            screenshotUrls: sanitizeStringList(
+              (context.ui as Record<string, unknown>).screenshotUrls
+            ),
+            viewports: sanitizeStringList((context.ui as Record<string, unknown>).viewports),
+          }
+        : undefined,
+    api:
+      context.api && typeof context.api === "object"
+        ? {
+            endpoint: sanitizeText((context.api as Record<string, unknown>).endpoint) || undefined,
+            method: sanitizeText((context.api as Record<string, unknown>).method) || undefined,
+            requestShape:
+              sanitizeText((context.api as Record<string, unknown>).requestShape) || undefined,
+            responseShape:
+              sanitizeText((context.api as Record<string, unknown>).responseShape) || undefined,
+            schemaPaths: sanitizeStringList((context.api as Record<string, unknown>).schemaPaths),
+          }
+        : undefined,
+    performance:
+      context.performance && typeof context.performance === "object"
+        ? {
+            benchmark:
+              sanitizeText((context.performance as Record<string, unknown>).benchmark) ||
+              undefined,
+            metric:
+              sanitizeText((context.performance as Record<string, unknown>).metric) || undefined,
+            baseline:
+              sanitizeText((context.performance as Record<string, unknown>).baseline) ||
+              undefined,
+            regression:
+              sanitizeText((context.performance as Record<string, unknown>).regression) ||
+              undefined,
+            deviceContext:
+              sanitizeText((context.performance as Record<string, unknown>).deviceContext) ||
+              undefined,
+          }
+        : undefined,
+    refactor:
+      context.refactor && typeof context.refactor === "object"
+        ? {
+            touchedSystems: sanitizeStringList(
+              (context.refactor as Record<string, unknown>).touchedSystems
+            ),
+            contractSurfaces: sanitizeStringList(
+              (context.refactor as Record<string, unknown>).contractSurfaces
+            ),
+            migrationRisks: sanitizeStringList(
+              (context.refactor as Record<string, unknown>).migrationRisks
+            ),
+          }
+        : undefined,
+  };
+};
+
+const sanitizeScopeGuardrails = (
+  value: unknown
+): FeedbackScopeGuardrails | undefined => {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const guardrails = value as Record<string, unknown>;
+  return {
+    inScope: sanitizeStringList(guardrails.inScope),
+    outOfScope: sanitizeStringList(guardrails.outOfScope),
+    nonGoals: sanitizeStringList(guardrails.nonGoals),
+    allowedTouchAreas: sanitizeStringList(guardrails.allowedTouchAreas),
+  };
+};
+
 const compareSeverity = (value?: string) => {
   switch (value) {
     case "high":
@@ -368,6 +471,12 @@ const buildFeedbackDoc = ({
   const bugReport = sanitizeBugReport(feedback.bugReport);
   const coachFeedback = sanitizeCoachFeedback(feedback.coachFeedback);
   const runtimeContext = sanitizeRuntimeContext(feedback.runtimeContext);
+  const bugArchetype = sanitizeBugArchetype(feedback.bugArchetype) || "general";
+  const bugContext = sanitizeBugContext(feedback.bugContext);
+  const scopeGuardrails = sanitizeScopeGuardrails(feedback.scopeGuardrails);
+  const parentWorkItemId =
+    sanitizeText((feedback as { linkedWorkItemId?: string }).linkedWorkItemId) ||
+    sanitizeText(feedback.parentWorkItemId);
   const structuredRepro =
     sanitizeStructuredRepro(feedback.structuredRepro) ||
     inferStructuredRepro({
@@ -391,6 +500,13 @@ const buildFeedbackDoc = ({
     page: sanitizeText(feedback.page) || undefined,
     deviceType: sanitizeDeviceType(feedback.deviceType),
     structuredRepro,
+    bugArchetype,
+    bugContext,
+    scopeGuardrails,
+    parentWorkItemId:
+      parentWorkItemId && ObjectId.isValid(parentWorkItemId)
+        ? parentWorkItemId
+        : undefined,
     runtimeContext: {
       ...runtimeContext,
       appVersion: runtimeContext?.appVersion || buildMetadata.appVersion,
@@ -416,7 +532,8 @@ const buildFeedbackDoc = ({
       severity: sanitizeFeedbackSeverity(feedback.severity),
       bugReport,
       coachFeedback,
-    }),
+      bugArchetype,
+      }),
     notificationStatus: "pending",
     createdAt: now,
     updatedAt: now,
@@ -456,13 +573,24 @@ const upsertFeedbackWorkItem = async ({
       deviceType: feedback.deviceType || existing.deviceType,
       latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
       structuredRepro: feedback.structuredRepro || existing.structuredRepro,
+      bugArchetype: feedback.bugArchetype || existing.bugArchetype,
+      bugContext: feedback.bugContext || existing.bugContext,
+      scopeGuardrails: feedback.scopeGuardrails || existing.scopeGuardrails,
+      parentWorkItemId: feedback.parentWorkItemId || existing.parentWorkItemId,
       implementationContext: buildImplementationContext({
+        title: feedback.title,
+        latestDescription: feedback.description,
         page: feedback.page || existing.page,
         type: feedback.type || existing.type,
+        latestRuntimeContext: feedback.runtimeContext || existing.latestRuntimeContext,
+        bugArchetype: feedback.bugArchetype || existing.bugArchetype,
         implementationContext: existing.implementationContext,
       }),
       verificationPack: buildVerificationPack({
+        title: feedback.title,
+        latestDescription: feedback.description,
         page: feedback.page || existing.page,
+        bugArchetype: feedback.bugArchetype || existing.bugArchetype,
         verificationPack: existing.verificationPack,
       }),
       completedVerificationIds: existing.completedVerificationIds || [],
@@ -506,12 +634,23 @@ const upsertFeedbackWorkItem = async ({
     severity: feedback.severity,
     deviceType: feedback.deviceType,
     structuredRepro: feedback.structuredRepro,
+    bugArchetype: feedback.bugArchetype,
+    bugContext: feedback.bugContext,
+    scopeGuardrails: feedback.scopeGuardrails,
+    parentWorkItemId: feedback.parentWorkItemId,
     implementationContext: buildImplementationContext({
+      title: feedback.title,
+      latestDescription: feedback.description,
       page: feedback.page,
       type: feedback.type,
+      latestRuntimeContext: feedback.runtimeContext,
+      bugArchetype: feedback.bugArchetype,
     }),
     verificationPack: buildVerificationPack({
+      title: feedback.title,
+      latestDescription: feedback.description,
       page: feedback.page,
+      bugArchetype: feedback.bugArchetype,
     }),
     completedVerificationIds: [],
     fingerprint,
@@ -905,6 +1044,38 @@ export default async function handler(
           : workItem.lastNotificationError,
       };
 
+      if (
+        responseWorkItem.parentWorkItemId &&
+        ObjectId.isValid(String(responseWorkItem.parentWorkItemId))
+      ) {
+        const parentId = String(responseWorkItem.parentWorkItemId);
+        const parent = await workItemCollection.findOne({
+          _id: new ObjectId(parentId),
+        });
+
+        if (parent) {
+          const existingFollowUps = Array.isArray(parent.followUps) ? parent.followUps : [];
+          const nextFollowUps = [
+            ...existingFollowUps.filter(
+              (entry) => String(entry.workItemId || "") !== String(responseWorkItem._id || "")
+            ),
+            {
+              title: responseWorkItem.title,
+              type: responseWorkItem.type,
+              status: "tracked" as const,
+              notes: "Created from the parent work item as an adjacent follow-up.",
+              workItemId: String(responseWorkItem._id || ""),
+              createdAt: now,
+            },
+          ];
+
+          await workItemCollection.updateOne(
+            { _id: new ObjectId(parentId) },
+            { $set: { followUps: nextFollowUps, updatedAt: now } }
+          );
+        }
+      }
+
       return res.status(200).json({
         success: true,
         feedback: responseFeedback,
@@ -929,6 +1100,9 @@ export default async function handler(
         latestDescription,
         labels,
         structuredRepro,
+        bugArchetype,
+        bugContext,
+        scopeGuardrails,
         implementationContext,
         verificationPack,
         completedVerificationIds,
@@ -943,6 +1117,9 @@ export default async function handler(
         latestDescription?: string;
         labels?: string[];
         structuredRepro?: FeedbackWorkItemDoc["structuredRepro"];
+        bugArchetype?: FeedbackWorkItemDoc["bugArchetype"];
+        bugContext?: FeedbackWorkItemDoc["bugContext"];
+        scopeGuardrails?: FeedbackWorkItemDoc["scopeGuardrails"];
         implementationContext?: FeedbackWorkItemDoc["implementationContext"];
         verificationPack?: FeedbackWorkItemDoc["verificationPack"];
         completedVerificationIds?: string[];
@@ -978,6 +1155,11 @@ export default async function handler(
       const normalizedLabels = sanitizeFeedbackLabels(labels) || existing.labels;
       const normalizedStructuredRepro =
         sanitizeStructuredRepro(structuredRepro) || existing.structuredRepro;
+      const normalizedBugArchetype =
+        sanitizeBugArchetype(bugArchetype) || existing.bugArchetype || "general";
+      const normalizedBugContext = sanitizeBugContext(bugContext) || existing.bugContext;
+      const normalizedScopeGuardrails =
+        sanitizeScopeGuardrails(scopeGuardrails) || existing.scopeGuardrails;
       const closureWarnings =
         normalizedTriageStatus === "resolved" || normalizedTriageStatus === "verified"
           ? getResolutionClosureWarnings(normalizedResolution)
@@ -987,6 +1169,25 @@ export default async function handler(
         return res.status(400).json({
           message: "Resolution metadata is incomplete.",
           warnings: closureWarnings,
+        });
+      }
+
+      if (
+        existing.type === "bug" &&
+        (normalizedTriageStatus === "queued" || normalizedTriageStatus === "fixing") &&
+        !hasMinimumStructuredRepro(
+          normalizedStructuredRepro,
+          normalizedBugArchetype,
+          normalizedBugContext
+        )
+      ) {
+        const archetypeRequirementMessage = getBugArchetypeRequirementMessage(
+          normalizedBugArchetype
+        );
+        return res.status(400).json({
+          message: archetypeRequirementMessage
+            ? `Actual behavior, expected behavior, affected flow, repro steps, and archetype details are required before a bug can be readied for fixing. ${archetypeRequirementMessage}`
+            : "Actual behavior, expected behavior, affected flow, and repro steps are required before a bug can be readied for fixing.",
         });
       }
 
@@ -1001,16 +1202,26 @@ export default async function handler(
         triageStatus: normalizedTriageStatus,
         status: getLegacyStatusFromTriage(normalizedTriageStatus),
         structuredRepro: normalizedStructuredRepro,
+        bugArchetype: normalizedBugArchetype,
+        bugContext: normalizedBugContext,
+        scopeGuardrails: normalizedScopeGuardrails,
         implementationContext: implementationContext
           ? buildImplementationContext({
+              title: normalizedTitle,
+              latestDescription: normalizedDescription,
               page: existing.page,
               type: existing.type,
+              latestRuntimeContext: existing.latestRuntimeContext,
+              bugArchetype: normalizedBugArchetype,
               implementationContext,
             })
           : existing.implementationContext,
         verificationPack: verificationPack
           ? buildVerificationPack({
+              title: normalizedTitle,
+              latestDescription: normalizedDescription,
               page: existing.page,
+              bugArchetype: normalizedBugArchetype,
               verificationPack,
             })
           : existing.verificationPack,
@@ -1040,6 +1251,9 @@ export default async function handler(
               severity: update.severity,
               labels: update.labels,
               structuredRepro: update.structuredRepro,
+              bugArchetype: update.bugArchetype,
+              bugContext: update.bugContext,
+              scopeGuardrails: update.scopeGuardrails,
               fixThreadId: update.fixThreadId,
               fixCommitSha: update.fixCommitSha,
               resolution: update.resolution,

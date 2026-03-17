@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ensureExerciseSetIds } from "../../utils/exerciseSetIds";
 import { toLocalDateKey } from "../../utils/helpers";
+import { WorkoutExerciseView } from "../../utils/types";
+
+type ExerciseItemView = WorkoutExerciseView & {
+  isRecurring?: boolean;
+  recommendationPending?: boolean;
+  clientDraftId?: string;
+};
 
 export const parseExerciseFormattedDate = (value: string): Date | null => {
   const trimmed = value.trim();
@@ -40,7 +47,7 @@ export const useExerciseItemState = ({
   formattedDate,
   isOpen,
 }: {
-  exercise: any;
+  exercise: ExerciseItemView;
   exerciseIdentity: string;
   formattedDate: string;
   isOpen: boolean;
@@ -63,7 +70,7 @@ export const useExerciseItemState = ({
   const [repeatEndDate, setRepeatEndDate] = useState("");
   const exerciseIdentityRef = useRef<string | null>(null);
 
-  const syncRepeatScheduleState = (sourceExercise: any) => {
+  const syncRepeatScheduleState = (sourceExercise: ExerciseItemView) => {
     const parsedDate = parseExerciseFormattedDate(formattedDate);
     const defaultDay = parsedDate?.getDay() ?? 0;
     const defaultDayOfMonth = parsedDate?.getDate() ?? 1;
@@ -98,7 +105,7 @@ export const useExerciseItemState = ({
       sets: ensureExerciseSetIds(exercise?.sets),
     });
     setIsRepeating(exercise.isRepeating);
-    syncRepeatScheduleState(exercise as any);
+    syncRepeatScheduleState(exercise);
 
     if (exerciseIdentityRef.current !== exerciseIdentity) {
       exerciseIdentityRef.current = exerciseIdentity;
@@ -111,7 +118,7 @@ export const useExerciseItemState = ({
     }
 
     const nextSetIndex =
-      (currentExercise?.sets ?? []).findIndex((set: any) => !set.complete) ?? -1;
+      (currentExercise?.sets ?? []).findIndex((set) => !set.complete) ?? -1;
     setCurrentSetIndex(nextSetIndex >= 0 ? nextSetIndex : 0);
   }, [currentExercise?.sets, isOpen]);
 

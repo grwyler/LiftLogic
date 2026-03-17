@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextApiRequest, NextApiResponse } from "next";
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { connectToDatabase, connectToMongoClient } from "../../utils/mongodb";
-import { RecurringRuleDoc, WorkoutEntryDoc } from "@/utils/types";
+import { RecurringRuleDoc, UserDoc, WorkoutEntryDoc } from "@/utils/types";
 import { getEntitlementMessage, hasEntitlement } from "@/utils/entitlements";
 import { ensureExerciseSetIds } from "../../utils/exerciseSetIds";
 import {
@@ -19,6 +19,8 @@ type BatchExerciseInput = RecurringWorkoutExerciseInput;
 type BatchRequest = Partial<WorkoutScheduleBatchRequest>;
 
 const getStringId = (value: unknown) => String(value ?? "").trim();
+const resolveExerciseType = (value: unknown): "weight" | "timed" =>
+  value === "timed" ? "timed" : "weight";
 
 const buildRecurringEntryInstanceId = (
   ruleId: string,
@@ -131,7 +133,7 @@ export default async function handler(
 ) {
   const db = await connectToDatabase();
   const col = db.collection<PersistedRecurringRule>("recurringRules");
-  const users = db.collection("users");
+  const users = db.collection<UserDoc>("users");
 
   try {
     switch (req.method) {
@@ -154,7 +156,7 @@ export default async function handler(
             ? await users.findOne({ _id: new ObjectId(String(rule.userId)) })
             : null;
 
-        if (!hasEntitlement(user as any, "recurringWorkoutScheduling")) {
+        if (!hasEntitlement(user, "recurringWorkoutScheduling")) {
           return res.status(403).json({
             message: getEntitlementMessage("recurringWorkoutScheduling"),
           });
@@ -171,7 +173,7 @@ export default async function handler(
           userId: rule.userId,
           exerciseId,
           exerciseName: String(rule.exerciseName ?? "").trim(),
-          exerciseType: (rule.exerciseType as "weight" | "timed") ?? "weight",
+          exerciseType: resolveExerciseType(rule.exerciseType),
           routineName: rule.routineName,
           sortOrder: rule.sortOrder,
           recurrenceType: rule.recurrenceType,
@@ -242,7 +244,7 @@ export default async function handler(
             ? await users.findOne({ _id: new ObjectId(userId) })
             : null;
 
-        if (!hasEntitlement(user as any, "recurringWorkoutScheduling")) {
+        if (!hasEntitlement(user, "recurringWorkoutScheduling")) {
           return res.status(403).json({
             message: getEntitlementMessage("recurringWorkoutScheduling"),
           });
@@ -260,7 +262,7 @@ export default async function handler(
         let updatedExercises: BatchExerciseInput[] = [];
 
         try {
-          const runBatch = async (activeSession?: any) => {
+          const runBatch = async (activeSession?: ClientSession) => {
             if (existingRuleIds.length > 0) {
               await recurringRules.updateMany(
                 { _id: { $in: existingRuleIds }, active: true },
@@ -297,15 +299,15 @@ export default async function handler(
                   userId,
                   exerciseId: resolvedExerciseId,
                   exerciseName: String(exercise.name ?? "").trim(),
-                  exerciseType: (exercise.type as "weight" | "timed") ?? "weight",
+                  exerciseType: resolveExerciseType(exercise.type),
                   routineName,
                   recurrenceType: schedule.recurrenceType,
-                  interval: schedule.interval,
-                  dayOfWeek: schedule.dayOfWeek,
-                  daysOfWeek: schedule.daysOfWeek,
-                  dayOfMonth: schedule.dayOfMonth,
+                  interval: schedule.interval ?? undefined,
+                  dayOfWeek: schedule.dayOfWeek ?? undefined,
+                  daysOfWeek: schedule.daysOfWeek ?? undefined,
+                  dayOfMonth: schedule.dayOfMonth ?? undefined,
                   startDate: parsedDate,
-                  endDate: schedule.endDate,
+                  endDate: schedule.endDate ?? undefined,
                   templateSets: ensureExerciseSetIds(exercise.sets ?? []),
                   defaultMax: exercise.max,
                   defaultRest: exercise.rest,
@@ -369,35 +371,35 @@ export default async function handler(
                 routineName,
                 entryInstanceId,
                 isRepeating: action === "save_workout_schedule",
-                ruleId: nextRuleIdValue ?? null,
+                ruleId: nextRuleIdValue,
                 recurrenceType:
-                  action === "save_workout_schedule" ? nextRuleDoc?.recurrenceType ?? null : null,
+                  action === "save_workout_schedule" ? nextRuleDoc?.recurrenceType : undefined,
                 interval:
                   action === "save_workout_schedule"
-                    ? nextRuleDoc?.interval ?? null
-                    : null,
+                    ? nextRuleDoc?.interval
+                    : undefined,
                 intervalWeeks:
                   action === "save_workout_schedule"
-                    ? nextRuleDoc?.interval ?? null
-                    : null,
+                    ? nextRuleDoc?.interval
+                    : undefined,
                 dayOfWeek:
                   action === "save_workout_schedule"
-                    ? nextRuleDoc?.dayOfWeek ?? null
-                    : null,
+                    ? nextRuleDoc?.dayOfWeek
+                    : undefined,
                 daysOfWeek:
                   action === "save_workout_schedule"
-                    ? nextRuleDoc?.daysOfWeek ?? null
-                    : null,
+                    ? nextRuleDoc?.daysOfWeek
+                    : undefined,
                 dayOfMonth:
                   action === "save_workout_schedule"
-                    ? nextRuleDoc?.dayOfMonth ?? null
-                    : null,
+                    ? nextRuleDoc?.dayOfMonth
+                    : undefined,
                 endDate:
                   action === "save_workout_schedule"
                     ? nextRuleDoc?.endDate
                       ? new Date(nextRuleDoc.endDate)
                       : undefined
-                    : null,
+                    : undefined,
                 date: parsedDate,
               });
             }
@@ -464,7 +466,7 @@ export default async function handler(
               })
             : null;
 
-        if (existingRule && !hasEntitlement(user as any, "recurringWorkoutScheduling")) {
+        if (existingRule && !hasEntitlement(user, "recurringWorkoutScheduling")) {
           return res.status(403).json({
             message: getEntitlementMessage("recurringWorkoutScheduling"),
           });

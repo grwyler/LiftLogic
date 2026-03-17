@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true
+  },
+  "include": [
+    "utils/recurringRuleService.ts",
+    "utils/types.ts",
+    "pages/api/recurringRule.ts"
+  ]
+}
