@@ -222,13 +222,18 @@ export const completeAssistantSetup = async (
 };
 
 export const quickAddFirstExercise = async (page: Page) => {
-  await page
-    .getByRole("button", { name: /Add First Exercise|Add Exercise|Add/ })
-    .first()
-    .click({ force: true });
-  await expect(
-    page.getByRole("heading", { name: "Choose an exercise" })
-  ).toBeVisible();
+  const manualStarterButton = page.getByRole("button", {
+    name: "Build manually instead",
+  });
+  if (await manualStarterButton.isVisible().catch(() => false)) {
+    await manualStarterButton.click({ force: true });
+  } else {
+    await page
+      .getByRole("button", { name: /Add First Exercise|Add Exercise|Add/ })
+      .first()
+      .click({ force: true });
+  }
+  await expect(page.getByRole("heading", { name: "Choose an exercise" })).toBeVisible();
 
   await page.locator("button:has-text('Quick Add')").first().click({ force: true });
   await expect(page.getByText("Active Set")).toBeVisible();
