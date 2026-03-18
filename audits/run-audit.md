@@ -15,6 +15,18 @@ Run the smallest useful set of audits for the changed scope, generate actionable
 - Use Human Tasks for actions that require a person and cannot be completed directly by Codex.
 - Prefer implementation-ready tickets. Use `needs-investigation` only when evidence is incomplete.
 
+## Backlog Access Fallback
+
+When backlog inspection or mutation fails through the local app, local API, or direct database access, do not stop at the first failure and do not silently leave the backlog stale.
+
+1. First try the normal local `/bugs` workflow and local authenticated API path.
+2. If that fails because the local server cannot reach the database, the API returns auth errors, or the direct database connection times out, try the live authenticated `/bugs` admin surface in the browser session instead.
+3. Use the live admin session to inspect, create, update, merge, or close work items when that is the only working source-of-truth path.
+4. If read access works but write access still fails, record the exact blocker, the path attempted, and the items that still need mutation. Do not claim backlog updates were completed when they were not.
+5. If no path can mutate `/bugs`, finish the audit with an explicit backlog-write failure section that names the affected findings and the exact follow-up needed to apply them.
+
+Audit runs are not complete until valid findings are either written to `/bugs` or an explicit source-of-truth write blocker is documented.
+
 ## Inputs Required Before Any Audit Runs
 
 - Changed routes, APIs, schemas, jobs, and data models

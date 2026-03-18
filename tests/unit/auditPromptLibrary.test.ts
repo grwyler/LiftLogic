@@ -22,6 +22,8 @@ describe("audit prompt library", () => {
     expect(runner).toContain("Mandatory trigger rules");
     expect(runner).toContain("Cross-audit dedupe protocol");
     expect(runner).toContain("Umbrella-ticket rules");
+    expect(runner).toContain("Backlog Access Fallback");
+    expect(runner).toContain("live authenticated `/bugs` admin surface");
     expect(runner).toContain("Final output requirements");
     expect(runner).toContain("Ship, ship with conditions, or no-ship recommendation");
   });
@@ -81,8 +83,11 @@ describe("audit prompt library", () => {
   it("adds a final runner note that forces cross-audit dedupe before ticket generation", () => {
     const notes = readAudit("runner-notes.md");
 
+    expect(notes).toContain("Admin and `/bugs` Access");
+    expect(notes).toContain("authenticated browser-backed `/bugs` admin workflow");
     expect(notes).toContain("Final dedupe checkpoint");
     expect(notes).toContain("Merge duplicate root-cause findings into an umbrella ticket");
+    expect(notes).toContain("Confirm backlog mutations were actually applied to `/bugs`");
     expect(notes).toContain("ship with conditions");
     expect(notes).toContain("release-readiness audit consumed upstream findings");
     expect(notes).toContain("Do not finish the audit run until this checkpoint is complete.");
