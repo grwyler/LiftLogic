@@ -1,38 +1,92 @@
 # Subscription and Paywall Conversion Audit
 
+Use this prompt to audit the real premium path, then track valid findings in the backlog on `/bugs`.
+
+## Goal
+
+Find trust, clarity, timing, pricing, checkout, entitlement, cancellation, and churn-defense issues across the premium path. Focus on real product behavior and real flows. Track valid issues in the backlog instead of leaving them only in prose.
+
 ## Cadence
 
 - Conditional
 
 ## Trigger conditions
 
-- Pricing changes, paywall copy, entitlement messaging, upgrade prompts, checkout flow, billing management, cancellation handling, churn prevention surfaces
+- Pricing or paywall copy changed
+- Entitlement messaging changed
+- Upgrade prompts changed
+- Checkout or billing flow changed
+- Billing management or cancellation handling changed
+- Churn-prevention surfaces changed
 
 ## Required inputs
 
-- Production pricing surfaces, upgrade prompts, checkout and post-purchase flows
-- Entitlement rules, billing-management states, cancellation handling, and churn-touchpoint context
-- Existing same-run findings and tickets
+- Pricing, paywall, upgrade-prompt, checkout, billing-management, and cancellation surfaces
+- Existing `/bugs` backlog items related to monetization, checkout, entitlements, and billing trust
+- The actual premium path from first exposure through post-purchase management
+- Entitlement and billing state transitions in code where necessary
 
-## Release-gating
+## Release-Gating
 
 - Yes when monetization changes create trust, billing, or launch-confidence risk
 
-## Deliverable
+## Start Here
 
-Every finding must include:
+Inspect, in order:
 
-- Finding type
-- Evidence from the actual premium path or billing-management flow
+1. Pricing, paywall, upgrade-prompt, checkout, billing-management, and cancellation surfaces
+2. Existing `/bugs` backlog items related to monetization, checkout, entitlements, and billing trust
+3. The actual premium path from first exposure through post-purchase management
+4. Entitlement and billing state transitions in code where necessary
+
+## Inspect In This Order
+
+1. Check first premium exposure and value communication.
+2. Check upgrade timing and prompt quality.
+3. Check checkout handoff and completion path.
+4. Check post-purchase management, downgrade, cancel, and recovery states.
+5. Distinguish healthy conversion improvements from manipulative or beginner-hostile upgrade patterns.
+
+## Focus Areas
+
+- Value communication
+- Timing of premium exposure
+- Pricing clarity
+- Checkout friction
+- Entitlement clarity
+- Billing-management states
+- Cancellation and churn-defense handling
+- Trust signals and beginner safety
+
+## Findings Must Include
+
+- Finding type: `bug`, `feature request`, `investigation`, or `human task`
+- Evidence from the actual premium or billing-management flow
 - Confidence
-- Affected touchpoints, user segments, and conversion stages
-- Why now
+- Affected touchpoints, conversion stages, and user segments
+- Why this matters now
 - Root cause or trust gap
 - Duplicate or related work check
-- Ticket recommendation with owner hint and verification expectations
+- Release-gating status if applicable
+- Recommended backlog action
+- Verification expectations
 
-Audit focus:
+## Backlog Actions
 
-- First premium exposure through checkout completion and post-purchase management
-- Value communication, friction, timing, pricing clarity, and trust signals
-- Distinguish manipulative or beginner-hostile upgrade patterns from legitimate conversion improvements
+Use `/bugs` as the tracking system.
+
+- Create or update backlog items for valid monetization findings
+- Merge overlapping pricing, paywall, and checkout issues into a clearer single source of truth when appropriate
+- Deduplicate against analytics, UX, and retention tickets
+- Close obsolete monetization tickets if the audit proves they are already implemented or superseded
+- Create Human Tasks for vendor, billing-console, legal, or policy actions that require a person
+
+## Final Output
+
+Provide a concise summary with:
+
+- The premium path audited
+- Findings grouped by severity or conversion trust risk
+- Backlog items added, updated, merged, deduped, closed, or converted into Human Tasks
+- Release-gating findings
+- Assumptions and ambiguous cases

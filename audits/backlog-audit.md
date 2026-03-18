@@ -1,29 +1,81 @@
-# Backlog Audit
+# Backlog Audit and Grooming Pass
+
+Use this prompt to clean and maintain the backlog visible on `/bugs`. This is an execution prompt, not a documentation note.
+
+## Goal
+
+Keep the backlog healthy, current, deduped, and actionable. Close items that are already done or no longer useful. Merge overlapping work. Reprioritize what remains. Leave the backlog easier to scan and more reliable as a planning system.
 
 ## Cadence
 
-- Occasional and conditional during sprint closeout or when duplicate ticket churn is visible
+- Conditional
 
 ## Trigger conditions
 
-- Repeated duplicate work, umbrella-ticket ambiguity, noisy ticket creation, audit-system hygiene issues
+- Backlog churn is high
+- Duplicate tickets are accumulating
+- Sprint closeout generated many findings
+- Planning quality is degrading
+- Ticket titles, categories, or priorities are inconsistent
+- Large audit runs created overlapping work
 
 ## Required inputs
 
-- Tickets created by all executed audits
-- Existing backlog items and open umbrella tickets
+- The current `/bugs` backlog
+- Open Human Tasks
+- Recently updated and high-severity items
+- Existing duplicate, parent-child, and umbrella relationships
+- Any current release blockers that backlog confusion may be hiding
 
-## Release-gating
+## Release-Gating
 
 - Advisory by default
+- Treat as release-relevant when backlog confusion is hiding active blockers, unresolved severe bugs, or duplicated release work
 
-## Deliverable
+## Start Here
 
-Summarize:
+Inspect, in order:
 
-- Duplicate clusters by root cause
-- Tickets that should merge into an umbrella item
-- Tickets that should remain linked but separate
-- Tickets that are too broad and should be rewritten as investigation work
-- Duplicate or related work check for every ticket proposed by the audit suite
-- Final dedupe recommendation before backlog submission
+1. The current backlog on `/bugs`
+2. Open Human Tasks
+3. Recently updated or high-severity work items
+4. Items in `new`, `details copied`, `queued`, and `fixing`
+5. Existing parent/child or duplicate relationships
+
+## Audit Actions
+
+1. Close tickets that are already fixed, obsolete, superseded, non-actionable, or duplicates.
+2. Preserve closure context so future readers know why the item was closed.
+3. Normalize titles and categories when that improves scanability.
+4. Merge overlapping items into a single clearer source of truth where appropriate.
+5. Split oversized tickets only when that makes execution materially clearer.
+6. Reprioritize remaining items using current project conventions. If the conventions are unclear, prioritize by user impact, severity, urgency, dependency impact, and scope risk.
+7. Separate genuine bugs, feature requests, tech debt, investigation items, and Human Tasks where possible.
+
+## Findings and Changes Must Include
+
+- What changed
+- Why it changed
+- Confidence
+- Duplicate or related work check
+- Resulting backlog action: `closed`, `merged`, `reprioritized`, `retitled`, `split`, `left alone`
+
+## Backlog Rules
+
+Use `/bugs` as the source of truth.
+
+- Do not leave backlog-grooming conclusions only in prose if the backlog should reflect them
+- Use duplicate links or parent-child relationships when supported
+- Close noise instead of preserving clutter
+- Be conservative when evidence is unclear
+- Use Human Tasks for actions that require a person rather than Codex
+
+## Final Output
+
+Provide a concise summary with:
+
+- What was closed
+- What was merged or deduped
+- What was reprioritized or retitled
+- What was intentionally left alone
+- Any assumptions or ambiguous cases

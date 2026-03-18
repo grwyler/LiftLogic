@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCodexCopyText,
-  buildTopFiveCopyFooter,
+  buildTopTenCopyFooter,
 } from "../../utils/feedbackDetails";
 
 describe("feedback copy details instructions", () => {
@@ -32,15 +32,18 @@ describe("feedback copy details instructions", () => {
     );
     expect(text).toContain("## Implementation context");
     expect(text).toContain("## Verification plan");
+    expect(text).toContain("Audit note:");
+    expect(text).toContain("Run the relevant audits from audits/run-audit.md");
     expect(text).toContain("Human task note:");
     expect(text).toContain("add a Human Task on /bugs");
     expect(text).not.toContain("increment version, commit, push, redeploy to prod");
   });
 
-  it("adds the release checklist only for the top-five export footer", () => {
-    expect(buildTopFiveCopyFooter()).toContain("Release completion checklist:");
-    expect(buildTopFiveCopyFooter()).toContain("Increment version.");
-    expect(buildTopFiveCopyFooter()).toContain("Redeploy to prod.");
+  it("adds the release checklist and audit reminder only for the top-ten export footer", () => {
+    expect(buildTopTenCopyFooter()).toContain("Release completion checklist:");
+    expect(buildTopTenCopyFooter()).toContain("Increment version.");
+    expect(buildTopTenCopyFooter()).toContain("Redeploy to prod.");
+    expect(buildTopTenCopyFooter()).toContain("Run the relevant audits from audits/run-audit.md");
   });
 
   it("shows TODO markers for missing closure metadata inside the implementation brief", () => {

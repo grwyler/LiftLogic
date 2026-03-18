@@ -1,8 +1,21 @@
-# Retention Behavior and Product Coherence Audit
+# Legacy Retention and Product Coherence Audit
 
-This prompt has been split into:
+This legacy combined prompt is deprecated.
+
+## Do Not Use For New Audit Runs
+
+Use these narrower prompts instead:
 
 - `retention-habit-loop-audit.md`
 - `product-coherence-feature-creep-audit.md`
 
-Do not run this legacy combined prompt for new sprint closeout work. Use the narrower prompts above so retention and product-strategy findings stay focused and reduce overlap with UX, backlog, and monetization analysis.
+## Why This Prompt Was Split
+
+The combined prompt created unnecessary overlap across retention, UX, monetization, backlog, and product-strategy work. The split keeps findings more actionable and reduces duplicate tickets.
+
+## If You Encounter A Legacy Reference
+
+- Redirect the run to the two newer prompts above
+- Do not generate fresh findings from this file alone
+- Update any existing backlog reference to point toward the narrower prompts when useful
+

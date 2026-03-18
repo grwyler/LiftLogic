@@ -56,7 +56,7 @@ import { isBugWorkflowAdminSession } from "../utils/adminAuthorization";
 import {
   CodexCopyVariant,
   getFeedbackEvidenceForWorkItem,
-  buildTopFiveCopyFooter,
+  buildTopTenCopyFooter,
   buildCodexCopyText,
   getRelatedWorkItems,
   summarizeBugReportEvidence,
@@ -1533,8 +1533,8 @@ const BugsPage = () => {
     }
   };
 
-  const handleCopyTopFiveDetails = async () => {
-    const itemsToCopy = currentPrimaryListItems.slice(0, 5);
+  const handleCopyTopTenDetails = async () => {
+    const itemsToCopy = currentPrimaryListItems.slice(0, 10);
 
     if (itemsToCopy.length === 0) {
       toast.info("No work items match the current filters.");
@@ -1568,7 +1568,7 @@ const BugsPage = () => {
         ].join("\n");
       })
       .join("\n\n----------------------------------------\n\n");
-    const combinedTextWithFooter = `${combinedText}\n\n${buildTopFiveCopyFooter()}`;
+    const combinedTextWithFooter = `${combinedText}\n\n${buildTopTenCopyFooter()}`;
 
     try {
       await navigator.clipboard.writeText(combinedTextWithFooter);
@@ -2934,10 +2934,10 @@ const BugsPage = () => {
               </TextField>
               <Button
                 variant="outlined"
-                onClick={() => void handleCopyTopFiveDetails()}
+                onClick={() => void handleCopyTopTenDetails()}
                 disabled={currentPrimaryListItems.length === 0}
               >
-                Copy Details Of Top 5
+                Copy Details Of Top 10
               </Button>
             </Stack>
           </Stack>

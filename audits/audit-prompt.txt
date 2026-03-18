@@ -1,0 +1,1 @@
+Run a sprint closeout audit using audits/run-audit.md for the recent changes in this repo. Choose the applicable audits, inspect real implementation and real flows, track all valid findings in /bugs, create Human Tasks for human-only follow-up, dedupe against existing backlog items, and finish with a concise findings + backlog + release-risk summary.

@@ -29,6 +29,8 @@ const MISSING_TODO = "TODO: missing from the current work item.";
 const MISSING_TODO_LIST = [`- ${MISSING_TODO}`];
 const HUMAN_TASK_INSTRUCTION =
   "If any part of this work specifically requires a person to do it directly, add a Human Task on /bugs so it lands in the separate human-only todo list.";
+const AUDIT_INSTRUCTION =
+  "Run the relevant audits from audits/run-audit.md and any matching audit prompts before closing this work item so backlog follow-through stays current.";
 
 const toTimestamp = (value?: Date | string) => {
   if (!value) {
@@ -890,16 +892,18 @@ export const buildCodexCopyText = ({
     );
   }
 
+  lines.push("", `Audit note: ${AUDIT_INSTRUCTION}`);
   lines.push("", `Human task note: ${HUMAN_TASK_INSTRUCTION}`);
 
   return lines.join("\n");
 };
 
-export const buildTopFiveCopyFooter = () =>
+export const buildTopTenCopyFooter = () =>
   [
     "Release completion checklist:",
     "- Increment version.",
     "- Commit.",
     "- Push.",
     "- Redeploy to prod.",
+    `- ${AUDIT_INSTRUCTION}`,
   ].join("\n");
