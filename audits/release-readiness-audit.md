@@ -30,6 +30,14 @@ Decide whether the current release should ship, ship with conditions, or not shi
 
 - Yes
 
+## `/bugs` Access Fallback
+
+- Use the normal local `/bugs` or local authenticated API path first.
+- If local `/api/feedback` or direct DB access fails, fall back to the live authenticated `/bugs` admin workflow in the browser.
+- If live backlog reads time out but authenticated POST/PATCH writes still work, continue writing findings and status updates through those working browser-backed mutations.
+- Do not claim backlog actions were completed unless they were actually written to `/bugs`.
+- If reads are degraded but writes still work, track the unreadable backlog as a release blocker if warranted, but do not treat the audit itself as blocked so long as the required blocker records and Human Tasks were actually written.
+
 ## Start Here
 
 Inspect, in order:

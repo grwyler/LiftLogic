@@ -20,6 +20,8 @@ These notes apply to every audit run in this folder.
 - Distinguish clearly between `the database is down` and `this specific local runtime cannot mutate it`.
 - Do not mark an audit complete if findings were only written in prose and never applied to `/bugs` when a working browser-admin path exists.
 - If every write path fails, end the audit with the exact mutation blocker, the attempted paths, and the list of backlog actions still pending.
+- If reads fail but writes succeed, keep going in degraded-read mode: write the findings, do best-effort dedupe from known IDs and local evidence, and track the unreadable backlog as its own bug instead of treating the whole audit as blocked.
+- Do not overstate read-path failure. Call it a blocker only for the specific dedupe or closeout actions that truly could not be completed.
 
 ## Ticket Classification Rules
 
@@ -43,6 +45,7 @@ Before finishing any multi-audit run:
 6. Confirm each remaining tracked item includes evidence, confidence, affected scope, and verification expectations.
 7. Confirm release readiness consumed upstream findings instead of inventing a release call in isolation.
 8. Confirm backlog mutations were actually applied to `/bugs`, or explicitly document why they could not be.
+9. If backlog reads were degraded, confirm the summary says `best-effort dedupe` rather than implying that all backlog operations failed.
 
 Any release conclusion should allow `ship`, `ship with conditions`, or `no ship`, and should confirm the release-readiness audit consumed upstream findings rather than operating in isolation.
 

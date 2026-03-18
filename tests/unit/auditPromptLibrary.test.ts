@@ -24,6 +24,8 @@ describe("audit prompt library", () => {
     expect(runner).toContain("Umbrella-ticket rules");
     expect(runner).toContain("Backlog Access Fallback");
     expect(runner).toContain("live authenticated `/bugs` admin surface");
+    expect(runner).toContain("Degraded Read Path Mode");
+    expect(runner).toContain("audit completed with degraded backlog reads");
     expect(runner).toContain("Final output requirements");
     expect(runner).toContain("Ship, ship with conditions, or no-ship recommendation");
   });
@@ -51,6 +53,8 @@ describe("audit prompt library", () => {
       expect(prompt).toContain("Trigger conditions");
       expect(prompt).toContain("Required inputs");
       expect(prompt).toContain("Duplicate or related work check");
+      expect(prompt).toContain("`/bugs` Access Fallback");
+      expect(prompt).toContain("live authenticated `/bugs` admin workflow");
     });
 
     expect(readAudit("regression-workflow-audit.md")).toContain("Confidence");
@@ -85,6 +89,8 @@ describe("audit prompt library", () => {
 
     expect(notes).toContain("Admin and `/bugs` Access");
     expect(notes).toContain("authenticated browser-backed `/bugs` admin workflow");
+    expect(notes).toContain("degraded-read mode");
+    expect(notes).toContain("best-effort dedupe");
     expect(notes).toContain("Final dedupe checkpoint");
     expect(notes).toContain("Merge duplicate root-cause findings into an umbrella ticket");
     expect(notes).toContain("Confirm backlog mutations were actually applied to `/bugs`");

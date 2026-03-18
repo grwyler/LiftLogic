@@ -25,6 +25,21 @@ When backlog inspection or mutation fails through the local app, local API, or d
 4. If read access works but write access still fails, record the exact blocker, the path attempted, and the items that still need mutation. Do not claim backlog updates were completed when they were not.
 5. If no path can mutate `/bugs`, finish the audit with an explicit backlog-write failure section that names the affected findings and the exact follow-up needed to apply them.
 
+## Degraded Read Path Mode
+
+If live or local backlog reads fail but authenticated POST/PATCH writes still work:
+
+1. Treat the unreadable backlog as a product issue to track, not as a reason to abandon the audit.
+2. Continue creating and updating findings through the working write path.
+3. Do best-effort dedupe using:
+   - known work item IDs already present in the prompt, related-work sections, or implementation context
+   - local repo evidence and recent reconciliation scripts
+   - targeted PATCH updates on known items instead of relying on full collection reads
+4. Only call dedupe or closeout `blocked` when a specific merge, close, or update could not be applied through any working mutation path.
+5. In the final summary, distinguish clearly between:
+   - `audit completed with degraded backlog reads`
+   - `audit could not write required backlog actions`
+
 Audit runs are not complete until valid findings are either written to `/bugs` or an explicit source-of-truth write blocker is documented.
 
 ## Inputs Required Before Any Audit Runs

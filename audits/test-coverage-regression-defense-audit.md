@@ -29,6 +29,13 @@ Map the sprint's risky changes to current automated defense and identify the hig
 
 - Yes when missing or brittle coverage leaves launch-critical behavior effectively undefended
 
+## `/bugs` Access Fallback
+
+- Use the normal local `/bugs` or local authenticated API path first.
+- If local `/api/feedback` or direct DB access fails, fall back to the live authenticated `/bugs` admin workflow in the browser.
+- If live backlog reads time out but authenticated POST/PATCH writes still work, continue writing findings and status updates through those working browser-backed mutations.
+- Do not claim backlog actions were completed unless they were actually written to `/bugs`.
+
 ## Start Here
 
 Inspect, in order:

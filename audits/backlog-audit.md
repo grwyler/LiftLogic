@@ -32,6 +32,14 @@ Keep the backlog healthy, current, deduped, and actionable. Close items that are
 - Advisory by default
 - Treat as release-relevant when backlog confusion is hiding active blockers, unresolved severe bugs, or duplicated release work
 
+## `/bugs` Access Fallback
+
+- Use the normal local `/bugs` or local authenticated API path first.
+- If local `/api/feedback` or direct DB access fails, fall back to the live authenticated `/bugs` admin workflow in the browser.
+- If live backlog reads time out but authenticated POST/PATCH writes still work, continue writing findings and status updates through those working browser-backed mutations.
+- Do not claim backlog actions were completed unless they were actually written to `/bugs`.
+- If reads are degraded but writes still work, use known work item IDs, related-work sections, and recent reconciliation context for best-effort cleanup rather than declaring the whole backlog audit blocked.
+
 ## Start Here
 
 Inspect, in order:
