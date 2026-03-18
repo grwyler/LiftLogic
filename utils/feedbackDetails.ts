@@ -27,6 +27,8 @@ export type CodexCopyVariant = "full" | "fast" | "investigator";
 
 const MISSING_TODO = "TODO: missing from the current work item.";
 const MISSING_TODO_LIST = [`- ${MISSING_TODO}`];
+const HUMAN_TASK_INSTRUCTION =
+  "If any part of this work specifically requires a person to do it directly, add a Human Task on /bugs so it lands in the separate human-only todo list.";
 
 const toTimestamp = (value?: Date | string) => {
   if (!value) {
@@ -887,6 +889,8 @@ export const buildCodexCopyText = ({
       "- Prioritize the unknowns, evidence quality, and auto-generated intelligence before converging on a fix."
     );
   }
+
+  lines.push("", `Human task note: ${HUMAN_TASK_INSTRUCTION}`);
 
   return lines.join("\n");
 };

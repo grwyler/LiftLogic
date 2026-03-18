@@ -32,6 +32,8 @@ describe("feedback copy details instructions", () => {
     );
     expect(text).toContain("## Implementation context");
     expect(text).toContain("## Verification plan");
+    expect(text).toContain("Human task note:");
+    expect(text).toContain("add a Human Task on /bugs");
     expect(text).not.toContain("increment version, commit, push, redeploy to prod");
   });
 

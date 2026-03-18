@@ -768,6 +768,24 @@ export interface FeedbackWorkItemDoc {
   updatedAt?: Date;
 }
 
+export type HumanTaskStatus = "open" | "done";
+export type HumanTaskSource = "user" | "codex";
+
+export interface HumanTaskDoc {
+  _id?: ObjectId;
+  title: string;
+  description: string;
+  status: HumanTaskStatus;
+  source: HumanTaskSource;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  completedAt?: Date | string;
+  createdByUserId?: string;
+  createdByUsername?: string;
+  createdByEmail?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface RecurringRuleApiRequest {
   rule: {
     _id?: ObjectId | string;

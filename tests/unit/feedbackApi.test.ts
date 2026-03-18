@@ -222,6 +222,7 @@ class MockCollection<T extends Record<string, any>> {
 class MockDb {
   feedbackDocs: Array<FeedbackItemDoc & { _id: ObjectId }> = [];
   workItemDocs: Array<FeedbackWorkItemDoc & { _id: ObjectId }> = [];
+  humanTaskDocs: Array<Record<string, any> & { _id: ObjectId }> = [];
 
   collection(name: string) {
     if (name === "feedback") {
@@ -230,6 +231,10 @@ class MockDb {
 
     if (name === "feedbackWorkItems") {
       return new MockCollection(this.workItemDocs);
+    }
+
+    if (name === "humanTasks") {
+      return new MockCollection(this.humanTaskDocs);
     }
 
     throw new Error(`Unexpected collection: ${name}`);
@@ -633,6 +638,59 @@ describe("feedback API route", () => {
       commitSha: "server-commit-sha",
       environment: "production",
     });
+  });
+
+  it("creates and updates human tasks through the shared feedback API", async () => {
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const postReq = createMockRequest({
+      method: "POST",
+      body: {
+        humanTask: {
+          title: "Rotate leaked credentials",
+          description: "Rotate anything previously exposed outside the repository.",
+          source: "codex",
+          metadata: {
+            provider: "openai",
+            urgent: true,
+          },
+        },
+      },
+    });
+    const postRes = createMockResponse();
+
+    await handler(postReq, postRes as any);
+
+    expect(postRes.statusCode).toBe(200);
+    expect(postRes.body.success).toBe(true);
+    expect(postRes.body.humanTask.title).toBe("Rotate leaked credentials");
+    expect(postRes.body.humanTask.status).toBe("open");
+    expect(postRes.body.humanTask.source).toBe("codex");
+    expect(db.humanTaskDocs).toHaveLength(1);
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const patchReq = createMockRequest({
+      method: "PATCH",
+      body: {
+        humanTaskId: postRes.body.humanTask._id.toString(),
+        status: "done",
+      },
+    });
+    const patchRes = createMockResponse();
+
+    await handler(patchReq, patchRes as any);
+
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.body.humanTask.status).toBe("done");
+    expect(patchRes.body.humanTask.completedAt).toBeDefined();
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const getReq = createMockRequest({ method: "GET" });
+    const getRes = createMockResponse();
+    await handler(getReq, getRes as any);
+
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body.humanTasks).toHaveLength(1);
+    expect(getRes.body.humanTasks[0].status).toBe("done");
   });
 
   it("updates triage metadata through PATCH and propagates it to linked feedback", async () => {

@@ -25,9 +25,11 @@ import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import LoadingIndicator from "../components/LoadingIndicator";
 import VersionChangelogDialog from "../components/VersionChangelogDialog";
 import {
+  createHumanTask,
   createFollowUpFeedbackWorkItem,
   deleteFeedbackWorkItem,
   fetchFeedbackWorkflow,
+  updateHumanTask,
   updateFeedbackWorkItem,
 } from "../utils/feedbackClient";
 import { fetchMonetizationSummary } from "../utils/betaFunnelApi";
@@ -41,6 +43,7 @@ import {
   FeedbackRegressionCheck,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
+  HumanTaskDoc,
   MonetizationSummaryResponse,
 } from "../utils/types";
 import { toast } from "react-toastify";
@@ -96,6 +99,11 @@ const notificationTone: Record<
   failed: "error",
 };
 
+const humanTaskSourceLabel: Record<HumanTaskDoc["source"], string> = {
+  user: "Manual",
+  codex: "Codex",
+};
+
 type QueueSortMode =
   | "workflow"
   | "latest"
@@ -139,6 +147,11 @@ type FollowUpDraft = {
   title: string;
   description: string;
   type: "bug" | "feature";
+};
+
+type HumanTaskDraft = {
+  title: string;
+  description: string;
 };
 
 const inactiveTriageStatuses: FeedbackTriageStatus[] = [
@@ -486,9 +499,14 @@ const BugsPage = () => {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
+  const [humanTasks, setHumanTasks] = useState<HumanTaskDoc[]>([]);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItemDoc[]>([]);
   const [drafts, setDrafts] = useState<Record<string, WorkflowDraft>>({});
   const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, FollowUpDraft>>({});
+  const [humanTaskDraft, setHumanTaskDraft] = useState<HumanTaskDraft>({
+    title: "",
+    description: "",
+  });
   const [advancedOpenById, setAdvancedOpenById] = useState<
     Record<string, boolean>
   >({});
@@ -552,12 +570,20 @@ const BugsPage = () => {
         const {
           feedback: nextFeedbackItems,
           workItems: nextWorkItems,
+          humanTasks: nextHumanTasks,
         } = await fetchFeedbackWorkflow();
         if (!active) {
           return;
         }
 
         setFeedbackItems(nextFeedbackItems);
+        setHumanTasks((previous) => {
+          if (options?.silent && nextHumanTasks.length > previous.length) {
+            toast.info("New human task received");
+          }
+
+          return nextHumanTasks;
+        });
         setWorkItems((previous) => {
           if (serializeWorkItems(previous) === serializeWorkItems(nextWorkItems)) {
             return previous;
@@ -682,6 +708,27 @@ const BugsPage = () => {
       workItems.find((item) => String(item._id) === String(selectedWorkItemId)) ||
       null,
     [selectedWorkItemId, workItems]
+  );
+  const openHumanTasks = useMemo(
+    () =>
+      [...humanTasks]
+        .filter((task) => task.status !== "done")
+        .sort(
+          (left, right) =>
+            +new Date(right.createdAt || 0) - +new Date(left.createdAt || 0)
+        ),
+    [humanTasks]
+  );
+  const completedHumanTasks = useMemo(
+    () =>
+      [...humanTasks]
+        .filter((task) => task.status === "done")
+        .sort(
+          (left, right) =>
+            +new Date(right.updatedAt || right.createdAt || 0) -
+            +new Date(left.updatedAt || left.createdAt || 0)
+        ),
+    [humanTasks]
   );
   const selectedEvidence = useMemo(
     () =>
@@ -1147,6 +1194,66 @@ const BugsPage = () => {
     }));
   };
 
+  const handleCreateHumanTask = async () => {
+    if (!humanTaskDraft.title.trim() || !humanTaskDraft.description.trim()) {
+      toast.warning("Add a human task title and details first.");
+      return;
+    }
+
+    setSavingId("human-task:create");
+    try {
+      const response = await createHumanTask({
+        title: humanTaskDraft.title.trim(),
+        description: humanTaskDraft.description.trim(),
+        source: "user",
+      });
+
+      const nextHumanTask = response?.humanTask as HumanTaskDoc | undefined;
+      if (nextHumanTask) {
+        setHumanTasks((previous) => [nextHumanTask, ...previous]);
+      }
+      setHumanTaskDraft({ title: "", description: "" });
+      toast.success("Added a human task.");
+    } catch (error) {
+      console.error("Human task creation failed:", error);
+      toast.error("Couldn't add the human task.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleHumanTaskStatusChange = async (
+    task: HumanTaskDoc,
+    status: HumanTaskDoc["status"]
+  ) => {
+    const taskId = String(task._id || "");
+    if (!taskId) {
+      return;
+    }
+
+    setSavingId(`human-task:${taskId}`);
+    try {
+      const response = await updateHumanTask({
+        humanTaskId: taskId,
+        status,
+      });
+      const updatedHumanTask = response?.humanTask as HumanTaskDoc | undefined;
+      if (updatedHumanTask) {
+        setHumanTasks((previous) =>
+          previous.map((entry) =>
+            String(entry._id) === taskId ? updatedHumanTask : entry
+          )
+        );
+      }
+      toast.success(status === "done" ? "Marked human task done." : "Reopened human task.");
+    } catch (error) {
+      console.error("Human task update failed:", error);
+      toast.error("Couldn't update the human task.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleVerificationCompletionToggle = (
     workItemId: string,
     verificationId: string,
@@ -1213,6 +1320,7 @@ const BugsPage = () => {
 
       const freshWorkflow = await fetchFeedbackWorkflow();
       setWorkItems(freshWorkflow.workItems);
+      setHumanTasks(freshWorkflow.humanTasks);
       setFeedbackItems(freshWorkflow.feedback);
       setDrafts((previous) => createDraftMap(freshWorkflow.workItems, previous));
       setFollowUpDrafts((previous) => ({
@@ -2415,6 +2523,250 @@ const BugsPage = () => {
                 })}
               </Stack>
             )}
+          </Stack>
+        </Paper>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "rgba(16, 185, 129, 0.28)",
+            background:
+              "linear-gradient(145deg, rgba(236, 253, 245, 0.96), rgba(255, 255, 255, 0.98))",
+          }}
+        >
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", sm: "center" }}
+            >
+              <Box>
+                <Typography variant="h6">Human Tasks</Typography>
+                <Typography sx={{ mt: 0.75, color: "text.secondary", maxWidth: 780 }}>
+                  Human-only actions live here as a lightweight todo list. Use this for steps a
+                  person must do directly, whether you add them manually or Codex surfaces them for
+                  follow-through.
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip
+                  label={`${openHumanTasks.length} open`}
+                  color={openHumanTasks.length > 0 ? "warning" : "default"}
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${completedHumanTasks.length} done`}
+                  color={completedHumanTasks.length > 0 ? "success" : "default"}
+                  variant="outlined"
+                />
+              </Stack>
+            </Stack>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                backgroundColor: "rgba(255,255,255,0.72)",
+              }}
+            >
+              <Stack spacing={1.25}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Add Human Task
+                </Typography>
+                <TextField
+                  size="small"
+                  label="Title"
+                  value={humanTaskDraft.title}
+                  onChange={(event) =>
+                    setHumanTaskDraft((previous) => ({
+                      ...previous,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Example: Rotate OpenAI API key in dashboard"
+                  fullWidth
+                />
+                <TextField
+                  size="small"
+                  label="Details"
+                  value={humanTaskDraft.description}
+                  onChange={(event) =>
+                    setHumanTaskDraft((previous) => ({
+                      ...previous,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="Describe the specific human action and any context needed."
+                  multiline
+                  minRows={2}
+                  fullWidth
+                />
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "flex-start", sm: "center" }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Manual additions are saved with source <strong>user</strong>. Codex-created
+                    items can use the same list with source <strong>codex</strong>.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => void handleCreateHumanTask()}
+                    disabled={savingId === "human-task:create"}
+                  >
+                    {savingId === "human-task:create" ? "Adding..." : "Add Human Task"}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Stack spacing={1}>
+              {openHumanTasks.length === 0 ? (
+                <Alert severity="info">
+                  No open human tasks yet. Add one here whenever something must be done by a
+                  person instead of code.
+                </Alert>
+              ) : (
+                openHumanTasks.map((task) => {
+                  const taskId = String(task._id || "");
+                  const savingTask = savingId === `human-task:${taskId}`;
+
+                  return (
+                    <Paper
+                      key={`human-task-open-${taskId}`}
+                      variant="outlined"
+                      sx={{
+                        p: 1.35,
+                        borderRadius: 2.5,
+                        borderStyle: "dashed",
+                        display: "grid",
+                        gap: 1,
+                        backgroundColor: "rgba(255,255,255,0.84)",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="flex-start">
+                          <Checkbox
+                            checked={task.status === "done"}
+                            onChange={(event) =>
+                              void handleHumanTaskStatusChange(
+                                task,
+                                event.target.checked ? "done" : "open"
+                              )
+                            }
+                            disabled={savingTask}
+                            sx={{ mt: -0.5, ml: -1 }}
+                          />
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {task.title}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{ mt: 0.35, color: "text.secondary", whiteSpace: "pre-wrap" }}
+                            >
+                              {task.description}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Chip
+                            size="small"
+                            label={humanTaskSourceLabel[task.source || "user"]}
+                            variant="outlined"
+                          />
+                          <Chip size="small" label="Open" color="warning" variant="outlined" />
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => void handleHumanTaskStatusChange(task, "done")}
+                            disabled={savingTask}
+                          >
+                            {savingTask ? "Saving..." : "Mark Done"}
+                          </Button>
+                        </Stack>
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Created {formatTimestamp(task.createdAt)}
+                      </Typography>
+                    </Paper>
+                  );
+                })
+              )}
+            </Stack>
+
+            {completedHumanTasks.length > 0 ? (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Done
+                </Typography>
+                {completedHumanTasks.map((task) => {
+                  const taskId = String(task._id || "");
+                  const savingTask = savingId === `human-task:${taskId}`;
+
+                  return (
+                    <Paper
+                      key={`human-task-done-${taskId}`}
+                      variant="outlined"
+                      sx={{
+                        p: 1.15,
+                        borderRadius: 2.5,
+                        display: "grid",
+                        gap: 0.75,
+                        backgroundColor: "rgba(240, 253, 244, 0.72)",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 700, textDecoration: "line-through" }}
+                          >
+                            {task.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                            {task.description}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Chip
+                            size="small"
+                            label={humanTaskSourceLabel[task.source || "user"]}
+                            variant="outlined"
+                          />
+                          <Chip size="small" label="Done" color="success" variant="outlined" />
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => void handleHumanTaskStatusChange(task, "open")}
+                            disabled={savingTask}
+                          >
+                            Reopen
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            ) : null}
           </Stack>
         </Paper>
 

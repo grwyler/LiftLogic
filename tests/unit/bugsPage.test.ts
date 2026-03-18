@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   createWorkflowDraft,
@@ -92,5 +94,18 @@ describe("bugs inbox workflow helpers", () => {
       { label: "Copy details output reviewed", outcome: "pending" },
       { label: "Closure workflow verified", outcome: "pending" },
     ]);
+  });
+
+  it("keeps human tasks separate from the main bug queue and exposes a manual add flow", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "pages", "bugs.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("Human Tasks");
+    expect(source).toContain("Add Human Task");
+    expect(source).toContain("handleCreateHumanTask");
+    expect(source).toContain("No open human tasks yet.");
+    expect(source).toContain("Work queue");
   });
 });

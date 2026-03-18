@@ -5,6 +5,9 @@ import {
   FeedbackScopeGuardrails,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
+  HumanTaskDoc,
+  HumanTaskSource,
+  HumanTaskStatus,
 } from "./types";
 
 export const fetchFeedbackWorkflow = async () => {
@@ -22,7 +25,79 @@ export const fetchFeedbackWorkflow = async () => {
     workItems: Array.isArray(data.workItems)
       ? (data.workItems as FeedbackWorkItemDoc[])
       : [],
+    humanTasks: Array.isArray(data.humanTasks)
+      ? (data.humanTasks as HumanTaskDoc[])
+      : [],
   };
+};
+
+export const createHumanTask = async ({
+  title,
+  description,
+  source = "user",
+  metadata,
+}: {
+  title: string;
+  description: string;
+  source?: HumanTaskSource;
+  metadata?: Record<string, unknown>;
+}) => {
+  const response = await fetch("/api/feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      humanTask: {
+        title,
+        description,
+        source,
+        metadata,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`createHumanTask ${response.status}: ${message}`);
+  }
+
+  return response.json();
+};
+
+export const updateHumanTask = async ({
+  humanTaskId,
+  status,
+  title,
+  description,
+  metadata,
+}: {
+  humanTaskId: string;
+  status?: HumanTaskStatus;
+  title?: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}) => {
+  const response = await fetch("/api/feedback", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      humanTaskId,
+      status,
+      title,
+      description,
+      metadata,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`updateHumanTask ${response.status}: ${message}`);
+  }
+
+  return response.json();
 };
 
 export const updateFeedbackWorkItem = async ({

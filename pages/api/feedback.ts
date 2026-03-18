@@ -12,6 +12,9 @@ import {
   FeedbackScopeGuardrails,
   FeedbackTriageStatus,
   FeedbackWorkItemDoc,
+  HumanTaskDoc,
+  HumanTaskSource,
+  HumanTaskStatus,
 } from "../../utils/types";
 import { authOptions } from "./auth/[...nextauth]";
 import {
@@ -59,6 +62,7 @@ const ensureFeedbackWorkflowIndexes = async (db: Db) => {
 
   const feedbackCollection = db.collection("feedback");
   const workItemCollection = db.collection("feedbackWorkItems");
+  const humanTaskCollection = db.collection("humanTasks");
 
   await Promise.all([
     feedbackCollection.createIndex({ createdAt: -1 }),
@@ -66,6 +70,7 @@ const ensureFeedbackWorkflowIndexes = async (db: Db) => {
     feedbackCollection.createIndex({ workItemId: 1, createdAt: -1 }),
     workItemCollection.createIndex({ fingerprint: 1 }, { unique: true }),
     workItemCollection.createIndex({ type: 1, triageStatus: 1, updatedAt: -1 }),
+    humanTaskCollection.createIndex({ status: 1, createdAt: -1 }),
   ]);
 
   feedbackIndexesReady = true;
@@ -406,6 +411,40 @@ const sanitizeScopeGuardrails = (
   };
 };
 
+const sanitizeHumanTaskStatus = (value: unknown): HumanTaskStatus | undefined =>
+  value === "open" || value === "done" ? value : undefined;
+
+const sanitizeHumanTaskSource = (value: unknown): HumanTaskSource =>
+  value === "codex" ? "codex" : "user";
+
+const sanitizeHumanTaskMetadata = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).slice(0, 20);
+  const next: Record<string, unknown> = {};
+
+  entries.forEach(([key, entryValue]) => {
+    const normalizedKey = sanitizeText(key);
+    if (!normalizedKey) {
+      return;
+    }
+
+    if (
+      typeof entryValue === "string" ||
+      typeof entryValue === "number" ||
+      typeof entryValue === "boolean" ||
+      entryValue === null
+    ) {
+      next[normalizedKey] =
+        typeof entryValue === "string" ? sanitizeText(entryValue) : entryValue;
+    }
+  });
+
+  return Object.keys(next).length > 0 ? next : undefined;
+};
+
 const compareSeverity = (value?: string) => {
   switch (value) {
     case "high":
@@ -540,6 +579,40 @@ const buildFeedbackDoc = ({
   };
 
   return doc;
+};
+
+const buildHumanTaskDoc = ({
+  humanTask,
+  session,
+  now,
+}: {
+  humanTask: Partial<HumanTaskDoc>;
+  session: any;
+  now: Date;
+}) => {
+  const { _id: userId, username, email } = getSessionUserProfile(session);
+  const title = sanitizeText(humanTask.title);
+  const description = sanitizeText(humanTask.description);
+
+  if (!userId || !title || !description) {
+    return null;
+  }
+
+  const status = sanitizeHumanTaskStatus(humanTask.status) || "open";
+
+  return {
+    title,
+    description,
+    status,
+    source: sanitizeHumanTaskSource(humanTask.source),
+    metadata: sanitizeHumanTaskMetadata(humanTask.metadata),
+    createdByUserId: userId,
+    createdByUsername: username || undefined,
+    createdByEmail: email || undefined,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: status === "done" ? now : undefined,
+  } satisfies HumanTaskDoc;
 };
 
 const upsertFeedbackWorkItem = async ({
@@ -898,6 +971,7 @@ export default async function handler(
     const feedbackCollection = db.collection<FeedbackItemDoc>("feedback");
     const workItemCollection =
       db.collection<FeedbackWorkItemDoc>("feedbackWorkItems");
+    const humanTaskCollection = db.collection<HumanTaskDoc>("humanTasks");
 
     if (req.method === "GET") {
       const { userId } = req.query;
@@ -928,8 +1002,12 @@ export default async function handler(
           .find({})
           .sort({ updatedAt: -1, createdAt: -1 })
           .toArray();
+        const humanTasks = await humanTaskCollection
+          .find({})
+          .sort({ status: 1, createdAt: -1, updatedAt: -1 })
+          .toArray();
 
-        return res.status(200).json({ feedback, workItems });
+        return res.status(200).json({ feedback, workItems, humanTasks });
       }
 
       return res.status(200).json({ feedback });
@@ -938,6 +1016,36 @@ export default async function handler(
     if (req.method === "POST") {
       if (!session) {
         return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { humanTask } = req.body as { humanTask?: Partial<HumanTaskDoc> };
+      if (humanTask) {
+        if (!isBugWorkflowAdminSession(session)) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        const now = new Date();
+        const doc = buildHumanTaskDoc({
+          humanTask,
+          session,
+          now,
+        });
+
+        if (!doc) {
+          return res.status(400).json({
+            message: "Human task title and description are required.",
+          });
+        }
+
+        const insertResult = await humanTaskCollection.insertOne(doc);
+
+        return res.status(200).json({
+          success: true,
+          humanTask: {
+            ...doc,
+            _id: insertResult.insertedId,
+          },
+        });
       }
 
       const { feedback } = req.body as { feedback?: Partial<FeedbackItemDoc> };
@@ -1087,6 +1195,83 @@ export default async function handler(
     if (req.method === "PATCH") {
       if (!session || !isBugWorkflowAdminSession(session)) {
         return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const {
+        humanTaskId,
+        status: humanTaskStatus,
+        metadata: humanTaskMetadata,
+      } = req.body as {
+        humanTaskId?: string;
+        status?: HumanTaskStatus;
+        title?: string;
+        description?: string;
+        metadata?: Record<string, unknown>;
+      };
+
+      const normalizedHumanTaskId = sanitizeText(humanTaskId);
+
+      if (normalizedHumanTaskId) {
+        if (!ObjectId.isValid(normalizedHumanTaskId)) {
+          return res.status(400).json({ message: "Valid humanTaskId is required" });
+        }
+
+        const existingHumanTask = await humanTaskCollection.findOne({
+          _id: new ObjectId(normalizedHumanTaskId),
+        });
+
+        if (!existingHumanTask) {
+          return res.status(404).json({ message: "Human task not found" });
+        }
+
+        const now = new Date();
+        const normalizedTitle = sanitizeText((req.body as { title?: string }).title);
+        const normalizedDescription = sanitizeText(
+          (req.body as { description?: string }).description
+        );
+        const normalizedStatus =
+          sanitizeHumanTaskStatus(humanTaskStatus) || existingHumanTask.status;
+        const normalizedMetadata =
+          sanitizeHumanTaskMetadata(humanTaskMetadata) ?? existingHumanTask.metadata;
+
+        const update: Partial<HumanTaskDoc> = {
+          title: normalizedTitle || existingHumanTask.title,
+          description: normalizedDescription || existingHumanTask.description,
+          status: normalizedStatus,
+          metadata: normalizedMetadata,
+          updatedAt: now,
+          completedAt:
+            normalizedStatus === "done"
+              ? existingHumanTask.completedAt || now
+              : undefined,
+        };
+
+        if (normalizedStatus !== "done") {
+          delete update.completedAt;
+        }
+
+        await humanTaskCollection.updateOne(
+          { _id: new ObjectId(normalizedHumanTaskId) },
+          normalizedStatus === "done"
+            ? {
+                $set: update,
+              }
+            : {
+                $set: update,
+                $unset: {
+                  completedAt: "",
+                },
+              }
+        );
+
+        return res.status(200).json({
+          success: true,
+          humanTask: {
+            ...existingHumanTask,
+            ...update,
+            _id: existingHumanTask._id,
+          },
+        });
       }
 
       const {
