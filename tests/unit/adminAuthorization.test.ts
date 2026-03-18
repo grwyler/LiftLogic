@@ -30,7 +30,7 @@ describe("admin authorization", () => {
     ).toBe(true);
   });
 
-  it("does not grant workflow admin access from a hardcoded username alone", () => {
+  it("grants workflow admin access from the recognized admin username", () => {
     expect(
       isBugWorkflowAdminSession({
         user: {
@@ -38,15 +38,15 @@ describe("admin authorization", () => {
           username: "grwyler",
         },
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("does not grant workflow admin access from a hardcoded email alone", () => {
+  it("grants workflow admin access from the recognized admin email", () => {
     expect(
       isBugWorkflowAdminUser({
         email: "grwyler@gmail.com",
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("grants generic app admin access from the admin role", () => {

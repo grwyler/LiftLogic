@@ -11,6 +11,9 @@ type SessionLike = {
   };
 } | null | undefined;
 
+const ADMIN_USERNAME = "grwyler";
+const ADMIN_EMAIL = "grwyler@gmail.com";
+
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
@@ -20,6 +23,15 @@ const normalizeRoles = (roles: unknown) =>
         .map((role) => normalizeText(role).toLowerCase())
         .filter(Boolean)
     : [];
+
+const isRecognizedAdminIdentity = (
+  user: AdminUserLike | null | undefined
+) => {
+  const username = normalizeText(user?.username).toLowerCase();
+  const email = normalizeText(user?.email).toLowerCase();
+
+  return username === ADMIN_USERNAME || email === ADMIN_EMAIL;
+};
 
 export const hasUserRole = (
   user: AdminUserLike | null | undefined,
@@ -32,7 +44,7 @@ export const hasUserPermission = (
 ) => Boolean(user?.permissions?.[permission]);
 
 export const isAppAdminUser = (user: AdminUserLike | null | undefined) =>
-  hasUserRole(user, "admin");
+  hasUserRole(user, "admin") || isRecognizedAdminIdentity(user);
 
 export const isBugWorkflowAdminUser = (
   user: AdminUserLike | null | undefined

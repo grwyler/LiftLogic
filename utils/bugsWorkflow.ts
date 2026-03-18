@@ -7,6 +7,7 @@ import {
 } from "./types";
 import {
   createDefaultRegressionChecklist,
+  normalizeRegressionChecklist,
   parseMultilineList,
   serializeMultilineList,
   getResolutionClosureWarnings,
@@ -143,9 +144,9 @@ export const createWorkflowDraft = (
   deferredFollowUpsText: serializeMultilineList(item?.resolution?.deferredFollowUps),
   validatedCommandsText: serializeMultilineList(item?.resolution?.validatedCommands),
   manualChecksText: serializeMultilineList(item?.resolution?.manualChecks),
-  regressionChecklist:
-    item?.resolution?.regressionChecklist?.map((entry) => ({ ...entry })) ||
-    createDefaultRegressionChecklist(),
+  regressionChecklist: normalizeRegressionChecklist(
+    item?.resolution?.regressionChecklist
+  ).map((entry) => ({ ...entry })) || createDefaultRegressionChecklist(),
 });
 
 export const getWorkflowDraftResolution = (

@@ -74,4 +74,23 @@ describe("bugs inbox workflow helpers", () => {
       "Complete the regression checklist outcomes.",
     ]);
   });
+
+  it("normalizes malformed stored regression checklist data instead of crashing draft creation", () => {
+    const draft = createWorkflowDraft({
+      title: "Legacy workflow item",
+      latestDescription: "Older resolution payload",
+      resolution: {
+        regressionChecklist: {
+          label: "Reported flow re-checked",
+          outcome: "passed",
+        } as any,
+      } as any,
+    });
+
+    expect(draft.regressionChecklist).toEqual([
+      { label: "Reported flow re-checked", outcome: "pending" },
+      { label: "Copy details output reviewed", outcome: "pending" },
+      { label: "Closure workflow verified", outcome: "pending" },
+    ]);
+  });
 });
