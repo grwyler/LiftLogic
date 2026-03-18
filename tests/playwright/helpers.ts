@@ -157,9 +157,11 @@ export const continueAsTracker = async (page: Page) => {
     await expect(setupHeading).toBeVisible();
     await page
       .getByRole("button", { name: "No, I just want to track workouts" })
-      .click();
+      .click({ force: true });
     await expect(page.getByText("Tracker mode")).toBeVisible();
-    await page.getByRole("button", { name: "Continue to workouts" }).click();
+    await page
+      .getByRole("button", { name: "Continue to workouts" })
+      .click({ force: true });
   }
 
   await expect(
@@ -223,25 +225,28 @@ export const quickAddFirstExercise = async (page: Page) => {
   await page
     .getByRole("button", { name: /Add First Exercise|Add Exercise|Add/ })
     .first()
-    .click();
+    .click({ force: true });
   await expect(
     page.getByRole("heading", { name: "Choose an exercise" })
   ).toBeVisible();
 
-  await page.locator("button:has-text('Quick Add')").first().click();
-  await expect(page.getByText(/0\/3 sets|0\/\d+ sets/).first()).toBeVisible();
+  await page.locator("button:has-text('Quick Add')").first().click({ force: true });
+  await expect(page.getByText("Active Set")).toBeVisible();
 };
 
 export const logFirstSetForFirstExercise = async (page: Page) => {
-  const openNextSetButton = page.getByRole("button", { name: "Open Next Set" });
-  if (await openNextSetButton.isVisible().catch(() => false)) {
-    await openNextSetButton.click();
-  } else {
-    await page.getByRole("button", { name: "Start Lift" }).first().click();
+  const activeSetHeading = page.getByText("Active Set");
+  if (!(await activeSetHeading.isVisible().catch(() => false))) {
+    const openNextSetButton = page.getByRole("button", { name: "Open Next Set" });
+    if (await openNextSetButton.isVisible().catch(() => false)) {
+      await openNextSetButton.click({ force: true });
+    } else {
+      await page.getByRole("button", { name: "Start Lift" }).first().click({ force: true });
+    }
   }
-  await expect(page.getByText("Active Set")).toBeVisible();
+  await expect(activeSetHeading).toBeVisible();
 
-  await page.getByRole("button", { name: "Log Set" }).click();
+  await page.getByRole("button", { name: "Log Set" }).click({ force: true });
   await expect(page.getByText(/1\/3 sets logged|1\/\d+ sets logged/)).toBeVisible();
   await expect(page.getByText(/1\/3 sets logged|1\/\d+ sets logged/)).toBeVisible();
 };

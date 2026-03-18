@@ -13,7 +13,11 @@ import {
   saveRecurringRule,
 } from "../utils/recurringRuleService";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
-import { DEFAULT_MAX_WEIGHT, getExerciseProfile } from "../utils/exerciseDrafts";
+import {
+  DEFAULT_MAX_WEIGHT,
+  getExerciseProfile,
+  resolveExerciseStartingWeight,
+} from "../utils/exerciseDrafts";
 import { toast } from "react-toastify";
 import { createExerciseSetId } from "../utils/exerciseSetIds";
 import { parseLocalDateInput } from "../utils/localDate";
@@ -265,11 +269,15 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     const normalizedExerciseId = normalizeExerciseId(exercise);
     const profile = getExerciseProfile(exercise);
     const timedProfile = getTimedExerciseProfile(exercise);
-    const baseWeight =
+    const baseWeight = resolveExerciseStartingWeight({
+      exercise,
+      preferredUnits,
+      candidateWeight:
       profile.weight ??
       exercise.max ??
       exercise.defaultMax ??
-      DEFAULT_MAX_WEIGHT;
+      DEFAULT_MAX_WEIGHT,
+    });
 
     return {
       ...exercise,

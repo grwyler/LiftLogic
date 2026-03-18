@@ -33,7 +33,10 @@ import {
 import { UserDoc, WorkoutExerciseView } from "../utils/types";
 import { getLowEnergyWorkoutGuide } from "../utils/workoutGuidance";
 import { createExerciseSetId } from "../utils/exerciseSetIds";
-import { getExerciseProfile } from "../utils/exerciseDrafts";
+import {
+  getExerciseProfile,
+  resolveExerciseStartingWeight,
+} from "../utils/exerciseDrafts";
 import { normalizeWeightUnit } from "../utils/weightUnits";
 import {
   WorkoutComebackGuide,
@@ -501,11 +504,16 @@ const WorkoutDisplay = ({
       const newExercises = await Promise.all(
         template.exercises.map(async (exerciseName, index) => {
           const profile = getExerciseProfile({ name: exerciseName });
+          const starterWeight = resolveExerciseStartingWeight({
+            exercise: { name: exerciseName },
+            preferredUnits,
+            candidateWeight: profile.weight ?? null,
+          });
           const sets = Array.from({ length: profile.sets ?? 3 }, (_, setIndex) => ({
             id: createExerciseSetId(),
             name: `Working Set ${setIndex + 1}`,
             reps: profile.reps ?? 8,
-            weight: profile.weight ?? undefined,
+            weight: starterWeight,
             actualWeight: "",
             actualReps: "",
             weightUnit: preferredUnits,
