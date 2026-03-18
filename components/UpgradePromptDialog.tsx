@@ -18,9 +18,11 @@ type UpgradePromptDialogProps = {
   description: string;
   benefits: string[];
   onClose: () => void;
+  onRemindLater?: () => void;
   onUpgrade: () => void;
   continueLabel?: string;
   upgradeLabel?: string;
+  remindLaterLabel?: string;
   eyebrow?: string;
   onView?: () => void;
 };
@@ -31,10 +33,12 @@ export default function UpgradePromptDialog({
   description,
   benefits,
   onClose,
+  onRemindLater,
   onUpgrade,
   continueLabel = "Keep tracking free",
-  upgradeLabel = "View Pro Beta",
-  eyebrow = "Pro Beta",
+  upgradeLabel = "View Pro",
+  remindLaterLabel = "Remind me later",
+  eyebrow = "Pro",
   onView,
 }: UpgradePromptDialogProps) {
   useEffect(() => {
@@ -70,6 +74,7 @@ export default function UpgradePromptDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        {onRemindLater ? <Button onClick={onRemindLater}>{remindLaterLabel}</Button> : null}
         <Button onClick={onClose}>{continueLabel}</Button>
         <Button variant="contained" onClick={onUpgrade}>
           {upgradeLabel}

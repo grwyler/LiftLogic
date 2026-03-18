@@ -23,7 +23,16 @@ export const requestJson = async <T>(
   input: RequestInfo | URL,
   init: JsonRequestOptions<T> = {}
 ): Promise<T> => {
-  const response = await fetch(input, init);
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    if (Object.prototype.hasOwnProperty.call(init, "fallback")) {
+      return init.fallback as T;
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);

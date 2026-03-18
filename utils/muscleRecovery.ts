@@ -181,6 +181,59 @@ export const buildMuscleRecoveryMap = ({
   >;
 };
 
+export const buildRecoveryGuidance = (
+  regions: Array<{
+    label: string;
+    hoursAgo: number | null;
+  }>
+) => {
+  if (!regions.length) {
+    return null;
+  }
+
+  const freshCount = regions.filter((region) => region.hoursAgo === null || region.hoursAgo >= 36).length;
+  const recentlyTrainedCount = regions.filter(
+    (region) => region.hoursAgo !== null && region.hoursAgo < 24
+  ).length;
+  const moderatelyTrainedCount = regions.filter(
+    (region) => region.hoursAgo !== null && region.hoursAgo < 36
+  ).length;
+
+  if (recentlyTrainedCount >= Math.max(2, Math.ceil(regions.length * 0.6))) {
+    return {
+      tone: "rest",
+      headline: "Rest or a lighter version is the smart call today",
+      supportingCopy:
+        "Most of the muscles in today's plan were trained recently. You are not losing ground by taking a lighter day, trimming volume, or swapping to easier work.",
+    };
+  }
+
+  if (moderatelyTrainedCount >= Math.max(2, Math.ceil(regions.length * 0.6))) {
+    return {
+      tone: "light",
+      headline: "Keep the session, but keep the effort conservative",
+      supportingCopy:
+        "Several target areas are still carrying recent work. A good adjustment today is fewer hard sets, a cleaner pace, or a lower-intensity swap instead of forcing a full push.",
+    };
+  }
+
+  if (freshCount === regions.length) {
+    return {
+      tone: "push",
+      headline: "Good day to push the planned session",
+      supportingCopy:
+        "Today's main muscle groups look fresh enough to run the workout as written and let the harder work count.",
+    };
+  }
+
+  return {
+    tone: "swap",
+    headline: "Main work can stay, but swaps are fair game",
+    supportingCopy:
+      "You have a mix of fresh and recently trained areas today. Keep the core intent of the session, then swap or soften the pieces that feel least recovered.",
+  };
+};
+
 export const getRecoveryFill = (intensity: number, active: boolean) => {
   if (!active) {
     return "rgba(148, 163, 184, 0.08)";

@@ -25,6 +25,7 @@ const SetItem = ({
   darkMode,
   preferredUnits = "lb",
   interactive = true,
+  onActivate = undefined,
 }) => {
   const { actualReps, actualWeight, totalSeconds, actualHours, actualMinutes, actualSeconds } = set;
   const unit = normalizeWeightUnit(preferredUnits);
@@ -81,6 +82,7 @@ const SetItem = ({
   const handleClickCompletedSet = () => {
     if (interactive) {
       setCurrentSetIndex(setIndex);
+      onActivate?.();
     }
   };
   return (

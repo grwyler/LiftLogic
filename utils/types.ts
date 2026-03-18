@@ -440,6 +440,8 @@ export interface UserDoc {
   notes?: string;
   setupPromptSeen?: boolean;
   setupCompleted?: boolean;
+  assistantSetupDeferredAt?: Date | string | null;
+  activationChecklistDismissed?: boolean;
   darkMode?: boolean;
   themePreference?:
     | "light"

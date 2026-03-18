@@ -38,6 +38,27 @@ describe("comeback guidance", () => {
     expect(guide?.supportingCopy).toContain("do not need to make anything up");
   });
 
+  it("shows an earlier restart prompt before the bigger lapse threshold", () => {
+    const guide = buildComebackGuide({
+      currentDate: new Date("2026-03-13T09:00:00.000Z"),
+      statusMap: {
+        "2026-03-09": {
+          hasLogged: true,
+          hasCompleted: true,
+          hasRecurring: false,
+          exerciseCount: 2,
+        },
+      },
+    });
+
+    expect(guide).toMatchObject({
+      state: "early_drift",
+      daysSinceLastLog: 4,
+    });
+    expect(guide?.headline).toContain("small restart");
+    expect(guide?.adjustmentCopy).toContain("stronger comeback plan can wait");
+  });
+
   it("shows supportive comeback actions in the workout flow", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "components", "workout-display", "WorkoutSecondaryInsights.tsx"),
@@ -45,7 +66,8 @@ describe("comeback guidance", () => {
     );
 
     expect(source).toContain("Comeback Plan");
-    expect(source).toContain("Fresh win opportunity");
+    expect(source).toContain("Small restart window");
     expect(source).toContain("No streak debt, no catch-up workout.");
+    expect(source).toContain("Take the minimum win");
   });
 });

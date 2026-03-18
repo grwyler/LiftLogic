@@ -166,7 +166,7 @@ const HomePage: React.FC = () => {
               onClick={() => handleLandingCtaClick("hero_nav_start_free_beta")}
               fullWidth
             >
-              Start free beta
+              Start free
             </Button>
           </Stack>
         </Box>
@@ -218,7 +218,7 @@ const HomePage: React.FC = () => {
               }}
             >
               <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: "0.12em" }}>
-                Free while beta sharpens up
+                Built to feel dependable and keep improving
               </Typography>
             </Box>
 
@@ -719,7 +719,7 @@ const HomePage: React.FC = () => {
                     onClick={() => handleLandingCtaClick("guest_preview_start_free_beta")}
                     sx={{ alignSelf: "flex-start", borderRadius: landingRadius.button }}
                   >
-                    Try the full beta
+                    Try the full experience
                   </Button>
                 </Stack>
               </Paper>
@@ -869,7 +869,7 @@ const HomePage: React.FC = () => {
             >
               <Box>
                 <Typography variant="overline" sx={{ letterSpacing: "0.14em", color: "rgba(248,250,252,0.72)" }}>
-                  Join The Beta
+                  Start with confidence
                 </Typography>
                 <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 620 }}>
                   Start free, test the flow, and see if it earns a place in your week.
@@ -897,7 +897,7 @@ const HomePage: React.FC = () => {
                   endIcon={<ArrowForwardIcon />}
                   onClick={() => handleLandingCtaClick("footer_start_free_beta")}
                 >
-                  Start free beta
+                  Start free
                 </Button>
                 <Button
                   component={NextLink}

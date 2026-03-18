@@ -9,6 +9,10 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   Stack,
   Typography,
@@ -86,25 +90,25 @@ const comparisonRows = [
   },
   {
     label: "Adaptive plan generation",
-    free: "Pro Beta",
+    free: "Pro",
     starter: "Starter kickoff build",
     pro: "Included",
   },
   {
     label: "Assistant-driven plan revisions",
-    free: "Pro Beta",
+    free: "Pro",
     starter: "Two revision passes",
     pro: "Included",
   },
   {
     label: "Recurring workout schedules",
-    free: "Pro Beta",
+    free: "Pro",
     starter: "Manual follow-through",
     pro: "Included",
   },
   {
     label: "Progress-based recommendations",
-    free: "Pro Beta",
+    free: "Pro",
     starter: "Upgrade path into Pro",
     pro: "Included",
   },
@@ -159,7 +163,7 @@ const premiumFaqItems = [
   {
     question: "What do I actually get that Free does not?",
     answer:
-      "Free keeps the daily logging flow clean. Pro Beta is what drafts the week, revises it around your constraints, and turns your logged performance into updated recommendations.",
+      "Free keeps the daily logging flow clean. Pro is what drafts the week, revises it around your constraints, and turns your logged performance into updated recommendations.",
   },
   {
     question: "What happens if my schedule changes after I buy?",
@@ -172,6 +176,29 @@ const premiumFaqItems = [
       "Your account falls back to free logging, and you keep your workout history, setup, and completed sessions. The trial is meant to let the adaptive layer prove itself first.",
   },
 ];
+
+const cancelReasonOptions = [
+  {
+    value: "busy",
+    label: "Life is packed right now",
+    helper: "Keep the relationship lighter for a month instead of treating churn like the only option.",
+  },
+  {
+    value: "overwhelmed",
+    label: "The plan feels like too much",
+    helper: "A simpler rhythm or shorter reset can save the account without pretending motivation is infinite.",
+  },
+  {
+    value: "value",
+    label: "I need more proof",
+    helper: "Take the lighter path while you decide whether the coaching layer is earning its place.",
+  },
+  {
+    value: "other",
+    label: "Something else",
+    helper: "We will still log the reason so churn pressure is visible in the monetization funnel.",
+  },
+] as const;
 
 const defaultPriceOptions: BillingPriceOption[] = [
   {
@@ -233,6 +260,10 @@ const PricingPage: React.FC = () => {
     ""
   );
   const [billingError, setBillingError] = useState("");
+  const [showCancelSaveDialog, setShowCancelSaveDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState<(typeof cancelReasonOptions)[number]["value"]>(
+    "busy"
+  );
   const [resolvedFlags, setResolvedFlags] = useState<FeatureFlagResolution[]>([]);
   const pricingViewTrackedRef = useRef(false);
   const pricingExperimentExposureTrackedRef = useRef(false);
@@ -362,7 +393,7 @@ const PricingPage: React.FC = () => {
   const primaryCta =
     status === "authenticated"
       ? { href: "/routines", label: "Open workouts" }
-      : { href: "/signup", label: "Start free beta" };
+      : { href: "/signup", label: "Start free" };
   const starterOfferHref =
     status === "authenticated"
       ? "/user?starterOffer=starter_kickoff"
@@ -413,7 +444,28 @@ const PricingPage: React.FC = () => {
     }
   };
 
+  const trackCancelSaveAction = async (
+    action: string,
+    options: { markCancelRequested?: boolean } = {}
+  ) => {
+    const source = `cancel_save_${action}_${cancelReason}${pricingExperimentSuffix}`;
+    await trackBetaFunnelMilestone("pricing_cta_clicked", {
+      source,
+    });
+    if (options.markCancelRequested) {
+      await trackBetaFunnelMilestone("cancel_requested", {
+        source,
+      });
+    }
+    return source;
+  };
+
   const handleManageBilling = async () => {
+    if (hasPaidAccess) {
+      setShowCancelSaveDialog(true);
+      return;
+    }
+
     try {
       setActionLoading("portal");
       setBillingError("");
@@ -427,6 +479,45 @@ const PricingPage: React.FC = () => {
       toast.error(message);
     } finally {
       setActionLoading("");
+    }
+  };
+
+  const handleCancelSavePortalAction = async ({
+    action,
+    markCancelRequested = false,
+  }: {
+    action: string;
+    markCancelRequested?: boolean;
+  }) => {
+    try {
+      setActionLoading("portal");
+      setBillingError("");
+      await trackCancelSaveAction(action, { markCancelRequested });
+      const { url } = await createBillingPortalSession();
+      setShowCancelSaveDialog(false);
+      window.location.assign(url);
+    } catch (error) {
+      console.error("Error opening billing portal:", error);
+      const message =
+        error instanceof Error ? error.message : "Unable to open billing portal.";
+      setBillingError(message);
+      toast.error(message);
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handlePauseInstead = async () => {
+    try {
+      await trackCancelSaveAction("pause_30_days");
+      setShowCancelSaveDialog(false);
+      toast.info(
+        "Opened reminder preferences so you can take a lighter month without losing workout history."
+      );
+      await router.push("/user");
+    } catch (error) {
+      console.error("Error routing to reminder preferences:", error);
+      toast.error("Unable to open reminder preferences right now.");
     }
   };
 
@@ -445,7 +536,8 @@ const PricingPage: React.FC = () => {
   const premiumProofSubhead =
     pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
       ? "This experiment pushes the concrete outputs first so buyers can judge the paid layer on real planning proof instead of abstract claims."
-      : "Pro Beta should feel concrete before checkout. These examples show the kinds of outputs the paid layer is responsible for: a drafted week, a recommendation update, and a real-life schedule rewrite.";
+      : "Pro should feel concrete before checkout. These examples show the kinds of outputs the paid layer is responsible for: a drafted week, a recommendation update, and a real-life schedule rewrite.";
+  const selectedCancelReason = cancelReasonOptions.find((option) => option.value === cancelReason);
 
   const handleProofCheckout = async (
     interval: "month" | "year",
@@ -501,7 +593,7 @@ const PricingPage: React.FC = () => {
                 Lift Logic
               </Typography>
               <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
-                Free vs Pro Beta
+                Free vs Pro
               </Typography>
             </Box>
           </Stack>
@@ -552,7 +644,7 @@ const PricingPage: React.FC = () => {
           >
             <Stack spacing={0.5}>
               <Typography sx={{ fontWeight: 700 }}>
-                {hasPaidAccess ? "Pro Beta is active on this account." : "This account is on Free."}
+                {hasPaidAccess ? "Pro is active on this account." : "This account is on Free."}
               </Typography>
               <Typography>
                 Status: {statusLabel[billingSummary.subscriptionStatus]}
@@ -602,7 +694,7 @@ const PricingPage: React.FC = () => {
             <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: "0.12em" }}>
               {pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
                 ? "Proof-first pricing experiment"
-                : "Pricing direction during beta"}
+                : "Pricing direction"}
             </Typography>
           </Box>
           <Typography
@@ -614,7 +706,7 @@ const PricingPage: React.FC = () => {
               lineHeight: 0.98,
             }}
           >
-            Tracking stays free. Adaptive planning becomes Pro Beta.
+            Tracking stays free. Adaptive planning becomes Pro.
           </Typography>
           <Typography
             sx={{
@@ -627,7 +719,7 @@ const PricingPage: React.FC = () => {
           >
             Lift Logic is not trying to charge for basic logging. The free product
             is the clean workout flow: open the day, log what happened, and keep
-            the session moving. Pro Beta is the layer that drafts plans, revises
+            the session moving. Pro is the layer that drafts plans, revises
             them around your constraints, manages recurring schedules, and turns
             logged performance into better next-session recommendations.
           </Typography>
@@ -648,12 +740,112 @@ const PricingPage: React.FC = () => {
             </Typography>
             <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
               Billing is now wired for self-serve upgrades. Free stays focused on
-              logging and execution. Pro Beta is the paid layer for plan
+              logging and execution. Pro is the paid layer for plan
               generation, assistant-led edits, recurring schedules, and
               progression recommendations.
             </Typography>
           </Paper>
         </Paper>
+
+        <Dialog
+          open={showCancelSaveDialog}
+          onClose={actionLoading === "portal" ? undefined : () => setShowCancelSaveDialog(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Before you leave Pro</DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 2, pt: 1.5 }}>
+            <Typography color="text.secondary">
+              If you are overloaded, underusing the plan, or just need a breather, take the
+              lightest save path first instead of jumping straight to the billing portal exit.
+            </Typography>
+
+            <Paper variant="outlined" sx={{ p: 1.4, borderRadius: pricingRadius.inset }}>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  What is driving the cancel request?
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {cancelReasonOptions.map((option) => (
+                    <Chip
+                      key={option.value}
+                      label={option.label}
+                      clickable
+                      color={cancelReason === option.value ? "primary" : "default"}
+                      variant={cancelReason === option.value ? "filled" : "outlined"}
+                      onClick={() => setCancelReason(option.value)}
+                    />
+                  ))}
+                </Stack>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {selectedCancelReason?.helper}
+                </Typography>
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.4, borderRadius: pricingRadius.inset }}>
+              <Stack spacing={1.1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Save options before the billing portal
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Choose the option that keeps the account attached to your training even if your
+                  current season is messy.
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <Button variant="contained" onClick={() => void handlePauseInstead()}>
+                    Pause for 30 days
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() =>
+                      void handleCancelSavePortalAction({
+                        action: "switch_cadence",
+                      })
+                    }
+                    disabled={actionLoading === "portal"}
+                  >
+                    Switch billing cadence
+                  </Button>
+                </Stack>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.1,
+                    borderRadius: pricingRadius.inset,
+                    backgroundColor: "rgba(248,250,252,0.72)",
+                  }}
+                >
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Free logging fallback stays intact
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.35, color: "text.secondary" }}>
+                    If you still want out, you can continue to the billing portal and fall back to
+                    free logging with your history, setup, and progress summaries preserved.
+                  </Typography>
+                </Paper>
+              </Stack>
+            </Paper>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, pt: 0.5 }}>
+            <Button onClick={() => setShowCancelSaveDialog(false)} disabled={actionLoading === "portal"}>
+              Keep Pro for now
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={() =>
+                void handleCancelSavePortalAction({
+                  action: "free_logging_fallback",
+                  markCancelRequested: true,
+                })
+              }
+              disabled={actionLoading === "portal"}
+            >
+              {actionLoading === "portal" ? "Opening portal..." : "Continue to cancel"}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Box
           sx={{
@@ -747,7 +939,7 @@ const PricingPage: React.FC = () => {
             <Typography variant="h4" sx={{ mt: 0.75 }}>
               Starter Kickoff
             </Typography>
-            <Typography sx={{ mt: 0.5, fontWeight: 700 }}>$29 one-time beta offer</Typography>
+            <Typography sx={{ mt: 0.5, fontWeight: 700 }}>$29 one-time kickoff offer</Typography>
             <Typography sx={{ mt: 1.25, color: "text.secondary" }}>
               For users who want Lift Logic to build a serious starting point without
               committing to recurring billing on day one.
@@ -791,9 +983,9 @@ const PricingPage: React.FC = () => {
                   : "Start with Starter Kickoff"}
               </Button>
               <Alert severity="info" sx={{ borderRadius: pricingRadius.inset }}>
-                Starter purchases are being tested as a beta offer, but they still use
+                Starter purchases are a limited kickoff offer, but they still use
                 the same account and setup data you would keep if you later move into
-                Pro Beta.
+                Pro.
               </Alert>
             </Stack>
           </Paper>
@@ -835,12 +1027,12 @@ const PricingPage: React.FC = () => {
               >
                 <WorkspacePremiumOutlinedIcon fontSize="small" />
                 <Typography variant="caption" sx={{ color: "inherit", fontWeight: 800, letterSpacing: "0.08em" }}>
-                  {hasPaidAccess ? "Current plan" : "Pro Beta"}
+                  {hasPaidAccess ? "Current plan" : "Pro"}
                 </Typography>
               </Box>
             </Stack>
             <Typography variant="h4" sx={{ mt: 0.75 }}>
-              Pro Beta
+              Pro
             </Typography>
             <Typography sx={{ mt: 0.5, fontWeight: 700 }}>{proPlanPriceLabel}</Typography>
             <Typography sx={{ mt: 1.25, color: "text.secondary" }}>
@@ -910,7 +1102,7 @@ const PricingPage: React.FC = () => {
                         {actionLoading === option.interval
                           ? "Opening checkout..."
                           : hasPaidAccess
-                          ? "Already on Pro Beta"
+                          ? "Already on Pro"
                           : `Start ${trialDays}-day ${
                               option.interval === "year" ? "yearly" : "monthly"
                             } trial`}
@@ -984,12 +1176,12 @@ const PricingPage: React.FC = () => {
             Compare The Split
           </Typography>
           <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 620 }}>
-            The free product handles execution. Pro Beta handles adaptation.
+            The free product handles execution. Pro handles adaptation.
           </Typography>
           <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 760 }}>
             If a user mainly wants to log workouts cleanly, Free should be enough.
             If they want Lift Logic to help decide what the week should look like
-            and how it should change, that is the Pro Beta value.
+            and how it should change, that is the Pro value.
           </Typography>
 
           <Stack spacing={1} sx={{ mt: 2.25 }}>
@@ -1034,7 +1226,7 @@ const PricingPage: React.FC = () => {
                     }}
                   />
                   <Chip
-                    label={`Pro Beta: ${row.pro}`}
+                    label={`Pro: ${row.pro}`}
                     color="primary"
                     variant={row.pro === "Included" ? "filled" : "outlined"}
                     sx={{
@@ -1243,7 +1435,7 @@ const PricingPage: React.FC = () => {
                 }}
               >
                 The core promise is simple: logging stays useful on its own, and
-                Pro Beta pays for itself only if the planning, schedule changes,
+                Pro pays for itself only if the planning, schedule changes,
                 and recommendations actually reduce friction for you.
               </Typography>
             </Box>

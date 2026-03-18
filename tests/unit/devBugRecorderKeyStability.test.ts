@@ -9,9 +9,9 @@ describe("dev bug recorder key stability", () => {
       "utf8"
     );
 
-    expect(source).toContain(".map((interaction, index) => (");
-    expect(source).toContain(
-      "key={`${interaction.timestamp}-${interaction.type}-${interaction.target}-${index}`}"
-    );
+    expect(source).toContain("const buildInteractionPreviewKey");
+    expect(source).toContain('interaction.label || "no-label"');
+    expect(source).toContain('interaction.detail || "no-detail"');
+    expect(source).toContain("key={buildInteractionPreviewKey(interaction, index)}");
   });
 });

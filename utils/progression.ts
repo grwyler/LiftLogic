@@ -55,6 +55,23 @@ type EntryPerformanceSummary = {
   removedOutlierSetCount: number;
 };
 
+type SkipExposureAdjustment = {
+  recentSkipCount: number;
+  loadMultiplier: number;
+  setDelta: number;
+  note: string;
+};
+
+type ReturnRampState = {
+  active: boolean;
+  gapDays: number | null;
+  phase: number;
+  totalPhases: number;
+  loadMultiplier: number;
+  setDelta: number;
+  note: string;
+};
+
 export type ExerciseRecommendation = {
   recommendedWeight: number | null;
   weightUnit?: WeightUnit;
@@ -732,13 +749,15 @@ const buildEntryPerformanceSummary = (
   };
 };
 
+const getEntriesSortedByDate = (entries: WorkoutEntryDoc[]) =>
+  [...entries].sort((a, b) => {
+    const aTime = parseEntryDate(a.date)?.getTime() ?? 0;
+    const bTime = parseEntryDate(b.date)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+
 const getRecentEntrySummaries = (entries: WorkoutEntryDoc[]) =>
-  [...entries]
-    .sort((a, b) => {
-      const aTime = parseEntryDate(a.date)?.getTime() ?? 0;
-      const bTime = parseEntryDate(b.date)?.getTime() ?? 0;
-      return bTime - aTime;
-    })
+  getEntriesSortedByDate(entries)
     .filter((entry) => entry.complete)
     .map(buildEntryPerformanceSummary)
     .filter((summary): summary is EntryPerformanceSummary => summary !== null)
@@ -775,6 +794,168 @@ const getSessionGapDays = (
     0,
     Math.round((newer.date.getTime() - older.date.getTime()) / DAY_MS)
   );
+};
+
+const getSkipExposureAdjustment = (
+  entries: WorkoutEntryDoc[],
+  recentSummaries: EntryPerformanceSummary[]
+): SkipExposureAdjustment => {
+  const latestCompletedDate = recentSummaries[0]?.date ?? null;
+  const previousCompletedDate = recentSummaries[1]?.date ?? null;
+
+  if (!latestCompletedDate) {
+    return {
+      recentSkipCount: 0,
+      loadMultiplier: 1,
+      setDelta: 0,
+      note: "",
+    };
+  }
+
+  const recentSkipCount = getEntriesSortedByDate(entries).filter((entry) => {
+    if (!entry?.skipped) {
+      return false;
+    }
+
+    const entryDate = parseEntryDate(entry.date);
+    if (!entryDate) {
+      return false;
+    }
+
+    if (entryDate > latestCompletedDate) {
+      return true;
+    }
+
+    if (
+      previousCompletedDate &&
+      entryDate < latestCompletedDate &&
+      entryDate > previousCompletedDate
+    ) {
+      return true;
+    }
+
+    return false;
+  }).length;
+
+  if (recentSkipCount >= 2) {
+    return {
+      recentSkipCount,
+      loadMultiplier: 0.94,
+      setDelta: -1,
+      note: ` Repeated missed planned exposures (${recentSkipCount}) kept this recommendation lighter so the next session re-establishes rhythm before load climbs again.`,
+    };
+  }
+
+  if (recentSkipCount === 1) {
+    return {
+      recentSkipCount,
+      loadMultiplier: 0.98,
+      setDelta: 0,
+      note: " A missed planned exposure kept this recommendation slightly conservative instead of assuming uninterrupted progression.",
+    };
+  }
+
+  return {
+    recentSkipCount: 0,
+    loadMultiplier: 1,
+    setDelta: 0,
+    note: "",
+  };
+};
+
+const getReturnRampState = (
+  recentSummaries: EntryPerformanceSummary[],
+  completionSignal: EntryPerformanceSummary["signal"]
+): ReturnRampState => {
+  const rampSpec = recentSummaries
+    .map((summary, index) => {
+      if (index === recentSummaries.length - 1) {
+        return null;
+      }
+
+      const olderSummary = recentSummaries[index + 1];
+      const gapDays = getSessionGapDays(summary, olderSummary);
+      if (gapDays === null || gapDays < 14) {
+        return null;
+      }
+
+      if (gapDays >= 42) {
+        return {
+          gapDays,
+          totalPhases: 4,
+          loadMultipliers: [0.82, 0.88, 0.94, 1],
+          setDeltas: [-2, -1, -1, 0],
+        };
+      }
+
+      if (gapDays >= 28) {
+        return {
+          gapDays,
+          totalPhases: 3,
+          loadMultipliers: [0.88, 0.94, 1],
+          setDeltas: [-1, -1, 0],
+        };
+      }
+
+      return {
+        gapDays,
+        totalPhases: 2,
+        loadMultipliers: [0.94, 1],
+        setDeltas: [-1, 0],
+      };
+    })
+    .find((value) => value !== null);
+
+  if (!rampSpec) {
+    return {
+      active: false,
+      gapDays: null,
+      phase: 0,
+      totalPhases: 0,
+      loadMultiplier: 1,
+      setDelta: 0,
+      note: "",
+    };
+  }
+
+  const postGapExposureCount =
+    recentSummaries.findIndex(
+      (summary, index) =>
+        index < recentSummaries.length - 1 &&
+        getSessionGapDays(summary, recentSummaries[index + 1]) === rampSpec.gapDays
+    ) + 1;
+
+  let phaseIndex = Math.min(
+    Math.max(postGapExposureCount - 1, 0),
+    rampSpec.totalPhases - 1
+  );
+
+  if (
+    completionSignal.status === "aggressive" &&
+    phaseIndex < rampSpec.totalPhases - 1
+  ) {
+    phaseIndex += 1;
+  }
+
+  if (completionSignal.status === "underperformed" && phaseIndex > 0) {
+    phaseIndex -= 1;
+  }
+
+  const loadMultiplier = rampSpec.loadMultipliers[phaseIndex] ?? 1;
+  const setDelta = rampSpec.setDeltas[phaseIndex] ?? 0;
+
+  return {
+    active: phaseIndex < rampSpec.totalPhases - 1,
+    gapDays: rampSpec.gapDays,
+    phase: phaseIndex + 1,
+    totalPhases: rampSpec.totalPhases,
+    loadMultiplier,
+    setDelta,
+    note:
+      phaseIndex < rampSpec.totalPhases - 1
+        ? ` Lift Logic is using session ${phaseIndex + 1} of a ${rampSpec.totalPhases}-session return ramp after ${rampSpec.gapDays} days away, so both load and volume stay temporarily conservative.`
+        : ` Your recent return session after ${rampSpec.gapDays} days away was strong enough to finish the re-ramp and resume normal progression.`,
+  };
 };
 
 const getFatigueState = (
@@ -1040,6 +1221,7 @@ export const buildNextExerciseRecommendation = (
     latestEntry,
     completedSetCount: completedSets.length,
   });
+  const skipExposureAdjustment = getSkipExposureAdjustment(entries, recentSummaries);
   const baselineSummaries = getHistoricalBaselineSummaries(recentSummaries);
   const hasPriorComparableSession = recentSummaries.length > 1;
   const baselineWeight =
@@ -1119,14 +1301,19 @@ export const buildNextExerciseRecommendation = (
     exerciseName: latestEntry.name ?? String(latestEntry.exerciseId || ""),
     preferredUnits: normalizedPreferredUnits,
   });
+  const returnRamp = getReturnRampState(recentSummaries, completionSignal);
   const plateauAdjustedWeight =
     plateau.triggered && plateau.intervention === "deload"
       ? cappedWeight * 0.92
       : plateau.triggered
       ? cappedWeight * 0.96
       : cappedWeight;
+  const adherenceAdjustedWeight =
+    plateauAdjustedWeight *
+    skipExposureAdjustment.loadMultiplier *
+    returnRamp.loadMultiplier;
   const recommendedWeight = roundRecommendedWeight(
-    plateauAdjustedWeight,
+    adherenceAdjustedWeight,
     profile,
     normalizedPreferredUnits,
     loadProfile.displayIncrement
@@ -1177,7 +1364,7 @@ export const buildNextExerciseRecommendation = (
 
   const fatigueAdjustedWeight = recommendedWeight
     ? roundRecommendedWeight(
-        plateauAdjustedWeight * fatigueLoadMultiplier,
+        adherenceAdjustedWeight * fatigueLoadMultiplier,
         profile,
         normalizedPreferredUnits,
         loadProfile.displayIncrement
@@ -1189,6 +1376,8 @@ export const buildNextExerciseRecommendation = (
           1,
           recommendedSets +
             fatigueSetDelta +
+            skipExposureAdjustment.setDelta +
+            returnRamp.setDelta +
             (plateau.triggered && plateau.intervention === "deload" ? -1 : 0)
         )
       : recommendedSets;
@@ -1242,6 +1431,10 @@ export const buildNextExerciseRecommendation = (
         ? `pulled the load back by ${Math.abs(comparisonDelta)} ${normalizedPreferredUnits}`
         : "held the target steady"
     }. Using a rolling ${baselineSummaries.length}-session baseline, ${completionSignal.reason}${detrained.note}. Set count is based on ${setCountResolution.reason}.${outlierNote}${confirmationNote}${
+      skipExposureAdjustment.note
+    }${
+      returnRamp.note
+    }${
       plateau.triggered
         ? plateau.intervention === "deload"
           ? ` Plateau detection tripped after ${plateau.consecutiveStalls} stalled exposures, so Lift Logic prescribes a deload and restart ramp instead of repeating the same failed prescription.`

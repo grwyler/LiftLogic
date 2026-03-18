@@ -748,6 +748,18 @@ const ExerciseItem = ({
     }
   };
 
+  const completedCount =
+    currentExercise.sets?.filter((s) => s.complete).length ?? 0;
+  const totalCount = currentExercise.sets?.length ?? 0;
+  const nextOpenSet =
+    currentExercise.sets?.find((s) => !s.complete) ?? currentExercise.sets?.[0];
+  const upcomingWeight =
+    currentExercise.type === "weight"
+      ? getDisplayWeightFromSet(nextOpenSet, "planned", preferredUnits)
+      : null;
+  const upcomingReps =
+    currentExercise.type === "weight" ? nextOpenSet?.reps ?? null : null;
+
   if (currentExercise.complete) {
     const completedSetCount =
       currentExercise.sets?.filter((s) => s.complete).length ?? 0;
@@ -879,6 +891,10 @@ const ExerciseItem = ({
           </Typography>
         </Box>
 
+        <Typography sx={{ mb: 0.9, color: "text.secondary" }}>
+          Tap a logged set to reopen it and correct any weight, reps, timing, or notes.
+        </Typography>
+
         {currentExercise.sets?.filter((s) => s.complete).map((s, i) => (
           <CompletedSetItem
             key={`completed-log-set-${s.id ?? i}`}
@@ -888,7 +904,10 @@ const ExerciseItem = ({
             type={completedExerciseType}
             darkMode={darkMode}
             preferredUnits={preferredUnits}
-            interactive={false}
+            onActivate={() => {
+              setCurrentSetIndex(i);
+              setCurrentExerciseIndex(exerciseIndex);
+            }}
           />
         ))}
 
@@ -920,21 +939,57 @@ const ExerciseItem = ({
           repeatEndDate={repeatEndDate}
           setRepeatEndDate={setRepeatEndDate}
         />
+
+        <ExerciseLoggingDialog
+          isOpen={isOpen}
+          setCurrentExerciseIndex={setCurrentExerciseIndex}
+          darkMode={darkMode}
+          currentExercise={currentExercise}
+          completedCount={completedSetCount}
+          totalCount={totalCount}
+          upcomingWeight={
+            upcomingWeight !== null ? formatWeightValue(upcomingWeight) : null
+          }
+          upcomingReps={upcomingReps}
+          preferredUnits={preferredUnits}
+          lowEnergyModeActive={lowEnergyModeActive}
+          handleOpenRepeatFlow={handleOpenRepeatFlow}
+          isRepeating={isRepeating}
+          currentSetIndex={currentSetIndex}
+          exerciseIndex={exerciseIndex}
+          setCurrentSetIndex={setCurrentSetIndex}
+          setCurrentExercise={setCurrentExercise}
+          formattedDate={formattedDate}
+          workout={workout}
+          exercises={exercises}
+          setExercises={setExercises}
+          openRestTimer={openRestTimer}
+          exerciseIdentity={exerciseIdentity}
+          setRefetchExercises={setRefetchExercises}
+          refreshCalendarStatuses={refreshCalendarStatuses}
+          isRestTimerBlocking={isRestTimerBlocking}
+          handleLogSetAttempt={handleLogSetAttempt}
+          handleLogSetPersisted={handleLogSetPersisted}
+          handleLogSetFailed={handleLogSetFailed}
+          handleDeleteSet={handleDeleteSet}
+          handleAddSet={handleAddSet}
+          renderRecommendationPanel={renderRecommendationPanel}
+          renderExecutionPanel={renderExecutionPanel}
+          mobileTouchTarget={mobileTouchTarget}
+          routineName={routineName}
+          recommendation={recommendation}
+        />
+
+        <ExerciseHistoryDialog
+          open={showHistoryDialog}
+          onClose={() => setShowHistoryDialog(false)}
+          exerciseName={toTitleCase(currentExercise.name)}
+          entries={progressEntries ?? []}
+          preferredUnits={preferredUnits}
+        />
       </Paper>
     );
   }
-
-  const completedCount =
-    currentExercise.sets?.filter((s) => s.complete).length ?? 0;
-  const totalCount = currentExercise.sets?.length ?? 0;
-  const nextOpenSet =
-    currentExercise.sets?.find((s) => !s.complete) ?? currentExercise.sets?.[0];
-  const upcomingWeight =
-    currentExercise.type === "weight"
-      ? getDisplayWeightFromSet(nextOpenSet, "planned", preferredUnits)
-      : null;
-  const upcomingReps =
-    currentExercise.type === "weight" ? nextOpenSet?.reps ?? null : null;
 
   return (
     <>

@@ -4,9 +4,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Button, Chip, Collapse, Paper, Stack, Typography } from "@mui/material";
 import { fetchWorkoutEntriesRange } from "../utils/helpers";
 import {
+  buildRecoveryGuidance,
   buildMuscleRecoveryMap,
   getRecoveryFill,
   MuscleRegionId,
+  muscleRegionLabels,
 } from "../utils/muscleRecovery";
 
 const musclePanelRadius = {
@@ -24,21 +26,7 @@ type RecoveryRegion = {
   intensity: number;
 };
 
-const regionLabels: Record<MuscleRegionId, string> = {
-  shoulders: "Shoulders",
-  chest: "Chest",
-  biceps: "Biceps",
-  triceps: "Triceps",
-  core: "Core",
-  quads: "Quads",
-  calves: "Calves",
-  rear_delts: "Rear delts",
-  upper_back: "Upper back",
-  lats: "Lats",
-  lower_back: "Lower back",
-  glutes: "Glutes",
-  hamstrings: "Hamstrings",
-};
+const regionLabels: Record<MuscleRegionId, string> = muscleRegionLabels;
 
 const regionGroups: Array<{
   title: string;
@@ -253,6 +241,16 @@ export default function MuscleRecoveryMap({
       })),
     [recovery]
   );
+  const recoveryGuidance = useMemo(
+    () =>
+      buildRecoveryGuidance(
+        activeRegions.map((region) => ({
+          label: region.label,
+          hoursAgo: region.hoursAgo,
+        }))
+      ),
+    [activeRegions]
+  );
 
   if (!exercises.length) {
     return null;
@@ -317,6 +315,36 @@ export default function MuscleRecoveryMap({
             </Button>
           </Stack>
         </Box>
+
+        {recoveryGuidance ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.2,
+              borderRadius: musclePanelRadius.section,
+              border: "1px solid",
+              borderColor:
+                recoveryGuidance.tone === "push"
+                  ? "rgba(34,197,94,0.22)"
+                  : recoveryGuidance.tone === "rest"
+                  ? "rgba(249,115,22,0.22)"
+                  : "divider",
+              backgroundColor: darkMode
+                ? "rgba(15,23,42,0.52)"
+                : "rgba(248,250,252,0.92)",
+            }}
+          >
+            <Stack spacing={0.45}>
+              <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.1em" }}>
+                Recovery guidance
+              </Typography>
+              <Typography sx={{ fontWeight: 700 }}>{recoveryGuidance.headline}</Typography>
+              <Typography sx={{ color: "text.secondary" }}>
+                {recoveryGuidance.supportingCopy}
+              </Typography>
+            </Stack>
+          </Paper>
+        ) : null}
 
         <Collapse in={isOpen} timeout="auto" unmountOnExit>
           <Stack spacing={1.75}>

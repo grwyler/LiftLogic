@@ -843,11 +843,12 @@ const pickDays = (profile: SetupFormValues) => {
     .filter(Boolean);
 
   const count = Math.max(
-    2,
+    1,
     Math.min(6, Number(profile.workoutDaysPerWeek || preferred.length || 3))
   );
 
   const defaultsByCount: Record<number, (typeof dayKeys)[number][]> = {
+    1: ["wednesday"],
     2: ["monday", "thursday"],
     3: ["monday", "wednesday", "friday"],
     4: ["monday", "tuesday", "thursday", "friday"],
@@ -1506,6 +1507,131 @@ const buildFallbackSplit = (profile: SetupFormValues) => {
     : isHomeDumbbellProfile(profile)
     ? homeDumbbellTemplates
     : defaultTemplates;
+
+  if (days.length === 1) {
+    const oneDayTemplateByProfileType: Record<
+      "default" | "home_dumbbell" | "bodyweight",
+      Record<string, { title: string; exerciseNames: string[] }>
+    > = {
+      default: {
+        strength: {
+          title: "Full Body Strength Anchor",
+          exerciseNames: [
+            "Back Squat",
+            "Bench Press",
+            "Barbell Row",
+            "Romanian Deadlift",
+          ],
+        },
+        muscle: {
+          title: "Full Body Muscle Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Bench Press",
+            "Lat Pulldown",
+            "Romanian Deadlift",
+          ],
+        },
+        conditioning: {
+          title: "Full Body Conditioning Anchor",
+          exerciseNames: ["Cycling", "Goblet Squat", "Push-Up", "Plank"],
+        },
+        fat_loss: {
+          title: "Full Body Fat-Loss Anchor",
+          exerciseNames: ["Goblet Squat", "Bench Press", "Lat Pulldown", "Cycling"],
+        },
+        consistency: {
+          title: "Full Body Consistency Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Bench Press",
+            "Seated Cable Row",
+            "Plank",
+          ],
+        },
+      },
+      home_dumbbell: {
+        strength: {
+          title: "Full Body Strength Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Dumbbell Floor Press",
+            "One-Arm Dumbbell Row",
+            "Romanian Deadlift",
+          ],
+        },
+        muscle: {
+          title: "Full Body Muscle Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Dumbbell Floor Press",
+            "One-Arm Dumbbell Row",
+            "Walking Lunge",
+          ],
+        },
+        conditioning: {
+          title: "Full Body Conditioning Anchor",
+          exerciseNames: ["Jump Rope", "Goblet Squat", "Push-Up", "Plank"],
+        },
+        fat_loss: {
+          title: "Full Body Fat-Loss Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Dumbbell Floor Press",
+            "One-Arm Dumbbell Row",
+            "Jump Rope",
+          ],
+        },
+        consistency: {
+          title: "Full Body Consistency Anchor",
+          exerciseNames: [
+            "Goblet Squat",
+            "Dumbbell Floor Press",
+            "One-Arm Dumbbell Row",
+            "Plank",
+          ],
+        },
+      },
+      bodyweight: {
+        strength: {
+          title: "Full Body Strength Anchor",
+          exerciseNames: ["Bodyweight Squat", "Push-Up", "Reverse Lunge", "Plank"],
+        },
+        muscle: {
+          title: "Full Body Muscle Anchor",
+          exerciseNames: ["Bodyweight Squat", "Push-Up", "Reverse Lunge", "Wall Sit"],
+        },
+        conditioning: {
+          title: "Full Body Conditioning Anchor",
+          exerciseNames: ["Mountain Climber", "Bodyweight Squat", "Push-Up", "Plank"],
+        },
+        fat_loss: {
+          title: "Full Body Fat-Loss Anchor",
+          exerciseNames: [
+            "Bodyweight Squat",
+            "Push-Up",
+            "Prone Back Extension",
+            "Mountain Climber",
+          ],
+        },
+        consistency: {
+          title: "Full Body Consistency Anchor",
+          exerciseNames: ["Bodyweight Squat", "Push-Up", "Bird Dog", "Plank"],
+        },
+      },
+    };
+
+    const template =
+      oneDayTemplateByProfileType[profileType][normalizedGoal] ??
+      oneDayTemplateByProfileType[profileType].consistency;
+
+    return days.map((dayKey) => ({
+      dayKey,
+      title: template.title,
+      exercises: buildExercisesForDay(template.exerciseNames, normalizedGoal, profile),
+    }));
+  }
+
   const split =
     buildHighFrequencySplit(profileType, normalizedGoal, days.length) ??
     templates[normalizedGoal] ??
@@ -1559,6 +1685,9 @@ export const buildFallbackWorkoutPlan = (
   return {
     summary: [
       "Built a baseline weekly draft from your goal, weekly frequency, and available equipment.",
+      days.length === 1
+        ? "This one-day version is a full-body anchor session with optional extra movement on other days, not a missed ideal."
+        : null,
       days.length >= 5
         ? "The higher-frequency layout redistributes stress with lighter sessions instead of repeating the same workout."
         : null,

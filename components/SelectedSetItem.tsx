@@ -88,6 +88,7 @@ const SelectedSetItem = ({
   onLogSetAttempt,
   onLogSetPersisted,
   onLogSetFailed,
+  recommendation,
 }) => {
   const weightUnit = normalizeWeightUnit(preferredUnits);
   const weightInputConfig = getWeightInputConfig(weightUnit);
@@ -185,6 +186,13 @@ const SelectedSetItem = ({
     .reverse()
     .find((existingSet) => existingSet.complete);
   const currentWeightNumber = Number.parseFloat(String(currentSetWeight || ""));
+  const plannedDisplayWeight = getDisplayWeightFromSet(set, "planned", weightUnit);
+  const plannedRepCount = Number.parseInt(String(reps || 0), 10) || 0;
+  const hasHistoryBackedRecommendation = Boolean(recommendation?.basedOn?.date);
+  const showStarterLoadExplanation =
+    currentExercise.type === "weight" &&
+    plannedDisplayWeight !== null &&
+    plannedRepCount > 0;
   const showPlateMath =
     currentExercise.type === "weight" &&
     isBarbellExercise(currentExercise.name) &&
@@ -359,6 +367,15 @@ const SelectedSetItem = ({
     );
 
     setCurrentSetReps(String(nextReps));
+  };
+
+  const resetToPlannedTarget = () => {
+    if (plannedDisplayWeight !== null) {
+      setCurrentSetWeight(formatWeightValue(plannedDisplayWeight));
+    }
+    if (plannedRepCount > 0) {
+      setCurrentSetReps(String(plannedRepCount));
+    }
   };
 
   const copyPreviousSet = () => {
@@ -781,6 +798,30 @@ const SelectedSetItem = ({
               <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
                 Plate math: {plateMathBreakdown}
               </Typography>
+            ) : null}
+            {showStarterLoadExplanation ? (
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1,
+                  borderRadius: 2,
+                  backgroundColor: darkMode
+                    ? "rgba(15,23,42,0.5)"
+                    : "rgba(255,255,255,0.75)",
+                }}
+              >
+                <Typography sx={{ color: "text.secondary" }}>
+                  {hasHistoryBackedRecommendation
+                    ? `Starting load is anchored to your recent logged history from ${recommendation?.basedOn?.date}.`
+                    : "Starting load is a baseline estimate for this lift because you do not have recent logged history yet."}{" "}
+                  Lower, keep, or raise it before you log the set.
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+                  <Chip label="Lower" clickable onClick={() => adjustWeightQuickly(-1)} />
+                  <Chip label="Keep suggestion" clickable onClick={resetToPlannedTarget} color="primary" variant="outlined" />
+                  <Chip label="Raise" clickable onClick={() => adjustWeightQuickly(1)} />
+                </Stack>
+              </Box>
             ) : null}
           </Paper>
 

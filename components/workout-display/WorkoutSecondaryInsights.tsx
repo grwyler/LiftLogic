@@ -59,6 +59,21 @@ const WorkoutSecondaryInsights = ({
     return null;
   }
 
+  const comebackChipLabel =
+    comebackGuide?.state === "early_drift"
+      ? "Small restart window"
+      : "Fresh win opportunity";
+  const comebackActionLabel =
+    comebackGuide?.state === "early_drift" ? "Start easy session" : "Start return session";
+  const comebackSecondaryAction =
+    comebackGuide?.state === "early_drift" ? "Take the minimum win" : "Ease back in";
+  const comebackTertiaryAction =
+    comebackGuide?.state === "early_drift" ? "Rework this week" : "Reshape this week";
+  const comebackBridgeCopy =
+    comebackGuide?.state === "early_drift"
+      ? "No catch-up required. A short session, a lighter day, or even a minimum-win version still moves the week forward."
+      : "No streak debt, no catch-up workout. Pick the easiest next step and let today count.";
+
   return (
     <Stack spacing={1.5}>
       <Box sx={{ px: 0.25 }}>
@@ -506,7 +521,7 @@ const WorkoutSecondaryInsights = ({
                   <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
                     Comeback Plan
                   </Typography>
-                  <Chip size="small" color="primary" label="Fresh win opportunity" variant="outlined" />
+                  <Chip size="small" color="primary" label={comebackChipLabel} variant="outlined" />
                 </Stack>
                 <Typography variant="h6" sx={{ mt: 0.25 }}>
                   {comebackGuide.headline}
@@ -533,7 +548,7 @@ const WorkoutSecondaryInsights = ({
             </Stack>
 
             <Typography sx={{ color: "text.secondary" }}>
-              No streak debt, no catch-up workout. Pick the easiest next step and let today count.
+              {comebackBridgeCopy}
             </Typography>
             {comebackGuide.lastCompletedLabel || comebackGuide.adjustmentCopy ? (
               <Stack spacing={0.5}>
@@ -551,13 +566,13 @@ const WorkoutSecondaryInsights = ({
             ) : null}
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button variant="contained" size="small" onClick={onResumeToday}>
-                Start return session
+                {comebackActionLabel}
               </Button>
               <Button variant="outlined" size="small" onClick={onLightRestart}>
-                Ease back in
+                {comebackSecondaryAction}
               </Button>
               <Button variant="outlined" size="small" onClick={onRescheduleThisWeek}>
-                Reshape this week
+                {comebackTertiaryAction}
               </Button>
             </Stack>
           </Stack>

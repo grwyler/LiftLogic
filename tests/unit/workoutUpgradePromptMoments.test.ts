@@ -28,11 +28,11 @@ describe("workout upgrade prompt moments", () => {
     expect(scheduleHookSource).toContain("if (!currentUserId) {");
 
     expect(feedbackPanelsSource).toContain(
-      "You unlocked a next-session recommendation from your recent logs."
+      "Your logs are ready for a next-session suggestion. Free still shows the progress you earned first."
     );
-    expect(feedbackPanelsSource).toContain("See Pro Beta recommendation");
-    expect(feedbackPanelsSource).toContain("See Pro Beta insights");
-    expect(feedbackPanelsSource).toContain("Extend this PR with Pro Beta");
+    expect(feedbackPanelsSource).toContain("See the coaching recommendation");
+    expect(feedbackPanelsSource).toContain("See deeper coaching insights");
+    expect(feedbackPanelsSource).toContain("Explore the coaching follow-up");
     expect(workoutDisplaySource).toContain("Turn this into a minimum win");
     expect(workoutDisplaySource).toContain("weekly_pro_brief_viewed");
 
@@ -49,5 +49,8 @@ describe("workout upgrade prompt moments", () => {
     expect(routinesSource).toContain("Eligible first-time upgrades can start with a 7-day trial");
     expect(routinesSource).toContain('upgradeLabel: "View trial and pricing"');
     expect(routinesSource).toContain("Extend this with a trial");
+    expect(routinesSource).toContain("upgrade_prompt_declined_");
+    expect(routinesSource).toContain("upgrade_prompt_snoozed_");
+    expect(routinesSource).toContain("Keep the workout moving");
   });
 });

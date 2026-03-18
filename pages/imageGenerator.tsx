@@ -1,6 +1,6 @@
 import React, { useState } from "react";
+import { Alert, Box, Button, CircularProgress, Paper, Stack, TextField } from "@mui/material";
 import { getImageFromOpenAI } from "../utils/helpers";
-import { FaSpinner } from "react-icons/fa";
 
 const ImageGeneratorHome = () => {
   const [userPrompt, setUserPrompt] = useState("");
@@ -13,43 +13,63 @@ const ImageGeneratorHome = () => {
   };
 
   return (
-    <div className="container  mt-2">
-      <div className="d-flex">
-        <input
-          className="form-control "
-          type="text"
-          placeholder="Describe the image"
-          value={userPrompt}
-          onChange={(e) => {
-            setUserPrompt(e.target.value);
-            if (error) {
-              setError("");
-            }
-          }}
-        />
-        <button
-          className="btn btn-success"
-          disabled={userPrompt === "" || loading}
-          onClick={handleGenerateImage}
-        >
-          {loading ? "Generating..." : "Generate"}
-        </button>
-      </div>
-      {error ? <p className="mt-2 text-danger">{error}</p> : null}
-      {loading ? (
-        <div className="spinning m-3 text-center">
-          <FaSpinner />
-        </div>
-      ) : (
-        image && (
-          <img
-            src={image}
-            alt="img"
-            style={{ paddingTop: "10px", maxWidth: "100%" }}
-          />
-        )
-      )}
-    </div>
+    <Box sx={{ px: 2, py: 2.5 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          maxWidth: 960,
+          mx: "auto",
+          p: 2,
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Stack spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+            <TextField
+              fullWidth
+              label="Describe the image"
+              value={userPrompt}
+              onChange={(event) => {
+                setUserPrompt(event.target.value);
+                if (error) {
+                  setError("");
+                }
+              }}
+            />
+            <Button
+              variant="contained"
+              disabled={userPrompt === "" || loading}
+              onClick={handleGenerateImage}
+              sx={{ minWidth: { sm: 160 } }}
+            >
+              {loading ? "Generating..." : "Generate"}
+            </Button>
+          </Stack>
+
+          {error ? <Alert severity="error">{error}</Alert> : null}
+
+          {loading ? (
+            <Box sx={{ display: "grid", placeItems: "center", minHeight: 220 }}>
+              <CircularProgress />
+            </Box>
+          ) : image ? (
+            <Box
+              component="img"
+              src={image}
+              alt="Generated result"
+              sx={{
+                width: "100%",
+                borderRadius: 2.5,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            />
+          ) : null}
+        </Stack>
+      </Paper>
+    </Box>
   );
 };
 

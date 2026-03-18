@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import { defaultSetupForm } from "../../utils/profileSetup";
 import {
@@ -43,5 +45,18 @@ describe("starter load guidance", () => {
     expect(response.tips).toContain(
       "For your first session, start with the empty bar or a light warm-up load and build up until the working sets feel like about 2-3 reps in reserve. Log what you actually use so later recommendations can anchor to your performance instead of a generic starter weight."
     );
+  });
+
+  it("explains whether the starting load comes from history or a baseline estimate in the active set flow", () => {
+    const selectedSetSource = fs.readFileSync(
+      path.join(process.cwd(), "components", "SelectedSetItem.tsx"),
+      "utf8"
+    );
+
+    expect(selectedSetSource).toContain("Starting load is a baseline estimate for this lift");
+    expect(selectedSetSource).toContain("Starting load is anchored to your recent logged history");
+    expect(selectedSetSource).toContain("Keep suggestion");
+    expect(selectedSetSource).toContain("Lower");
+    expect(selectedSetSource).toContain("Raise");
   });
 });

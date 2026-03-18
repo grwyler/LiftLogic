@@ -100,6 +100,20 @@ const safeStringify = (value: unknown) => {
 const truncate = (value: string, max = 180) =>
   value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
+const buildInteractionPreviewKey = (interaction: RecorderInteraction, index: number) =>
+  [
+    interaction.timestamp || "no-time",
+    interaction.type || "no-type",
+    interaction.page || "no-page",
+    interaction.target || "no-target",
+    interaction.label || "no-label",
+    interaction.detail || "no-detail",
+    interaction.expected || "no-expected",
+    interaction.actual || "no-actual",
+    interaction.value || "no-value",
+    index,
+  ].join("::");
+
 const getElementDescriptor = (element: HTMLElement | null) => {
   if (!element) {
     return "unknown target";
@@ -918,7 +932,7 @@ const DevBugRecorder = () => {
                     .reverse()
                     .map((interaction, index) => (
                     <Paper
-                      key={`${interaction.timestamp}-${interaction.type}-${interaction.target}-${index}`}
+                      key={buildInteractionPreviewKey(interaction, index)}
                       variant="outlined"
                       sx={{ p: 1, borderRadius: 2 }}
                     >

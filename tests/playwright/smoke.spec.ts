@@ -40,11 +40,11 @@ test.describe("Lift Logic smoke", () => {
     await page.waitForURL(/\/pricing/);
     await expect(
       page.getByRole("heading", {
-        name: /Tracking stays free\. Adaptive planning becomes Pro Beta\./i,
+        name: /Tracking stays free\. Adaptive planning becomes Pro\./i,
       })
     ).toBeVisible();
 
-    await page.getByRole("link", { name: /Start free beta/i }).first().click();
+    await page.getByRole("link", { name: /Start free/i }).first().click();
     await page.waitForURL(/\/signup/);
   });
 
@@ -90,7 +90,7 @@ test.describe("Lift Logic smoke", () => {
     await expect(page.getByText("Upgrade for planning")).toBeVisible();
   });
 
-  test("free users see the Pro Beta gate before assistant plan generation", async ({
+  test("free users see the Pro gate before assistant plan generation", async ({
     page,
   }) => {
     const username = buildUsername("coach-plan");
@@ -105,10 +105,7 @@ test.describe("Lift Logic smoke", () => {
     await page.getByRole("button", { name: "4 days" }).click();
 
     await expect(
-      page.getByText("Pro Beta is required to generate assistant-built workout plans.")
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Upgrade for Pro Beta" })
+      page.getByRole("button", { name: "Upgrade for Pro" })
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Save preferences only" })

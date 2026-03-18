@@ -181,6 +181,7 @@ const ExerciseLoggingDialog = ({
                 onLogSetAttempt={handleLogSetAttempt}
                 onLogSetPersisted={handleLogSetPersisted}
                 onLogSetFailed={handleLogSetFailed}
+                recommendation={recommendation}
               />
             );
           }

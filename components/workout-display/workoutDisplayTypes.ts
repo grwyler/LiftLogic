@@ -38,7 +38,11 @@ export type WorkoutWeeklyConsistency = {
 };
 
 export type WorkoutComebackGuide = {
-  state?: "missed_sessions" | "returning_after_lapse" | "missed_sessions_and_lapse";
+  state?:
+    | "early_drift"
+    | "missed_sessions"
+    | "returning_after_lapse"
+    | "missed_sessions_and_lapse";
   headline: string;
   supportingCopy: string;
   missedScheduledCount: number;

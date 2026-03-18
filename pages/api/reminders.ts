@@ -17,6 +17,13 @@ import { ReminderDeliveryDoc, UserDoc, WorkoutEntryDoc } from "../../utils/types
 const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
+const buildEmptyRetentionSummary = () => ({
+  delivered: 0,
+  opened: 0,
+  read: 0,
+  postReminderWorkoutStarts: 0,
+});
+
 const buildReminderMessage = ({
   username,
   kind,
@@ -150,8 +157,6 @@ export default async function handler(
 ) {
   const session = await getServerSession(req, res, authOptions);
   const userId = getSessionUserId(session);
-  const db = await connectToDatabase();
-  const deliveries = db.collection<ReminderDeliveryDoc>("reminderDeliveries");
 
   if (req.method === "GET") {
     if (sanitizeText(req.query.summary) === "retention") {
@@ -159,6 +164,18 @@ export default async function handler(
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      let db: Awaited<ReturnType<typeof connectToDatabase>>;
+      try {
+        db = await connectToDatabase();
+      } catch (error) {
+        console.warn("Reminder retention summary degraded because the database is unavailable.", error);
+        return res.status(200).json({
+          ...buildEmptyRetentionSummary(),
+          degraded: true,
+        });
+      }
+
+      const deliveries = db.collection<ReminderDeliveryDoc>("reminderDeliveries");
       const reminderDocs = await deliveries.find({}).toArray();
       return res.status(200).json({
         delivered: reminderDocs.length,
@@ -174,6 +191,18 @@ export default async function handler(
       return res.status(401).json({ message: "Authentication required" });
     }
 
+    let db: Awaited<ReturnType<typeof connectToDatabase>>;
+    try {
+      db = await connectToDatabase();
+    } catch (error) {
+      console.warn("Reminder inbox degraded because the database is unavailable.", error);
+      return res.status(200).json({
+        reminders: [],
+        degraded: true,
+      });
+    }
+
+    const deliveries = db.collection<ReminderDeliveryDoc>("reminderDeliveries");
     const unreadOnly = sanitizeText(req.query.unreadOnly) !== "false";
     const results = await deliveries
       .find(
@@ -208,6 +237,18 @@ export default async function handler(
       return res.status(403).json({ message: "Forbidden" });
     }
 
+    let db: Awaited<ReturnType<typeof connectToDatabase>>;
+    try {
+      db = await connectToDatabase();
+    } catch (error) {
+      console.warn("Reminder dispatch degraded because the database is unavailable.", error);
+      return res.status(200).json({
+        success: true,
+        createdCount: 0,
+        degraded: true,
+      });
+    }
+
     const result = await dispatchDueReminders(db);
     return res.status(200).json({
       success: true,
@@ -225,6 +266,15 @@ export default async function handler(
   }
 
   if (action === "acknowledge") {
+    let db: Awaited<ReturnType<typeof connectToDatabase>>;
+    try {
+      db = await connectToDatabase();
+    } catch (error) {
+      console.warn("Reminder acknowledgement degraded because the database is unavailable.", error);
+      return res.status(200).json({ success: false, degraded: true });
+    }
+
+    const deliveries = db.collection<ReminderDeliveryDoc>("reminderDeliveries");
     await deliveries.updateOne(
       { _id: new (await import("mongodb")).ObjectId(reminderId), userId },
       {

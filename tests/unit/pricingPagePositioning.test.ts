@@ -3,17 +3,17 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 describe("pricing page positioning", () => {
-  it("defines the intended Free vs Pro Beta split", () => {
+  it("defines the intended Free vs Pro split", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "pages", "pricing.tsx"),
       "utf8"
     );
 
     expect(source).toContain(
-      "Tracking stays free. Adaptive planning becomes Pro Beta."
+      "Tracking stays free. Adaptive planning becomes Pro."
     );
     expect(source).toContain("Starter Kickoff");
-    expect(source).toContain("$29 one-time beta offer");
+    expect(source).toContain("$29 one-time kickoff offer");
     expect(source).toContain("pricing_starter_kickoff_cta");
     expect(source).toContain("Workout logging and quick add");
     expect(source).toContain("Adaptive plan generation");
@@ -22,6 +22,11 @@ describe("pricing page positioning", () => {
     expect(source).toContain("Progress-based recommendations");
     expect(source).toContain("Billing is now wired for self-serve upgrades.");
     expect(source).toContain("Manage billing");
+    expect(source).toContain("Before you leave Pro");
+    expect(source).toContain("Pause for 30 days");
+    expect(source).toContain("Switch billing cadence");
+    expect(source).toContain("Continue to cancel");
+    expect(source).toContain("cancel_save_");
     expect(source).toContain("Start with a real {trialDays}-day Pro trial");
     expect(source).toContain("What happens after the trial?");
     expect(source).toContain("pricing_trial_${option.interval}");
@@ -55,7 +60,7 @@ describe("pricing page positioning", () => {
     expect(homeSource).toContain('href="/pricing"');
     expect(homeSource).toContain("Compare plans");
     expect(signupSource).toContain('href="/pricing"');
-    expect(signupSource).toContain("See Free vs Pro Beta");
+    expect(signupSource).toContain("See Free vs Pro");
     expect(routinesSource).toContain('router.push("/pricing")');
     expect(routinesSource).toContain("View pricing");
     expect(userSource).toContain('router.push("/pricing")');

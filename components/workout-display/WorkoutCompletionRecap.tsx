@@ -345,6 +345,49 @@ const WorkoutCompletionRecap = ({
       </Paper>
     ) : null}
 
+    {completedExercises.length > 0 && !isWorkoutComplete ? (
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.4, sm: 1.6 },
+          borderRadius: routinesPanelRadius.shell,
+          border: "1px solid",
+          borderColor: darkMode ? "rgba(250,204,21,0.22)" : "rgba(202,138,4,0.18)",
+          background: darkMode
+            ? "linear-gradient(145deg, rgba(69,26,3,0.34), rgba(15,23,42,0.78))"
+            : "linear-gradient(145deg, rgba(255,251,235,0.96), rgba(255,255,255,0.98))",
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+        >
+          <Box>
+            <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: "0.12em" }}>
+              Partial Credit
+            </Typography>
+            <Typography variant="h6" sx={{ mt: 0.25 }}>
+              You kept the habit alive today.
+            </Typography>
+            <Typography sx={{ mt: 0.35, color: "text.secondary", maxWidth: 640 }}>
+              Core work completed still counts. This session stays honest in the data, but it does
+              not need to read like a failure just because life cut it short.
+            </Typography>
+          </Box>
+          <Chip
+            color="warning"
+            variant="outlined"
+            label={`${completedExercises.length} exercise${
+              completedExercises.length === 1 ? "" : "s"
+            } logged`}
+            sx={{ fontWeight: 700 }}
+          />
+        </Stack>
+      </Paper>
+    ) : null}
+
     {(completedExercises.length > 0 || isWorkoutComplete) && (
       <Box
         sx={{

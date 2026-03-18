@@ -1,5 +1,4 @@
 // pages/_app.tsx
-import "bootstrap/dist/css/bootstrap.min.css";
 import { AppProps } from "next/app";
 import { SessionProvider } from "next-auth/react";
 import "../styles/global.css";
@@ -140,6 +139,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   const [appearanceDensity, setAppearanceDensity] =
     useState<AppearanceDensity>("comfortable");
   const [interfaceScale, setInterfaceScale] = useState<InterfaceScale>("normal");
+  const [deferredShellReady, setDeferredShellReady] = useState(false);
   const [developerChromeEnabled, setDeveloperChromeEnabled] = useState(false);
   const themeMeta = getThemePreferenceMeta(themePreference);
   const darkMode = themeMeta.mode === "dark";
@@ -687,6 +687,18 @@ function MyApp({ Component, pageProps }: AppProps) {
       return;
     }
 
+    const readyTimer = window.setTimeout(() => {
+      setDeferredShellReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(readyTimer);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     let cleanupTimer: number | null = window.setTimeout(() => {
       window.sessionStorage.removeItem(STALE_ASSET_RECOVERY_KEY);
     }, STALE_ASSET_RECOVERY_WINDOW_MS);
@@ -786,15 +798,19 @@ function MyApp({ Component, pageProps }: AppProps) {
           interfaceScale={interfaceScale}
           setInterfaceScale={applyInterfaceScale}
         />
-        <AutomaticBugReporter />
-        {developerChromeEnabled ? <AppVersionBadge /> : null}
-        <ToastContainer
-          position="bottom-center"
-          autoClose={2500}
-          toastClassName="liftlogic-toast"
-        />
-        {process.env.NODE_ENV !== "production" && developerChromeEnabled ? (
-          <DevBugRecorder />
+        {deferredShellReady ? (
+          <>
+            <AutomaticBugReporter />
+            {developerChromeEnabled ? <AppVersionBadge /> : null}
+            <ToastContainer
+              position="bottom-center"
+              autoClose={2500}
+              toastClassName="liftlogic-toast"
+            />
+            {process.env.NODE_ENV !== "production" && developerChromeEnabled ? (
+              <DevBugRecorder />
+            ) : null}
+          </>
         ) : null}
         </div>
       </ThemeProvider>

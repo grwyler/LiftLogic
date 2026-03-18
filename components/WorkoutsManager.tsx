@@ -92,7 +92,11 @@ type WeeklyConsistencyState = {
 };
 
 export type ComebackGuideState = {
-  state: "missed_sessions" | "returning_after_lapse" | "missed_sessions_and_lapse";
+  state:
+    | "early_drift"
+    | "missed_sessions"
+    | "returning_after_lapse"
+    | "missed_sessions_and_lapse";
   missedScheduledCount: number;
   daysSinceLastLog: number | null;
   headline: string;
@@ -173,9 +177,29 @@ export const buildComebackGuide = ({
 
   const hasMissedSessions = missedScheduledCount >= 2;
   const hasMeaningfulLapse = daysSinceLastLog !== null && daysSinceLastLog >= 8;
+  const hasEarlyDrift =
+    !hasMissedSessions &&
+    !hasMeaningfulLapse &&
+    (missedScheduledCount >= 1 || (daysSinceLastLog !== null && daysSinceLastLog >= 4));
 
-  if (!hasMissedSessions && !hasMeaningfulLapse) {
+  if (!hasMissedSessions && !hasMeaningfulLapse && !hasEarlyDrift) {
     return null;
+  }
+
+  if (hasEarlyDrift) {
+    return {
+      state: "early_drift",
+      missedScheduledCount,
+      daysSinceLastLog,
+      lastCompletedLabel,
+      headline: "A small restart now keeps this from becoming a bigger reset",
+      supportingCopy:
+        missedScheduledCount >= 1
+          ? `One planned session slipped earlier this week. The goal now is one easy return session, not catching up all at once.`
+          : `It has been a few days since your last logged workout. A short, low-pressure session today keeps momentum alive without turning this into a comeback project.`,
+      adjustmentCopy:
+        "A lighter session or a minimum-win version still counts. The stronger comeback plan can wait unless the gap grows.",
+    };
   }
 
   if (hasMissedSessions && hasMeaningfulLapse) {

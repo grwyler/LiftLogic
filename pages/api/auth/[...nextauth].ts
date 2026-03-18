@@ -110,6 +110,7 @@ const getOrCreateOAuthUser = async ({
     notes: "",
     setupPromptSeen: false,
     setupCompleted: false,
+    activationChecklistDismissed: false,
     billingPlan: "free",
     productPlan: "free",
     entitlements: FREE_ENTITLEMENTS,

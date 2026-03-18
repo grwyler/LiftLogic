@@ -307,4 +307,41 @@ describe("funnel API", () => {
       },
     });
   });
+
+  it("returns a degraded empty monetization summary when the database is unavailable", async () => {
+    mocks.getServerSession.mockResolvedValue({
+      user: {
+        _id: new ObjectId().toString(),
+        username: "workflow-admin",
+        email: "admin@example.com",
+        permissions: {
+          bugWorkflowAdmin: true,
+        },
+      },
+    });
+    mocks.connectToDatabase.mockRejectedValue(new Error("db unavailable"));
+
+    const req = createMockRequest({
+      method: "GET",
+      query: {
+        summary: "monetization",
+      },
+    });
+    const res = createMockResponse();
+
+    await handler(req, res as any);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      degraded: true,
+      pricingPageViews: 0,
+      checkoutStarts: 0,
+      checkoutCompletions: 0,
+      activePaidUsers: 0,
+      cancellationRate: 0,
+      anonymousStage: {
+        landingPageViews: 0,
+      },
+    });
+  });
 });

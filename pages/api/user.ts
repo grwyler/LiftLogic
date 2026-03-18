@@ -130,6 +130,15 @@ const buildUserUpdate = (user: Record<string, unknown>) => {
     update.setupCompleted = Boolean(user.setupCompleted);
   }
 
+  if ("assistantSetupDeferredAt" in user) {
+    const assistantSetupDeferredAt = sanitizeText(user.assistantSetupDeferredAt);
+    update.assistantSetupDeferredAt = assistantSetupDeferredAt || null;
+  }
+
+  if ("activationChecklistDismissed" in user) {
+    update.activationChecklistDismissed = Boolean(user.activationChecklistDismissed);
+  }
+
   if ("reminderPreferences" in user) {
     update.reminderPreferences = normalizeReminderPreferences(
       user.reminderPreferences,

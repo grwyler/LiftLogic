@@ -13,7 +13,7 @@ test.describe("Lift Logic Android smoke", () => {
     const pricingLink = page.getByRole("link", { name: "Pricing" }).first();
     const signInLink = page.getByRole("link", { name: "Sign in" }).first();
     const startFreeBetaLink = page
-      .getByRole("link", { name: /Start free beta/i })
+      .getByRole("link", { name: /Start free/i })
       .first();
 
     await expect(pricingLink).toBeVisible();

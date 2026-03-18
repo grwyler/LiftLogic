@@ -63,9 +63,19 @@ export const CompletedExercisePerformancePanel = ({
         </Typography>
         <Typography sx={{ mt: 1, color: "text.secondary" }}>
           {hasUnlockedProgressionRecommendation
-            ? "You unlocked performance trends and next-step recommendations from your recent logs."
-            : "Keep logging clean weight sessions and Pro Beta will unlock performance trends and next-step recommendations here."}
+            ? "Your recent logs are building a real trend line. You already have usable progress signals from this lift."
+            : "Keep logging clean weight sessions and this panel will keep turning raw sets into visible progress signals."}
         </Typography>
+        {hasUnlockedProgressionRecommendation && progressSummary?.latestEstimated1RM ? (
+          <Typography sx={{ mt: 0.85, color: "text.secondary" }}>
+            Latest visible benchmark:{" "}
+            {formatWeight(
+              fromCanonicalWeightLb(progressSummary.latestEstimated1RM, preferredUnits),
+              preferredUnits
+            )}{" "}
+            estimated 1RM.
+          </Typography>
+        ) : null}
         {hasUnlockedProgressionRecommendation ? (
           <Button
             variant="outlined"
@@ -73,7 +83,7 @@ export const CompletedExercisePerformancePanel = ({
             sx={{ mt: 1.25 }}
             onClick={() => onRequestProgressionUpgradePrompt?.()}
           >
-            See Pro Beta insights
+            See deeper coaching insights
           </Button>
         ) : null}
       </Paper>
@@ -216,7 +226,7 @@ export const CompletedExercisePerformancePanel = ({
               sx={{ justifySelf: "flex-start" }}
               onClick={() => onRequestPersonalRecordUpgradePrompt?.()}
             >
-              Extend this PR with Pro Beta
+              Explore the coaching follow-up
             </Button>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {personalRecordHighlights.map((highlight: any) => (
@@ -362,8 +372,8 @@ export const ExerciseRecommendationPanel = ({
         </Typography>
         <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
           {hasUnlockedProgressionRecommendation
-            ? "You unlocked a next-session recommendation from your recent logs."
-            : "Finish a fully logged weight session for this lift to unlock a data-driven recommendation."}
+            ? "Your logs are ready for a next-session suggestion. Free still shows the progress you earned first."
+            : "Finish a fully logged weight session for this lift to build a data-driven next-step suggestion."}
         </Typography>
         {hasUnlockedProgressionRecommendation ? (
           <Button
@@ -372,7 +382,7 @@ export const ExerciseRecommendationPanel = ({
             sx={{ mt: 1.25 }}
             onClick={() => onRequestProgressionUpgradePrompt?.()}
           >
-            See Pro Beta recommendation
+            See the coaching recommendation
           </Button>
         ) : null}
       </Paper>

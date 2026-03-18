@@ -201,9 +201,7 @@ export const completeAssistantSetup = async (
     await saveSetupButton.click();
   } else {
     await expect(
-      page.getByText(
-        "Pro Beta is required to generate assistant-built workout plans."
-      )
+      page.getByRole("button", { name: "Upgrade for Pro" })
     ).toBeVisible();
     await savePreferencesButton.click();
   }

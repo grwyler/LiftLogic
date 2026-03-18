@@ -315,7 +315,7 @@ const SignUp: React.FC = () => {
           <Typography sx={{ mt: 1, color: "text.secondary" }}>
             Want to compare the plans first?{" "}
             <NextLink href="/pricing" passHref legacyBehavior>
-              <Link underline="hover">See Free vs Pro Beta</Link>
+              <Link underline="hover">See Free vs Pro</Link>
             </NextLink>
           </Typography>
 

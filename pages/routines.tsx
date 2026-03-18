@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { Session } from "next-auth";
 import {
@@ -18,6 +18,7 @@ import {
   mergeAnonymousBetaFunnel,
   trackBetaFunnelMilestone,
 } from "../utils/betaFunnelApi";
+import { normalizeBetaFunnel } from "../utils/betaFunnel";
 import { useRouter } from "next/router";
 import WorkoutsManager from "../components/WorkoutsManager";
 import Header from "../components/Header";
@@ -90,6 +91,15 @@ import {
   buildRoutineSemanticPanelSx,
   buildRoutineSemanticSelectableChipSx,
 } from "../utils/routinesSemanticStyles";
+import {
+  clearUpgradePromptDismissal,
+  getUpgradePromptCooldownState,
+  normalizeUpgradePromptDismissals,
+  recordUpgradePromptDismissal,
+  RoutinesUpgradePromptKey,
+  shouldShowAssistantSetupPromptCard,
+  UpgradePromptDismissalMap,
+} from "../utils/routinesPromptState";
 
 type Routine = any;
 type GeneratedPlanPayload = {
@@ -99,12 +109,7 @@ type GeneratedPlanPayload = {
   sourceDetail?: AIResponseSourceDetail;
 };
 
-type UpgradePromptKey =
-  | "assistant_generation"
-  | "coach_regeneration"
-  | "recurring_schedule"
-  | "progression_recommendation"
-  | "personal_record_celebration";
+type UpgradePromptKey = RoutinesUpgradePromptKey;
 
 type UpgradePromptConfig = {
   title: string;
@@ -164,6 +169,9 @@ const RoutinesPage = ({
   const [showClearProgramDialog, setShowClearProgramDialog] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<UpgradePromptConfig | null>(null);
   const [upgradePromptKey, setUpgradePromptKey] = useState<UpgradePromptKey | null>(null);
+  const [inlineUpgradeReminderKey, setInlineUpgradeReminderKey] = useState<UpgradePromptKey | null>(null);
+  const [upgradePromptDismissals, setUpgradePromptDismissals] =
+    useState<UpgradePromptDismissalMap>({});
   const access = useMemo(() => resolveUserAccess(user), [user]);
   const plannerGenerationEnabled = access.entitlements.assistantPlanGeneration;
   const plannerRegenerationEnabled = access.entitlements.assistantPlanRegeneration;
@@ -171,11 +179,105 @@ const RoutinesPage = ({
 
   const sessionUserId =
     session?.token?.user?._id || (session as any)?.user?._id || "";
+  const upgradePromptStorageKey = sessionUserId
+    ? `liftlogic-upgrade-prompt-dismissals:${sessionUserId}`
+    : "";
 
   const routeToPricing = (message: string) => {
     toast.info(message);
     void router.push("/pricing");
   };
+
+  const getUpgradePromptConfig = useCallback((key: UpgradePromptKey): UpgradePromptConfig | null => {
+    switch (key) {
+      case "assistant_generation":
+        return {
+          title: "Generate a workout plan with the assistant",
+          description:
+            "Pro is the planning layer that drafts a program around your goal, schedule, and available equipment. Eligible first-time upgrades can start with a 7-day trial, and you can still keep using Lift Logic for free tracking if you skip this.",
+          benefits: [
+            "Generate a first plan instead of building each day manually.",
+            "Replace or rebuild your week when your constraints change.",
+            "Start Pro with a 7-day trial if you want to test the adaptive layer first.",
+            "Keep free logging, set tracking, and manual workout edits either way.",
+          ],
+          continueLabel: "Keep tracking free",
+          upgradeLabel: "View trial and pricing",
+        };
+      case "coach_regeneration":
+        return {
+          title: "Let the coach revise your plan",
+          description:
+            "Pro unlocks assistant-led rebuilds when your schedule, equipment, or training assumptions change. Eligible first-time upgrades can start with a 7-day trial. If you skip it, you can still track workouts and use chat for guidance.",
+          benefits: [
+            "Rebuild the split around updated training days or constraints.",
+            "Try the adaptive planning layer for 7 days before full billing begins.",
+            "Adjust plan structure without losing your free tracking flow.",
+            "Keep chatting with the coach and logging manually if you stay on Free.",
+          ],
+          continueLabel: "Keep chatting on Free",
+          upgradeLabel: "See trial options",
+        };
+      case "recurring_schedule":
+        return {
+          title: "Turn this into a recurring schedule",
+          description:
+            "Recurring workout scheduling is part of Pro. If you skip it, this workout stays available for free one-off logging and manual repeats.",
+          benefits: [
+            "Repeat a lift or whole workout on a weekly schedule.",
+            "Let upcoming workout days populate automatically.",
+            "Start Pro with a 7-day trial if you want to test repeat scheduling before paying in full.",
+            "Keep free day-by-day tracking even if you decline.",
+          ],
+          continueLabel: "Keep this one-time",
+          upgradeLabel: "Upgrade for schedules",
+        };
+      case "progression_recommendation":
+        return {
+          title: "Turn this momentum into next-session guidance",
+          description:
+            "You have enough logged progress to generate smarter next-session targets. Pro turns that success into adaptive guidance, and eligible first-time upgrades can start with a 7-day trial while Free keeps the base workout logging open.",
+          benefits: [
+            "See next-session sets, reps, and load recommendations from your logs.",
+            "Review performance trends as your completed data grows.",
+            "Start with a 7-day trial if you want proof before a full subscription commitment.",
+            "Keep logging every session for free if you want to wait.",
+          ],
+          continueLabel: "Keep logging free",
+          upgradeLabel: "See trial and recommendations",
+        };
+      case "personal_record_celebration":
+        return {
+          title: "Build on this personal record while it is fresh",
+          description:
+            "You just beat a prior benchmark. Pro can turn that win into a tighter next block with updated targets, progression, and schedule follow-through, and eligible first-time upgrades can start with a 7-day trial.",
+          benefits: [
+            "Use today's PR to tighten next-session recommendations.",
+            "Carry the new benchmark into your next week instead of guessing.",
+            "Try the paid coaching layer for 7 days before ongoing billing starts.",
+            "Keep free workout logging intact even if you dismiss this.",
+          ],
+          continueLabel: "Stay on free logging",
+          upgradeLabel: "Extend this with a trial",
+        };
+      default:
+        return null;
+    }
+  }, []);
+
+  const persistUpgradePromptDismissals = useCallback(
+    (nextDismissals: UpgradePromptDismissalMap) => {
+      setUpgradePromptDismissals(nextDismissals);
+      if (typeof window === "undefined" || !upgradePromptStorageKey) {
+        return;
+      }
+      window.localStorage.setItem(
+        upgradePromptStorageKey,
+        JSON.stringify(nextDismissals)
+      );
+    },
+    [upgradePromptStorageKey]
+  );
 
   const handleWeeklyTargetChange = async (nextTarget: string) => {
     if (!user?._id) {
@@ -201,87 +303,31 @@ const RoutinesPage = ({
     }));
   };
 
+  const presentUpgradePromptModal = useCallback(
+    (key: UpgradePromptKey) => {
+      const nextPrompt = getUpgradePromptConfig(key);
+      if (!nextPrompt) {
+        return;
+      }
+      setInlineUpgradeReminderKey(null);
+      setUpgradePromptKey(key);
+      setUpgradePrompt(nextPrompt);
+    },
+    [getUpgradePromptConfig]
+  );
+
   const openUpgradePrompt = (key: UpgradePromptKey) => {
-    setUpgradePromptKey(key);
-    switch (key) {
-      case "assistant_generation":
-        setUpgradePrompt({
-          title: "Generate a workout plan with the assistant",
-          description:
-            "Pro Beta is the planning layer that drafts a program around your goal, schedule, and available equipment. Eligible first-time upgrades can start with a 7-day trial, and you can still keep using Lift Logic for free tracking if you skip this.",
-          benefits: [
-            "Generate a first plan instead of building each day manually.",
-            "Replace or rebuild your week when your constraints change.",
-            "Start Pro Beta with a 7-day trial if you want to test the adaptive layer first.",
-            "Keep free logging, set tracking, and manual workout edits either way.",
-          ],
-          continueLabel: "Keep tracking free",
-          upgradeLabel: "View trial and pricing",
-        });
-        return;
-      case "coach_regeneration":
-        setUpgradePrompt({
-          title: "Let the coach revise your plan",
-          description:
-            "Pro Beta unlocks assistant-led rebuilds when your schedule, equipment, or training assumptions change. Eligible first-time upgrades can start with a 7-day trial. If you skip it, you can still track workouts and use chat for guidance.",
-          benefits: [
-            "Rebuild the split around updated training days or constraints.",
-            "Try the adaptive planning layer for 7 days before full billing begins.",
-            "Adjust plan structure without losing your free tracking flow.",
-            "Keep chatting with the coach and logging manually if you stay on Free.",
-          ],
-          continueLabel: "Keep chatting on Free",
-          upgradeLabel: "See trial options",
-        });
-        return;
-      case "recurring_schedule":
-        setUpgradePrompt({
-          title: "Turn this into a recurring schedule",
-          description:
-            "Recurring workout scheduling is part of Pro Beta. If you skip it, this workout stays available for free one-off logging and manual repeats.",
-          benefits: [
-            "Repeat a lift or whole workout on a weekly schedule.",
-            "Let upcoming workout days populate automatically.",
-            "Start Pro Beta with a 7-day trial if you want to test repeat scheduling before paying in full.",
-            "Keep free day-by-day tracking even if you decline.",
-          ],
-          continueLabel: "Keep this one-time",
-          upgradeLabel: "Upgrade for schedules",
-        });
-        return;
-      case "progression_recommendation":
-        setUpgradePrompt({
-          title: "Turn this momentum into next-session guidance",
-          description:
-            "You have enough logged progress to generate smarter next-session targets. Pro Beta turns that success into adaptive guidance, and eligible first-time upgrades can start with a 7-day trial while Free keeps the base workout logging open.",
-          benefits: [
-            "See next-session sets, reps, and load recommendations from your logs.",
-            "Review performance trends as your completed data grows.",
-            "Start with a 7-day trial if you want proof before a full subscription commitment.",
-            "Keep logging every session for free if you want to wait.",
-          ],
-          continueLabel: "Keep logging free",
-          upgradeLabel: "See trial and recommendations",
-        });
-        return;
-      case "personal_record_celebration":
-        setUpgradePrompt({
-          title: "Build on this personal record while it is fresh",
-          description:
-            "You just beat a prior benchmark. Pro Beta can turn that win into a tighter next block with updated targets, progression, and schedule follow-through, and eligible first-time upgrades can start with a 7-day trial.",
-          benefits: [
-            "Use today's PR to tighten next-session recommendations.",
-            "Carry the new benchmark into your next week instead of guessing.",
-            "Try the paid coaching layer for 7 days before ongoing billing starts.",
-            "Keep free workout logging intact even if you dismiss this.",
-          ],
-          continueLabel: "Stay on free logging",
-          upgradeLabel: "Extend this with a trial",
-        });
-        return;
-      default:
-        return;
+    const cooldownState = getUpgradePromptCooldownState({
+      existing: upgradePromptDismissals,
+      key,
+    });
+
+    if (cooldownState.blocked || upgradePromptDismissals[key]) {
+      setInlineUpgradeReminderKey(key);
+      return;
     }
+
+    presentUpgradePromptModal(key);
   };
 
   useEffect(() => {
@@ -299,6 +345,21 @@ const RoutinesPage = ({
       signOut({ redirect: true, callbackUrl: "/signin" });
     }
   }, [sessionUserId, status]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !upgradePromptStorageKey) {
+      setUpgradePromptDismissals({});
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(upgradePromptStorageKey);
+      setUpgradePromptDismissals(normalizeUpgradePromptDismissals(raw ? JSON.parse(raw) : {}));
+    } catch (error) {
+      console.error("Error reading routines upgrade prompt state:", error);
+      setUpgradePromptDismissals({});
+    }
+  }, [upgradePromptStorageKey]);
 
   useEffect(() => {
     const userId = sessionUserId;
@@ -630,6 +691,115 @@ const RoutinesPage = ({
       )
     );
   }, [routine]);
+  const normalizedBetaFunnel = useMemo(
+    () => normalizeBetaFunnel(user?.betaFunnel),
+    [user?.betaFunnel]
+  );
+  const showAssistantSetupCard = useMemo(
+    () =>
+      shouldShowAssistantSetupPromptCard({
+        setupCompleted: user?.setupCompleted,
+        assistantSetupDeferredAt: user?.assistantSetupDeferredAt,
+      }),
+    [user?.assistantSetupDeferredAt, user?.setupCompleted]
+  );
+  const inlineUpgradeReminder = useMemo(
+    () =>
+      inlineUpgradeReminderKey
+        ? getUpgradePromptConfig(inlineUpgradeReminderKey)
+        : null,
+    [getUpgradePromptConfig, inlineUpgradeReminderKey]
+  );
+  const showActivationChecklist = Boolean(
+    user &&
+      !user?.activationChecklistDismissed &&
+      !normalizedBetaFunnel.firstWorkoutLoggedAt
+  );
+
+  const handleDismissActivationChecklist = async () => {
+    if (!user?._id) {
+      return;
+    }
+
+    try {
+      await saveUser({
+        _id: user._id,
+        activationChecklistDismissed: true,
+      });
+      setUser((previous: any) =>
+        previous
+          ? {
+              ...previous,
+              activationChecklistDismissed: true,
+            }
+          : previous
+      );
+    } catch (error) {
+      console.error("Failed to dismiss activation checklist", error);
+      toast.error("The checklist stayed open. Try dismissing it again.");
+    }
+  };
+
+  const handleOpenSetupDialog = async () => {
+    setShowSetupDialog(true);
+
+    if (!user?._id || !user?.assistantSetupDeferredAt) {
+      return;
+    }
+
+    try {
+      await saveUser({
+        _id: user._id,
+        assistantSetupDeferredAt: "",
+      });
+      setUser((previous: any) =>
+        previous
+          ? {
+              ...previous,
+              assistantSetupDeferredAt: null,
+            }
+          : previous
+      );
+    } catch (error) {
+      console.error("Failed to clear assistant setup defer state", error);
+    }
+  };
+
+  const handleSkipSetupForNow = async () => {
+    if (!user?._id) {
+      setShowSetupDialog(false);
+      return;
+    }
+
+    const deferredAt = new Date().toISOString();
+
+    try {
+      await saveUser({
+        _id: user._id,
+        setupPromptSeen: true,
+        assistantSetupDeferredAt: deferredAt,
+      });
+      setUser((previous: any) =>
+        previous
+          ? {
+              ...previous,
+              setupPromptSeen: true,
+              assistantSetupDeferredAt: deferredAt,
+            }
+          : previous
+      );
+      setShowSetupDialog(false);
+      void trackBetaFunnelMilestone("pricing_cta_clicked", {
+        source: "assistant_setup_skipped_for_now",
+      }).catch((error) => {
+        console.error("Error tracking assistant setup skip:", error);
+      });
+      toast.info("Tracker mode stays available. You can come back to planning whenever you want.");
+    } catch (error) {
+      console.error("Failed to defer assistant setup", error);
+      toast.error("Could not save that preference right now.");
+    }
+  };
 
   const limitationInsights = useMemo(
     () => parseLimitations(setupForm.limitations),
@@ -686,6 +856,7 @@ const RoutinesPage = ({
       ...setupForm,
       setupPromptSeen: true,
       setupCompleted: true,
+      assistantSetupDeferredAt: "",
     };
 
     try {
@@ -727,6 +898,7 @@ const RoutinesPage = ({
       age: setupForm.age,
       setupPromptSeen: true,
       setupCompleted: true,
+      assistantSetupDeferredAt: "",
     };
 
     try {
@@ -765,6 +937,7 @@ const RoutinesPage = ({
       ...setupForm,
       setupPromptSeen: true,
       setupCompleted: true,
+      assistantSetupDeferredAt: "",
     };
 
     try {
@@ -813,7 +986,7 @@ const RoutinesPage = ({
 
     setAssistantIntent("planner");
     setShowPlanningDetails(true);
-    setShowSetupDialog(true);
+    void handleOpenSetupDialog();
   };
 
   const handleClearProgram = async () => {
@@ -848,7 +1021,7 @@ const RoutinesPage = ({
       return {
         applied: false,
         blockedReason:
-          "I can still help you think through the change here, but rebuilding the plan automatically is part of Pro Beta. Free tracking and manual edits still stay available.",
+          "I can still help you think through the change here, but rebuilding the plan automatically is part of Pro. Free tracking and manual edits still stay available.",
       };
     }
 
@@ -862,6 +1035,7 @@ const RoutinesPage = ({
       ...nextSetupForm,
       setupPromptSeen: true,
       setupCompleted: true,
+      assistantSetupDeferredAt: "",
     };
 
     setSetupForm(nextSetupForm);
@@ -1200,7 +1374,7 @@ const RoutinesPage = ({
                     forward. You can also clear everything and start from a blank slate.
                   </Typography>
                   <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 660, lineHeight: 1.7 }}>
-                    Free keeps logging and basic tracking open. Pro Beta is the
+                    Free keeps logging and basic tracking open. Pro is the
                     adaptive layer for assistant-built plans, recurring schedules,
                     plan revisions, and progression recommendations.
                   </Typography>
@@ -1213,7 +1387,7 @@ const RoutinesPage = ({
                         borderRadius: routinesRadius.card,
                       }}
                     >
-                      Free stays focused on logging. Upgrade to Pro Beta for assistant-built plans,
+                      Free stays focused on logging. Upgrade to Pro for assistant-built plans,
                       recurring schedules, and adaptive progression.
                     </Alert>
                   ) : null}
@@ -1478,7 +1652,7 @@ const RoutinesPage = ({
               <>
             {!plannerGenerationEnabled ? (
               <Alert severity="info" sx={{ borderRadius: 3 }}>
-                Pro Beta is required to generate assistant-built workout plans. You can still save
+                Pro is required to generate assistant-built workout plans. You can still save
                 your preferences here and keep using free workout tracking.
               </Alert>
             ) : null}
@@ -1996,7 +2170,7 @@ const RoutinesPage = ({
                   : "The first draft does not need to be perfect. The workout assistant can revise the split, exercises, and assumptions after generation."}
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                <Button variant="outlined" onClick={() => setShowSetupDialog(false)}>
+                <Button variant="outlined" onClick={() => void handleSkipSetupForNow()}>
                   Close setup for now
                 </Button>
                 <Button
@@ -2023,7 +2197,7 @@ const RoutinesPage = ({
                       : hasProgramExercises
                       ? "Build and replace plan"
                       : "Build my first plan"
-                    : "Upgrade for Pro Beta"}
+                    : "Upgrade for Pro"}
                 </Button>
                 <Button
                   variant="outlined"
@@ -2089,6 +2263,7 @@ const RoutinesPage = ({
         benefits={upgradePrompt?.benefits || []}
         continueLabel={upgradePrompt?.continueLabel}
         upgradeLabel={upgradePrompt?.upgradeLabel}
+        remindLaterLabel="Remind me later"
         onView={() => {
           void trackBetaFunnelMilestone("upgrade_prompt_viewed", {
             source: upgradePromptKey || undefined,
@@ -2097,6 +2272,38 @@ const RoutinesPage = ({
           });
         }}
         onClose={() => {
+          if (upgradePromptKey) {
+            const nextDismissals = recordUpgradePromptDismissal({
+              existing: upgradePromptDismissals,
+              key: upgradePromptKey,
+              reason: "declined",
+            });
+            persistUpgradePromptDismissals(nextDismissals);
+            void trackBetaFunnelMilestone("pricing_cta_clicked", {
+              source: `upgrade_prompt_declined_${upgradePromptKey}`,
+            }).catch((error) => {
+              console.error("Error tracking upgrade prompt decline:", error);
+            });
+            setInlineUpgradeReminderKey(upgradePromptKey);
+          }
+          setUpgradePrompt(null);
+          setUpgradePromptKey(null);
+        }}
+        onRemindLater={() => {
+          if (upgradePromptKey) {
+            const nextDismissals = recordUpgradePromptDismissal({
+              existing: upgradePromptDismissals,
+              key: upgradePromptKey,
+              reason: "snoozed",
+            });
+            persistUpgradePromptDismissals(nextDismissals);
+            void trackBetaFunnelMilestone("pricing_cta_clicked", {
+              source: `upgrade_prompt_snoozed_${upgradePromptKey}`,
+            }).catch((error) => {
+              console.error("Error tracking upgrade prompt snooze:", error);
+            });
+            setInlineUpgradeReminderKey(upgradePromptKey);
+          }
           setUpgradePrompt(null);
           setUpgradePromptKey(null);
         }}
@@ -2106,13 +2313,137 @@ const RoutinesPage = ({
           }).catch((error) => {
             console.error("Error tracking upgrade prompt click:", error);
           });
+          if (upgradePromptKey) {
+            persistUpgradePromptDismissals(
+              clearUpgradePromptDismissal({
+                existing: upgradePromptDismissals,
+                key: upgradePromptKey,
+              })
+            );
+          }
           setUpgradePrompt(null);
           setUpgradePromptKey(null);
-          routeToPricing("Explore Pro Beta plans and pricing.");
+          routeToPricing("Explore Pro plans and pricing.");
         }}
       />
 
-      {user && !user?.setupCompleted && !showSetupDialog ? (
+      {inlineUpgradeReminder && inlineUpgradeReminderKey && !showSetupDialog ? (
+        <Paper
+          elevation={0}
+          sx={{
+            position: "fixed",
+            left: { xs: 12, sm: 24 },
+            bottom: { xs: 88, sm: 24 },
+            width: { xs: "calc(100% - 24px)", sm: 420 },
+            zIndex: 1200,
+            p: 1.5,
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: darkMode ? "rgba(15,23,42,0.94)" : "rgba(255,255,255,0.98)",
+            boxShadow: darkMode
+              ? "0 18px 34px rgba(2,6,23,0.42)"
+              : "0 16px 32px rgba(15,23,42,0.12)",
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Keep the workout moving
+          </Typography>
+          <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+            You already said no to this upgrade moment once. Free tracking is still open, and the
+            paid coaching layer is here if you want to revisit it without another full interruption.
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1.5 }}>
+            <Button
+              variant="contained"
+              onClick={() => presentUpgradePromptModal(inlineUpgradeReminderKey)}
+            >
+              Show upgrade options
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setInlineUpgradeReminderKey(null)}
+            >
+              Keep going free
+            </Button>
+          </Stack>
+        </Paper>
+      ) : null}
+
+      {showActivationChecklist && !showSetupDialog ? (
+        <Paper
+          elevation={0}
+          sx={{
+            position: "fixed",
+            right: { xs: 12, sm: 24 },
+            bottom: {
+              xs: "calc(12px + var(--liftlogic-overlay-bottom-offset, 0px))",
+              sm: "calc(24px + var(--liftlogic-overlay-bottom-offset, 0px))",
+            },
+            width: { xs: "calc(100% - 24px)", sm: 380 },
+            p: 1.75,
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: "background.paper",
+            boxShadow: "0 14px 34px rgba(15,23,42,0.14)",
+            zIndex: 1300,
+          }}
+        >
+          <Typography variant="overline" sx={{ color: "text.secondary" }}>
+            Activation Checklist
+          </Typography>
+          <Typography variant="subtitle1" sx={{ mt: 0.25, fontWeight: 700 }}>
+            Get to your first real win
+          </Typography>
+          <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+            Follow the next few steps until your first workout is logged. The checklist stays here
+            across sessions unless you dismiss it.
+          </Typography>
+          <Stack spacing={1} sx={{ mt: 1.5 }}>
+            <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 2 }}>
+              <Typography sx={{ fontWeight: 700 }}>
+                {user?.setupCompleted ? "Done: setup path chosen" : "1. Finish assistant setup"}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.35, color: "text.secondary" }}>
+                Lock in your goal, training frequency, and plan path so the routines flow can stop
+                guessing.
+              </Typography>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 2 }}>
+              <Typography sx={{ fontWeight: 700 }}>
+                {hasProgramExercises ? "Done: first workout created" : "2. Create your first workout"}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.35, color: "text.secondary" }}>
+                Build a starter plan or add your first exercise so today&apos;s workout has a clear
+                next step.
+              </Typography>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 1.1, borderRadius: 2 }}>
+              <Typography sx={{ fontWeight: 700 }}>
+                {normalizedBetaFunnel.firstWorkoutLoggedAt
+                  ? "Done: first workout logged"
+                  : "3. Log your first workout"}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.35, color: "text.secondary" }}>
+                Once you log a real session, Lift Logic can start personalizing progress,
+                celebrations, and next-step recommendations.
+              </Typography>
+            </Paper>
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1.5 }}>
+            <Button variant="contained" onClick={() => void handleOpenSetupDialog()}>
+              {user?.setupCompleted ? "Refine setup" : "Open assistant setup"}
+            </Button>
+            <Button variant="outlined" onClick={() => router.push("/user")}>
+              Open profile
+            </Button>
+            <Button variant="text" onClick={() => void handleDismissActivationChecklist()}>
+              Dismiss
+            </Button>
+          </Stack>
+        </Paper>
+      ) : user && showAssistantSetupCard && !showSetupDialog ? (
         <Paper
           elevation={0}
           sx={{
@@ -2133,17 +2464,21 @@ const RoutinesPage = ({
           }}
           >
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Finish assistant setup
+            Planning help is available when you want it
           </Typography>
           <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
-            Set your goal and training frequency, then let the workout assistant build a first draft you can refine in chat.
+            Free tracking works on its own. If you want Lift Logic to draft and adapt the week for
+            you, you can open assistant setup whenever you are ready.
           </Typography>
           <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-            <Button variant="contained" onClick={() => setShowSetupDialog(true)}>
-              Open assistant setup
+            <Button variant="contained" onClick={() => void handleOpenSetupDialog()}>
+              Start planning
             </Button>
             <Button variant="text" onClick={() => router.push("/user")}>
               Full profile
+            </Button>
+            <Button variant="text" onClick={() => void handleSkipSetupForNow()}>
+              Maybe later
             </Button>
           </Stack>
         </Paper>

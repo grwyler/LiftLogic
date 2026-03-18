@@ -66,7 +66,7 @@ export const goalOptions = [
   { value: "conditioning", label: "Improve conditioning" },
 ] as const;
 
-export const workoutFrequencyOptions = ["2", "3", "4", "5", "6"];
+export const workoutFrequencyOptions = ["1", "2", "3", "4", "5", "6"];
 
 export const sexOptions = [
   { value: "male", label: "Male" },

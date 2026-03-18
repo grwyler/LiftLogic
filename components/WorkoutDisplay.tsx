@@ -275,6 +275,140 @@ const WorkoutDisplay = ({
     0,
     plannedExercises.length - visiblePlannedExercises.length
   );
+  const preWorkoutEstimatedMinutes = useMemo(() => {
+    const minutes = visiblePlannedExercises.reduce((total, exercise) => {
+      const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
+
+      if (exercise.type === "timed") {
+        const timedMinutes = sets.reduce((setTotal, set) => {
+          const directTotalSeconds = Number(set.totalSeconds ?? 0);
+          if (directTotalSeconds > 0) {
+            return setTotal + directTotalSeconds / 60;
+          }
+
+          const derivedSeconds =
+            Number(set.seconds ?? 0) +
+            Number(set.minutes ?? 0) * 60 +
+            Number(set.hours ?? 0) * 3600;
+          return setTotal + derivedSeconds / 60;
+        }, 0);
+
+        return total + timedMinutes;
+      }
+
+      const setCount = sets.length || 1;
+      const restMinutes =
+        Math.max(0, Number(exercise.rest ?? 60)) * Math.max(0, setCount - 1) / 60;
+      return total + setCount * 2.25 + restMinutes;
+    }, 0);
+
+    if (minutes <= 0) {
+      return 20;
+    }
+
+    return Math.max(10, Math.round(minutes / 5) * 5);
+  }, [visiblePlannedExercises]);
+  const preWorkoutTimeLabel = useMemo(() => {
+    if (preWorkoutEstimatedMinutes <= 20) {
+      return "~20 min";
+    }
+
+    if (preWorkoutEstimatedMinutes >= 75) {
+      return `~${preWorkoutEstimatedMinutes}+ min`;
+    }
+
+    return `~${preWorkoutEstimatedMinutes} min`;
+  }, [preWorkoutEstimatedMinutes]);
+  const preWorkoutFocus = useMemo(() => {
+    const focusNames = visiblePlannedExercises
+      .slice(0, Math.min(minimumWinMode ? 1 : 2, visiblePlannedExercises.length))
+      .map((exercise) => exercise.name)
+      .filter(Boolean);
+
+    if (focusNames.length === 0) {
+      return "Get the session moving";
+    }
+
+    if (focusNames.length === 1) {
+      return focusNames[0];
+    }
+
+    return `${focusNames[0]} + ${focusNames[1]}`;
+  }, [minimumWinMode, visiblePlannedExercises]);
+  const preWorkoutMinimumSuccess = useMemo(() => {
+    if (!visiblePlannedExercises.length) {
+      return "Add one exercise and log a clean first set so the day has a real anchor.";
+    }
+
+    const firstExercise = visiblePlannedExercises[0]?.name ?? "the first lift";
+    if (minimumWinMode) {
+      return `Finish ${firstExercise} cleanly and the day still counts as a valid training win.`;
+    }
+
+    if (visiblePlannedExercises.length === 1) {
+      return `Get through ${firstExercise} at a steady effort and let that be enough for today.`;
+    }
+
+    return `If time or energy fades, finish ${firstExercise} and one more key movement. That still counts as a successful session.`;
+  }, [minimumWinMode, visiblePlannedExercises]);
+  const planFitHeadline = useMemo(() => {
+    if (comebackGuide) {
+      return "This week is tuned for a realistic restart";
+    }
+
+    if (weeklyConsistency?.target === 1) {
+      return "This week is built around one anchor session";
+    }
+
+    if (weeklyConsistency?.state === "behind") {
+      return "This week is protecting momentum, not chasing perfection";
+    }
+
+    if (weeklyConsistency?.state === "goal_hit") {
+      return "This week matches the rhythm you already built";
+    }
+
+    return "This week fits your current training rhythm";
+  }, [comebackGuide, weeklyConsistency?.state, weeklyConsistency?.target]);
+  const planFitCopy = useMemo(() => {
+    if (comebackGuide) {
+      return comebackGuide.supportingCopy;
+    }
+
+    if (weeklyConsistency?.target === 1) {
+      return "Your plan is intentionally centered on one dependable full-body session so consistency can start from something realistic, not idealized.";
+    }
+
+    if (weeklyConsistency) {
+      return weeklyConsistency.supportingCopy;
+    }
+
+    return "The plan is aiming for a repeatable week based on your schedule, recent logging rhythm, and the work still in front of you.";
+  }, [comebackGuide, weeklyConsistency]);
+  const planChangeSummary = useMemo(() => {
+    if (comebackGuide?.adjustmentCopy) {
+      return comebackGuide.adjustmentCopy;
+    }
+
+    if (progressTrendSummary.counts.down > 0) {
+      return "Recent logs dipped a bit, so the next session should feel simpler and easier to repeat instead of aggressively pushing forward.";
+    }
+
+    if (progressTrendSummary.counts.up > 0) {
+      return "Recent logs show real progress, so the plan can stay steady and let momentum keep compounding instead of forcing a big change.";
+    }
+
+    if (minimumWinMode) {
+      return "You switched into a lighter mode, so the plan is now prioritizing the minimum useful work instead of the full original session.";
+    }
+
+    return "Nothing dramatic changed. The app is keeping the week practical and asking for the next repeatable step instead of a more complicated reset.";
+  }, [
+    comebackGuide?.adjustmentCopy,
+    minimumWinMode,
+    progressTrendSummary.counts.down,
+    progressTrendSummary.counts.up,
+  ]);
   const primaryActionLabel = !hasExercises
     ? "Add First Exercise"
     : shouldShowNextSummary
@@ -571,6 +705,12 @@ const WorkoutDisplay = ({
         isWorkoutComplete={isWorkoutComplete}
         minimumWinMode={minimumWinMode}
         nextExercise={nextExercise}
+        planChangeSummary={planChangeSummary}
+        planFitCopy={planFitCopy}
+        planFitHeadline={planFitHeadline}
+        preWorkoutFocus={preWorkoutFocus}
+        preWorkoutMinimumSuccess={preWorkoutMinimumSuccess}
+        preWorkoutTimeLabel={preWorkoutTimeLabel}
         onToggleMinimumWinMode={() => setMinimumWinMode((previous) => !previous)}
         onOpenNextSet={handleOpenNextSet}
         onOpenWorkoutRepeatDialog={openWorkoutRepeatDialog}

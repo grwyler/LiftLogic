@@ -64,6 +64,7 @@ export default async function handler(req, res) {
         notes: "",
         setupPromptSeen: false,
         setupCompleted: false,
+        activationChecklistDismissed: false,
         darkMode: false,
         billingPlan: "free",
         productPlan: "free",

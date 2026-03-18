@@ -31,13 +31,18 @@ const sanitizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
 const ANONYMOUS_FUNNEL_COOKIE_KEY = "liftlogic_funnel_id";
+const buildEmptyMonetizationSummary = () =>
+  summarizeMonetizationFunnel({
+    users: [],
+    anonymousFunnels: [],
+    hasPaidAccess: () => false,
+  });
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   const session = await getServerSession(req, res, authOptions);
-  const db = await connectToDatabase();
 
   if (req.method === "GET") {
     if (!session || !isBugWorkflowAdminSession(session)) {
@@ -47,6 +52,17 @@ export default async function handler(
     const summaryKind = sanitizeText(req.query.summary);
     if (summaryKind !== "monetization") {
       return res.status(400).json({ message: "Unsupported summary" });
+    }
+
+    let db: Awaited<ReturnType<typeof connectToDatabase>>;
+    try {
+      db = await connectToDatabase();
+    } catch (error) {
+      console.warn("Funnel summary degraded because the database is unavailable.", error);
+      return res.status(200).json({
+        ...buildEmptyMonetizationSummary(),
+        degraded: true,
+      });
     }
 
     const users = await db
@@ -97,17 +113,37 @@ export default async function handler(
   const requestAnonymousFunnelId = sanitizeText(req.body?.anonymousFunnelId);
   const cookieAnonymousFunnelId = sanitizeText(req.cookies?.[ANONYMOUS_FUNNEL_COOKIE_KEY]);
   const anonymousFunnelId = requestAnonymousFunnelId || cookieAnonymousFunnelId;
+  const milestone = sanitizeText(req.body?.milestone);
+  const occurredAt = req.body?.occurredAt;
+  const source = sanitizeText(req.body?.source);
+  const milestoneKey = resolveBetaFunnelMilestoneKey(milestone);
+  if (action !== "mergeAnonymousFunnel" && !milestoneKey) {
+    return res.status(400).json({ message: "Unsupported milestone" });
+  }
+
+  if (action === "mergeAnonymousFunnel" && !isAuthenticated) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  if (!anonymousFunnelId && (action === "mergeAnonymousFunnel" || !isAuthenticated)) {
+    return res.status(400).json({ message: "Anonymous funnel id is required" });
+  }
+
+  let db: Awaited<ReturnType<typeof connectToDatabase>>;
+  try {
+    db = await connectToDatabase();
+  } catch (error) {
+    console.warn("Funnel event tracking degraded because the database is unavailable.", error);
+    return res.status(200).json({
+      success: true,
+      degraded: true,
+      merged: action === "mergeAnonymousFunnel" ? false : undefined,
+    });
+  }
+
   const anonymousFunnels = db.collection<AnonymousFunnelDoc>("anonymousBetaFunnels");
 
   if (action === "mergeAnonymousFunnel") {
-    if (!isAuthenticated) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-
-    if (!anonymousFunnelId) {
-      return res.status(400).json({ message: "Anonymous funnel id is required" });
-    }
-
     const users = db.collection("users");
     const [existingUser, anonymousFunnelDoc] = await Promise.all([
       users.findOne(
@@ -155,18 +191,6 @@ export default async function handler(
     ]);
 
     return res.status(200).json({ success: true, merged: true });
-  }
-
-  const milestone = sanitizeText(req.body?.milestone);
-  const occurredAt = req.body?.occurredAt;
-  const source = sanitizeText(req.body?.source);
-  const milestoneKey = resolveBetaFunnelMilestoneKey(milestone);
-  if (!milestoneKey) {
-    return res.status(400).json({ message: "Unsupported milestone" });
-  }
-
-  if (!isAuthenticated && !anonymousFunnelId) {
-    return res.status(400).json({ message: "Anonymous funnel id is required" });
   }
 
   if (isAuthenticated) {
