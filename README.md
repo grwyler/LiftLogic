@@ -2,6 +2,7 @@
 
 Use a local `.env.local` file for secrets and environment-specific values.
 Do not commit real credentials to this repository.
+If any credential was ever exposed in a local file, rotate it in the provider dashboard before reusing this project for beta users.
 
 Example PowerShell session:
 
