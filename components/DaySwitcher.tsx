@@ -6,7 +6,6 @@ import {
   Collapse,
   IconButton,
   Paper,
-  TextField,
   Typography,
   useMediaQuery,
   useTheme,
@@ -15,9 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarToday,
-  CalendarViewDay,
 } from "@mui/icons-material";
-import { DatePicker, PickersDay, StaticDatePicker } from "@mui/x-date-pickers";
+import { PickersDay, StaticDatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { buildRoutineSemanticDotSx } from "../utils/routinesSemanticStyles";
@@ -69,6 +67,15 @@ const DaySwitcher = ({
 
   const isToday = currentDate.toDateString() === new Date().toDateString();
   const selectedDayStatus = calendarStatusMap[getDateKey(currentDate)] ?? null;
+  const selectedDayLabel = currentDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const selectedDayShortLabel = currentDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
   const selectedDaySummary = useMemo(() => {
     if (selectedDayStatus?.hasCompleted) {
       return "Completed workout logged";
@@ -109,145 +116,138 @@ const DaySwitcher = ({
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: "44px minmax(0, 1fr) 44px",
-            alignItems: "center",
-            gap: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.25,
           }}
         >
-          <IconButton
-            onClick={handlePreviousDay}
-            size="small"
-            aria-label="Previous workout day"
-            sx={{ minWidth: 44, minHeight: 44 }}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
+              gap: 1,
+              flexDirection: { xs: "column", sm: "row" },
+            }}
           >
-            <ChevronLeft fontSize="small" />
-          </IconButton>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="overline"
+                sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
+              >
+                Workout Schedule
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  mt: 0.35,
+                  fontFamily: 'var(--font-display), "Manrope", sans-serif',
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {selectedDayLabel}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  mt: 0.35,
+                  color: "text.secondary",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <Box component="span" sx={buildRoutineSemanticDotSx("activeWorkout")} />
+                {selectedDaySummary}
+                {selectedDayExerciseCount > 0
+                  ? ` | ${selectedDayExerciseCount} exercise${
+                      selectedDayExerciseCount === 1 ? "" : "s"
+                    }`
+                  : ""}
+              </Typography>
+            </Box>
+
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                width: { xs: "100%", sm: "auto" },
+                justifyContent: { xs: "space-between", sm: "flex-end" },
+              }}
+            >
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: "999px",
+                  backgroundColor: darkMode
+                    ? "rgba(15,23,42,0.52)"
+                    : "rgba(255,255,255,0.94)",
+                  px: 0.5,
+                }}
+              >
+                <IconButton
+                  onClick={handlePreviousDay}
+                  size="small"
+                  aria-label="Previous workout day"
+                  sx={{ minWidth: 40, minHeight: 40 }}
+                >
+                  <ChevronLeft fontSize="small" />
+                </IconButton>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ minWidth: 92, textAlign: "center", px: 0.75 }}
+                >
+                  {selectedDayShortLabel}
+                </Typography>
+                <IconButton
+                  onClick={handleNextDay}
+                  size="small"
+                  aria-label="Next workout day"
+                  sx={{ minWidth: 40, minHeight: 40 }}
+                >
+                  <ChevronRight fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+          </Box>
 
           <Box
             sx={{
-              minWidth: 0,
-              width: "100%",
               display: "flex",
-              flexDirection: "column",
+              justifyContent: "space-between",
               alignItems: "center",
-              justifyContent: "center",
-              overflow: "visible",
+              gap: 1,
+              flexWrap: "wrap",
             }}
           >
-            <Typography
-              variant="overline"
-              sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
-            >
-              Selected Day
-            </Typography>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                value={currentDate}
-                onChange={(newDate) => {
-                  if (newDate) {
-                    setCalendarViewDate?.(newDate);
-                    setCurrentDate(newDate);
-                    handleCurrentDayChange(newDate, true);
-                  }
-                }}
-                format="EEEE, MMMM d"
-                slotProps={{
-                  openPickerButton: {
-                    sx: { display: "none" },
-                  },
-                  inputAdornment: {
-                    sx: { display: "none" },
-                  },
-                }}
-                slots={{
-                  textField: (params) => (
-                    <TextField
-                      {...params}
-                      variant="standard"
-                      sx={{
-                        width: "100%",
-                        maxWidth: 320,
-                        "& .MuiInputBase-root": {
-                          justifyContent: "center",
-                        },
-                        "& input": {
-                          fontFamily: 'var(--font-display), "Manrope", sans-serif',
-                          fontSize: { xs: "1rem", sm: "1.1rem" },
-                          fontWeight: 800,
-                          textAlign: "center",
-                          letterSpacing: "-0.03em",
-                          textOverflow: "ellipsis",
-                        },
-                      }}
-                      InputProps={{
-                        ...params.InputProps,
-                        readOnly: true,
-                        disableUnderline: true,
-                      }}
-                    />
-                  ),
-                }}
-              />
-            </LocalizationProvider>
-            <Typography
-              variant="caption"
-              sx={{
-                mt: 0.2,
-                color: "text.secondary",
-                textAlign: "center",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 0.75,
-              }}
-            >
-              <Box component="span" sx={buildRoutineSemanticDotSx("activeWorkout")} />
-              {selectedDaySummary}
-              {selectedDayExerciseCount > 0
-                ? ` | ${selectedDayExerciseCount} exercise${
-                    selectedDayExerciseCount === 1 ? "" : "s"
-                  }`
-                : ""}
-            </Typography>
-          </Box>
-
-          <IconButton
-            onClick={handleNextDay}
-            size="small"
-            aria-label="Next workout day"
-            sx={{ minWidth: 44, minHeight: 44 }}
-          >
-            <ChevronRight fontSize="small" />
-          </IconButton>
-        </Box>
-
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          <Button
-            variant="text"
-            size={isCompactViewport ? "medium" : "small"}
-            startIcon={isInline ? <CalendarViewDay /> : <CalendarToday />}
-            onClick={() => setIsInline((prev) => !prev)}
-            sx={{ minHeight: 44 }}
-          >
-            {isInline ? "Collapse calendar" : "Show calendar"}
-          </Button>
-          {!isToday ? (
             <Button
-              variant="text"
+              variant={isInline ? "outlined" : "contained"}
               size={isCompactViewport ? "medium" : "small"}
-              onClick={handleBackToToday}
-              sx={{ minHeight: 44 }}
+              startIcon={<CalendarToday />}
+              onClick={() => setIsInline((prev) => !prev)}
+              sx={{ minHeight: 44, borderRadius: "999px" }}
             >
-              Today
+              {isInline ? "Hide calendar" : "Pick a day"}
             </Button>
-          ) : null}
+            {!isToday ? (
+              <Button
+                variant="text"
+                size={isCompactViewport ? "medium" : "small"}
+                onClick={handleBackToToday}
+                sx={{ minHeight: 44 }}
+              >
+                Jump back to today
+              </Button>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                Today is selected
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         <Collapse in={isInline} mountOnEnter unmountOnExit>

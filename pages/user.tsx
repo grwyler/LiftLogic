@@ -803,6 +803,16 @@ const UserHomePage: React.FC<UserPageProps> = ({
                                 borderRadius: "999px",
                                 border: "1px solid",
                                 borderColor: "divider",
+                                background: optionMeta.primaryMain,
+                              }}
+                            />
+                            <Box
+                              sx={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: "999px",
+                                border: "1px solid",
+                                borderColor: "divider",
                                 background: optionMeta.secondaryMain,
                               }}
                             />

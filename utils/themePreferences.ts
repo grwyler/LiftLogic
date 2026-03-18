@@ -1,3 +1,5 @@
+import { brandBackgrounds, brandPalette } from "./brandSystem";
+
 export const THEME_OPTIONS = [
   "light",
   "dawn",
@@ -32,44 +34,40 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
     case "graphite":
       return {
         mode: "dark" as const,
-        primaryMain: "#f5f7fb",
-        primaryContrastText: "#111827",
-        secondaryMain: "#c084fc",
-        backgroundDefault: "#111318",
-        backgroundPaper: "rgba(20, 23, 31, 0.94)",
+        primaryMain: brandPalette.signature,
+        primaryContrastText: "#fff7ed",
+        secondaryMain: "#7dd3fc",
+        backgroundDefault: "#101318",
+        backgroundPaper: "rgba(20, 24, 31, 0.94)",
         textPrimary: "#f5f7fb",
-        textSecondary: "#aab4c5",
-        divider: "rgba(170, 180, 197, 0.14)",
+        textSecondary: "#a9b4c3",
+        divider: "rgba(148, 163, 184, 0.16)",
         bodyBackground:
-          "radial-gradient(circle at top left, rgba(192, 132, 252, 0.16), transparent 24%), radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 22%), linear-gradient(180deg, #0d1016 0%, #181c25 100%)",
-        containedBackground:
-          "linear-gradient(135deg, rgba(245, 247, 251, 0.98), rgba(203, 213, 225, 0.94))",
-        containedHoverBackground:
-          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(203, 213, 225, 0.96))",
+          "radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 24%), radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 26%), linear-gradient(180deg, #0b1016 0%, #181e28 100%)",
+        containedBackground: brandBackgrounds.accentButton,
+        containedHoverBackground: brandBackgrounds.accentButtonHover,
       };
     case "ember":
       return {
         mode: "dark" as const,
-        primaryMain: "#fff7ed",
-        primaryContrastText: "#431407",
+        primaryMain: brandPalette.signature,
+        primaryContrastText: "#fff7ed",
         secondaryMain: "#fb7185",
         backgroundDefault: "#1a0f0a",
-        backgroundPaper: "rgba(32, 19, 14, 0.93)",
+        backgroundPaper: "rgba(34, 20, 14, 0.93)",
         textPrimary: "#fff7ed",
         textSecondary: "#fdba74",
-        divider: "rgba(251, 146, 60, 0.14)",
+        divider: "rgba(251, 146, 60, 0.16)",
         bodyBackground:
-          "radial-gradient(circle at top left, rgba(251, 146, 60, 0.2), transparent 24%), radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 24%), linear-gradient(180deg, #120804 0%, #25130b 100%)",
-        containedBackground:
-          "linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(254, 215, 170, 0.94))",
-        containedHoverBackground:
-          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(254, 215, 170, 0.96))",
+          "radial-gradient(circle at top left, rgba(249, 115, 22, 0.22), transparent 24%), radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 24%), linear-gradient(180deg, #120804 0%, #26140d 100%)",
+        containedBackground: brandBackgrounds.accentButton,
+        containedHoverBackground: brandBackgrounds.accentButtonHover,
       };
     case "citrus":
       return {
         mode: "light" as const,
-        primaryMain: "#365314",
-        primaryContrastText: "#f7fee7",
+        primaryMain: brandPalette.signatureStrong,
+        primaryContrastText: "#fff7ed",
         secondaryMain: "#65a30d",
         backgroundDefault: "#f8fde8",
         backgroundPaper: "rgba(251, 255, 240, 0.94)",
@@ -79,14 +77,14 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
         bodyBackground:
           "radial-gradient(circle at top left, rgba(163, 230, 53, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 26%), linear-gradient(180deg, #fbffe9 0%, #eef7d8 100%)",
         containedBackground:
-          "linear-gradient(135deg, rgba(54, 83, 20, 0.96), rgba(101, 163, 13, 0.92))",
+          "linear-gradient(135deg, rgba(249, 115, 22, 0.96), rgba(132, 204, 22, 0.88))",
         containedHoverBackground:
-          "linear-gradient(135deg, rgba(63, 98, 18, 0.98), rgba(77, 124, 15, 0.94))",
+          "linear-gradient(135deg, rgba(251, 146, 60, 0.98), rgba(101, 163, 13, 0.92))",
       };
     case "dawn":
       return {
         mode: "light" as const,
-        primaryMain: "#7c2d12",
+        primaryMain: brandPalette.signatureStrong,
         primaryContrastText: "#fff7ed",
         secondaryMain: "#b45309",
         backgroundDefault: "#fff8f1",
@@ -97,16 +95,16 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
         bodyBackground:
           "radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(251, 146, 60, 0.14), transparent 28%), linear-gradient(180deg, #fff8ef 0%, #f8ecdf 100%)",
         containedBackground:
-          "linear-gradient(135deg, rgba(124, 45, 18, 0.96), rgba(180, 83, 9, 0.92))",
+          "linear-gradient(135deg, rgba(249, 115, 22, 0.96), rgba(180, 83, 9, 0.92))",
         containedHoverBackground:
-          "linear-gradient(135deg, rgba(146, 64, 14, 0.98), rgba(194, 65, 12, 0.94))",
+          "linear-gradient(135deg, rgba(251, 146, 60, 0.98), rgba(194, 65, 12, 0.94))",
       };
     case "night":
       return {
         mode: "dark" as const,
-        primaryMain: "#f8fafc",
-        primaryContrastText: "#0f172a",
-        secondaryMain: "#94a3b8",
+        primaryMain: brandPalette.signature,
+        primaryContrastText: "#fff7ed",
+        secondaryMain: "#7dd3fc",
         backgroundDefault: "#0b1220",
         backgroundPaper: "rgba(12, 18, 30, 0.92)",
         textPrimary: "#f8fafc",
@@ -114,16 +112,14 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
         divider: "rgba(148, 163, 184, 0.12)",
         bodyBackground:
           "radial-gradient(circle at top left, rgba(125, 211, 252, 0.16), transparent 26%), radial-gradient(circle at top right, rgba(129, 140, 248, 0.16), transparent 24%), linear-gradient(180deg, #07111f 0%, #111827 100%)",
-        containedBackground:
-          "linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.94))",
-        containedHoverBackground:
-          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(226, 232, 240, 0.94))",
+        containedBackground: brandBackgrounds.accentButton,
+        containedHoverBackground: brandBackgrounds.accentButtonHover,
       };
     case "evergreen":
       return {
         mode: "dark" as const,
-        primaryMain: "#ecfdf5",
-        primaryContrastText: "#022c22",
+        primaryMain: brandPalette.signature,
+        primaryContrastText: "#fff7ed",
         secondaryMain: "#86efac",
         backgroundDefault: "#061612",
         backgroundPaper: "rgba(7, 24, 19, 0.92)",
@@ -133,28 +129,26 @@ export const getThemePreferenceMeta = (themePreference: ThemePreference) => {
         bodyBackground:
           "radial-gradient(circle at top left, rgba(16, 185, 129, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(45, 212, 191, 0.12), transparent 22%), linear-gradient(180deg, #03100d 0%, #0b1f18 100%)",
         containedBackground:
-          "linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(167, 243, 208, 0.92))",
+          "linear-gradient(135deg, rgba(249, 115, 22, 0.96), rgba(16, 185, 129, 0.86))",
         containedHoverBackground:
-          "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(167, 243, 208, 0.94))",
+          "linear-gradient(135deg, rgba(251, 146, 60, 0.98), rgba(16, 185, 129, 0.9))",
       };
     case "light":
     default:
       return {
         mode: "light" as const,
-        primaryMain: "#111827",
+        primaryMain: brandPalette.signatureStrong,
         primaryContrastText: "#ffffff",
-        secondaryMain: "#6b7280",
-        backgroundDefault: "#eef3f9",
+        secondaryMain: brandPalette.sky,
+        backgroundDefault: "#f7f1ea",
         backgroundPaper: "rgba(255, 255, 255, 0.97)",
         textPrimary: "#101828",
         textSecondary: "#475467",
         divider: "rgba(15, 23, 42, 0.14)",
         bodyBackground:
-          "radial-gradient(circle at top left, rgba(125, 211, 252, 0.2), transparent 24%), radial-gradient(circle at top right, rgba(255, 255, 255, 0.94), transparent 32%), linear-gradient(180deg, #f9fbff 0%, #e6eef7 100%)",
-        containedBackground:
-          "linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(31, 41, 55, 0.94))",
-        containedHoverBackground:
-          "linear-gradient(135deg, rgba(31, 41, 55, 0.98), rgba(51, 65, 85, 0.96))",
+          "radial-gradient(circle at top left, rgba(249, 115, 22, 0.18), transparent 24%), radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 28%), linear-gradient(180deg, #fffaf6 0%, #efe4d8 100%)",
+        containedBackground: brandBackgrounds.accentButton,
+        containedHoverBackground: brandBackgrounds.accentButtonHover,
       };
   }
 };
@@ -184,20 +178,20 @@ export const getThemePreferenceDescription = (
 ) => {
   switch (themePreference) {
     case "dawn":
-      return "Warm glass highlights with a softer sunrise palette.";
+      return "A warm sunrise mood with Lift Logic's shared action color and softer copper surfaces.";
     case "graphite":
-      return "A darker steel palette with cool neon edges and high contrast.";
+      return "A steel-dark preset with cooler surfaces and the same clear coaching hierarchy.";
     case "ember":
-      return "A warm dark mode with firelit surfaces and stronger orange depth.";
+      return "A firelit dark preset that keeps warm energy without turning the UI into a novelty skin.";
     case "citrus":
-      return "A brighter energetic theme with lime accents and softer daylight surfaces.";
+      return "A brighter training-day palette with citrus energy and a shared Lift Logic accent.";
     case "night":
-      return "High-contrast dark surfaces with cool landing-page depth.";
+      return "The core dark preset: high contrast, steady neutrals, and obvious action emphasis.";
     case "evergreen":
-      return "A darker forest tone with calmer green accents.";
+      return "A calmer forest-toned dark preset with the same action grammar and recovery-friendly depth.";
     case "light":
     default:
-      return "The clean bright default with subtle sky-blue lift.";
+      return "The default Lift Logic look with a warmer athletic accent and cleaner action hierarchy.";
   }
 };
 

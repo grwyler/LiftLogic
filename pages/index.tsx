@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import {
   Box,
   Button,
-  Chip,
   Paper,
   Stack,
   Typography,
@@ -207,11 +206,21 @@ const HomePage: React.FC = () => {
               }}
             />
 
-            <Chip
-              label="Free while beta sharpens up"
-              color="primary"
-              sx={{ alignSelf: "flex-start", borderRadius: brandRadii.chip }}
-            />
+            <Box
+              sx={{
+                alignSelf: "flex-start",
+                px: 1.25,
+                py: 0.7,
+                borderRadius: landingRadius.chip,
+                border: "1px solid",
+                borderColor: "rgba(249,115,22,0.22)",
+                backgroundColor: "rgba(249,115,22,0.08)",
+              }}
+            >
+              <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: "0.12em" }}>
+                Free while beta sharpens up
+              </Typography>
+            </Box>
 
             <Typography variant="h2" sx={{ mt: 2.5, maxWidth: 620, fontSize: { xs: "2.7rem", md: "4.2rem" }, lineHeight: 0.95 }}>
               Plan smarter lifts. Keep the workout moving.
@@ -232,34 +241,38 @@ const HomePage: React.FC = () => {
               adapt around your performance, equipment, and schedule.
             </Typography>
 
-            <Stack
-              direction="row"
-              spacing={1}
-              useFlexGap
-              flexWrap="wrap"
-              sx={{ mt: 2.5 }}
+            <Box
+              sx={{
+                mt: 2.5,
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                gap: 1,
+                maxWidth: 620,
+              }}
             >
-              <Chip
-                label="Track-only mode"
-                variant="outlined"
-                sx={{ borderRadius: brandRadii.chip }}
-              />
-              <Chip
-                label="AI workout setup"
-                variant="outlined"
-                sx={{ borderRadius: brandRadii.chip }}
-              />
-              <Chip
-                label="Recurring schedules"
-                variant="outlined"
-                sx={{ borderRadius: brandRadii.chip }}
-              />
-              <Chip
-                label="Progress-based recommendations"
-                variant="outlined"
-                sx={{ borderRadius: brandRadii.chip }}
-              />
-            </Stack>
+              {[
+                "Track-only mode with a cleaner next-step flow",
+                "AI workout setup that drafts a realistic first week",
+                "Recurring schedules that survive calendar changes",
+                "Progress-based recommendations tied to your actual logs",
+              ].map((line) => (
+                <Box
+                  key={line}
+                  sx={{
+                    px: 1.25,
+                    py: 1,
+                    borderRadius: landingRadius.inset,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    backgroundColor: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {line}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
 
             <Stack
               direction={{ xs: "column", sm: "row" }}
@@ -373,16 +386,23 @@ const HomePage: React.FC = () => {
                       <Typography variant="overline" sx={{ color: "rgba(191,219,254,0.78)", letterSpacing: "0.14em" }}>
                         Live Workout
                       </Typography>
-                      <Chip
-                        icon={<PlayArrowRoundedIcon fontSize="small" />}
-                        label="Set 2"
-                        size="small"
+                      <Box
                         sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.6,
+                          px: 1,
+                          py: 0.55,
                           borderRadius: landingRadius.chip,
                           backgroundColor: "rgba(34,197,94,0.18)",
                           color: "#dcfce7",
                         }}
-                      />
+                      >
+                        <PlayArrowRoundedIcon fontSize="small" />
+                        <Typography variant="caption" sx={{ color: "inherit", fontWeight: 700 }}>
+                          Set 2
+                        </Typography>
+                      </Box>
                     </Box>
                     <Paper
                       elevation={0}
@@ -461,23 +481,36 @@ const HomePage: React.FC = () => {
               <Typography variant="h5" sx={{ mt: 0.5 }}>
                 Tuesday Upper Strength
               </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-                <Chip
-                  label="3 exercises left"
-                  color="primary"
-                  sx={{ borderRadius: landingRadius.chip }}
-                />
-                <Chip
-                  label="1 set logged"
-                  variant="outlined"
-                  sx={{ borderRadius: landingRadius.chip }}
-                />
-                <Chip
-                  label="Repeat schedule active"
-                  variant="outlined"
-                  sx={{ borderRadius: landingRadius.chip }}
-                />
-              </Stack>
+              <Box
+                sx={{
+                  mt: 1.5,
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+                  gap: 1,
+                }}
+              >
+                {[
+                  { label: "3 exercises left", tone: "rgba(249,115,22,0.12)" },
+                  { label: "1 set logged", tone: "rgba(255,255,255,0.92)" },
+                  { label: "Repeat schedule active", tone: "rgba(255,255,255,0.92)" },
+                ].map((item) => (
+                  <Box
+                    key={item.label}
+                    sx={{
+                      px: 1.1,
+                      py: 0.95,
+                      borderRadius: landingRadius.inset,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: item.tone,
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {item.label}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
 
               <Paper
                 elevation={0}
@@ -593,9 +626,23 @@ const HomePage: React.FC = () => {
                   Instead of asking you to imagine the product, here is a sample starter session the app could hand to a beginner with dumbbells and a short training window.
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-                  <Chip label="Beginner-friendly" color="primary" sx={{ borderRadius: landingRadius.chip }} />
-                  <Chip label="30-minute session" variant="outlined" sx={{ borderRadius: landingRadius.chip }} />
-                  <Chip label="Home dumbbells" variant="outlined" sx={{ borderRadius: landingRadius.chip }} />
+                  {["Beginner-friendly", "30-minute session", "Home dumbbells"].map((label, index) => (
+                    <Box
+                      key={label}
+                      sx={{
+                        px: 1.1,
+                        py: 0.7,
+                        borderRadius: landingRadius.chip,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        backgroundColor: index === 0 ? "rgba(249,115,22,0.12)" : "rgba(255,255,255,0.88)",
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        {label}
+                      </Typography>
+                    </Box>
+                  ))}
                 </Stack>
               </Box>
 
@@ -646,12 +693,20 @@ const HomePage: React.FC = () => {
                             {exercise.note}
                           </Typography>
                         </Box>
-                        <Chip
-                          label={exercise.detail}
-                          color={index === 0 ? "primary" : "default"}
-                          variant={index === 0 ? "filled" : "outlined"}
-                          sx={{ borderRadius: landingRadius.chip, fontWeight: 700 }}
-                        />
+                        <Box
+                          sx={{
+                            px: 1.1,
+                            py: 0.75,
+                            borderRadius: landingRadius.chip,
+                            border: "1px solid",
+                            borderColor: index === 0 ? "rgba(249,115,22,0.22)" : "divider",
+                            backgroundColor: index === 0 ? "rgba(249,115,22,0.12)" : "rgba(255,255,255,0.84)",
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                            {exercise.detail}
+                          </Typography>
+                        </Box>
                       </Stack>
                     </Paper>
                   ))}

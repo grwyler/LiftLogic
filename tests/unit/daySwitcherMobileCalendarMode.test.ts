@@ -13,8 +13,8 @@ describe("day switcher mobile calendar mode", () => {
     expect(source).toContain("const [isInline, setIsInline] = useState(!isCompactViewport);");
     expect(source).toContain("setIsInline(!isCompactViewport);");
     expect(source).toContain("<Collapse in={isInline} mountOnEnter unmountOnExit>");
-    expect(source).toContain("Show calendar");
-    expect(source).toContain("Collapse calendar");
-    expect(source).toContain("Selected Day");
+    expect(source).toContain("Workout Schedule");
+    expect(source).toContain("Pick a day");
+    expect(source).toContain("Hide calendar");
   });
 });

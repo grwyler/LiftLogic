@@ -33,6 +33,7 @@ import {
   isThemePreference,
   ThemePreference,
 } from "../utils/themePreferences";
+import { brandBackgrounds, brandPalette } from "../utils/brandSystem";
 
 const DESKTOP_BACKGROUND_ATTACHMENT_MEDIA_QUERY =
   "@media (min-width:900px) and (pointer:fine)";
@@ -515,14 +516,15 @@ function MyApp({ Component, pageProps }: AppProps) {
                   : "rgba(255, 255, 255, 0.94)",
               },
               filledPrimary: {
-                backgroundImage: darkMode
-                  ? "linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.92))"
-                  : "linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(51, 65, 85, 0.9))",
-                color: darkMode ? "#0f172a" : "#ffffff",
+                backgroundImage: brandBackgrounds.accentButton,
+                color: "#ffffff",
+                "&:hover": {
+                  backgroundImage: brandBackgrounds.accentButtonHover,
+                },
               },
               outlinedPrimary: {
                 borderColor: surfaceBorder,
-                color: darkMode ? "#f8fafc" : "#111827",
+                color: darkMode ? "#f8fafc" : brandPalette.signatureDeep,
               },
             },
           },
@@ -563,16 +565,18 @@ function MyApp({ Component, pageProps }: AppProps) {
                 color: darkMode ? "#cbd5e1" : "#334155",
                 border: lightMode ? "1px solid rgba(15, 23, 42, 0.08)" : undefined,
                 "&.Mui-selected": {
-                  color: darkMode ? "#f8fafc" : "#0f172a",
+                  color: darkMode ? "#fff7ed" : brandPalette.signatureDeep,
                   backgroundImage: darkMode
-                    ? "linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(255, 255, 255, 0.08))"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(191, 219, 254, 0.92))",
-                  boxShadow: lightMode ? "inset 0 0 0 1px rgba(37, 99, 235, 0.22)" : "none",
+                    ? "linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(56, 189, 248, 0.08))"
+                    : "linear-gradient(135deg, rgba(255, 247, 237, 0.99), rgba(254, 215, 170, 0.92))",
+                  boxShadow: lightMode
+                    ? "inset 0 0 0 1px rgba(234, 88, 12, 0.22)"
+                    : "0 10px 24px rgba(249, 115, 22, 0.18)",
                 },
                 "&.Mui-selected:hover": {
                   backgroundImage: darkMode
-                    ? "linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(255, 255, 255, 0.1))"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(191, 219, 254, 0.96))",
+                    ? "linear-gradient(135deg, rgba(251, 146, 60, 0.34), rgba(56, 189, 248, 0.12))"
+                    : "linear-gradient(135deg, rgba(255, 247, 237, 1), rgba(253, 186, 116, 0.94))",
                 },
               },
             },

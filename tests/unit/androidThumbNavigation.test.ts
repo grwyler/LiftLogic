@@ -45,8 +45,8 @@ describe("android thumb-first navigation", () => {
       "utf8"
     );
 
-    expect(source).toContain("Selected Day");
-    expect(source).toContain("Show calendar");
-    expect(source).toContain("Collapse calendar");
+    expect(source).toContain("Workout Schedule");
+    expect(source).toContain("Pick a day");
+    expect(source).toContain("Hide calendar");
   });
 });

@@ -8,6 +8,10 @@ describe("theme preference expansion", () => {
       path.join(process.cwd(), "utils", "themePreferences.ts"),
       "utf8"
     );
+    const brandSource = fs.readFileSync(
+      path.join(process.cwd(), "utils", "brandSystem.ts"),
+      "utf8"
+    );
 
     expect(themeSource).toContain('"graphite"');
     expect(themeSource).toContain('"ember"');
@@ -16,6 +20,11 @@ describe("theme preference expansion", () => {
     expect(themeSource).toContain("INTERFACE_SCALE_OPTIONS");
     expect(themeSource).toContain("getAppearanceDensityLabel");
     expect(themeSource).toContain("getInterfaceScaleLabel");
+    expect(themeSource).toContain("brandBackgrounds.accentButton");
+    expect(themeSource).toContain("brandPalette.signatureStrong");
+    expect(themeSource).toContain("shared Lift Logic accent");
+    expect(brandSource).toContain("brandAccentUsage");
+    expect(brandSource).toContain("primaryActions");
   });
 
   it("keeps documented spacing and typography rhythm tokens in the app shell", () => {

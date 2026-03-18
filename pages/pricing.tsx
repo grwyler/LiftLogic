@@ -588,15 +588,23 @@ const PricingPage: React.FC = () => {
             overflow: "hidden",
           }}
         >
-          <Chip
-            label={
-              pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
+          <Box
+            sx={{
+              alignSelf: "flex-start",
+              px: 1.25,
+              py: 0.7,
+              borderRadius: pricingRadius.chip,
+              border: "1px solid",
+              borderColor: "rgba(249,115,22,0.22)",
+              backgroundColor: "rgba(249,115,22,0.08)",
+            }}
+          >
+            <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: "0.12em" }}>
+              {pricingExperiment?.enabled && pricingExperiment.variant === "variant_a"
                 ? "Proof-first pricing experiment"
-                : "Pricing direction during beta"
-            }
-            color="primary"
-            sx={{ borderRadius: pricingRadius.chip }}
-          />
+                : "Pricing direction during beta"}
+            </Typography>
+          </Box>
           <Typography
             variant="h2"
             sx={{
@@ -723,15 +731,18 @@ const PricingPage: React.FC = () => {
               >
                 Lower-friction paid start
               </Typography>
-              <Chip
-                label="Starter Kickoff"
+              <Box
                 sx={{
+                  px: 1.1,
+                  py: 0.6,
                   borderRadius: pricingRadius.chip,
                   backgroundColor: "rgba(245,158,11,0.14)",
-                  color: "text.primary",
-                  fontWeight: 700,
                 }}
-              />
+              >
+                <Typography variant="caption" sx={{ color: "text.primary", fontWeight: 800, letterSpacing: "0.08em" }}>
+                  Starter Kickoff
+                </Typography>
+              </Box>
             </Stack>
             <Typography variant="h4" sx={{ mt: 0.75 }}>
               Starter Kickoff
@@ -810,12 +821,23 @@ const PricingPage: React.FC = () => {
               >
                 Adaptive planning layer
               </Typography>
-              <Chip
-                label={hasPaidAccess ? "Current plan" : "Pro Beta"}
-                color="primary"
-                icon={<WorkspacePremiumOutlinedIcon fontSize="small" />}
-                sx={{ borderRadius: pricingRadius.chip }}
-              />
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.7,
+                  px: 1.15,
+                  py: 0.65,
+                  borderRadius: pricingRadius.chip,
+                  backgroundColor: "rgba(249,115,22,0.12)",
+                  color: "primary.main",
+                }}
+              >
+                <WorkspacePremiumOutlinedIcon fontSize="small" />
+                <Typography variant="caption" sx={{ color: "inherit", fontWeight: 800, letterSpacing: "0.08em" }}>
+                  {hasPaidAccess ? "Current plan" : "Pro Beta"}
+                </Typography>
+              </Box>
             </Stack>
             <Typography variant="h4" sx={{ mt: 0.75 }}>
               Pro Beta

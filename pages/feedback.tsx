@@ -6,7 +6,6 @@ import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  alpha,
   Box,
   Button,
   Chip,
@@ -28,6 +27,7 @@ import { fetchFeedback, fetchUser, submitFeedback } from "../utils/helpers";
 import { getClientDeviceType } from "../utils/feedbackMetadata";
 import { FeedbackItemDoc } from "../utils/types";
 import { toast } from "react-toastify";
+import { brandBackgrounds, brandPalette, brandRadii } from "../utils/brandSystem";
 
 type FeedbackPageUser = {
   _id: string;
@@ -43,8 +43,7 @@ const statusTone: Record<string, "default" | "success" | "warning" | "info"> = {
   closed: "default",
 };
 
-const feedbackRadius = "6px";
-const feedbackCompactRadius = "5px";
+const feedbackRadius = brandRadii;
 const feedbackPanelPadding = { xs: "20px", sm: "24px" } as const;
 
 const FeedbackPage = () => {
@@ -98,49 +97,39 @@ const FeedbackPage = () => {
     () => title.trim().length > 2 && description.trim().length > 9,
     [title, description]
   );
-  const glassBorder = isDarkMode
-    ? "rgba(255, 255, 255, 0.12)"
-    : "rgba(255, 255, 255, 0.72)";
-  const glassPanelSx = {
+  const feedbackPanelSx = {
     position: "relative",
     overflow: "hidden",
     p: feedbackPanelPadding,
-    borderRadius: feedbackRadius,
+    borderRadius: feedbackRadius.panel,
     border: "1px solid",
-    borderColor: glassBorder,
+    borderColor: "divider",
     background: isDarkMode
-      ? "linear-gradient(145deg, rgba(19, 28, 46, 0.86), rgba(10, 16, 29, 0.72))"
-      : "linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(244, 248, 252, 0.52))",
-    backdropFilter: "blur(28px) saturate(180%)",
+      ? brandBackgrounds.darkPremiumPanel
+      : brandBackgrounds.premiumPanel,
     boxShadow: isDarkMode
-      ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 64px rgba(2, 6, 23, 0.34)"
-      : "inset 0 1px 0 rgba(255,255,255,0.85), 0 28px 64px rgba(148, 163, 184, 0.18)",
+      ? "0 24px 56px rgba(2, 6, 23, 0.28)"
+      : "0 20px 46px rgba(15, 23, 42, 0.08)",
   } as const;
-  const glassControlSx = {
+  const feedbackControlSx = {
     border: "1px solid",
-    borderColor: glassBorder,
-    background: isDarkMode
-      ? "linear-gradient(145deg, rgba(19, 28, 46, 0.72), rgba(10, 16, 29, 0.58))"
-      : "linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 252, 0.64))",
-    backdropFilter: "blur(24px) saturate(175%)",
-    boxShadow: isDarkMode
-      ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px rgba(2, 6, 23, 0.24)"
-      : "inset 0 1px 0 rgba(255,255,255,0.82), 0 18px 40px rgba(148, 163, 184, 0.14)",
+    borderColor: "divider",
+    backgroundColor: isDarkMode
+      ? "rgba(15, 23, 42, 0.62)"
+      : "rgba(255, 255, 255, 0.94)",
   } as const;
-  const glassTextFieldSx = {
+  const feedbackTextFieldSx = {
     "& .MuiOutlinedInput-root": {
-      borderRadius: feedbackCompactRadius,
-      ...glassControlSx,
+      borderRadius: feedbackRadius.button,
+      ...feedbackControlSx,
       "& fieldset": {
-        borderColor: glassBorder,
+        borderColor: "divider",
       },
       "&:hover fieldset": {
-        borderColor: isDarkMode
-          ? "rgba(255, 255, 255, 0.22)"
-          : "rgba(255, 255, 255, 0.86)",
+        borderColor: isDarkMode ? "rgba(255,255,255,0.22)" : "rgba(249,115,22,0.34)",
       },
       "&.Mui-focused fieldset": {
-        borderColor: isDarkMode ? "rgba(125, 211, 252, 0.82)" : "#60a5fa",
+        borderColor: brandPalette.signature,
       },
     },
   } as const;
@@ -217,8 +206,8 @@ const FeedbackPage = () => {
           position: "absolute",
           inset: 0,
           background: isDarkMode
-            ? "radial-gradient(circle at 12% 18%, rgba(125, 211, 252, 0.14), transparent 22%), radial-gradient(circle at 88% 14%, rgba(129, 140, 248, 0.14), transparent 24%)"
-            : "radial-gradient(circle at 12% 18%, rgba(125, 211, 252, 0.2), transparent 22%), radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.92), transparent 26%)",
+            ? "radial-gradient(circle at 12% 18%, rgba(249, 115, 22, 0.16), transparent 22%), radial-gradient(circle at 88% 14%, rgba(56, 189, 248, 0.14), transparent 24%)"
+            : "radial-gradient(circle at 12% 18%, rgba(249, 115, 22, 0.18), transparent 22%), radial-gradient(circle at 88% 14%, rgba(255, 247, 237, 0.88), transparent 26%)",
           pointerEvents: "none",
         },
       }}
@@ -232,7 +221,7 @@ const FeedbackPage = () => {
           position: "relative",
         }}
       >
-        <Paper elevation={0} sx={glassPanelSx}>
+        <Paper elevation={0} sx={feedbackPanelSx}>
           <Box
             sx={{
               position: "absolute",
@@ -240,7 +229,7 @@ const FeedbackPage = () => {
               pointerEvents: "none",
               background: isDarkMode
                 ? "linear-gradient(180deg, rgba(255,255,255,0.08), transparent 36%)"
-                : "linear-gradient(180deg, rgba(255,255,255,0.88), transparent 34%)",
+                : "linear-gradient(180deg, rgba(255,255,255,0.82), transparent 34%)",
             }}
           />
           <Box
@@ -262,21 +251,20 @@ const FeedbackPage = () => {
                 sx={{ mb: "16px" }}
               >
                 <Chip
-                  label="Glass-inspired refresh"
+                  label="Core product styling"
                   sx={{
-                    borderRadius: feedbackCompactRadius,
-                    ...glassControlSx,
-                    backgroundColor: alpha(theme.palette.primary.main, isDarkMode ? 0.16 : 0.08),
-                    color: theme.palette.text.primary,
+                    borderRadius: feedbackRadius.chip,
+                    ...feedbackControlSx,
+                    backgroundColor: "rgba(249,115,22,0.12)",
+                    color: "text.primary",
                   }}
                 />
                 <Chip
-                  label={isDarkMode ? "Dark mode preserved" : "Light mode preserved"}
+                  label="Shared Lift Logic tokens"
                   sx={{
-                    borderRadius: feedbackCompactRadius,
-                    ...glassControlSx,
-                    backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.4 : 0.7),
-                    color: theme.palette.text.secondary,
+                    borderRadius: feedbackRadius.chip,
+                    ...feedbackControlSx,
+                    color: "text.secondary",
                   }}
                 />
               </Stack>
@@ -289,8 +277,9 @@ const FeedbackPage = () => {
               <Typography variant="h4">Help improve Lift Logic</Typography>
               <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 640 }}>
                 Report bugs when something breaks, or request changes when a flow
-                feels rough. This page now leans into a softer glass treatment while
-                keeping the existing light and dark theme identities.
+                feels rough. This page uses the same Lift Logic panel language as the
+                rest of the product so feedback feels like part of the app, not a
+                one-off design experiment.
               </Typography>
             </Box>
             <Button
@@ -303,33 +292,26 @@ const FeedbackPage = () => {
           </Box>
         </Paper>
 
-        <Box
-          sx={{
-            display: "flex",
-            gap: "12px",
-            flexWrap: "wrap",
-          }}
-        >
+        <Box sx={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           {[
-            "Polished glass panels",
-            "Subtle depth for forms",
-            "Consistent in both modes",
+            "Action-first layout",
+            "Clear status visibility",
+            "Consistent with core routes",
           ].map((label) => (
             <Chip
               key={label}
               label={label}
               sx={{
                 px: 0.4,
-                borderRadius: feedbackCompactRadius,
-                ...glassControlSx,
-                backgroundColor: alpha(theme.palette.background.paper, isDarkMode ? 0.34 : 0.64),
-                color: theme.palette.text.secondary,
+                borderRadius: feedbackRadius.chip,
+                ...feedbackControlSx,
+                color: "text.secondary",
               }}
             />
           ))}
         </Box>
 
-        <Paper elevation={0} sx={glassPanelSx}>
+        <Paper elevation={0} sx={feedbackPanelSx}>
           <Stack component="form" spacing={2} onSubmit={handleSubmit}>
             <ToggleButtonGroup
               exclusive
@@ -342,18 +324,22 @@ const FeedbackPage = () => {
               sx={{
                 flexWrap: "wrap",
                 gap: "8px",
-                borderRadius: feedbackRadius,
+                borderRadius: feedbackRadius.card,
                 padding: "4px",
-                ...glassControlSx,
+                ...feedbackControlSx,
               }}
             >
               <ToggleButton
                 value="bug"
                 sx={{
-                  borderRadius: feedbackCompactRadius,
+                  borderRadius: feedbackRadius.button,
                   px: "14px",
-                  "&.Mui-selected": glassControlSx,
-                  "&.Mui-selected:hover": glassControlSx,
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(249,115,22,0.14)",
+                  },
+                  "&.Mui-selected:hover": {
+                    backgroundColor: "rgba(249,115,22,0.18)",
+                  },
                 }}
               >
                 <BugReportOutlinedIcon sx={{ mr: 1 }} />
@@ -362,10 +348,14 @@ const FeedbackPage = () => {
               <ToggleButton
                 value="feature"
                 sx={{
-                  borderRadius: feedbackCompactRadius,
+                  borderRadius: feedbackRadius.button,
                   px: "14px",
-                  "&.Mui-selected": glassControlSx,
-                  "&.Mui-selected:hover": glassControlSx,
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(249,115,22,0.14)",
+                  },
+                  "&.Mui-selected:hover": {
+                    backgroundColor: "rgba(249,115,22,0.18)",
+                  },
                 }}
               >
                 <LightbulbOutlinedIcon sx={{ mr: 1 }} />
@@ -382,7 +372,7 @@ const FeedbackPage = () => {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               fullWidth
-              sx={glassTextFieldSx}
+              sx={feedbackTextFieldSx}
             />
 
             <TextField
@@ -401,7 +391,7 @@ const FeedbackPage = () => {
                   ? "Example: I opened Bench Press, logged set 2, and the screen jumped back to the top on mobile."
                   : "Example: I want a simple weekly summary that shows completed workouts, volume, and PRs."
               }
-              sx={glassTextFieldSx}
+              sx={feedbackTextFieldSx}
             />
 
             {type === "bug" && (
@@ -413,7 +403,7 @@ const FeedbackPage = () => {
                     color={severity === level ? "primary" : "default"}
                     variant={severity === level ? "filled" : "outlined"}
                     onClick={() => setSeverity(level)}
-                    sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
+                    sx={{ borderRadius: feedbackRadius.chip, ...feedbackControlSx }}
                   />
                 ))}
               </Stack>
@@ -436,7 +426,7 @@ const FeedbackPage = () => {
                 variant="contained"
                 startIcon={<SendRoundedIcon />}
                 disabled={!canSubmit || submitting}
-                sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
+                sx={{ borderRadius: feedbackRadius.button }}
               >
                 {submitting
                   ? "Sending..."
@@ -448,7 +438,7 @@ const FeedbackPage = () => {
           </Stack>
         </Paper>
 
-        <Paper elevation={0} sx={glassPanelSx}>
+        <Paper elevation={0} sx={feedbackPanelSx}>
           <Stack spacing={2}>
             <Box>
               <Typography variant="h6">Your recent submissions</Typography>
@@ -478,20 +468,20 @@ const FeedbackPage = () => {
                           label={item.type === "bug" ? "Bug" : "Feature"}
                           color={item.type === "bug" ? "warning" : "info"}
                           variant="outlined"
-                          sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
+                          sx={{ borderRadius: feedbackRadius.chip, ...feedbackControlSx }}
                         />
                         <Chip
                           size="small"
                           label={item.status || "new"}
                           color={statusTone[item.status || "new"] || "default"}
-                          sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
+                          sx={{ borderRadius: feedbackRadius.chip, ...feedbackControlSx }}
                         />
                         {item.severity && (
                           <Chip
                             size="small"
                             label={`${item.severity} severity`}
                             variant="outlined"
-                            sx={{ borderRadius: feedbackCompactRadius, ...glassControlSx }}
+                            sx={{ borderRadius: feedbackRadius.chip, ...feedbackControlSx }}
                           />
                         )}
                       </Stack>

@@ -22,6 +22,8 @@ describe("home page layout styling", () => {
     expect(source).toContain("borderRadius: landingRadius.inset");
     expect(source).toContain("Flagship Product Moment");
     expect(source).toContain("Adaptive Session Studio");
+    expect(source).toContain("Track-only mode with a cleaner next-step flow");
+    expect((source.match(/<Chip/g)?.length ?? 0)).toBeLessThanOrEqual(7);
   });
 
   it("stacks header actions vertically on narrow screens", () => {
