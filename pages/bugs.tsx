@@ -28,6 +28,7 @@ import {
   createHumanTask,
   createFollowUpFeedbackWorkItem,
   deleteFeedbackWorkItem,
+  fetchFeedbackEvidenceForWorkItem,
   fetchFeedbackWorkflow,
   updateHumanTask,
   updateFeedbackWorkItem,
@@ -497,6 +498,8 @@ const BugsPage = () => {
   };
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null);
+  const [workflowReloadKey, setWorkflowReloadKey] = useState(0);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
   const [humanTasks, setHumanTasks] = useState<HumanTaskDoc[]>([]);
@@ -571,12 +574,15 @@ const BugsPage = () => {
           feedback: nextFeedbackItems,
           workItems: nextWorkItems,
           humanTasks: nextHumanTasks,
-        } = await fetchFeedbackWorkflow();
+        } = await fetchFeedbackWorkflow({ includeFeedback: false });
         if (!active) {
           return;
         }
 
-        setFeedbackItems(nextFeedbackItems);
+        setWorkflowLoadError(null);
+        if (nextFeedbackItems.length > 0) {
+          setFeedbackItems(nextFeedbackItems);
+        }
         setHumanTasks((previous) => {
           if (options?.silent && nextHumanTasks.length > previous.length) {
             toast.info("New human task received");
@@ -597,6 +603,11 @@ const BugsPage = () => {
         });
         setDrafts((previous) => createDraftMap(nextWorkItems, previous));
       } catch (error) {
+        if (active) {
+          setWorkflowLoadError(
+            "The feedback inbox could not be loaded. Backlog writes may still work, but this page needs a successful retry before the queue can be trusted."
+          );
+        }
         if (!options?.silent) {
           console.error("Error loading bugs workflow:", error);
           toast.error("Couldn't load the feedback workflow.");
@@ -618,7 +629,7 @@ const BugsPage = () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [isAdmin, session]);
+  }, [isAdmin, session, workflowReloadKey]);
 
   useEffect(() => {
     if (!isAdmin || !session?.token?.user?._id) {
@@ -665,6 +676,55 @@ const BugsPage = () => {
       active = false;
     };
   }, [isAdmin, session]);
+
+  useEffect(() => {
+    if (!isAdmin || !selectedWorkItemId) {
+      return;
+    }
+
+    const normalizedWorkItemId = String(selectedWorkItemId);
+    const alreadyLoaded = feedbackItems.some(
+      (item) => String(item.workItemId || "") === normalizedWorkItemId
+    );
+
+    if (alreadyLoaded) {
+      return;
+    }
+
+    let active = true;
+
+    const loadEvidence = async () => {
+      try {
+        const evidence = await fetchFeedbackEvidenceForWorkItem(
+          normalizedWorkItemId
+        );
+        if (!active || evidence.length === 0) {
+          return;
+        }
+
+        setFeedbackItems((previous) => {
+          const seen = new Set(previous.map((item) => String(item._id || "")));
+          const merged = [...previous];
+          evidence.forEach((item) => {
+            const key = String(item._id || "");
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          });
+          return merged;
+        });
+      } catch (error) {
+        console.error("Error loading feedback evidence:", error);
+      }
+    };
+
+    void loadEvidence();
+
+    return () => {
+      active = false;
+    };
+  }, [feedbackItems, isAdmin, selectedWorkItemId]);
 
   useEffect(() => {
     if (!isAdmin || !session?.token?.user?._id) {
@@ -1318,10 +1378,12 @@ const BugsPage = () => {
         setWorkItems((previous) => [nextWorkItem, ...previous]);
       }
 
-      const freshWorkflow = await fetchFeedbackWorkflow();
+      const freshWorkflow = await fetchFeedbackWorkflow({ includeFeedback: false });
       setWorkItems(freshWorkflow.workItems);
       setHumanTasks(freshWorkflow.humanTasks);
-      setFeedbackItems(freshWorkflow.feedback);
+      if (freshWorkflow.feedback.length > 0) {
+        setFeedbackItems(freshWorkflow.feedback);
+      }
       setDrafts((previous) => createDraftMap(freshWorkflow.workItems, previous));
       setFollowUpDrafts((previous) => ({
         ...previous,
@@ -1474,10 +1536,34 @@ const BugsPage = () => {
     variant: CodexCopyVariant = "full"
   ) => {
     const workItemId = String(item._id || "");
-    const evidence = getFeedbackEvidenceForWorkItem({
+    let evidence = getFeedbackEvidenceForWorkItem({
       workItem: item,
       feedbackItems,
     });
+
+    if (evidence.length === 0) {
+      try {
+        const loadedEvidence = await fetchFeedbackEvidenceForWorkItem(workItemId);
+        if (loadedEvidence.length > 0) {
+          setFeedbackItems((previous) => {
+            const seen = new Set(previous.map((entry) => String(entry._id || "")));
+            const merged = [...previous];
+            loadedEvidence.forEach((entry) => {
+              const entryId = String(entry._id || "");
+              if (!seen.has(entryId)) {
+                seen.add(entryId);
+                merged.push(entry);
+              }
+            });
+            return merged;
+          });
+          evidence = loadedEvidence;
+        }
+      } catch (error) {
+        console.error("Failed to load work item evidence before copy:", error);
+      }
+    }
+
     const relatedWork = getRelatedWorkItems({
       workItem: item,
       workItems,
@@ -2261,6 +2347,26 @@ const BugsPage = () => {
             Back to Workouts
           </Button>
         </Box>
+
+        {workflowLoadError ? (
+          <Alert
+            severity="error"
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setLoading(true);
+                  setWorkflowReloadKey((previous) => previous + 1);
+                }}
+              >
+                Retry inbox load
+              </Button>
+            }
+          >
+            {workflowLoadError}
+          </Alert>
+        ) : null}
 
         <Paper
           elevation={0}
@@ -3058,7 +3164,9 @@ const BugsPage = () => {
               </Stack>
               {renderWorkItems(
                 filteredActiveWorkItems,
-                "No open work items match the current filters."
+                workflowLoadError
+                  ? "The feedback inbox failed to load. Retry the inbox before trusting an empty queue."
+                  : "No open work items match the current filters."
               )}
             </Stack>
           </Paper>

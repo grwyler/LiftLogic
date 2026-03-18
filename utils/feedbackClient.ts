@@ -10,8 +10,13 @@ import {
   HumanTaskStatus,
 } from "./types";
 
-export const fetchFeedbackWorkflow = async () => {
-  const response = await fetch("/api/feedback");
+export const fetchFeedbackWorkflow = async ({
+  includeFeedback = false,
+}: {
+  includeFeedback?: boolean;
+} = {}) => {
+  const query = includeFeedback ? "" : "?view=workflow";
+  const response = await fetch(`/api/feedback${query}`);
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`fetchFeedbackWorkflow ${response.status}: ${message}`);
@@ -29,6 +34,21 @@ export const fetchFeedbackWorkflow = async () => {
       ? (data.humanTasks as HumanTaskDoc[])
       : [],
   };
+};
+
+export const fetchFeedbackEvidenceForWorkItem = async (workItemId: string) => {
+  const response = await fetch(
+    `/api/feedback?workItemId=${encodeURIComponent(workItemId)}`
+  );
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(
+      `fetchFeedbackEvidenceForWorkItem ${response.status}: ${message}`
+    );
+  }
+
+  const data = await response.json();
+  return Array.isArray(data.feedback) ? (data.feedback as FeedbackItemDoc[]) : [];
 };
 
 export const createHumanTask = async ({

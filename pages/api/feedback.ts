@@ -974,8 +974,12 @@ export default async function handler(
     const humanTaskCollection = db.collection<HumanTaskDoc>("humanTasks");
 
     if (req.method === "GET") {
-      const { userId } = req.query;
+      const { userId, view, workItemId } = req.query;
       const normalizedUserId = Array.isArray(userId) ? userId[0] : userId;
+      const normalizedView = Array.isArray(view) ? view[0] : view;
+      const normalizedWorkItemId = Array.isArray(workItemId)
+        ? workItemId[0]
+        : workItemId;
       const requesterId = getSessionUserId(session);
       const admin = isBugWorkflowAdminSession(session);
 
@@ -991,11 +995,21 @@ export default async function handler(
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      if (admin && normalizedWorkItemId) {
+        const feedback = (
+          await feedbackCollection.find({}).sort({ createdAt: -1 }).toArray()
+        ).filter(
+          (item) => String(item.workItemId || "") === String(normalizedWorkItemId)
+        );
+
+        return res.status(200).json({ feedback });
+      }
+
       const query = normalizedUserId ? { userId: normalizedUserId } : {};
-      const feedback = await feedbackCollection
-        .find(query)
-        .sort({ createdAt: -1 })
-        .toArray();
+      const feedback =
+        admin && !normalizedUserId && normalizedView === "workflow"
+          ? []
+          : await feedbackCollection.find(query).sort({ createdAt: -1 }).toArray();
 
       if (admin && !normalizedUserId) {
         const workItems = await workItemCollection

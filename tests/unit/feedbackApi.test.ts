@@ -693,6 +693,78 @@ describe("feedback API route", () => {
     expect(getRes.body.humanTasks[0].status).toBe("done");
   });
 
+  it("supports lightweight admin workflow reads without loading full feedback evidence", async () => {
+    const firstReq = createMockRequest({
+      method: "POST",
+      body: validBugPayload,
+    });
+    const firstRes = createMockResponse();
+    await handler(firstReq, firstRes as any);
+
+    const secondReq = createMockRequest({
+      method: "POST",
+      body: {
+        feedback: {
+          ...validBugPayload.feedback,
+          title: "Another workout issue",
+          description: "A second issue keeps the workflow payload non-empty.",
+        },
+      },
+    });
+    const secondRes = createMockResponse();
+    await handler(secondReq, secondRes as any);
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const workflowReq = createMockRequest({
+      method: "GET",
+      query: { view: "workflow" },
+    });
+    const workflowRes = createMockResponse();
+    await handler(workflowReq, workflowRes as any);
+
+    expect(workflowRes.statusCode).toBe(200);
+    expect(workflowRes.body.feedback).toEqual([]);
+    expect(workflowRes.body.workItems).toHaveLength(2);
+    expect(workflowRes.body.humanTasks).toEqual([]);
+  });
+
+  it("supports loading evidence for a single work item without returning the whole inbox", async () => {
+    const firstReq = createMockRequest({
+      method: "POST",
+      body: validBugPayload,
+    });
+    const firstRes = createMockResponse();
+    await handler(firstReq, firstRes as any);
+
+    const secondReq = createMockRequest({
+      method: "POST",
+      body: {
+        feedback: {
+          ...validBugPayload.feedback,
+          title: "Another bug",
+          description: "This creates a second work item for evidence filtering.",
+          fingerprint: undefined,
+        },
+      },
+    });
+    const secondRes = createMockResponse();
+    await handler(secondReq, secondRes as any);
+
+    mocks.getServerSession.mockResolvedValueOnce(adminSession);
+    const evidenceReq = createMockRequest({
+      method: "GET",
+      query: { workItemId: firstRes.body.workItem._id.toString() },
+    });
+    const evidenceRes = createMockResponse();
+    await handler(evidenceReq, evidenceRes as any);
+
+    expect(evidenceRes.statusCode).toBe(200);
+    expect(evidenceRes.body.feedback).toHaveLength(1);
+    expect(String(evidenceRes.body.feedback[0].workItemId)).toBe(
+      String(firstRes.body.workItem._id)
+    );
+  });
+
   it("updates triage metadata through PATCH and propagates it to linked feedback", async () => {
     const postReq = createMockRequest({
       method: "POST",

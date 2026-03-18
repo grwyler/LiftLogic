@@ -108,4 +108,17 @@ describe("bugs inbox workflow helpers", () => {
     expect(source).toContain("No open human tasks yet.");
     expect(source).toContain("Work queue");
   });
+
+  it("surfaces inbox load failures instead of showing a fake empty queue", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "pages", "bugs.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("workflowLoadError");
+    expect(source).toContain("Retry inbox load");
+    expect(source).toContain(
+      "The feedback inbox failed to load. Retry the inbox before trusting an empty queue."
+    );
+  });
 });
