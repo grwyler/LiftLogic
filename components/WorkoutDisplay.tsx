@@ -558,13 +558,8 @@ const WorkoutDisplay = ({
   }, [hasExercises, starterFlowDismissed]);
 
   const handleCompletionNextStep = () => {
-    if (recurringSchedulingEnabled && hasExercises) {
+    if (hasExercises) {
       openWorkoutRepeatDialog();
-      return;
-    }
-
-    if (!recurringSchedulingEnabled && hasExercises) {
-      onRequestRecurringUpgradePrompt?.();
       return;
     }
 

@@ -200,10 +200,6 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     userProfile,
     "progressionRecommendations"
   );
-  const recurringSchedulingEnabled = hasEntitlement(
-    userProfile,
-    "recurringWorkoutScheduling"
-  );
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDraft | null>(null);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -428,10 +424,6 @@ const ExerciseManager: React.FC<ExerciseManagerProps> = ({
     } = updatedExercise;
 
     if (updatedExercise.isRecurring) {
-      if (!recurringSchedulingEnabled) {
-        throw new Error("Pro Beta is required to schedule recurring workouts.");
-      }
-
       const parsedDate =
         parseLocalDateInput(persistableExercise.date) ??
         new Date(persistableExercise.date);

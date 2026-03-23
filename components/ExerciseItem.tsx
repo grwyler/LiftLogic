@@ -455,12 +455,6 @@ const ExerciseItem = ({
 
   const handleOpenRepeatFlow = (event?: React.MouseEvent<HTMLElement>) => {
     event?.stopPropagation();
-
-    if (!recurringSchedulingEnabled) {
-      onRequestRecurringUpgradePrompt?.();
-      return;
-    }
-
     openRepeatDialog();
   };
 
@@ -659,10 +653,6 @@ const ExerciseItem = ({
 
   const openRepeatDialog = (event?: React.MouseEvent<HTMLElement>) => {
     event?.stopPropagation();
-    if (!recurringSchedulingEnabled) {
-      onRequestRecurringUpgradePrompt?.();
-      return;
-    }
     syncRepeatScheduleState(currentExercise);
     setShowRepeatDialog(true);
   };
@@ -707,11 +697,6 @@ const ExerciseItem = ({
     if (!currentUserId) {
       console.error("Missing userId for repeat toggle");
       toast.error("Couldn't save the schedule");
-      return;
-    }
-
-    if (!recurringSchedulingEnabled) {
-      toast.info("Pro Beta is required to schedule recurring workouts.");
       return;
     }
 

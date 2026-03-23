@@ -85,6 +85,24 @@ const featuredSearches = [
   "Cycling",
 ];
 
+const selectorLongTextSx = {
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+} as const;
+
+const selectorWrappingChipStackSx = {
+  "& .MuiChip-root": {
+    maxWidth: "100%",
+    height: "auto",
+    "& .MuiChip-label": {
+      display: "block",
+      whiteSpace: "normal",
+      lineHeight: 1.3,
+      py: 0.5,
+    },
+  },
+} as const;
+
 const normalizeText = (value: unknown) =>
   String(value ?? "")
     .trim()
@@ -413,8 +431,15 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   );
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2 } }}>
-      <Stack spacing={2.5}>
+    <Box
+      sx={{
+        p: { xs: 1, sm: 2 },
+        width: "100%",
+        minWidth: 0,
+        overflowX: "clip",
+      }}
+    >
+      <Stack spacing={2.5} sx={{ minWidth: 0 }}>
         <Box
           sx={{
             display: "flex",
@@ -422,17 +447,20 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
             alignItems: { xs: "flex-start", sm: "center" },
             gap: 1.5,
             flexDirection: { xs: "column", sm: "row" },
+            minWidth: 0,
           }}
         >
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="overline"
               sx={{ color: "text.secondary", letterSpacing: "0.14em" }}
             >
               Add Exercise
             </Typography>
-            <Typography variant="h5">Choose an exercise</Typography>
-            <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+            <Typography variant="h5" sx={selectorLongTextSx}>
+              Choose an exercise
+            </Typography>
+            <Typography sx={{ mt: 0.5, color: "text.secondary", ...selectorLongTextSx }}>
               Search first, then quick add or customize if you need more control.
             </Typography>
           </Box>
@@ -452,6 +480,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                 : "rgba(255,255,255,0.94)",
               backdropFilter: "blur(18px)",
               boxShadow: "none",
+              overflow: "hidden",
             }}
           >
             <CardContent sx={{ p: { xs: 1.25, sm: 2 } }}>
@@ -461,7 +490,8 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                   justifyContent: "space-between",
                   alignItems: { xs: "flex-start", sm: "center" },
                   gap: 1,
-                  flexDirection: { xs: "row", sm: "row" },
+                  flexDirection: { xs: "column", sm: "row" },
+                  minWidth: 0,
                 }}
               >
                 <Button
@@ -486,6 +516,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                       color: "text.secondary",
                       letterSpacing: "0.12em",
                       lineHeight: 1.2,
+                      ...selectorLongTextSx,
                     }}
                   >
                     Already On Today&apos;s Plan
@@ -502,6 +533,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                   maxHeight: { xs: 72, sm: 96 },
                   overflowY: "auto",
                   pr: 0.5,
+                  ...selectorWrappingChipStackSx,
                 }}
               >
                 {currentWorkoutExerciseNames.map((name) => (
@@ -531,10 +563,12 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
               ? "rgba(255,255,255,0.03)"
               : "rgba(255,255,255,0.62)",
             boxShadow: "none",
+            minWidth: 0,
+            overflow: "hidden",
           }}
         >
           <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-            <Stack spacing={2}>
+            <Stack spacing={2} sx={{ minWidth: 0 }}>
               <Stack
                 direction={{ xs: "column", sm: "row" }}
                 spacing={1.25}
@@ -558,7 +592,13 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                 </Button>
               </Stack>
 
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={selectorWrappingChipStackSx}
+              >
                 {featuredSearches.map((term) => (
                   <Chip
                     key={term}
@@ -570,7 +610,13 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                 ))}
               </Stack>
 
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                useFlexGap
+                sx={selectorWrappingChipStackSx}
+              >
                 {quickGroups.map((group) => (
                   <Chip
                     key={group.label}
@@ -641,7 +687,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                       spacing={1}
                       flexWrap="wrap"
                       useFlexGap
-                      sx={{ mt: 1 }}
+                      sx={{ mt: 1, ...selectorWrappingChipStackSx }}
                     >
                       <Chip
                         icon={<RepeatIcon />}
@@ -754,11 +800,11 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
             <CircularProgress />
           </Box>
         ) : (
-          <Stack spacing={1.5}>
+          <Stack spacing={1.5} sx={{ minWidth: 0 }}>
             {displayedExercises.map((exercise) => {
               const busyId = String(exercise.id ?? exercise._id ?? exercise.name);
               const isBusy = busyExerciseId === busyId;
-              const equipmentLabel = normalizeEquipment(exercise.equipment).join(" · ");
+              const equipmentLabel = normalizeEquipment(exercise.equipment).join(" / ");
 
               return (
                 <Card
@@ -771,28 +817,38 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                       ? "rgba(255,255,255,0.03)"
                       : "rgba(255,255,255,0.78)",
                     boxShadow: "none",
+                    minWidth: 0,
+                    overflow: "hidden",
                   }}
                 >
                   <CardContent sx={{ p: { xs: 2, sm: 2.25 } }}>
-                    <Stack spacing={1.5}>
+                    <Stack spacing={1.5} sx={{ minWidth: 0 }}>
                       <Box
                         sx={{
                           display: "flex",
                           justifyContent: "space-between",
-                          alignItems: "flex-start",
+                          alignItems: { xs: "flex-start", sm: "center" },
                           gap: 1,
+                          flexDirection: { xs: "column", sm: "row" },
+                          minWidth: 0,
                         }}
                       >
-                        <Box>
-                          <Typography variant="h6">{exercise.name}</Typography>
-                          <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="h6" sx={selectorLongTextSx}>
+                            {exercise.name}
+                          </Typography>
+                          <Typography
+                            sx={{ mt: 0.5, color: "text.secondary", ...selectorLongTextSx }}
+                          >
                             {[exercise.target, exercise.bodyPart, equipmentLabel]
                               .filter(Boolean)
                               .map((item) => toTitle(String(item)))
-                              .join(" · ")}
+                              .join(" / ")}
                           </Typography>
                           {exercise.aliases && exercise.aliases.length > 0 ? (
-                            <Typography sx={{ mt: 0.5, color: "text.secondary" }}>
+                            <Typography
+                              sx={{ mt: 0.5, color: "text.secondary", ...selectorLongTextSx }}
+                            >
                               Also matches: {exercise.aliases.slice(0, 3).join(", ")}
                             </Typography>
                           ) : null}
@@ -801,6 +857,7 @@ const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
                           size="small"
                           label={exercise.type === "timed" ? "Timed" : "Weight"}
                           variant="outlined"
+                          sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
                         />
                       </Box>
 

@@ -30,6 +30,28 @@ const getUniqueUsername = async (baseValue: string) => {
   return attempt;
 };
 
+const isOAuthStorageUnavailableError = (error: unknown) => {
+  const errorName = String((error as { name?: unknown })?.name ?? "");
+  const errorMessage = String((error as { message?: unknown })?.message ?? "");
+  const combined = `${errorName} ${errorMessage}`.toLowerCase();
+
+  return (
+    errorName === "MongoServerSelectionError" ||
+    combined.includes("mongodb_uri") ||
+    combined.includes("server selection timed out") ||
+    combined.includes("mongonetworkerror") ||
+    combined.includes("querysrv") ||
+    combined.includes("enotfound") ||
+    combined.includes("econnrefused") ||
+    combined.includes("etimedout")
+  );
+};
+
+const getOAuthFailureRedirect = (error: unknown) =>
+  isOAuthStorageUnavailableError(error)
+    ? "/signin?error=oauth_storage_unavailable"
+    : "/signin?error=oauth_signin_failed";
+
 const toSessionUser = (user: any) => {
   const { password, sessionId, providerAccountId, ...safeUser } = user || {};
   const normalizedId = user?._id?.toString?.() ?? String(user?._id ?? "");
@@ -220,7 +242,7 @@ export const authOptions: NextAuthOptions = {
         return true;
       } catch (error) {
         console.error("NextAuth OAuth signIn error:", error);
-        return false;
+        return getOAuthFailureRedirect(error);
       }
     },
     async jwt({ token, user, account }) {

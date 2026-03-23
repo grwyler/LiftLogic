@@ -18,7 +18,7 @@ const ACTIVE_BILLING_STATUSES = new Set<BillingSubscriptionStatus>([
 export const FREE_ENTITLEMENTS: UserEntitlements = {
   assistantPlanGeneration: false,
   assistantPlanRegeneration: false,
-  recurringWorkoutScheduling: false,
+  recurringWorkoutScheduling: true,
   progressionRecommendations: false,
 };
 
@@ -124,8 +124,9 @@ export const resolveUserEntitlements = (user?: Partial<UserDoc> | null): UserEnt
       stored.assistantPlanGeneration ?? expected.assistantPlanGeneration,
     assistantPlanRegeneration:
       stored.assistantPlanRegeneration ?? expected.assistantPlanRegeneration,
-    recurringWorkoutScheduling:
-      stored.recurringWorkoutScheduling ?? expected.recurringWorkoutScheduling,
+    // Recurring scheduling is now part of the free core product, so old stored
+    // false values should not keep people locked out.
+    recurringWorkoutScheduling: true,
     progressionRecommendations:
       stored.progressionRecommendations ?? expected.progressionRecommendations,
   };
@@ -169,7 +170,7 @@ export const getEntitlementMessage = (key: EntitlementKey) => {
     case "assistantPlanRegeneration":
       return "Pro Beta is required for assistant-led plan revisions.";
     case "recurringWorkoutScheduling":
-      return "Pro Beta is required to schedule recurring workouts.";
+      return "Recurring workout scheduling should be available on your account.";
     case "progressionRecommendations":
       return "Pro Beta is required for progression recommendations.";
     default:

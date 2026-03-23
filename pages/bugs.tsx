@@ -187,6 +187,24 @@ const formatTimestamp = (value?: Date | string) =>
 
 const formatRate = (value?: number) => `${Math.round((value || 0) * 100)}%`;
 
+const longTextSx = {
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+} as const;
+
+const wrappingChipStackSx = {
+  "& .MuiChip-root": {
+    maxWidth: "100%",
+    height: "auto",
+    "& .MuiChip-label": {
+      display: "block",
+      whiteSpace: "normal",
+      lineHeight: 1.3,
+      py: 0.5,
+    },
+  },
+} as const;
+
 const triageSortOrder: Record<FeedbackTriageStatus, number> = {
   fixing: 0,
   "details copied": 1,
@@ -499,6 +517,7 @@ const BugsPage = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null);
+  const [workflowHasLoaded, setWorkflowHasLoaded] = useState(false);
   const [workflowReloadKey, setWorkflowReloadKey] = useState(0);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [workItems, setWorkItems] = useState<FeedbackWorkItemDoc[]>([]);
@@ -545,6 +564,12 @@ const BugsPage = () => {
     typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
 
   const isAdmin = isBugWorkflowAdminSession(session as any);
+  const retryWorkflowLoad = () => {
+    setLoading(true);
+    setWorkflowReloadKey((previous) => previous + 1);
+  };
+  const workflowInboxUnavailable = Boolean(workflowLoadError) && !workflowHasLoaded;
+  const workflowShowingStaleSnapshot = Boolean(workflowLoadError) && workflowHasLoaded;
 
   useEffect(() => {
     if (!session?.token?.user?._id) {
@@ -580,6 +605,7 @@ const BugsPage = () => {
         }
 
         setWorkflowLoadError(null);
+        setWorkflowHasLoaded(true);
         if (nextFeedbackItems.length > 0) {
           setFeedbackItems(nextFeedbackItems);
         }
@@ -1868,7 +1894,13 @@ const BugsPage = () => {
                 justifyContent="space-between"
                 alignItems={{ xs: "flex-start", md: "center" }}
               >
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={wrappingChipStackSx}
+                >
                   <Chip
                     size="small"
                     label={item.type === "bug" ? "Bug" : "Feature"}
@@ -1925,14 +1957,14 @@ const BugsPage = () => {
                     />
                   ) : null}
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={longTextSx}>
                   Latest report {item.latestReportId || "unknown"}
                   {" | "}
                   {formatTimestamp(item.lastReportedAt)}
                 </Typography>
               </Stack>
 
-              <Typography variant="h6" sx={{ mt: 1.25 }}>
+              <Typography variant="h6" sx={{ mt: 1.25, ...longTextSx }}>
                 {item.title}
               </Typography>
               <Typography
@@ -1940,6 +1972,7 @@ const BugsPage = () => {
                   mt: 0.9,
                   color: "text.secondary",
                   whiteSpace: "pre-wrap",
+                  ...longTextSx,
                 }}
               >
                 {item.latestDescription}
@@ -1964,7 +1997,7 @@ const BugsPage = () => {
                     })
                   }
                   disabled={savingId === workItemId}
-                  sx={{ minWidth: 180 }}
+                  sx={{ minWidth: { xs: "100%", sm: 180 } }}
                 >
                   {Object.entries(triageLabel).map(([value, label]) => (
                     <MenuItem key={value} value={value}>
@@ -1988,7 +2021,7 @@ const BugsPage = () => {
                     })
                   }
                   disabled={savingId === workItemId}
-                  sx={{ minWidth: 150 }}
+                  sx={{ minWidth: { xs: "100%", sm: 150 } }}
                 >
                   <MenuItem value="unset">Unset</MenuItem>
                   <MenuItem value="high">High</MenuItem>
@@ -2218,7 +2251,7 @@ const BugsPage = () => {
                 spacing={1}
                 flexWrap="wrap"
                 useFlexGap
-                sx={{ mt: 1.25 }}
+                sx={{ mt: 1.25, ...wrappingChipStackSx }}
               >
                 <Chip
                   size="small"
@@ -2314,9 +2347,18 @@ const BugsPage = () => {
         minHeight: "100vh",
         px: { xs: 1.5, sm: 2.5 },
         py: { xs: 2, sm: 3 },
+        overflowX: "clip",
       }}
     >
-      <Box sx={{ maxWidth: 1080, mx: "auto", display: "grid", gap: 2 }}>
+      <Box
+        sx={{
+          maxWidth: 1080,
+          mx: "auto",
+          display: "grid",
+          gap: 2,
+          overflowX: "clip",
+        }}
+      >
         <Box
           sx={{
             display: "flex",
@@ -2355,10 +2397,7 @@ const BugsPage = () => {
               <Button
                 color="inherit"
                 size="small"
-                onClick={() => {
-                  setLoading(true);
-                  setWorkflowReloadKey((previous) => previous + 1);
-                }}
+                onClick={retryWorkflowLoad}
               >
                 Retry inbox load
               </Button>
@@ -2375,6 +2414,7 @@ const BugsPage = () => {
             borderRadius: 3,
             border: "1px solid",
             borderColor: "divider",
+            order: 6,
           }}
         >
           <Stack spacing={2}>
@@ -2396,6 +2436,7 @@ const BugsPage = () => {
                   variant="outlined"
                   onClick={() => void refreshMonetizationSummary()}
                   disabled={monetizationLoading}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
                 >
                   {monetizationLoading ? "Refreshing..." : "Refresh summary"}
                 </Button>
@@ -2406,7 +2447,7 @@ const BugsPage = () => {
                   sx={{
                     mt: 2,
                     display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                     gap: 1.25,
                   }}
                 >
@@ -2440,12 +2481,23 @@ const BugsPage = () => {
                     <Paper
                       key={String(label)}
                       variant="outlined"
-                      sx={{ p: 1.5, borderRadius: 2 }}
+                      sx={{ p: { xs: 1.2, sm: 1.5 }, borderRadius: 2 }}
                     >
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={longTextSx}
+                      >
                         {label}
                       </Typography>
-                      <Typography variant="h6" sx={{ mt: 0.4 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          mt: 0.4,
+                          fontSize: { xs: "1.35rem", sm: "1.5rem" },
+                          ...longTextSx,
+                        }}
+                      >
                         {String(value)}
                       </Typography>
                     </Paper>
@@ -2473,7 +2525,11 @@ const BugsPage = () => {
                   set an expiration date, and record how payment was collected.
                 </Typography>
               </Box>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
                 <TextField
                   size="small"
                   label="Find user"
@@ -2486,6 +2542,7 @@ const BugsPage = () => {
                   variant="outlined"
                   onClick={() => void refreshFoundingBetaUsers(foundingBetaSearch)}
                   disabled={foundingBetaLoading}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
                 >
                   {foundingBetaLoading ? "Searching..." : "Search"}
                 </Button>
@@ -2513,25 +2570,26 @@ const BugsPage = () => {
                     <Paper
                       key={user._id}
                       variant="outlined"
-                      sx={{ p: 1.5, borderRadius: 2.5 }}
+                      sx={{ p: 1.5, borderRadius: 2.5, overflow: "hidden" }}
                     >
                       <Stack spacing={1.25}>
-                        <Stack
-                          direction={{ xs: "column", sm: "row" }}
-                          spacing={1}
-                          justifyContent="space-between"
-                          alignItems={{ xs: "flex-start", sm: "center" }}
-                        >
-                          <Box>
-                            <Typography sx={{ fontWeight: 700 }}>
+                        <Stack spacing={1} sx={{ minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 700, ...longTextSx }}>
                               {user.name || user.username}
                             </Typography>
-                            <Typography sx={{ color: "text.secondary" }}>
+                            <Typography sx={{ color: "text.secondary", ...longTextSx }}>
                               @{user.username}
-                              {user.email ? ` • ${user.email}` : ""}
+                              {user.email ? ` | ${user.email}` : ""}
                             </Typography>
                           </Box>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            flexWrap="wrap"
+                            useFlexGap
+                            sx={wrappingChipStackSx}
+                          >
                             <Chip
                               label={accessActive ? "Founding beta active" : "No manual grant"}
                               color={accessActive ? "success" : "default"}
@@ -2582,7 +2640,10 @@ const BugsPage = () => {
                           />
                         </Stack>
 
-                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "text.secondary", ...longTextSx }}
+                        >
                           {manualAccess?.grantedAt
                             ? `Granted ${formatTimestamp(manualAccess.grantedAt)}${
                                 manualAccess.grantedByEmail
@@ -2599,11 +2660,16 @@ const BugsPage = () => {
                             : ""}
                         </Typography>
 
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          sx={{ width: "100%" }}
+                        >
                           <Button
                             variant="contained"
                             onClick={() => void handleFoundingBetaAccessSave(user, "grant")}
                             disabled={saving}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
                           >
                             {saving && !accessActive ? "Saving..." : "Grant access"}
                           </Button>
@@ -2611,6 +2677,7 @@ const BugsPage = () => {
                             variant="outlined"
                             onClick={() => void handleFoundingBetaAccessSave(user, "update")}
                             disabled={saving || !manualAccess}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
                           >
                             {saving && accessActive ? "Saving..." : "Save expiration/note"}
                           </Button>
@@ -2619,6 +2686,7 @@ const BugsPage = () => {
                             color="error"
                             onClick={() => void handleFoundingBetaAccessSave(user, "revoke")}
                             disabled={saving || !manualAccess}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
                           >
                             Revoke
                           </Button>
@@ -2641,6 +2709,7 @@ const BugsPage = () => {
             borderColor: "rgba(16, 185, 129, 0.28)",
             background:
               "linear-gradient(145deg, rgba(236, 253, 245, 0.96), rgba(255, 255, 255, 0.98))",
+            order: 5,
           }}
         >
           <Stack spacing={2}>
@@ -2883,173 +2952,211 @@ const BugsPage = () => {
             borderRadius: 3,
             border: "1px solid",
             borderColor: "divider",
+            order: 1,
           }}
         >
-          <Stack
-            spacing={2}
-          >
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.5}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", sm: "center" }}
-            >
-              <Box>
-                <Typography variant="h6">Work queue</Typography>
-                <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
-                  Bugs and features now stay in one sortable list so you can triage,
-                  reprioritize, and hand work off faster. Use the filters to narrow
-                  the queue without losing the separate bug and feature totals.
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Chip
-                  icon={<BugReportOutlinedIcon />}
-                  label={`${activeBugCount} open bug${activeBugCount === 1 ? "" : "s"}`}
-                  variant="outlined"
+          {workflowInboxUnavailable ? (
+            <Stack spacing={1.5}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Typography variant="h6">Work queue unavailable</Typography>
+                  <Typography sx={{ mt: 0.75, color: "text.secondary", maxWidth: 860 }}>
+                    The inbox read failed, so backlog counts and empty states stay hidden
+                    until a retry succeeds.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" onClick={retryWorkflowLoad}>
+                  Retry inbox load
+                </Button>
+              </Stack>
+              <Alert severity="error">
+                The feedback inbox failed to load. Retry the inbox before trusting an
+                empty queue.
+              </Alert>
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+              >
+                <Box>
+                  <Typography variant="h6">Work queue</Typography>
+                  <Typography sx={{ mt: 0.75, color: "text.secondary" }}>
+                    Bugs and features now stay in one sortable list so you can triage,
+                    reprioritize, and hand work off faster. Use the filters to narrow
+                    the queue without losing the separate bug and feature totals.
+                  </Typography>
+                </Box>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={wrappingChipStackSx}
+                >
+                  <Chip
+                    icon={<BugReportOutlinedIcon />}
+                    label={`${activeBugCount} open bug${activeBugCount === 1 ? "" : "s"}`}
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={`${activeFeatureCount} open feature${
+                      activeFeatureCount === 1 ? "" : "s"
+                    }`}
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={`${completedBugCount} closed bug${
+                      completedBugCount === 1 ? "" : "s"
+                    }`}
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={`${completedFeatureCount} closed feature${
+                      completedFeatureCount === 1 ? "" : "s"
+                    }`}
+                    variant="outlined"
+                  />
+                </Stack>
+              </Stack>
+              {workflowShowingStaleSnapshot ? (
+                <Alert severity="warning">
+                  Showing the last successful inbox snapshot. Retry before trusting
+                  current counts or filters.
+                </Alert>
+              ) : null}
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={1}
+                alignItems={{ xs: "stretch", md: "center" }}
+                useFlexGap
+                flexWrap="wrap"
+              >
+                <TextField
+                  size="small"
+                  label="Search"
+                  value={workItemSearch}
+                  onChange={(event) => setWorkItemSearch(event.target.value)}
+                  placeholder="Title, page, fingerprint, thread..."
+                  sx={{ minWidth: { xs: "100%", md: 260 } }}
                 />
-                <Chip
-                  label={`${activeFeatureCount} open feature${
-                    activeFeatureCount === 1 ? "" : "s"
-                  }`}
+                <TextField
+                  select
+                  size="small"
+                  label="Type"
+                  value={workItemTypeFilter}
+                  onChange={(event) =>
+                    setWorkItemTypeFilter(event.target.value as WorkItemFilterType)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 150 } }}
+                >
+                  <MenuItem value="all">All types</MenuItem>
+                  <MenuItem value="bug">Bugs</MenuItem>
+                  <MenuItem value="feature">Features</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="List"
+                  value={workItemListScope}
+                  onChange={(event) =>
+                    setWorkItemListScope(event.target.value as WorkItemListScope)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 150 } }}
+                >
+                  <MenuItem value="active">Open only</MenuItem>
+                  <MenuItem value="completed">Closed only</MenuItem>
+                  <MenuItem value="all">Open and closed</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Status"
+                  value={workItemStatusFilter}
+                  onChange={(event) =>
+                    setWorkItemStatusFilter(event.target.value as WorkItemStatusFilter)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 170 } }}
+                >
+                  <MenuItem value="all">All statuses</MenuItem>
+                  {Object.entries(triageLabel).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Priority"
+                  value={workItemSeverityFilter}
+                  onChange={(event) =>
+                    setWorkItemSeverityFilter(event.target.value as WorkItemSeverityFilter)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 150 } }}
+                >
+                  <MenuItem value="all">All priorities</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="low">Low</MenuItem>
+                  <MenuItem value="unset">Unset</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Label"
+                  value={workItemLabelFilter}
+                  onChange={(event) =>
+                    setWorkItemLabelFilter(event.target.value as WorkItemLabelFilter)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 170 } }}
+                >
+                  <MenuItem value="all">All labels</MenuItem>
+                  {availableLabels.map((label) => (
+                    <MenuItem key={label} value={label}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Sort"
+                  value={queueSortMode}
+                  onChange={(event) =>
+                    setQueueSortMode(event.target.value as QueueSortMode)
+                  }
+                  sx={{ minWidth: { xs: "100%", sm: 170 } }}
+                >
+                  <MenuItem value="workflow">Workflow priority</MenuItem>
+                  <MenuItem value="severity">Highest priority</MenuItem>
+                  <MenuItem value="reports">Most reports</MenuItem>
+                  <MenuItem value="latest">Latest activity</MenuItem>
+                  <MenuItem value="oldest">Oldest first</MenuItem>
+                  <MenuItem value="title">Title</MenuItem>
+                </TextField>
+                <Button
                   variant="outlined"
-                />
-                <Chip
-                  label={`${completedBugCount} closed bug${
-                    completedBugCount === 1 ? "" : "s"
-                  }`}
-                  variant="outlined"
-                />
-                <Chip
-                  label={`${completedFeatureCount} closed feature${
-                    completedFeatureCount === 1 ? "" : "s"
-                  }`}
-                  variant="outlined"
-                />
+                  onClick={() => void handleCopyTopTenDetails()}
+                  disabled={currentPrimaryListItems.length === 0}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
+                >
+                  Copy Details Of Top 10
+                </Button>
               </Stack>
             </Stack>
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={1}
-              alignItems={{ xs: "stretch", md: "center" }}
-              useFlexGap
-              flexWrap="wrap"
-            >
-              <TextField
-                size="small"
-                label="Search"
-                value={workItemSearch}
-                onChange={(event) => setWorkItemSearch(event.target.value)}
-                placeholder="Title, page, fingerprint, thread..."
-                sx={{ minWidth: { xs: "100%", md: 260 } }}
-              />
-              <TextField
-                select
-                size="small"
-                label="Type"
-                value={workItemTypeFilter}
-                onChange={(event) =>
-                  setWorkItemTypeFilter(event.target.value as WorkItemFilterType)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 150 } }}
-              >
-                <MenuItem value="all">All types</MenuItem>
-                <MenuItem value="bug">Bugs</MenuItem>
-                <MenuItem value="feature">Features</MenuItem>
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="List"
-                value={workItemListScope}
-                onChange={(event) =>
-                  setWorkItemListScope(event.target.value as WorkItemListScope)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 150 } }}
-              >
-                <MenuItem value="active">Open only</MenuItem>
-                <MenuItem value="completed">Closed only</MenuItem>
-                <MenuItem value="all">Open and closed</MenuItem>
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Status"
-                value={workItemStatusFilter}
-                onChange={(event) =>
-                  setWorkItemStatusFilter(event.target.value as WorkItemStatusFilter)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 170 } }}
-              >
-                <MenuItem value="all">All statuses</MenuItem>
-                {Object.entries(triageLabel).map(([value, label]) => (
-                  <MenuItem key={value} value={value}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Priority"
-                value={workItemSeverityFilter}
-                onChange={(event) =>
-                  setWorkItemSeverityFilter(event.target.value as WorkItemSeverityFilter)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 150 } }}
-              >
-                <MenuItem value="all">All priorities</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="unset">Unset</MenuItem>
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Label"
-                value={workItemLabelFilter}
-                onChange={(event) =>
-                  setWorkItemLabelFilter(event.target.value as WorkItemLabelFilter)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 170 } }}
-              >
-                <MenuItem value="all">All labels</MenuItem>
-                {availableLabels.map((label) => (
-                  <MenuItem key={label} value={label}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Sort"
-                value={queueSortMode}
-                onChange={(event) =>
-                  setQueueSortMode(event.target.value as QueueSortMode)
-                }
-                sx={{ minWidth: { xs: "100%", sm: 170 } }}
-              >
-                <MenuItem value="workflow">Workflow priority</MenuItem>
-                <MenuItem value="severity">Highest priority</MenuItem>
-                <MenuItem value="reports">Most reports</MenuItem>
-                <MenuItem value="latest">Latest activity</MenuItem>
-                <MenuItem value="oldest">Oldest first</MenuItem>
-                <MenuItem value="title">Title</MenuItem>
-              </TextField>
-              <Button
-                variant="outlined"
-                onClick={() => void handleCopyTopTenDetails()}
-                disabled={currentPrimaryListItems.length === 0}
-              >
-                Copy Details Of Top 10
-              </Button>
-            </Stack>
-          </Stack>
+          )}
         </Paper>
 
-        {initiativeSummaries.length > 0 ? (
+        {!workflowInboxUnavailable && initiativeSummaries.length > 0 ? (
           <Paper
             elevation={0}
             sx={{
@@ -3057,6 +3164,7 @@ const BugsPage = () => {
               borderRadius: 3,
               border: "1px solid",
               borderColor: "divider",
+              order: 3,
             }}
           >
             <Stack spacing={1.5}>
@@ -3077,16 +3185,26 @@ const BugsPage = () => {
                   <Paper
                     key={entry.initiative.id}
                     variant="outlined"
-                    sx={{ p: 1.6, borderRadius: 2.5, display: "grid", gap: 1 }}
+                    sx={{
+                      p: 1.6,
+                      borderRadius: 2.5,
+                      display: "grid",
+                      gap: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                    }}
                   >
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      spacing={1}
-                      justifyContent="space-between"
-                      alignItems={{ xs: "flex-start", sm: "center" }}
-                    >
-                      <Typography variant="subtitle1">{entry.initiative.label}</Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack spacing={1} sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle1" sx={longTextSx}>
+                        {entry.initiative.label}
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={wrappingChipStackSx}
+                      >
                         <Chip
                           label={`${entry.items.length} open slice${
                             entry.items.length === 1 ? "" : "s"
@@ -3108,10 +3226,13 @@ const BugsPage = () => {
                         />
                       </Stack>
                     </Stack>
-                    <Typography sx={{ color: "text.secondary" }}>
+                    <Typography sx={{ color: "text.secondary", ...longTextSx }}>
                       {entry.initiative.summary}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "text.secondary", ...longTextSx }}
+                    >
                       {entry.initiative.sequencing}
                     </Typography>
                     <Box>
@@ -3123,7 +3244,7 @@ const BugsPage = () => {
                         spacing={1}
                         flexWrap="wrap"
                         useFlexGap
-                        sx={{ mt: 0.6 }}
+                        sx={{ mt: 0.6, ...wrappingChipStackSx }}
                       >
                         {entry.suggestedSlices.map((sliceTitle) => (
                           <Chip key={sliceTitle} size="small" label={sliceTitle} />
@@ -3137,7 +3258,8 @@ const BugsPage = () => {
           </Paper>
         ) : null}
 
-        {(workItemListScope === "active" || workItemListScope === "all") ? (
+        {!workflowInboxUnavailable &&
+        (workItemListScope === "active" || workItemListScope === "all") ? (
           <Paper
             elevation={0}
             sx={{
@@ -3145,6 +3267,7 @@ const BugsPage = () => {
               borderRadius: 3,
               border: "1px solid",
               borderColor: "divider",
+              order: 2,
             }}
           >
             <Stack spacing={1.5}>
@@ -3172,7 +3295,8 @@ const BugsPage = () => {
           </Paper>
         ) : null}
 
-        {(workItemListScope === "completed" || workItemListScope === "all") &&
+        {!workflowInboxUnavailable &&
+        (workItemListScope === "completed" || workItemListScope === "all") &&
         completedWorkItems.length > 0 ? (
           <>
             <Paper
@@ -3182,6 +3306,7 @@ const BugsPage = () => {
                 borderRadius: 3,
                 border: "1px solid",
                 borderColor: "divider",
+                order: 4,
               }}
             >
               <Stack

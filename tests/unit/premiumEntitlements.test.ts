@@ -67,7 +67,24 @@ describe("premium entitlements", () => {
     });
   });
 
-  it("keeps premium gates enforced across the routines flow and API routes", () => {
+  it("keeps recurring scheduling enabled even when older stored entitlements say false", () => {
+    expect(
+      resolveUserAccess({
+        billingPlan: "free",
+        subscriptionStatus: "inactive",
+        entitlements: {
+          ...FREE_ENTITLEMENTS,
+          recurringWorkoutScheduling: false,
+        },
+      })
+    ).toEqual({
+      productPlan: "free",
+      entitlements: FREE_ENTITLEMENTS,
+      hasPremiumAccess: false,
+    });
+  });
+
+  it("keeps premium gates enforced only for the remaining paid features", () => {
     const generateWorkoutApi = fs.readFileSync(
       path.join(process.cwd(), "pages", "api", "generateWorkout.ts"),
       "utf8"
@@ -96,8 +113,8 @@ describe("premium entitlements", () => {
     expect(generateWorkoutApi).toContain("assistantPlanGeneration");
     expect(generateWorkoutApi).toContain("status(403)");
 
-    expect(recurringRuleApi).toContain("recurringWorkoutScheduling");
-    expect(recurringRuleApi).toContain("status(403)");
+    expect(recurringRuleApi).not.toContain('getEntitlementMessage("recurringWorkoutScheduling")');
+    expect(recurringRuleApi).not.toContain('hasEntitlement(user, "recurringWorkoutScheduling")');
 
     expect(exerciseProgressApi).toContain("progressionRecommendations");
     expect(exerciseProgressApi).toContain("recommendation = hasEntitlement");

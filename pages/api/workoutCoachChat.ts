@@ -134,10 +134,6 @@ export default async function handler(
       user as any,
       "assistantPlanRegeneration"
     );
-    const canScheduleRecurring = hasEntitlement(
-      user as any,
-      "recurringWorkoutScheduling"
-    );
 
     const buildUpsellReply = (messageText: string) => ({
       reply: messageText,
@@ -312,14 +308,6 @@ export default async function handler(
     }
 
     if (directAction?.type === "create_recurring_exercise") {
-      if (!canScheduleRecurring) {
-        return res
-          .status(200)
-          .json(
-            buildUpsellReply(getEntitlementMessage("recurringWorkoutScheduling"))
-          );
-      }
-
       return res.status(200).json({
         reply: `I added ${directAction.exerciseName} to ${
           directAction.dayKey
@@ -369,8 +357,6 @@ export default async function handler(
 
       if (aiReply?.reply) {
           const normalizedAction = normalizeCoachAction(aiReply.action ?? null);
-          const actionRequiresRecurringScheduling =
-            normalizedAction?.type === "create_recurring_exercise";
 
           if (aiReply.shouldRegeneratePlan && !canRegeneratePlan) {
             return res
@@ -378,16 +364,6 @@ export default async function handler(
               .json(
                 buildUpsellReply(
                   getEntitlementMessage("assistantPlanRegeneration")
-                )
-              );
-          }
-
-          if (actionRequiresRecurringScheduling && !canScheduleRecurring) {
-            return res
-              .status(200)
-              .json(
-                buildUpsellReply(
-                  getEntitlementMessage("recurringWorkoutScheduling")
                 )
               );
           }

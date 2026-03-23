@@ -27,6 +27,8 @@ const Header = ({ user, darkMode }) => {
         mt: 2.5,
         gap: 1.15,
         alignItems: "stretch",
+        width: "100%",
+        minWidth: 0,
       }}
     >
       <Stack
@@ -46,8 +48,11 @@ const Header = ({ user, darkMode }) => {
             color: "text.primary",
             px: 0,
             minWidth: 0,
+            maxWidth: "100%",
             fontSize: "1rem",
             fontWeight: 700,
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
             "&:hover": {
               backgroundColor: "transparent",
               opacity: 0.78,

@@ -116,17 +116,23 @@ const sortDocs = <T extends Record<string, any>>(docs: T[], sort: Query = {}) =>
 };
 
 class MockCollection<T extends Record<string, any>> {
-  constructor(private readonly docs: T[]) {}
+  constructor(
+    private readonly docs: T[],
+    private readonly findQueries: Query[] = [],
+    private readonly findOneQueries: Query[] = []
+  ) {}
 
   async createIndex() {
     return "mock-index";
   }
 
   async findOne(query: Query) {
+    this.findOneQueries.push(query);
     return this.docs.find((doc) => matchesQuery(doc, query)) ?? null;
   }
 
   find(query: Query = {}) {
+    this.findQueries.push(query);
     const filtered = this.docs.filter((doc) => matchesQuery(doc, query));
 
     return {
@@ -223,18 +229,40 @@ class MockDb {
   feedbackDocs: Array<FeedbackItemDoc & { _id: ObjectId }> = [];
   workItemDocs: Array<FeedbackWorkItemDoc & { _id: ObjectId }> = [];
   humanTaskDocs: Array<Record<string, any> & { _id: ObjectId }> = [];
+  findQueries: Record<string, Query[]> = {
+    feedback: [],
+    feedbackWorkItems: [],
+    humanTasks: [],
+  };
+  findOneQueries: Record<string, Query[]> = {
+    feedback: [],
+    feedbackWorkItems: [],
+    humanTasks: [],
+  };
 
   collection(name: string) {
     if (name === "feedback") {
-      return new MockCollection(this.feedbackDocs);
+      return new MockCollection(
+        this.feedbackDocs,
+        this.findQueries.feedback,
+        this.findOneQueries.feedback
+      );
     }
 
     if (name === "feedbackWorkItems") {
-      return new MockCollection(this.workItemDocs);
+      return new MockCollection(
+        this.workItemDocs,
+        this.findQueries.feedbackWorkItems,
+        this.findOneQueries.feedbackWorkItems
+      );
     }
 
     if (name === "humanTasks") {
-      return new MockCollection(this.humanTaskDocs);
+      return new MockCollection(
+        this.humanTaskDocs,
+        this.findQueries.humanTasks,
+        this.findOneQueries.humanTasks
+      );
     }
 
     throw new Error(`Unexpected collection: ${name}`);
@@ -340,6 +368,22 @@ describe("feedback API route", () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ message: "Unauthorized" });
+  });
+
+  it("rejects unauthenticated workflow reads before opening the database", async () => {
+    mocks.getServerSession.mockResolvedValueOnce(null);
+
+    const req = createMockRequest({
+      method: "GET",
+      query: { view: "workflow" },
+    });
+    const res = createMockResponse();
+
+    await handler(req, res as any);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ message: "Unauthorized" });
+    expect(mocks.connectToDatabase).not.toHaveBeenCalled();
   });
 
   it("rejects malformed POST requests", async () => {
@@ -726,6 +770,7 @@ describe("feedback API route", () => {
     expect(workflowRes.body.feedback).toEqual([]);
     expect(workflowRes.body.workItems).toHaveLength(2);
     expect(workflowRes.body.humanTasks).toEqual([]);
+    expect(db.findQueries.feedback).toEqual([]);
   });
 
   it("supports loading evidence for a single work item without returning the whole inbox", async () => {
@@ -763,6 +808,9 @@ describe("feedback API route", () => {
     expect(String(evidenceRes.body.feedback[0].workItemId)).toBe(
       String(firstRes.body.workItem._id)
     );
+    expect(db.findQueries.feedback[db.findQueries.feedback.length - 1]).toEqual({
+      workItemId: String(firstRes.body.workItem._id),
+    });
   });
 
   it("updates triage metadata through PATCH and propagates it to linked feedback", async () => {

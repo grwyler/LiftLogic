@@ -965,13 +965,22 @@ export default async function handler(
 ) {
   try {
     const session = await getServerSession(req, res, authOptions);
-    const db = await connectToDatabase();
-    await ensureFeedbackWorkflowIndexes(db);
+    const getCollections = async ({
+      ensureIndexes = false,
+    }: {
+      ensureIndexes?: boolean;
+    } = {}) => {
+      const db = await connectToDatabase();
+      if (ensureIndexes) {
+        await ensureFeedbackWorkflowIndexes(db);
+      }
 
-    const feedbackCollection = db.collection<FeedbackItemDoc>("feedback");
-    const workItemCollection =
-      db.collection<FeedbackWorkItemDoc>("feedbackWorkItems");
-    const humanTaskCollection = db.collection<HumanTaskDoc>("humanTasks");
+      return {
+        feedbackCollection: db.collection<FeedbackItemDoc>("feedback"),
+        workItemCollection: db.collection<FeedbackWorkItemDoc>("feedbackWorkItems"),
+        humanTaskCollection: db.collection<HumanTaskDoc>("humanTasks"),
+      };
+    };
 
     if (req.method === "GET") {
       const { userId, view, workItemId } = req.query;
@@ -995,37 +1004,53 @@ export default async function handler(
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      const { feedbackCollection, workItemCollection, humanTaskCollection } =
+        await getCollections();
+
       if (admin && normalizedWorkItemId) {
-        const feedback = (
-          await feedbackCollection.find({}).sort({ createdAt: -1 }).toArray()
-        ).filter(
-          (item) => String(item.workItemId || "") === String(normalizedWorkItemId)
-        );
+        const feedback = await feedbackCollection
+          .find({ workItemId: String(normalizedWorkItemId) })
+          .sort({ createdAt: -1 })
+          .toArray();
 
         return res.status(200).json({ feedback });
       }
 
       const query = normalizedUserId ? { userId: normalizedUserId } : {};
-      const feedback =
-        admin && !normalizedUserId && normalizedView === "workflow"
-          ? []
-          : await feedbackCollection.find(query).sort({ createdAt: -1 }).toArray();
+      if (admin && !normalizedUserId && normalizedView === "workflow") {
+        const [workItems, humanTasks] = await Promise.all([
+          workItemCollection.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray(),
+          humanTaskCollection
+            .find({})
+            .sort({ status: 1, createdAt: -1, updatedAt: -1 })
+            .toArray(),
+        ]);
+
+        return res.status(200).json({ feedback: [], workItems, humanTasks });
+      }
 
       if (admin && !normalizedUserId) {
-        const workItems = await workItemCollection
-          .find({})
-          .sort({ updatedAt: -1, createdAt: -1 })
-          .toArray();
-        const humanTasks = await humanTaskCollection
-          .find({})
-          .sort({ status: 1, createdAt: -1, updatedAt: -1 })
-          .toArray();
-
+        const [feedback, workItems, humanTasks] = await Promise.all([
+          feedbackCollection.find(query).sort({ createdAt: -1 }).toArray(),
+          workItemCollection.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray(),
+          humanTaskCollection
+            .find({})
+            .sort({ status: 1, createdAt: -1, updatedAt: -1 })
+            .toArray(),
+        ]);
         return res.status(200).json({ feedback, workItems, humanTasks });
       }
 
+      const feedback = await feedbackCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray();
+
       return res.status(200).json({ feedback });
     }
+
+    const { feedbackCollection, workItemCollection, humanTaskCollection } =
+      await getCollections({ ensureIndexes: true });
 
     if (req.method === "POST") {
       if (!session) {

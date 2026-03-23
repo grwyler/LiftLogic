@@ -109,6 +109,17 @@ describe("bugs inbox workflow helpers", () => {
     expect(source).toContain("Work queue");
   });
 
+  it("prioritizes the live queue above admin operations in the page layout", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "pages", "bugs.tsx"),
+      "utf8"
+    );
+
+    expect(source).toMatch(/order: 1,[\s\S]*?<Typography variant="h6">Work queue/);
+    expect(source).toMatch(/order: 2,[\s\S]*?<Typography variant="h6">Open work items/);
+    expect(source).toMatch(/order: 6,[\s\S]*?<Typography variant="h6">Founding beta access/);
+  });
+
   it("surfaces inbox load failures instead of showing a fake empty queue", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "pages", "bugs.tsx"),
@@ -116,7 +127,12 @@ describe("bugs inbox workflow helpers", () => {
     );
 
     expect(source).toContain("workflowLoadError");
+    expect(source).toContain("workflowHasLoaded");
     expect(source).toContain("Retry inbox load");
+    expect(source).toContain("Work queue unavailable");
+    expect(source).toContain(
+      "The inbox read failed, so backlog counts and empty states stay hidden"
+    );
     expect(source).toContain(
       "The feedback inbox failed to load. Retry the inbox before trusting an empty queue."
     );

@@ -146,11 +146,6 @@ export const useWorkoutScheduleActions = ({
     exercises.length > 0 && repeatingExercises.length === exercises.length;
 
   const openWorkoutRepeatDialog = () => {
-    if (!recurringSchedulingEnabled) {
-      onRequestRecurringUpgradePrompt?.();
-      return;
-    }
-
     const schedule = sharedWorkoutSchedule;
     setRecurrenceType(schedule?.recurrenceType ?? "weekly");
     setRepeatInterval(schedule?.interval ?? 1);
@@ -164,11 +159,6 @@ export const useWorkoutScheduleActions = ({
   const handleSaveWorkoutSchedule = async () => {
     if (!currentUserId) {
       toast.error("Couldn't save the workout schedule");
-      return;
-    }
-
-    if (!recurringSchedulingEnabled) {
-      onRequestRecurringUpgradePrompt?.();
       return;
     }
 

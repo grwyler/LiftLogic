@@ -23,6 +23,19 @@ import FacebookIcon from "@mui/icons-material/Facebook";
 import { emitDevBugInteraction } from "../utils/devBugRecorder";
 import { brandBackgrounds, brandPalette, brandRadii } from "../utils/brandSystem";
 
+const getAuthErrorMessage = (errorCode?: string) => {
+  switch (errorCode) {
+    case "oauth_storage_unavailable":
+      return "Google sign-in reached Lift Logic, but this local app could not reach its database. On localhost that usually means MongoDB Atlas is unavailable from this machine, often because of VPN routing, DNS, or an IP allowlist.";
+    case "oauth_signin_failed":
+      return "Social sign-in could not finish. Try again in a moment, or use your username and password.";
+    case "AccessDenied":
+      return "Social sign-in was blocked before Lift Logic could create a session. On localhost, check MongoDB connectivity first.";
+    default:
+      return "";
+  }
+};
+
 const SignIn = () => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [username, setUsername] = useState("");
@@ -36,6 +49,10 @@ const SignIn = () => {
   const hasGoogleAuth = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const hasFacebookAuth =
     process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === "true";
+  const queryErrorCode = Array.isArray(router.query.error)
+    ? router.query.error[0]
+    : router.query.error;
+  const visibleError = error || getAuthErrorMessage(queryErrorCode);
 
   const handleSubmit = async (theUsername?: string, thePassword?: string) => {
     setIsSigningIn(true);
@@ -332,9 +349,9 @@ const SignIn = () => {
               </NextLink>
             </Typography>
 
-            {error && (
+            {visibleError && (
               <Alert severity="error" sx={{ mt: 2.5, borderRadius: 2.5 }}>
-                {error}
+                {visibleError}
               </Alert>
             )}
           </Box>

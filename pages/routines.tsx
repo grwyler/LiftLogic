@@ -175,8 +175,6 @@ const RoutinesPage = ({
   const access = useMemo(() => resolveUserAccess(user), [user]);
   const plannerGenerationEnabled = access.entitlements.assistantPlanGeneration;
   const plannerRegenerationEnabled = access.entitlements.assistantPlanRegeneration;
-  const recurringSchedulingEnabled = access.entitlements.recurringWorkoutScheduling;
-
   const sessionUserId =
     session?.token?.user?._id || (session as any)?.user?._id || "";
   const upgradePromptStorageKey = sessionUserId
@@ -219,19 +217,7 @@ const RoutinesPage = ({
           upgradeLabel: "See trial options",
         };
       case "recurring_schedule":
-        return {
-          title: "Turn this into a recurring schedule",
-          description:
-            "Recurring workout scheduling is part of Pro. If you skip it, this workout stays available for free one-off logging and manual repeats.",
-          benefits: [
-            "Repeat a lift or whole workout on a weekly schedule.",
-            "Let upcoming workout days populate automatically.",
-            "Start Pro with a 7-day trial if you want to test repeat scheduling before paying in full.",
-            "Keep free day-by-day tracking even if you decline.",
-          ],
-          continueLabel: "Keep this one-time",
-          upgradeLabel: "Upgrade for schedules",
-        };
+        return null;
       case "progression_recommendation":
         return {
           title: "Turn this momentum into next-session guidance",
@@ -1156,11 +1142,6 @@ const RoutinesPage = ({
     }
 
     if (action.type === "create_recurring_exercise" && action.exerciseName) {
-      if (!recurringSchedulingEnabled) {
-        openUpgradePrompt("recurring_schedule");
-        return "I can still help you plan this in chat, and you can keep logging it manually on Free. Upgrade any time if you want me to schedule it automatically.";
-      }
-
       const dayIndexLookup: Record<string, number> = {
         sunday: 0,
         monday: 1,
@@ -1254,6 +1235,7 @@ const RoutinesPage = ({
               borderColor: "divider",
               position: "relative",
               overflow: "hidden",
+              overflowX: "clip",
               background: darkMode
                 ? "linear-gradient(145deg, rgba(17,24,39,0.94), rgba(30,41,59,0.86))"
                 : "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(241,245,249,0.9))",
@@ -1314,13 +1296,17 @@ const RoutinesPage = ({
                 Pick the day, open the workout, and move through your sets
                 without extra clutter.
               </Typography>
-              <Header
-              user={user}
-              darkMode={darkMode}
-            />
+              <Header user={user} darkMode={darkMode} />
             </Box>
           </Box>
-          <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.75, sm: 2.25 } }}>
+          <Box
+            sx={{
+              px: { xs: 1.5, sm: 2 },
+              py: { xs: 1.75, sm: 2.25 },
+              minWidth: 0,
+              overflowX: "clip",
+            }}
+          >
             <Paper
               elevation={0}
               sx={{
@@ -1359,7 +1345,7 @@ const RoutinesPage = ({
                 alignItems={{ xs: "flex-start", md: "center" }}
                 sx={{ position: "relative" }}
               >
-                <Box sx={{ maxWidth: 700 }}>
+                <Box sx={{ maxWidth: 700, minWidth: 0 }}>
                   <Typography
                     variant="overline"
                     sx={{ color: "text.secondary", letterSpacing: "0.12em" }}
@@ -1497,6 +1483,7 @@ const RoutinesPage = ({
         minHeight: "100vh",
         px: { xs: 1.5, sm: 2.5 },
         py: { xs: 2, sm: 3 },
+        overflowX: "clip",
         background: darkMode
           ? "radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 36%), linear-gradient(180deg, #020617 0%, #0f172a 100%)"
           : "radial-gradient(circle at top, rgba(148,163,184,0.14), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #e7edf5 100%)",
@@ -1504,8 +1491,10 @@ const RoutinesPage = ({
     >
       <Box
         sx={{
+          width: "100%",
           maxWidth: 760,
           mx: "auto",
+          minWidth: 0,
           minHeight: "calc(100vh - 32px)",
           backgroundColor: "background.paper",
           color: "text.primary",
@@ -1516,7 +1505,8 @@ const RoutinesPage = ({
             ? "0 28px 90px rgba(2,6,23,0.42)"
             : "0 26px 72px rgba(15,23,42,0.1)",
           backdropFilter: "blur(20px)",
-          overflow: "visible",
+          overflowX: "clip",
+          overflowY: "visible",
         }}
       >
         {renderBody()}

@@ -3,7 +3,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 describe("workout upgrade prompt moments", () => {
-  it("wires schedule and progression upgrade prompts into the workout flow", () => {
+  it("keeps workout scheduling direct while still wiring progression upgrade prompts into the workout flow", () => {
     const workoutDisplaySource = fs.readFileSync(
       path.join(process.cwd(), "components", "WorkoutDisplay.tsx"),
       "utf8"
@@ -21,7 +21,9 @@ describe("workout upgrade prompt moments", () => {
       "utf8"
     );
 
-    expect(workoutDisplaySource).toContain("onRequestRecurringUpgradePrompt?.();");
+    expect(workoutDisplaySource).toContain("openWorkoutRepeatDialog();");
+    expect(scheduleHookSource).toContain("setShowWorkoutRepeatDialog(true);");
+    expect(scheduleHookSource).not.toContain("onRequestRecurringUpgradePrompt?.();");
     expect(workoutDisplaySource).toContain(
       "onRequestProgressionUpgradePrompt={"
     );

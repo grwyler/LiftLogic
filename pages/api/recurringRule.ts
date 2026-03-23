@@ -3,7 +3,6 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { ClientSession, ObjectId } from "mongodb";
 import { connectToDatabase, connectToMongoClient } from "../../utils/mongodb";
 import { RecurringRuleDoc, UserDoc, WorkoutEntryDoc } from "@/utils/types";
-import { getEntitlementMessage, hasEntitlement } from "@/utils/entitlements";
 import { ensureExerciseSetIds } from "../../utils/exerciseSetIds";
 import {
   buildRecurringRuleUpsertDoc,
@@ -151,17 +150,6 @@ export default async function handler(
           return res.status(400).json({ message: "userId required" });
         }
 
-        const user =
-          ObjectId.isValid(String(rule.userId))
-            ? await users.findOne({ _id: new ObjectId(String(rule.userId)) })
-            : null;
-
-        if (!hasEntitlement(user, "recurringWorkoutScheduling")) {
-          return res.status(403).json({
-            message: getEntitlementMessage("recurringWorkoutScheduling"),
-          });
-        }
-
         const exerciseId = String(rule.exerciseId ?? "").trim();
         if (!exerciseId) {
           console.warn("[POST] exerciseId missing");
@@ -243,12 +231,6 @@ export default async function handler(
           ObjectId.isValid(userId)
             ? await users.findOne({ _id: new ObjectId(userId) })
             : null;
-
-        if (!hasEntitlement(user, "recurringWorkoutScheduling")) {
-          return res.status(403).json({
-            message: getEntitlementMessage("recurringWorkoutScheduling"),
-          });
-        }
 
         const recurringRules = db.collection<PersistedRecurringRule>("recurringRules");
         const workoutEntries = db.collection<WorkoutEntryDoc>("workoutEntries");
@@ -465,12 +447,6 @@ export default async function handler(
                 _id: new ObjectId(String(existingRule.userId)),
               })
             : null;
-
-        if (existingRule && !hasEntitlement(user, "recurringWorkoutScheduling")) {
-          return res.status(403).json({
-            message: getEntitlementMessage("recurringWorkoutScheduling"),
-          });
-        }
 
         const { modifiedCount } = await col.updateOne(
           { _id: objId, active: true },
